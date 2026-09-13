@@ -4338,6 +4338,16 @@ function clearLiveChartAiOverlay() {
                 return [`${c.dataset.label}`, `RS Ratio: ${x.toFixed(2)}`, `RS Momentum: ${y.toFixed(2)}`];
               }
             }
+          },
+          zoom: {
+            limits: { x: { min: "original", max: "original", minRange: 0.5 }, y: { min: "original", max: "original", minRange: 0.5 } },
+            pan: { enabled: true, mode: "xy", threshold: 2 },
+            zoom: {
+              wheel: { enabled: true, speed: 0.18 },
+              pinch: { enabled: true },
+              drag: { enabled: true, threshold: 2, backgroundColor: "rgba(59,130,246,.16)", borderColor: "#60a5fa", borderWidth: 1 },
+              mode: "xy"
+            }
           }
         },
         scales: {
@@ -4421,6 +4431,13 @@ function clearLiveChartAiOverlay() {
 
   const imRrgRunBtn = document.getElementById("im-rrg-run-btn");
   if (imRrgRunBtn) imRrgRunBtn.addEventListener("click", runImRrgAnimation);
+
+  const imRrgZoomInBtn = document.getElementById("im-rrg-zoom-in-btn");
+  const imRrgZoomOutBtn = document.getElementById("im-rrg-zoom-out-btn");
+  const imRrgZoomResetBtn = document.getElementById("im-rrg-zoom-reset-btn");
+  if (imRrgZoomInBtn) imRrgZoomInBtn.addEventListener("click", () => imRrgChart?.zoom(1.25));
+  if (imRrgZoomOutBtn) imRrgZoomOutBtn.addEventListener("click", () => imRrgChart?.zoom(0.8));
+  if (imRrgZoomResetBtn) imRrgZoomResetBtn.addEventListener("click", () => imRrgChart?.resetZoom());
 
   let watchlistTimer = null;
 
