@@ -4321,7 +4321,7 @@ function clearLiveChartAiOverlay() {
       options: {
         responsive: true,
         maintainAspectRatio: true,
-        aspectRatio: 1.5,
+        aspectRatio: 1.8,
         interaction: { intersect: false, mode: "nearest" },
         animation: { duration: 450, easing: "easeInOutQuad" },
         plugins: {
