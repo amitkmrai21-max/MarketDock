@@ -4016,6 +4016,22 @@ body[data-accent="green"] .settings-choice.active {
   cursor: default;
 }
 
+.indian-market-mode .im-rrg-zoom-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--im-border);
+  border-radius: 8px;
+  background: rgba(12, 27, 46, 0.6);
+  color: var(--im-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.indian-market-mode .im-rrg-zoom-btn:hover {
+  color: var(--im-text);
+  border-color: rgba(69, 182, 255, 0.4);
+}
+
 .indian-market-mode .im-rrg-chart-wrap {
   position: relative;
   width: 100%;
