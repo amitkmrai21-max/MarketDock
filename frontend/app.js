@@ -4258,10 +4258,31 @@ function clearLiveChartAiOverlay() {
     };
   }
 
+  function renderImRrgSymbolList(data) {
+    const container = document.getElementById("im-rrg-symbol-list");
+    if (!container || !Array.isArray(data?.trails)) return;
+
+    container.innerHTML = data.trails
+      .map((t) => {
+        const color = getImRrgColor(t.symbol);
+        const last = (t.points || [])[t.points.length - 1];
+        const rsRatio = last ? Number(last.x).toFixed(2) : "--";
+        return `
+          <div class="im-rrg-symbol-item">
+            <span class="im-rrg-symbol-swatch" style="background:${color.border}"></span>
+            <span class="im-rrg-symbol-name">${escapeHtml(t.symbol)}</span>
+            <span class="im-rrg-symbol-ratio">${rsRatio}</span>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
   function renderImRrg(data, revealCount) {
     const canvas = document.getElementById("im-rrg-chart");
     if (!canvas || !Array.isArray(data?.trails)) return;
     if (imRrgChart) imRrgChart.destroy();
+    renderImRrgSymbolList(data);
 
     const all = data.trails.flatMap((t) => (Array.isArray(t.points) ? t.points : []));
     const xs = all.map((p) => Number(p.x)).filter(Number.isFinite);
@@ -4304,7 +4325,7 @@ function clearLiveChartAiOverlay() {
         interaction: { intersect: false, mode: "nearest" },
         animation: { duration: 450, easing: "easeInOutQuad" },
         plugins: {
-          legend: { labels: { color: "#e2e8f0", usePointStyle: true, pointStyle: "circle", font: { size: 11 } } },
+          legend: { display: false },
           tooltip: {
             callbacks: {
               title(c) {
