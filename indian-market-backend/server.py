@@ -899,6 +899,149 @@ def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
     return instrument_key
 
 
+RRG_BENCHMARK_SYMBOL = "NIFTY 50"
+RRG_BENCHMARK_INSTRUMENT_KEY = "NSE_INDEX|Nifty 50"
+RRG_PLOTTED_SYMBOLS = [
+    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY",
+    "SBIN", "BHARTIARTL", "KOTAKBANK", "LT", "TATAMOTORS",
+    "SUNPHARMA", "MARUTI",
+]
+RRG_CACHE_SECONDS = 60
+_rrg_cache = {}
+
+
+def average(values):
+    values = [v for v in values if v is not None]
+    return sum(values) / len(values) if values else None
+
+
+def build_rrg_data(interval):
+    settings = {
+        "1h": {"unit": "hours", "step": 1, "history_days": 60, "lookback": 30, "tail": 4},
+        "1d": {"unit": "days", "step": 1, "history_days": 220, "lookback": 30, "tail": 4},
+    }
+    if interval not in settings:
+        raise ValueError("Unsupported RRG interval.")
+    config = settings[interval]
+
+    benchmark_candles = fetch_upstox_candles(
+        RRG_BENCHMARK_INSTRUMENT_KEY, config["unit"], config["step"],
+        chart_history_days=config["history_days"],
+    )
+    if len(benchmark_candles) < config["lookback"] + 10:
+        raise RuntimeError("Not enough benchmark history for RRG yet.")
+
+    benchmark_closes = [c["close"] for c in benchmark_candles]
+    benchmark_times = [c["time"] for c in benchmark_candles]
+
+    trails = [
+        {
+            "symbol": RRG_BENCHMARK_SYMBOL,
+            "points": [{"x": 100.0, "y": 100.0, "timestamp": t} for t in benchmark_times[-config["tail"]:]],
+            "direction": "Flat",
+        }
+    ]
+
+    for symbol in RRG_PLOTTED_SYMBOLS:
+        try:
+            instrument_key = resolve_instrument_key(symbol)
+            candles = fetch_upstox_candles(
+                instrument_key, config["unit"], config["step"],
+                chart_history_days=config["history_days"],
+            )
+        except Exception as error:
+            app.logger.warning("RRG: could not fetch %s: %s", symbol, error)
+            continue
+
+        # Align this stock's candles to the benchmark's timestamps so the
+        # ratio math compares like-for-like points.
+        by_time = {c["time"]: c["close"] for c in candles}
+        aligned_closes = [by_time.get(t) for t in benchmark_times]
+
+        ratios = [
+            (asset / base) * 100 if asset is not None and base else None
+            for asset, base in zip(aligned_closes, benchmark_closes)
+        ]
+
+        lookback = config["lookback"]
+        ratio_sma = [
+            average(ratios[i - lookback + 1:i + 1]) if i >= lookback - 1 else None
+            for i in range(len(ratios))
+        ]
+        ratio_index = [
+            (ratios[i] / ratio_sma[i]) * 100 if ratios[i] is not None and ratio_sma[i] else None
+            for i in range(len(ratios))
+        ]
+        momentum_sma = [
+            average([v for v in ratio_index[i - 9:i + 1] if v is not None])
+            if i >= lookback + 8 and ratio_index[i] is not None else None
+            for i in range(len(ratio_index))
+        ]
+        momentum_index = [
+            (ratio_index[i] / momentum_sma[i]) * 100 if ratio_index[i] is not None and momentum_sma[i] else None
+            for i in range(len(ratio_index))
+        ]
+
+        valid_points = [
+            {"x": round(ratio_index[i], 2), "y": round(momentum_index[i], 2), "timestamp": benchmark_times[i]}
+            for i in range(len(ratio_index))
+            if ratio_index[i] is not None and momentum_index[i] is not None
+        ]
+
+        direction = "Flat"
+        if len(valid_points) >= 2:
+            dx = valid_points[-1]["x"] - valid_points[-2]["x"]
+            dy = valid_points[-1]["y"] - valid_points[-2]["y"]
+            if abs(dx) < 0.03 and abs(dy) < 0.03:
+                direction = "Flat"
+            elif dx >= 0 and dy >= 0:
+                direction = "North-East"
+            elif dx >= 0:
+                direction = "South-East"
+            elif dy >= 0:
+                direction = "North-West"
+            else:
+                direction = "South-West"
+
+        trails.append({"symbol": symbol, "points": valid_points[-config["tail"]:], "direction": direction})
+
+    return {
+        "benchmark": RRG_BENCHMARK_SYMBOL,
+        "interval": interval,
+        "tail_points": config["tail"],
+        "trails": trails,
+        "source": "Upstox market data",
+        "updated_at": now_utc(),
+        "disclaimer": (
+            "Stocks are compared with NIFTY 50 as benchmark in this RRG-style "
+            "normalized relative-strength visualization. It is not official "
+            "JdK RRG and is not financial advice."
+        ),
+    }
+
+
+@app.get("/api/rrg")
+def rrg():
+    interval = request.args.get("interval", "1d").lower().strip()
+    if interval not in {"1d", "1h"}:
+        return jsonify({"ok": False, "error": "Unsupported interval. Use: 1d or 1h."}), 400
+
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
+
+    cached = _rrg_cache.get(interval)
+    if cached and time.time() - cached["fetched_at"] < RRG_CACHE_SECONDS:
+        return jsonify({"ok": True, "data": cached["data"]})
+
+    try:
+        data = build_rrg_data(interval)
+        _rrg_cache[interval] = {"data": data, "fetched_at": time.time()}
+        return jsonify({"ok": True, "data": data})
+    except Exception as error:
+        app.logger.warning("RRG build failed for %s: %s", interval, error)
+        return jsonify({"ok": False, "error": "Could not build RRG data right now."}), 502
+
+
 @app.get("/api/watchlist")
 def watchlist():
     if not UPSTOX_ACCESS_TOKEN:
