@@ -1192,9 +1192,14 @@
 
         <p class="nav-label">Journal</p>
 
-        <button class="nav-button" data-page="im-live-chart" type="button">
+       <button class="nav-button" data-page="im-live-chart" type="button">
           <span class="nav-icon">&#9121;</span>
           Live Chart
+        </button>
+
+        <button class="nav-button" data-page="im-rrg" type="button">
+          <span class="nav-icon">&#8635;</span>
+          RRG
         </button>
 
         <button class="nav-button" data-page="im-paper-trading" type="button">
@@ -1756,6 +1761,45 @@
         </div>
       </section>
 
+<section class="page" id="im-rrg">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow">Relative Rotation Graph &middot; NIFTY 50 benchmark</p>
+            <h2 class="index-title">Stock Rotation (RRG)</h2>
+            <p class="subtitle">
+              Tracks how major stocks rotate through Leading, Weakening, Lagging, and Improving
+              quadrants relative to NIFTY 50. Not official JdK RRG and not financial advice.
+            </p>
+          </div>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <h2>Rotation Chart</h2>
+              <p id="im-rrg-status">Loading RRG data…</p>
+            </div>
+
+            <div class="im-rrg-controls">
+              <button class="im-rrg-timeframe-btn" type="button" data-rrg-timeframe="1h">1 Hour</button>
+              <button class="im-rrg-timeframe-btn active" type="button" data-rrg-timeframe="1d">1 Day</button>
+              <button class="im-rrg-run-btn" id="im-rrg-run-btn" type="button">&#9654; Run</button>
+            </div>
+          </div>
+
+          <div class="im-rrg-chart-wrap">
+            <canvas id="im-rrg-chart"></canvas>
+          </div>
+
+          <div class="im-rrg-legend">
+            <span class="im-rrg-legend-item im-rrg-leading">Leading</span>
+            <span class="im-rrg-legend-item im-rrg-weakening">Weakening</span>
+            <span class="im-rrg-legend-item im-rrg-lagging">Lagging</span>
+            <span class="im-rrg-legend-item im-rrg-improving">Improving</span>
+          </div>
+        </article>
+      </section>
+      
       <section class="page" id="im-paper-trading">
         <div class="paper-grid">
           <article class="card section-card">
