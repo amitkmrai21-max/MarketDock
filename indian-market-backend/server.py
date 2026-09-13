@@ -902,9 +902,11 @@ def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
 RRG_BENCHMARK_SYMBOL = "NIFTY 50"
 RRG_BENCHMARK_INSTRUMENT_KEY = "NSE_INDEX|Nifty 50"
 RRG_PLOTTED_SYMBOLS = [
-    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY",
-    "SBIN", "BHARTIARTL", "KOTAKBANK", "LT", "TATAMOTORS",
-    "SUNPHARMA", "MARUTI",
+    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "SBIN",
+    "BHARTIARTL", "ITC", "KOTAKBANK", "LT", "HINDUNILVR", "TITAN",
+    "SUNPHARMA", "BAJFINANCE", "MARUTI", "ASIANPAINT", "AXISBANK",
+    "NTPC", "ULTRACEMCO", "WIPRO", "ADANIENT", "TATAMOTORS",
+    "TATASTEEL", "POWERGRID", "ONGC",
 ]
 RRG_CACHE_SECONDS = 60
 _rrg_cache = {}
@@ -917,8 +919,8 @@ def average(values):
 
 def build_rrg_data(interval):
     settings = {
-        "1h": {"unit": "hours", "step": 1, "history_days": 60, "lookback": 30, "tail": 4},
-        "1d": {"unit": "days", "step": 1, "history_days": 220, "lookback": 30, "tail": 4},
+        "1h": {"unit": "hours", "step": 1, "history_days": 60, "lookback": 30, "tail": 10},
+        "1d": {"unit": "days", "step": 1, "history_days": 220, "lookback": 30, "tail": 10},
     }
     if interval not in settings:
         raise ValueError("Unsupported RRG interval.")
