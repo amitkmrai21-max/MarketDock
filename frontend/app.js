@@ -4173,20 +4173,20 @@ function clearLiveChartAiOverlay() {
   let imRrgAnimTimer = null;
 
   const imRrgColors = {
-    "NIFTY 50": { border: "#e2e8f0", background: "rgba(226,232,240,.18)" },
-    RELIANCE: { border: "#38bdf8", background: "rgba(56,189,248,.18)" },
-    TCS: { border: "#a78bfa", background: "rgba(167,139,250,.18)" },
-    HDFCBANK: { border: "#f472b6", background: "rgba(244,114,182,.18)" },
-    ICICIBANK: { border: "#fb923c", background: "rgba(251,146,60,.18)" },
-    INFY: { border: "#34d399", background: "rgba(52,211,153,.18)" },
-    SBIN: { border: "#facc15", background: "rgba(250,204,21,.18)" },
-    BHARTIARTL: { border: "#22d3ee", background: "rgba(34,211,238,.18)" },
-    KOTAKBANK: { border: "#f87171", background: "rgba(248,113,113,.18)" },
-    LT: { border: "#c084fc", background: "rgba(192,132,252,.18)" },
-    TATAMOTORS: { border: "#4ade80", background: "rgba(74,222,128,.18)" },
-    SUNPHARMA: { border: "#fbbf24", background: "rgba(251,191,36,.18)" },
-    MARUTI: { border: "#60a5fa", background: "rgba(96,165,250,.18)" }
+    "NIFTY 50": { border: "#e2e8f0", background: "rgba(226,232,240,.18)" }
   };
+
+  function getImRrgColor(symbol) {
+    if (imRrgColors[symbol]) return imRrgColors[symbol];
+    let hash = 0;
+    for (let i = 0; i < symbol.length; i += 1) {
+      hash = (hash * 31 + symbol.charCodeAt(i)) % 360;
+    }
+    const hue = hash;
+    const color = { border: `hsl(${hue}, 75%, 62%)`, background: `hsla(${hue}, 75%, 62%, 0.18)` };
+    imRrgColors[symbol] = color;
+    return color;
+  }
 
   function imRrgQuadrantsPlugin() {
     return {
@@ -4274,7 +4274,7 @@ function clearLiveChartAiOverlay() {
     const yp = Math.max(0.8, (ymax - ymin) * 0.22);
 
     const datasets = data.trails.map((t) => {
-      const color = imRrgColors[t.symbol] || { border: "#fff", background: "rgba(255,255,255,.15)" };
+      const color = getImRrgColor(t.symbol);
       const points = Array.isArray(t.points) ? t.points : [];
       const visible = revealCount ? points.slice(0, revealCount) : points;
       const last = visible.length - 1;
@@ -4302,7 +4302,7 @@ function clearLiveChartAiOverlay() {
         maintainAspectRatio: true,
         aspectRatio: 1.5,
         interaction: { intersect: false, mode: "nearest" },
-        animation: false,
+        animation: { duration: 450, easing: "easeInOutQuad" },
         plugins: {
           legend: { labels: { color: "#e2e8f0", usePointStyle: true, pointStyle: "circle", font: { size: 11 } } },
           tooltip: {
@@ -4345,21 +4345,48 @@ function clearLiveChartAiOverlay() {
     }
   }
 
+  function updateImRrgFrame(data, revealCount) {
+    if (!imRrgChart) return;
+    imRrgChart.data.datasets.forEach((dataset, index) => {
+      const trail = data.trails[index];
+      if (!trail) return;
+      const points = Array.isArray(trail.points) ? trail.points : [];
+      const visible = points.slice(0, revealCount);
+      const last = visible.length - 1;
+      dataset.data = visible.map((p, i) => ({
+        x: Number(p.x),
+        y: Number(p.y),
+        timestamp: p.timestamp,
+        isLatest: i === last,
+        direction: trail.direction || "Flat"
+      }));
+    });
+    imRrgChart.update();
+  }
+
   function runImRrgAnimation() {
     if (!imRrgData || imRrgAnimTimer) return;
     const maxLen = Math.max(1, ...imRrgData.trails.map((t) => (t.points || []).length));
-    let step = 1;
     const runBtn = document.getElementById("im-rrg-run-btn");
     if (runBtn) runBtn.disabled = true;
+
+    // Start from frame 1 (fresh render so dataset order/colors match), then
+    // smoothly update the same chart instance frame by frame — Chart.js
+    // animates the point transitions itself, giving a fluid rotation
+    // instead of the chart flashing/rebuilding on every step.
+    let step = 1;
+    renderImRrg(imRrgData, step);
+
     imRrgAnimTimer = window.setInterval(() => {
-      renderImRrg(imRrgData, step);
       step += 1;
       if (step > maxLen) {
         window.clearInterval(imRrgAnimTimer);
         imRrgAnimTimer = null;
         if (runBtn) runBtn.disabled = false;
+        return;
       }
-    }, 550);
+      updateImRrgFrame(imRrgData, step);
+    }, 500);
   }
 
   document.querySelectorAll(".im-rrg-timeframe-btn").forEach((button) => {
