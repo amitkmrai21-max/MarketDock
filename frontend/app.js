@@ -3638,6 +3638,10 @@ function clearLiveChartAiOverlay() {
       title: "Live Market Chart",
       subtitle: "Custom chart workspace for NIFTY 50 and Bank Nifty."
     },
+    "im-rrg": {
+      title: "Stock Rotation (RRG)",
+      subtitle: "Relative strength and momentum rotation versus NIFTY 50."
+    },
     "im-paper-trading": {
       title: "Paper Trading Journal",
       subtitle: "Record research setups only. No real-money order execution."
@@ -3684,6 +3688,10 @@ function clearLiveChartAiOverlay() {
 
     if (pageId === "im-dashboard" && typeof fetchAllTopMovers === "function") {
       fetchAllTopMovers();
+    }
+
+    if (pageId === "im-rrg" && typeof fetchImRrg === "function") {
+      fetchImRrg();
     }
   }
 
@@ -4156,6 +4164,215 @@ function clearLiveChartAiOverlay() {
   }
 
   fetchAllTopMovers();
+
+  // ===================== RRG (Relative Rotation Graph) =====================
+
+  let imRrgChart = null;
+  let imRrgTimeframe = "1d";
+  let imRrgData = null;
+  let imRrgAnimTimer = null;
+
+  const imRrgColors = {
+    "NIFTY 50": { border: "#e2e8f0", background: "rgba(226,232,240,.18)" },
+    RELIANCE: { border: "#38bdf8", background: "rgba(56,189,248,.18)" },
+    TCS: { border: "#a78bfa", background: "rgba(167,139,250,.18)" },
+    HDFCBANK: { border: "#f472b6", background: "rgba(244,114,182,.18)" },
+    ICICIBANK: { border: "#fb923c", background: "rgba(251,146,60,.18)" },
+    INFY: { border: "#34d399", background: "rgba(52,211,153,.18)" },
+    SBIN: { border: "#facc15", background: "rgba(250,204,21,.18)" },
+    BHARTIARTL: { border: "#22d3ee", background: "rgba(34,211,238,.18)" },
+    KOTAKBANK: { border: "#f87171", background: "rgba(248,113,113,.18)" },
+    LT: { border: "#c084fc", background: "rgba(192,132,252,.18)" },
+    TATAMOTORS: { border: "#4ade80", background: "rgba(74,222,128,.18)" },
+    SUNPHARMA: { border: "#fbbf24", background: "rgba(251,191,36,.18)" },
+    MARUTI: { border: "#60a5fa", background: "rgba(96,165,250,.18)" }
+  };
+
+  function imRrgQuadrantsPlugin() {
+    return {
+      id: "imRrgQuadrants",
+      beforeDatasetsDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+        if (!chartArea || !scales.x || !scales.y) return;
+        const { left, right, top, bottom } = chartArea;
+        const cx = scales.x.getPixelForValue(100);
+        const cy = scales.y.getPixelForValue(100);
+        if (!Number.isFinite(cx) || !Number.isFinite(cy)) return;
+        ctx.save();
+        [
+          ["rgba(59,130,246,.13)", left, top, cx - left, cy - top],
+          ["rgba(34,197,94,.13)", cx, top, right - cx, cy - top],
+          ["rgba(239,68,68,.13)", left, cy, cx - left, bottom - cy],
+          ["rgba(250,204,21,.13)", cx, cy, right - cx, bottom - cy]
+        ].forEach(([color, x, y, w, h]) => {
+          ctx.fillStyle = color;
+          ctx.fillRect(x, y, w, h);
+        });
+        ctx.strokeStyle = "rgba(255,255,255,.25)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, top);
+        ctx.lineTo(cx, bottom);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(left, cy);
+        ctx.lineTo(right, cy);
+        ctx.stroke();
+        ctx.font = "700 12px Arial";
+        ctx.fillStyle = "rgba(255,255,255,.85)";
+        ctx.textBaseline = "top";
+        ctx.textAlign = "left";
+        ctx.fillText("IMPROVING", left + 12, top + 12);
+        ctx.textAlign = "right";
+        ctx.fillText("LEADING", right - 12, top + 12);
+        ctx.textBaseline = "bottom";
+        ctx.textAlign = "left";
+        ctx.fillText("LAGGING", left + 12, bottom - 12);
+        ctx.textAlign = "right";
+        ctx.fillText("WEAKENING", right - 12, bottom - 12);
+        ctx.restore();
+      }
+    };
+  }
+
+  function imRrgArrowsPlugin() {
+    return {
+      id: "imRrgArrows",
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        chart.data.datasets.forEach((dataset, index) => {
+          const meta = chart.getDatasetMeta(index);
+          const element = meta?.data?.[meta.data.length - 1];
+          const raw = dataset.data[dataset.data.length - 1];
+          if (!element || !raw) return;
+          const map = { "North-East": "\u2197", "South-East": "\u2198", "North-West": "\u2196", "South-West": "\u2199", Flat: "\u2192" };
+          ctx.save();
+          ctx.fillStyle = dataset.borderColor || "#fff";
+          ctx.font = "bold 16px Arial";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(map[raw.direction || "Flat"] || "\u2192", element.x + 8, element.y);
+          ctx.restore();
+        });
+      }
+    };
+  }
+
+  function renderImRrg(data, revealCount) {
+    const canvas = document.getElementById("im-rrg-chart");
+    if (!canvas || !Array.isArray(data?.trails)) return;
+    if (imRrgChart) imRrgChart.destroy();
+
+    const all = data.trails.flatMap((t) => (Array.isArray(t.points) ? t.points : []));
+    const xs = all.map((p) => Number(p.x)).filter(Number.isFinite);
+    const ys = all.map((p) => Number(p.y)).filter(Number.isFinite);
+    const xmin = Math.min(100, ...xs);
+    const xmax = Math.max(100, ...xs);
+    const ymin = Math.min(100, ...ys);
+    const ymax = Math.max(100, ...ys);
+    const xp = Math.max(0.8, (xmax - xmin) * 0.22);
+    const yp = Math.max(0.8, (ymax - ymin) * 0.22);
+
+    const datasets = data.trails.map((t) => {
+      const color = imRrgColors[t.symbol] || { border: "#fff", background: "rgba(255,255,255,.15)" };
+      const points = Array.isArray(t.points) ? t.points : [];
+      const visible = revealCount ? points.slice(0, revealCount) : points;
+      const last = visible.length - 1;
+      return {
+        label: t.symbol,
+        data: visible.map((p, i) => ({ x: Number(p.x), y: Number(p.y), timestamp: p.timestamp, isLatest: i === last, direction: t.direction || "Flat" })),
+        borderColor: color.border,
+        backgroundColor: color.background,
+        borderWidth: 2,
+        pointBorderColor: color.border,
+        pointBackgroundColor(c) { return c.raw?.isLatest ? color.border : "rgba(15,23,42,.95)"; },
+        pointRadius(c) { return c.raw?.isLatest ? 5 : 2; },
+        pointHoverRadius: 7,
+        showLine: true,
+        tension: 0
+      };
+    });
+
+    imRrgChart = new Chart(canvas.getContext("2d"), {
+      type: "scatter",
+      data: { datasets },
+      plugins: [imRrgQuadrantsPlugin(), imRrgArrowsPlugin()],
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: 1.5,
+        interaction: { intersect: false, mode: "nearest" },
+        animation: false,
+        plugins: {
+          legend: { labels: { color: "#e2e8f0", usePointStyle: true, pointStyle: "circle", font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              title(c) {
+                const raw = c[0]?.raw;
+                return raw?.timestamp ? new Date(raw.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "RRG point";
+              },
+              label(c) {
+                const x = Number(c.raw?.x || 0);
+                const y = Number(c.raw?.y || 0);
+                return [`${c.dataset.label}`, `RS Ratio: ${x.toFixed(2)}`, `RS Momentum: ${y.toFixed(2)}`];
+              }
+            }
+          }
+        },
+        scales: {
+          x: { type: "linear", min: xmin - xp, max: xmax + xp, title: { display: true, text: "Relative Strength Ratio", color: "#94a3b8" }, ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,.15)" } },
+          y: { type: "linear", min: ymin - yp, max: ymax + yp, title: { display: true, text: "Relative Strength Momentum", color: "#94a3b8" }, ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,.15)" } }
+        }
+      }
+    });
+  }
+
+  async function fetchImRrg() {
+    const status = document.getElementById("im-rrg-status");
+    if (status) status.textContent = `Loading ${imRrgTimeframe.toUpperCase()} RRG data…`;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/rrg?interval=${imRrgTimeframe}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || "RRG request failed.");
+      }
+      imRrgData = result.data;
+      renderImRrg(imRrgData);
+      if (status) status.textContent = `${imRrgTimeframe.toUpperCase()} RRG updated \u00B7 NIFTY 50 benchmark`;
+    } catch (error) {
+      console.error("RRG fetch failed:", error);
+      if (status) status.textContent = "RRG data unavailable right now.";
+    }
+  }
+
+  function runImRrgAnimation() {
+    if (!imRrgData || imRrgAnimTimer) return;
+    const maxLen = Math.max(1, ...imRrgData.trails.map((t) => (t.points || []).length));
+    let step = 1;
+    const runBtn = document.getElementById("im-rrg-run-btn");
+    if (runBtn) runBtn.disabled = true;
+    imRrgAnimTimer = window.setInterval(() => {
+      renderImRrg(imRrgData, step);
+      step += 1;
+      if (step > maxLen) {
+        window.clearInterval(imRrgAnimTimer);
+        imRrgAnimTimer = null;
+        if (runBtn) runBtn.disabled = false;
+      }
+    }, 550);
+  }
+
+  document.querySelectorAll(".im-rrg-timeframe-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      imRrgTimeframe = button.dataset.rrgTimeframe;
+      document.querySelectorAll(".im-rrg-timeframe-btn").forEach((b) => b.classList.remove("active"));
+      button.classList.add("active");
+      fetchImRrg();
+    });
+  });
+
+  const imRrgRunBtn = document.getElementById("im-rrg-run-btn");
+  if (imRrgRunBtn) imRrgRunBtn.addEventListener("click", runImRrgAnimation);
 
   let watchlistTimer = null;
 
