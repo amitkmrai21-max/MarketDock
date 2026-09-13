@@ -4048,6 +4048,48 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .im-rrg-legend-item.im-rrg-lagging { background: rgba(239, 68, 68, 0.35); }
 .indian-market-mode .im-rrg-legend-item.im-rrg-improving { background: rgba(59, 130, 246, 0.35); }
 
+.indian-market-mode .im-rrg-symbol-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--im-border);
+}
+
+.indian-market-mode .im-rrg-symbol-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border: 1px solid var(--im-border);
+  border-radius: 8px;
+  background: rgba(12, 27, 46, 0.6);
+  font-size: 12px;
+}
+
+.indian-market-mode .im-rrg-symbol-swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.indian-market-mode .im-rrg-symbol-name {
+  flex: 1;
+  font-weight: 700;
+  color: var(--im-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.indian-market-mode .im-rrg-symbol-ratio {
+  color: var(--im-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
 .indian-market-mode .im-ticker-dot {
   display: inline-block;
   width: 7px;
