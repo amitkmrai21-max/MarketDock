@@ -4944,7 +4944,7 @@ function clearLiveChartAiOverlay() {
 
     imLiveChart = LightweightCharts.createChart(container, {
       width: container.clientWidth,
-      height: 460,
+      height: 600,
       layout: {
         background: { color: "#081728" },
         textColor: "#93a9c3"
