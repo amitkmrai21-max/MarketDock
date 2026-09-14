@@ -919,8 +919,8 @@ def average(values):
 
 def build_rrg_data(interval):
     settings = {
-        "1h": {"unit": "hours", "step": 1, "history_days": 60, "lookback": 30, "tail": 10},
-        "1d": {"unit": "days", "step": 1, "history_days": 220, "lookback": 30, "tail": 10},
+        "1h": {"unit": "hours", "step": 1, "history_days": 90, "lookback": 30, "tail": 60},
+        "1d": {"unit": "days", "step": 1, "history_days": 320, "lookback": 30, "tail": 60},
     }
     if interval not in settings:
         raise ValueError("Unsupported RRG interval.")
@@ -957,8 +957,15 @@ def build_rrg_data(interval):
 
         # Align this stock's candles to the benchmark's timestamps so the
         # ratio math compares like-for-like points.
-        by_time = {c["time"]: c["close"] for c in candles}
-        aligned_closes = [by_time.get(t) for t in benchmark_times]
+        # Align by calendar date (and hour, for the 1h timeframe) rather
+        # than the exact timestamp string — the benchmark and each stock are
+        # fetched in separate API calls, so their timestamps can differ by a
+        # few seconds even for the "same" candle, which silently dropped
+        # most points and produced a sparse, jumpy trail instead of a smooth
+        # continuous rotation.
+        align_len = 13 if config["unit"] == "hours" else 10
+        by_time = {c["time"][:align_len]: c["close"] for c in candles}
+        aligned_closes = [by_time.get(t[:align_len]) for t in benchmark_times]
 
         ratios = [
             (asset / base) * 100 if asset is not None and base else None
@@ -1011,6 +1018,7 @@ def build_rrg_data(interval):
         "benchmark": RRG_BENCHMARK_SYMBOL,
         "interval": interval,
         "tail_points": config["tail"],
+        "display_window": 8,
         "trails": trails,
         "source": "Upstox market data",
         "updated_at": now_utc(),
