@@ -1342,51 +1342,7 @@ def watchlist():
         return jsonify({"ok": True, "updated_at": cached["updated_at"], "data": cached["data"]})
 
     try:
-        key_map = {}
-
-        def _resolve_one(symbol):
-            try:
-                return symbol, resolve_instrument_key(symbol)
-            except Exception as error:
-                app.logger.warning("Could not resolve watchlist symbol %s: %s", symbol, error)
-                return symbol, None
-
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            for symbol, instrument_key in executor.map(_resolve_one, symbols):
-                if instrument_key:
-                    key_map[symbol] = instrument_key
-
-        if not key_map:
-            return jsonify({"ok": False, "error": "Could not resolve any of the requested symbols."}), 502
-
-        instrument_keys = ",".join(key_map.values())
-        url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={quote(instrument_keys, safe=',')}"
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}",
-        }
-
-        response = requests.get(url, headers=headers, timeout=20)
-        if not response.ok:
-            raise RuntimeError(f"LTP quote request failed: status={response.status_code}")
-
-        quote_data = (response.json().get("data") or {})
-        reverse_map = {v: k for k, v in key_map.items()}
-
-        results = []
-        for info in quote_data.values():
-            instrument_key = info.get("instrument_token", "")
-            symbol = reverse_map.get(instrument_key)
-            if not symbol:
-                continue
-            results.append(
-                {
-                    "symbol": symbol,
-                    "instrument_key": instrument_key,
-                    "last_price": info.get("last_price"),
-                }
-            )
-
+        results = fetch_quotes_with_change(symbols)
         results.sort(key=lambda item: symbols.index(item["symbol"]) if item["symbol"] in symbols else 999)
 
         updated_at = now_utc()
