@@ -3691,7 +3691,7 @@ function clearLiveChartAiOverlay() {
     }
 
     if (pageId === "im-rrg" && typeof fetchImRrg === "function") {
-      fetchImRrg();
+      loadImRrgSymbolPanel().then(fetchImRrg);
     }
   }
 
@@ -4171,6 +4171,13 @@ function clearLiveChartAiOverlay() {
   let imRrgTimeframe = "1d";
   let imRrgData = null;
   let imRrgAnimTimer = null;
+  let imRrgSelectedSymbols = new Set();
+  let imRrgAllSymbols = [];
+  let imRrgQuotesMap = {};
+  let imRrgMode = "rrg";
+  let imRrgSingleChart = null;
+  let imRrgSingleSeries = null;
+  let imRrgSelectedSingleSymbol = null;
 
   const imRrgColors = {
     "NIFTY 50": { border: "#e2e8f0", background: "rgba(226,232,240,.18)" }
@@ -4365,7 +4372,8 @@ function clearLiveChartAiOverlay() {
     const status = document.getElementById("im-rrg-status");
     if (status) status.textContent = `Loading ${imRrgTimeframe.toUpperCase()} RRG data…`;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/rrg?interval=${imRrgTimeframe}`);
+      const symbolsParam = imRrgSelectedSymbols.size ? `&symbols=${encodeURIComponent(Array.from(imRrgSelectedSymbols).join(","))}` : "";
+      const response = await fetch(`${API_BASE_URL}/api/rrg?interval=${imRrgTimeframe}${symbolsParam}`);
       const result = await response.json();
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "RRG request failed.");
@@ -4376,6 +4384,152 @@ function clearLiveChartAiOverlay() {
     } catch (error) {
       console.error("RRG fetch failed:", error);
       if (status) status.textContent = "RRG data unavailable right now.";
+    }
+  }
+
+  function renderRrgSymbolPanel(filterText) {
+    const container = document.getElementById("im-rrg-symbols-list");
+    if (!container) return;
+    const filter = (filterText || "").trim().toLowerCase();
+    const list = filter
+      ? imRrgAllSymbols.filter((s) => s.toLowerCase().includes(filter))
+      : imRrgAllSymbols;
+
+    if (!list.length) {
+      container.innerHTML = `<div class="im-rrg-symbols-loading">No matching indices.</div>`;
+      return;
+    }
+
+    container.innerHTML = list
+      .map((symbol) => {
+        const quote = imRrgQuotesMap[symbol];
+        const price = quote ? formatNumber(quote.last_price) : "--";
+        const change = quote && quote.change_percent !== null && quote.change_percent !== undefined
+          ? `${quote.change_percent >= 0 ? "+" : ""}${quote.change_percent}%`
+          : "--";
+        const changeClass = quote && quote.change_percent >= 0 ? "positive" : "negative";
+        const checked = imRrgSelectedSymbols.has(symbol) ? "checked" : "";
+        return `
+          <div class="im-rrg-symbol-row" data-symbol="${escapeHtml(symbol)}">
+            <input type="checkbox" class="im-rrg-symbol-check" data-symbol="${escapeHtml(symbol)}" ${checked} />
+            <span class="im-rrg-symbol-row-name">${escapeHtml(symbol)}</span>
+            <span class="im-rrg-symbol-row-price">${price}</span>
+            <span class="im-rrg-symbol-row-change ${changeClass}">${change}</span>
+          </div>
+        `;
+      })
+      .join("");
+
+    container.querySelectorAll(".im-rrg-symbol-check").forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        const symbol = checkbox.dataset.symbol;
+        if (checkbox.checked) imRrgSelectedSymbols.add(symbol);
+        else imRrgSelectedSymbols.delete(symbol);
+        window.clearTimeout(imRrgSelectionDebounce);
+        imRrgSelectionDebounce = window.setTimeout(fetchImRrg, 500);
+      });
+    });
+
+    container.querySelectorAll(".im-rrg-symbol-row-name").forEach((nameEl) => {
+      nameEl.addEventListener("click", () => {
+        const symbol = nameEl.closest(".im-rrg-symbol-row").dataset.symbol;
+        if (imRrgMode === "chart") loadImRrgSingleChart(symbol);
+      });
+    });
+  }
+
+  let imRrgSelectionDebounce = null;
+
+  async function loadImRrgSymbolPanel() {
+    try {
+      const [symbolsRes, quotesRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/rrg/symbols`).then((r) => r.json()),
+        fetch(`${API_BASE_URL}/api/rrg/quotes`).then((r) => r.json())
+      ]);
+      if (symbolsRes.ok) {
+        imRrgAllSymbols = symbolsRes.symbols || [];
+        if (!imRrgSelectedSymbols.size) {
+          imRrgSelectedSymbols = new Set(symbolsRes.default_selected || []);
+        }
+      }
+      if (quotesRes.ok) {
+        imRrgQuotesMap = {};
+        (quotesRes.data || []).forEach((q) => { imRrgQuotesMap[q.symbol] = q; });
+      }
+      renderRrgSymbolPanel(document.getElementById("im-rrg-search")?.value);
+    } catch (error) {
+      console.error("RRG symbol panel load failed:", error);
+      const container = document.getElementById("im-rrg-symbols-list");
+      if (container) container.innerHTML = `<div class="im-rrg-symbols-loading">Could not load index list.</div>`;
+    }
+  }
+
+  const imRrgSearchInput = document.getElementById("im-rrg-search");
+  if (imRrgSearchInput) {
+    imRrgSearchInput.addEventListener("input", () => renderRrgSymbolPanel(imRrgSearchInput.value));
+  }
+
+  document.querySelectorAll('input[name="im-rrg-mode"]').forEach((radio) => {
+    radio.addEventListener("change", () => {
+      imRrgMode = radio.value;
+      const rrgView = document.getElementById("im-rrg-rrg-view");
+      const singleView = document.getElementById("im-rrg-single-view");
+      const quadrantLegend = document.getElementById("im-rrg-quadrant-legend");
+      const runBtn = document.getElementById("im-rrg-run-btn");
+      const zoomBtns = [
+        document.getElementById("im-rrg-zoom-in-btn"),
+        document.getElementById("im-rrg-zoom-out-btn"),
+        document.getElementById("im-rrg-zoom-reset-btn")
+      ];
+      const isRrg = imRrgMode === "rrg";
+      if (rrgView) rrgView.hidden = !isRrg;
+      if (singleView) singleView.hidden = isRrg;
+      if (quadrantLegend) quadrantLegend.hidden = !isRrg;
+      if (runBtn) runBtn.hidden = !isRrg;
+      zoomBtns.forEach((b) => { if (b) b.hidden = !isRrg; });
+    });
+  });
+
+  function createImRrgSingleChart() {
+    const container = document.getElementById("im-rrg-single-chart");
+    if (!container || imRrgSingleChart || !window.LightweightCharts) return;
+    imRrgSingleChart = LightweightCharts.createChart(container, {
+      width: container.clientWidth,
+      height: 420,
+      layout: { background: { color: "#081728" }, textColor: "#93a9c3" },
+      grid: { vertLines: { color: "rgba(29, 54, 85, 0.6)" }, horzLines: { color: "rgba(29, 54, 85, 0.6)" } },
+      rightPriceScale: { borderColor: "rgba(69, 182, 255, 0.3)" },
+      timeScale: { borderColor: "rgba(69, 182, 255, 0.3)", timeVisible: true, secondsVisible: false },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
+    });
+    imRrgSingleSeries = imRrgSingleChart.addCandlestickSeries({
+      upColor: "#36cf83", downColor: "#ff6f7d",
+      borderUpColor: "#36cf83", borderDownColor: "#ff6f7d",
+      wickUpColor: "#7be3ad", wickDownColor: "#ffa3ab"
+    });
+    new ResizeObserver(() => {
+      if (imRrgSingleChart && container.clientWidth) imRrgSingleChart.applyOptions({ width: container.clientWidth });
+    }).observe(container);
+  }
+
+  async function loadImRrgSingleChart(symbol) {
+    imRrgSelectedSingleSymbol = symbol;
+    createImRrgSingleChart();
+    const title = document.getElementById("im-rrg-single-title");
+    if (title) title.textContent = `Loading ${symbol}…`;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/index-candles?symbol=${encodeURIComponent(symbol)}&timeframe=${imRrgTimeframe === "1h" ? "1h" : "1d"}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Chart request failed.");
+      const points = (result.candles || [])
+        .map((c) => ({ time: Math.floor(new Date(c.time).getTime() / 1000), open: c.open, high: c.high, low: c.low, close: c.close }))
+        .filter((p) => Number.isFinite(p.time))
+        .sort((a, b) => a.time - b.time);
+      if (imRrgSingleSeries) imRrgSingleSeries.setData(points);
+      if (title) title.textContent = symbol;
+    } catch (error) {
+      console.error("Single index chart failed:", error);
+      if (title) title.textContent = `Could not load chart for ${symbol}.`;
     }
   }
 
