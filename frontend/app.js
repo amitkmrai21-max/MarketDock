@@ -4444,6 +4444,7 @@ function clearLiveChartAiOverlay() {
   function renderRrgSymbolPanel(filterText) {
     renderOneRrgSymbolList("im-rrg-symbols-list", filterText);
     renderOneRrgSymbolList("im-rrg-below-symbols-list", filterText);
+    if (typeof syncRrgSelectAllCheckboxes === "function") syncRrgSelectAllCheckboxes();
   }
 
   let imRrgSelectionDebounce = null;
@@ -4476,6 +4477,30 @@ function clearLiveChartAiOverlay() {
   if (imRrgSearchInput) {
     imRrgSearchInput.addEventListener("input", () => renderRrgSymbolPanel(imRrgSearchInput.value));
   }
+
+  function syncRrgSelectAllCheckboxes() {
+    const allSelected = imRrgAllSymbols.length > 0 && imRrgSelectedSymbols.size === imRrgAllSymbols.length;
+    ["im-rrg-select-all-left", "im-rrg-select-all-below"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.checked = allSelected;
+    });
+  }
+
+  function handleRrgSelectAllToggle(checkbox) {
+    if (checkbox.checked) {
+      imRrgSelectedSymbols = new Set(imRrgAllSymbols);
+    } else {
+      imRrgSelectedSymbols = new Set();
+    }
+    renderRrgSymbolPanel(imRrgSearchInput?.value);
+    window.clearTimeout(imRrgSelectionDebounce);
+    imRrgSelectionDebounce = window.setTimeout(fetchImRrg, 500);
+  }
+
+  ["im-rrg-select-all-left", "im-rrg-select-all-below"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", () => handleRrgSelectAllToggle(el));
+  });
 
   document.querySelectorAll('input[name="im-rrg-mode"]').forEach((radio) => {
     radio.addEventListener("change", () => {
