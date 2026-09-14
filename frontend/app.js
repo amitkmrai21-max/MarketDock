@@ -4436,6 +4436,94 @@ function clearLiveChartAiOverlay() {
     container.querySelectorAll(".im-rrg-symbol-row-name").forEach((nameEl) => {
       nameEl.addEventListener("click", () => {
         const symbol = nameEl.closest(".im-rrg-symbol-row").dataset.symbol;
+        drillDownRrgIndex(symbol);
+      });
+    });
+  }
+
+  let imRrgDrilldownIndex = null;
+  let imRrgDrilldownConstituents = null;
+
+  async function drillDownRrgIndex(indexName) {
+    const belowContainer = document.getElementById("im-rrg-below-symbols-list");
+    if (belowContainer) belowContainer.innerHTML = `<div class="im-rrg-symbols-loading">Loading ${escapeHtml(indexName)} stocks…</div>`;
+    imRrgDrilldownIndex = indexName;
+
+    if (imRrgMode === "chart") loadImRrgSingleChart(indexName);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/index-constituents?index=${encodeURIComponent(indexName)}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok || !result.available) {
+        imRrgDrilldownConstituents = null;
+        if (belowContainer) {
+          belowContainer.innerHTML = `
+            <div class="im-rrg-drilldown-header">
+              <button class="im-rrg-back-btn" id="im-rrg-back-btn">&#8592; Back to indices</button>
+              <span>${escapeHtml(indexName)}</span>
+            </div>
+            <div class="im-rrg-symbols-loading">Stock list not available for this index yet.</div>
+          `;
+          document.getElementById("im-rrg-back-btn")?.addEventListener("click", exitRrgDrilldown);
+        }
+        return;
+      }
+      imRrgDrilldownConstituents = result.constituents;
+      renderRrgDrilldownList(indexName, result.constituents);
+    } catch (error) {
+      console.error("Drill-down failed:", error);
+      if (belowContainer) belowContainer.innerHTML = `<div class="im-rrg-symbols-loading">Could not load stocks for ${escapeHtml(indexName)}.</div>`;
+    }
+  }
+
+  function exitRrgDrilldown() {
+    imRrgDrilldownIndex = null;
+    imRrgDrilldownConstituents = null;
+    renderOneRrgSymbolList("im-rrg-below-symbols-list", imRrgSearchInput?.value);
+    syncRrgSelectAllCheckboxes();
+  }
+
+  function renderRrgDrilldownList(indexName, constituents) {
+    const container = document.getElementById("im-rrg-below-symbols-list");
+    if (!container) return;
+
+    const rows = constituents
+      .map((c) => {
+        const checked = imRrgSelectedSymbols.has(c.symbol) ? "checked" : "";
+        return `
+          <div class="im-rrg-symbol-row" data-symbol="${escapeHtml(c.symbol)}">
+            <input type="checkbox" class="im-rrg-symbol-check" data-symbol="${escapeHtml(c.symbol)}" ${checked} />
+            <span class="im-rrg-symbol-row-name" title="${escapeHtml(c.name)}">${escapeHtml(c.symbol)}</span>
+            <span class="im-rrg-symbol-row-price">--</span>
+            <span class="im-rrg-symbol-row-change">--</span>
+          </div>
+        `;
+      })
+      .join("");
+
+    container.innerHTML = `
+      <div class="im-rrg-drilldown-header">
+        <button class="im-rrg-back-btn" id="im-rrg-back-btn">&#8592; Back to indices</button>
+        <span>${escapeHtml(indexName)} (${constituents.length})</span>
+      </div>
+      ${rows}
+    `;
+
+    document.getElementById("im-rrg-back-btn")?.addEventListener("click", exitRrgDrilldown);
+
+    container.querySelectorAll(".im-rrg-symbol-check").forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        const symbol = checkbox.dataset.symbol;
+        if (checkbox.checked) imRrgSelectedSymbols.add(symbol);
+        else imRrgSelectedSymbols.delete(symbol);
+        window.clearTimeout(imRrgSelectionDebounce);
+        imRrgSelectionDebounce = window.setTimeout(fetchImRrg, 500);
+      });
+    });
+
+    container.querySelectorAll(".im-rrg-symbol-row-name").forEach((nameEl) => {
+      nameEl.addEventListener("click", () => {
+        const symbol = nameEl.closest(".im-rrg-symbol-row").dataset.symbol;
         if (imRrgMode === "chart") loadImRrgSingleChart(symbol);
       });
     });
