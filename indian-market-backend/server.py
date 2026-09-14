@@ -1343,11 +1343,18 @@ def watchlist():
 
     try:
         key_map = {}
-        for symbol in symbols:
+
+        def _resolve_one(symbol):
             try:
-                key_map[symbol] = resolve_instrument_key(symbol)
+                return symbol, resolve_instrument_key(symbol)
             except Exception as error:
                 app.logger.warning("Could not resolve watchlist symbol %s: %s", symbol, error)
+                return symbol, None
+
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            for symbol, instrument_key in executor.map(_resolve_one, symbols):
+                if instrument_key:
+                    key_map[symbol] = instrument_key
 
         if not key_map:
             return jsonify({"ok": False, "error": "Could not resolve any of the requested symbols."}), 502
