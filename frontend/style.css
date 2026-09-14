@@ -4231,6 +4231,19 @@ body[data-accent="green"] .settings-choice.active {
   margin-bottom: 8px;
 }
 
+.indian-market-mode .im-rrg-below-panel {
+  margin-top: 16px;
+  border: 1px solid var(--im-border);
+  border-radius: 12px;
+  background: rgba(8, 20, 36, 0.7);
+  padding: 12px;
+}
+
+.indian-market-mode .im-rrg-below-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
 @media (max-width: 900px) {
   .indian-market-mode .im-rrg-layout {
     grid-template-columns: 1fr;
