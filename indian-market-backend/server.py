@@ -3,6 +3,7 @@ import time
 import re
 import csv
 import io
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
 
@@ -793,14 +794,23 @@ def fetch_quotes_with_change(symbols, resolver=None):
     """Resolves symbols to instrument keys (via the given resolver, default
     the stock resolver) and fetches LTP + previous close (via the LTP V3
     endpoint's `cp` field) in one batched call, returning each symbol's
-    price and change percent."""
+    price and change percent. Resolution requests run in parallel — doing
+    them one at a time was the main cause of slow load times for large
+    symbol lists."""
     resolver = resolver or resolve_instrument_key
     key_map = {}
-    for symbol in symbols:
+
+    def _resolve_one(symbol):
         try:
-            key_map[symbol] = resolver(symbol)
+            return symbol, resolver(symbol)
         except Exception as error:
             app.logger.warning("Could not resolve %s: %s", symbol, error)
+            return symbol, None
+
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for symbol, instrument_key in executor.map(_resolve_one, symbols):
+            if instrument_key:
+                key_map[symbol] = instrument_key
 
     if not key_map:
         return []
@@ -964,7 +974,7 @@ RRG_DEFAULT_SYMBOLS = [
     "Nifty Private Bank", "Nifty Financial Services", "Nifty Infrastructure",
 ]
 
-RRG_CACHE_SECONDS = 60
+RRG_CACHE_SECONDS = 150
 _rrg_cache = {}
 
 
@@ -1031,7 +1041,7 @@ def build_rrg_data(interval, symbols=None):
         }
     ]
 
-    for symbol in plotted_symbols:
+    def _fetch_symbol_candles(symbol):
         try:
             is_known_index = symbol in RRG_AVAILABLE_SYMBOLS
             instrument_key = (
@@ -1041,8 +1051,17 @@ def build_rrg_data(interval, symbols=None):
                 instrument_key, config["unit"], config["step"],
                 chart_history_days=config["history_days"],
             )
+            return symbol, candles
         except Exception as error:
             app.logger.warning("RRG: could not fetch %s: %s", symbol, error)
+            return symbol, None
+
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        fetched = dict(executor.map(_fetch_symbol_candles, plotted_symbols))
+
+    for symbol in plotted_symbols:
+        candles = fetched.get(symbol)
+        if not candles:
             continue
 
         # Align this stock's candles to the benchmark's timestamps so the
@@ -1254,7 +1273,7 @@ def rrg_symbols():
 
 
 _rrg_quotes_cache = {"data": None, "fetched_at": 0}
-RRG_QUOTES_CACHE_SECONDS = 30
+RRG_QUOTES_CACHE_SECONDS = 60
 
 
 @app.get("/api/rrg/quotes")
