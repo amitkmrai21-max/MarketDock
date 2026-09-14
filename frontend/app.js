@@ -4313,7 +4313,7 @@ function clearLiveChartAiOverlay() {
         pointRadius(c) { return c.raw?.isLatest ? 5 : 2; },
         pointHoverRadius: 7,
         showLine: true,
-        tension: 0
+        tension: 0.35
       };
     });
 
