@@ -4372,7 +4372,7 @@ function clearLiveChartAiOverlay() {
     const status = document.getElementById("im-rrg-status");
     if (status) status.textContent = `Loading ${imRrgTimeframe.toUpperCase()} RRG data…`;
     try {
-      const symbolsParam = imRrgSelectedSymbols.size ? `&symbols=${encodeURIComponent(Array.from(imRrgSelectedSymbols).join(","))}` : "";
+      const symbolsParam = `&symbols=${encodeURIComponent(Array.from(imRrgSelectedSymbols).join(","))}`;
       const response = await fetch(`${API_BASE_URL}/api/rrg?interval=${imRrgTimeframe}${symbolsParam}`);
       const result = await response.json();
       if (!response.ok || !result.ok) {
@@ -4387,8 +4387,8 @@ function clearLiveChartAiOverlay() {
     }
   }
 
-  function renderRrgSymbolPanel(filterText) {
-    const container = document.getElementById("im-rrg-symbols-list");
+  function renderOneRrgSymbolList(containerId, filterText) {
+    const container = document.getElementById(containerId);
     if (!container) return;
     const filter = (filterText || "").trim().toLowerCase();
     const list = filter
@@ -4425,6 +4425,9 @@ function clearLiveChartAiOverlay() {
         const symbol = checkbox.dataset.symbol;
         if (checkbox.checked) imRrgSelectedSymbols.add(symbol);
         else imRrgSelectedSymbols.delete(symbol);
+        // Keep both lists (left panel + below-chart panel) in sync with
+        // whichever one the user just clicked in.
+        renderRrgSymbolPanel(document.getElementById("im-rrg-search")?.value);
         window.clearTimeout(imRrgSelectionDebounce);
         imRrgSelectionDebounce = window.setTimeout(fetchImRrg, 500);
       });
@@ -4436,6 +4439,11 @@ function clearLiveChartAiOverlay() {
         if (imRrgMode === "chart") loadImRrgSingleChart(symbol);
       });
     });
+  }
+
+  function renderRrgSymbolPanel(filterText) {
+    renderOneRrgSymbolList("im-rrg-symbols-list", filterText);
+    renderOneRrgSymbolList("im-rrg-below-symbols-list", filterText);
   }
 
   let imRrgSelectionDebounce = null;
