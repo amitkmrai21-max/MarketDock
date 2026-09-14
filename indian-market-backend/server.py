@@ -786,14 +786,16 @@ TOP_MOVER_CACHE_SECONDS = 30
 _top_mover_cache = {}
 
 
-def fetch_quotes_with_change(symbols):
-    """Resolves symbols to instrument keys and fetches LTP + previous close
-    (via the LTP V3 endpoint's `cp` field) in one batched call, returning
-    each symbol's price and change percent."""
+def fetch_quotes_with_change(symbols, resolver=None):
+    """Resolves symbols to instrument keys (via the given resolver, default
+    the stock resolver) and fetches LTP + previous close (via the LTP V3
+    endpoint's `cp` field) in one batched call, returning each symbol's
+    price and change percent."""
+    resolver = resolver or resolve_instrument_key
     key_map = {}
     for symbol in symbols:
         try:
-            key_map[symbol] = resolve_instrument_key(symbol)
+            key_map[symbol] = resolver(symbol)
         except Exception as error:
             app.logger.warning("Could not resolve %s: %s", symbol, error)
 
@@ -901,15 +903,96 @@ def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
 
 RRG_BENCHMARK_SYMBOL = "NIFTY 50"
 RRG_BENCHMARK_INSTRUMENT_KEY = "NSE_INDEX|Nifty 50"
-RRG_PLOTTED_SYMBOLS = [
-    "RELIANCE", "TCS", "HDFCBANK", "ICICIBANK", "INFY", "SBIN",
-    "BHARTIARTL", "ITC", "KOTAKBANK", "LT", "HINDUNILVR", "TITAN",
-    "SUNPHARMA", "BAJFINANCE", "MARUTI", "ASIANPAINT", "AXISBANK",
-    "NTPC", "ULTRACEMCO", "WIPRO", "ADANIENT", "TATAMOTORS",
-    "TATASTEEL", "POWERGRID", "ONGC",
+RRG_AVAILABLE_SYMBOLS = [
+    "Nifty SME Emerge", "Nifty IPO", "Nifty Microcap 250",
+    "Nifty Smallcap250 Momentum Quality 100 Index", "Nifty Smallcap 100",
+    "Nifty Pharma", "Nifty Smallcap 50", "Nifty500 Healthcare",
+    "Nifty India Defence", "Nifty Smallcap 250", "Nifty Private Bank",
+    "Nifty MidSmall Healthcare", "Nifty CPSE", "Nifty Healthcare Index",
+    "Nifty MidSmall Financial Services", "Nifty Energy", "Nifty PSE",
+    "Nifty MidSmallcap 400", "Nifty Oil & Gas", "Nifty Bank",
+    "Nifty Chemicals", "Nifty500 LargeMidSmall Equal-Cap Weighted",
+    "Nifty500 Equal Weight", "Nifty500 Value 50",
+    "NIFTY 500 Multicap 50:25:25 Index", "Nifty Smallcap250 Quality 50",
+    "Nifty Commodities", "Nifty200 Value 30", "Nifty500 Multifactor MQVLv 50",
+    "Nifty Total Market", "Nifty500 Quality 50",
+    "Nifty500 Multicap Infrastructure 50:30:20 index",
+    "Nifty Top 10 Equal Weight", "Nifty India Infrastructure & Logistics",
+    "Nifty50 USD", "Nifty50 Value 20", "Nifty Infrastructure",
+    "Nifty Financial Services", "Nifty Services Sector", "Nifty Housing",
+    "Nifty FMCG", "Nifty 100 Low Volatility 30",
+    "Nifty Dividend Opportunities 50", "Nifty Low Volatility 50",
+    "NIFTY Quality Low-Volatility 30", "Nifty500 Low Volatility 50",
+    "NIFTY Alpha Quality Value Low-Volatility 30",
+    "Nifty Financial Services 25/50", "Nifty Tata Group 25% Cap",
+    "NIFTY Alpha Quality Low Volatility 30", "Nifty 50 Equal Weight",
+    "NIFTY Alpha Low Volatility 30", "Nifty India Internet",
+    "Nifty MidSmall IT & Telecom", "Nifty Capital Market", "Nifty Alpha 50",
+    "Nifty500 Momentum 50", "Nifty Metal", "Nifty Midcap Liquid 15",
+    "Nifty Total Market Momentum Quality 50",
+    "NIFTY Midcap150 Momentum 50 Index", "Nifty India Digital",
+    "Nifty200 Alpha 30", "Nifty MidSmallcap400 Momentum Quality 100 index",
+    "Nifty200 Momentum 30 Index", "Nifty Midcap 50", "Nifty Midcap 100",
+    "Nifty Realty", "Nifty Midcap 150",
+    "Nifty500 Multicap India Manufacturing 50:30:20", "Nifty Midcap Select",
+    "Nifty High Beta 50", "Nifty India New Age Consumption",
+    "NIFTY Consumer Durables", "Nifty India Manufacturing Index",
+    "Nifty PSU Bank", "Nifty LargeMidcap 250", "Nifty 500", "Nifty Next 50",
+    "Nifty 200", "NIFTY100 Quality 30", "Nifty India FPI 150",
+    "Nifty100 Equal Weight", "Nifty 100", "Nifty Auto",
+    "Nifty EV and New Age Automotive", "Nifty Rural",
+    "NIFTY Transportation & Logistics", "Nifty India Consumption",
+    "Nifty MNC", "Nifty Core Housing", "Nifty Non-Cyclical Consumer",
+    "Nifty Mobility", "Nifty Media", "Nifty Growth Sectors 15",
+    "Nifty India Tourism", "Nifty Waves", "NIFTY100 Alpha 30",
+    "Nifty Midcap150 Quality 50", "Nifty IT", "Nifty Top 15 Equal Weight",
+    "Nifty500 Flexicap Quality 30", "Nifty Financial Services Ex-Bank",
+    "Nifty India Select 5 Corporate Groups (MAATR)", "Nifty 100 Liquid 15",
+    "Nifty MidSmall India Consumption", "NIFTY200 Quality 30",
+    "Nifty Top 20 Equal Weight",
 ]
+
+# Sensible default selection shown ticked on first load — the rest are
+# available via search/checkboxes but not fetched until selected, since
+# fetching all 108 on every load would be slow and mostly unnecessary.
+RRG_DEFAULT_SYMBOLS = [
+    "Nifty Bank", "Nifty Auto", "Nifty IT", "Nifty Pharma", "Nifty FMCG",
+    "Nifty Metal", "Nifty Realty", "Nifty Energy", "Nifty PSU Bank",
+    "Nifty Private Bank", "Nifty Financial Services", "Nifty Infrastructure",
+]
+
 RRG_CACHE_SECONDS = 60
 _rrg_cache = {}
+
+
+def resolve_index_instrument_key(index_name):
+    """Resolves an NSE index name (e.g. 'Nifty Auto') to its Upstox
+    instrument_key via Upstox's own instrument search — never a guessed key,
+    since indices don't follow one predictable ISIN-like pattern."""
+    cache_key = f"INDEX:{index_name.upper()}"
+    if cache_key in _instrument_key_cache:
+        return _instrument_key_cache[cache_key]
+
+    url = "https://api.upstox.com/v2/instruments/search"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
+    params = {"query": index_name, "exchanges": "NSE", "segments": "INDEX"}
+
+    response = requests.get(url, headers=headers, params=params, timeout=15)
+    if not response.ok:
+        raise RuntimeError(f"Index search failed for {index_name}: status={response.status_code}")
+
+    results = (response.json().get("data") or [])
+    exact = next(
+        (item for item in results if str(item.get("trading_symbol", item.get("name", ""))).upper() == index_name.upper()),
+        None,
+    )
+    match = exact or (results[0] if results else None)
+    if not match or not match.get("instrument_key"):
+        raise RuntimeError(f"No index instrument found for {index_name}")
+
+    instrument_key = match["instrument_key"]
+    _instrument_key_cache[cache_key] = instrument_key
+    return instrument_key
 
 
 def average(values):
@@ -917,7 +1000,7 @@ def average(values):
     return sum(values) / len(values) if values else None
 
 
-def build_rrg_data(interval):
+def build_rrg_data(interval, symbols=None):
     settings = {
         "1h": {"unit": "hours", "step": 1, "history_days": 90, "lookback": 30, "tail": 60},
         "1d": {"unit": "days", "step": 1, "history_days": 320, "lookback": 30, "tail": 60},
@@ -925,6 +1008,7 @@ def build_rrg_data(interval):
     if interval not in settings:
         raise ValueError("Unsupported RRG interval.")
     config = settings[interval]
+    plotted_symbols = symbols if symbols else RRG_DEFAULT_SYMBOLS
 
     benchmark_candles = fetch_upstox_candles(
         RRG_BENCHMARK_INSTRUMENT_KEY, config["unit"], config["step"],
@@ -944,9 +1028,9 @@ def build_rrg_data(interval):
         }
     ]
 
-    for symbol in RRG_PLOTTED_SYMBOLS:
+    for symbol in plotted_symbols:
         try:
-            instrument_key = resolve_instrument_key(symbol)
+            instrument_key = resolve_index_instrument_key(symbol)
             candles = fetch_upstox_candles(
                 instrument_key, config["unit"], config["step"],
                 chart_history_days=config["history_days"],
@@ -1030,6 +1114,78 @@ def build_rrg_data(interval):
     }
 
 
+@app.get("/api/index-candles")
+def index_candles():
+    symbol = request.args.get("symbol", "").strip()
+    timeframe = request.args.get("timeframe", "1d").lower().strip()
+
+    if symbol not in RRG_AVAILABLE_SYMBOLS and symbol != RRG_BENCHMARK_SYMBOL:
+        return jsonify({"ok": False, "error": "Unknown symbol."}), 404
+
+    if timeframe not in UPSTOX_TIMEFRAMES:
+        return jsonify({"ok": False, "error": "Unsupported timeframe. Use: 5m, 15m, 1h, or 1d."}), 400
+
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
+
+    try:
+        instrument_key = (
+            RRG_BENCHMARK_INSTRUMENT_KEY if symbol == RRG_BENCHMARK_SYMBOL else resolve_index_instrument_key(symbol)
+        )
+        unit, interval = UPSTOX_TIMEFRAMES[timeframe]
+        candles = fetch_upstox_candles(instrument_key, unit, interval, chart_history_days=90)
+
+        if not candles:
+            return jsonify({"ok": False, "error": "No candle data available for this symbol."}), 502
+
+        return jsonify(
+            {
+                "ok": True,
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "candles": candles,
+                "updated_at": now_utc(),
+            }
+        )
+    except Exception as error:
+        app.logger.warning("Index candles fetch failed for %s: %s", symbol, error)
+        return jsonify({"ok": False, "error": "Could not fetch candle data right now."}), 502
+
+
+@app.get("/api/rrg/symbols")
+def rrg_symbols():
+    return jsonify(
+        {
+            "ok": True,
+            "symbols": RRG_AVAILABLE_SYMBOLS,
+            "default_selected": RRG_DEFAULT_SYMBOLS,
+        }
+    )
+
+
+_rrg_quotes_cache = {"data": None, "fetched_at": 0}
+RRG_QUOTES_CACHE_SECONDS = 30
+
+
+@app.get("/api/rrg/quotes")
+def rrg_quotes():
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
+
+    cached = _rrg_quotes_cache["data"]
+    if cached and time.time() - _rrg_quotes_cache["fetched_at"] < RRG_QUOTES_CACHE_SECONDS:
+        return jsonify({"ok": True, "data": cached})
+
+    try:
+        quotes = fetch_quotes_with_change(RRG_AVAILABLE_SYMBOLS, resolver=resolve_index_instrument_key)
+        _rrg_quotes_cache["data"] = quotes
+        _rrg_quotes_cache["fetched_at"] = time.time()
+        return jsonify({"ok": True, "data": quotes})
+    except Exception as error:
+        app.logger.warning("RRG quotes fetch failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not fetch index quotes right now."}), 502
+
+
 @app.get("/api/rrg")
 def rrg():
     interval = request.args.get("interval", "1d").lower().strip()
@@ -1039,13 +1195,18 @@ def rrg():
     if not UPSTOX_ACCESS_TOKEN:
         return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
 
-    cached = _rrg_cache.get(interval)
+    symbols_param = request.args.get("symbols", "")
+    symbols = [s.strip() for s in symbols_param.split(",") if s.strip()] or None
+    valid_symbols = [s for s in (symbols or []) if s in RRG_AVAILABLE_SYMBOLS] or None
+
+    cache_key = f"{interval}:{','.join(valid_symbols) if valid_symbols else 'default'}"
+    cached = _rrg_cache.get(cache_key)
     if cached and time.time() - cached["fetched_at"] < RRG_CACHE_SECONDS:
         return jsonify({"ok": True, "data": cached["data"]})
 
     try:
-        data = build_rrg_data(interval)
-        _rrg_cache[interval] = {"data": data, "fetched_at": time.time()}
+        data = build_rrg_data(interval, symbols=valid_symbols)
+        _rrg_cache[cache_key] = {"data": data, "fetched_at": time.time()}
         return jsonify({"ok": True, "data": data})
     except Exception as error:
         app.logger.warning("RRG build failed for %s: %s", interval, error)
