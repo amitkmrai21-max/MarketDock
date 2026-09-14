@@ -315,6 +315,144 @@ def calculate_vwap(candles):
     return round(cumulative_pv / cumulative_volume, 2)
 
 
+def calculate_bollinger_bands(closes, period=20, num_std=2):
+    if len(closes) < period:
+        return {"upper": 0.0, "middle": 0.0, "lower": 0.0}
+    window = closes[-period:]
+    middle = sum(window) / period
+    variance = sum((c - middle) ** 2 for c in window) / period
+    std_dev = variance ** 0.5
+    return {
+        "upper": round(middle + num_std * std_dev, 2),
+        "middle": round(middle, 2),
+        "lower": round(middle - num_std * std_dev, 2),
+    }
+
+
+def calculate_true_range_series(candles):
+    true_ranges = []
+    for i in range(1, len(candles)):
+        high, low = candles[i]["high"], candles[i]["low"]
+        prev_close = candles[i - 1]["close"]
+        true_ranges.append(max(high - low, abs(high - prev_close), abs(low - prev_close)))
+    return true_ranges
+
+
+def calculate_supertrend(candles, period=10, multiplier=3):
+    if len(candles) < period + 1:
+        return {"value": 0.0, "trend": "neutral"}
+
+    true_ranges = calculate_true_range_series(candles)
+    atr_series = [None] * period
+    atr = sum(true_ranges[:period]) / period
+    atr_series.append(atr)
+    for tr in true_ranges[period:]:
+        atr = (atr * (period - 1) + tr) / period
+        atr_series.append(atr)
+
+    trend = "bullish"
+    final_upper = final_lower = None
+    supertrend_value = candles[period]["close"]
+
+    for i in range(period, len(candles)):
+        atr_value = atr_series[i] or 0
+        mid = (candles[i]["high"] + candles[i]["low"]) / 2
+        basic_upper = mid + multiplier * atr_value
+        basic_lower = mid - multiplier * atr_value
+        close = candles[i]["close"]
+
+        if final_upper is None:
+            final_upper, final_lower = basic_upper, basic_lower
+        else:
+            final_upper = basic_upper if (basic_upper < final_upper or candles[i - 1]["close"] > final_upper) else final_upper
+            final_lower = basic_lower if (basic_lower > final_lower or candles[i - 1]["close"] < final_lower) else final_lower
+
+        if close > final_upper:
+            trend = "bullish"
+        elif close < final_lower:
+            trend = "bearish"
+
+        supertrend_value = final_lower if trend == "bullish" else final_upper
+
+    return {"value": round(supertrend_value, 2), "trend": trend}
+
+
+def calculate_adx(candles, period=14):
+    if len(candles) < period + 1:
+        return {"adx": 0.0, "plus_di": 0.0, "minus_di": 0.0}
+
+    plus_dm, minus_dm, true_ranges = [], [], []
+    for i in range(1, len(candles)):
+        up_move = candles[i]["high"] - candles[i - 1]["high"]
+        down_move = candles[i - 1]["low"] - candles[i]["low"]
+        plus_dm.append(up_move if (up_move > down_move and up_move > 0) else 0.0)
+        minus_dm.append(down_move if (down_move > up_move and down_move > 0) else 0.0)
+        true_ranges.append(max(
+            candles[i]["high"] - candles[i]["low"],
+            abs(candles[i]["high"] - candles[i - 1]["close"]),
+            abs(candles[i]["low"] - candles[i - 1]["close"]),
+        ))
+
+    if len(true_ranges) < period:
+        return {"adx": 0.0, "plus_di": 0.0, "minus_di": 0.0}
+
+    smoothed_tr = sum(true_ranges[:period])
+    smoothed_plus_dm = sum(plus_dm[:period])
+    smoothed_minus_dm = sum(minus_dm[:period])
+    dx_values = []
+
+    for i in range(period, len(true_ranges)):
+        smoothed_tr = smoothed_tr - (smoothed_tr / period) + true_ranges[i]
+        smoothed_plus_dm = smoothed_plus_dm - (smoothed_plus_dm / period) + plus_dm[i]
+        smoothed_minus_dm = smoothed_minus_dm - (smoothed_minus_dm / period) + minus_dm[i]
+
+        plus_di = (smoothed_plus_dm / smoothed_tr) * 100 if smoothed_tr else 0
+        minus_di = (smoothed_minus_dm / smoothed_tr) * 100 if smoothed_tr else 0
+        di_sum = plus_di + minus_di
+        dx = (abs(plus_di - minus_di) / di_sum) * 100 if di_sum else 0
+        dx_values.append((dx, plus_di, minus_di))
+
+    if not dx_values:
+        return {"adx": 0.0, "plus_di": 0.0, "minus_di": 0.0}
+
+    adx = sum(v[0] for v in dx_values[-period:]) / min(period, len(dx_values))
+    latest_plus_di = dx_values[-1][1]
+    latest_minus_di = dx_values[-1][2]
+    return {"adx": round(adx, 2), "plus_di": round(latest_plus_di, 2), "minus_di": round(latest_minus_di, 2)}
+
+
+def calculate_stochastic(candles, period=14, smooth=3):
+    if len(candles) < period:
+        return {"k": 50.0, "d": 50.0}
+    k_values = []
+    for i in range(period - 1, len(candles)):
+        window = candles[i - period + 1:i + 1]
+        highest = max(c["high"] for c in window)
+        lowest = min(c["low"] for c in window)
+        close = candles[i]["close"]
+        k = ((close - lowest) / (highest - lowest)) * 100 if highest != lowest else 50.0
+        k_values.append(k)
+    d_value = sum(k_values[-smooth:]) / min(smooth, len(k_values))
+    return {"k": round(k_values[-1], 2), "d": round(d_value, 2)}
+
+
+def calculate_pivot_points(candles):
+    if not candles:
+        return {}
+    latest = candles[-1]
+    high, low, close = latest["high"], latest["low"], latest["close"]
+    pivot = (high + low + close) / 3
+    return {
+        "pivot": round(pivot, 2),
+        "r1": round(2 * pivot - low, 2),
+        "s1": round(2 * pivot - high, 2),
+        "r2": round(pivot + (high - low), 2),
+        "s2": round(pivot - (high - low), 2),
+        "r3": round(high + 2 * (pivot - low), 2),
+        "s3": round(low - 2 * (high - pivot), 2),
+    }
+
+
 def resample_candles(candles, group_size):
     """Aggregates consecutive candles into larger buckets (e.g. 3x 5m -> 15m)."""
     resampled = []
@@ -408,6 +546,11 @@ def get_real_market_snapshot(market_key):
         "trend_1h": classify_trend(candles_1h) if len(candles_1h) >= 21 else "neutral",
         "data_source": "upstox_live",
         "session_status": session_status,
+        "bollinger_bands": calculate_bollinger_bands(closes),
+        "supertrend": calculate_supertrend(candles_5m),
+        "adx": calculate_adx(candles_5m),
+        "stochastic": calculate_stochastic(candles_5m),
+        "pivot_points": calculate_pivot_points(candles_5m),
     }
     _live_snapshot_cache[market_key] = {"data": snapshot, "fetched_at": time.time()}
     return snapshot
@@ -690,6 +833,11 @@ def calculate_confirmation_engine(market):
             "macd_histogram": macd_histogram,
             "volume_ratio": volume_ratio,
             "atr_14": atr,
+            "bollinger_bands": market.get("bollinger_bands", {"upper": 0, "middle": 0, "lower": 0}),
+            "supertrend": market.get("supertrend", {"value": 0, "trend": "neutral"}),
+            "adx": market.get("adx", {"adx": 0, "plus_di": 0, "minus_di": 0}),
+            "stochastic": market.get("stochastic", {"k": 50, "d": 50}),
+            "pivot_points": market.get("pivot_points", {}),
         },
         "levels": {
             "support": support,
