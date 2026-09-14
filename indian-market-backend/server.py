@@ -550,7 +550,7 @@ def calculate_confirmation_engine(market):
         }
     )
 
-    volume_signal = 1 if volume_ratio >= 1.05 else 0
+    volume_signal = 1 if volume_ratio >= 0.85 else 0
     confirmations.append(
         {
             "name": "Volume participation",
@@ -621,16 +621,16 @@ def calculate_confirmation_engine(market):
     decision = "WAIT"
     decision_reason = "Confirmations are mixed. Wait for a clearer aligned setup."
 
-    if weighted_score >= 7 and bullish_count >= 5 and price < resistance:
+    if weighted_score >= 5 and bullish_count >= 4 and price < resistance:
         decision = "BUY SETUP"
-        decision_reason = "Strong bullish confluence with a defined risk plan."
-    elif weighted_score <= -7 and bearish_count >= 5 and price > support:
+        decision_reason = "Bullish confluence with a defined risk plan."
+    elif weighted_score <= -5 and bearish_count >= 4 and price > support:
         decision = "SELL SETUP"
-        decision_reason = "Strong bearish confluence with a defined risk plan."
-    elif weighted_score >= 4:
+        decision_reason = "Bearish confluence with a defined risk plan."
+    elif weighted_score >= 3:
         decision = "WAIT FOR BUY CONFIRMATION"
         decision_reason = "Bullish factors exist, but wait for stronger alignment or a clean breakout."
-    elif weighted_score <= -4:
+    elif weighted_score <= -3:
         decision = "WAIT FOR SELL CONFIRMATION"
         decision_reason = "Bearish factors exist, but wait for stronger alignment or a clean breakdown."
 
