@@ -1008,7 +1008,7 @@ def build_rrg_data(interval, symbols=None):
     if interval not in settings:
         raise ValueError("Unsupported RRG interval.")
     config = settings[interval]
-    plotted_symbols = symbols if symbols else RRG_DEFAULT_SYMBOLS
+    plotted_symbols = RRG_DEFAULT_SYMBOLS if symbols is None else symbols
 
     benchmark_candles = fetch_upstox_candles(
         RRG_BENCHMARK_INSTRUMENT_KEY, config["unit"], config["step"],
@@ -1195,17 +1195,21 @@ def rrg():
     if not UPSTOX_ACCESS_TOKEN:
         return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
 
+    symbols_param_present = "symbols" in request.args
     symbols_param = request.args.get("symbols", "")
-    symbols = [s.strip() for s in symbols_param.split(",") if s.strip()] or None
-    valid_symbols = [s for s in (symbols or []) if s in RRG_AVAILABLE_SYMBOLS] or None
+    parsed_symbols = [s.strip() for s in symbols_param.split(",") if s.strip()]
+    valid_symbols = [s for s in parsed_symbols if s in RRG_AVAILABLE_SYMBOLS]
+    # None -> build_rrg_data uses RRG_DEFAULT_SYMBOLS (first load, param never sent).
+    # [] -> user explicitly unchecked everything, so plot nothing but the benchmark.
+    symbols_arg = valid_symbols if symbols_param_present else None
 
-    cache_key = f"{interval}:{','.join(valid_symbols) if valid_symbols else 'default'}"
+    cache_key = f"{interval}:{','.join(symbols_arg) if symbols_arg else ('default' if symbols_arg is None else 'none')}"
     cached = _rrg_cache.get(cache_key)
     if cached and time.time() - cached["fetched_at"] < RRG_CACHE_SECONDS:
         return jsonify({"ok": True, "data": cached["data"]})
 
     try:
-        data = build_rrg_data(interval, symbols=valid_symbols)
+        data = build_rrg_data(interval, symbols=symbols_arg)
         _rrg_cache[cache_key] = {"data": data, "fetched_at": time.time()}
         return jsonify({"ok": True, "data": data})
     except Exception as error:
