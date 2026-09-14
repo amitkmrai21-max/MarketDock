@@ -4533,22 +4533,49 @@ function clearLiveChartAiOverlay() {
 
   async function loadDrilldownQuotes(symbols) {
     if (!symbols.length) return;
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(symbols.join(","))}`);
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.error || "Quotes request failed.");
-      (result.data || []).forEach((q) => {
-        const priceEl = document.getElementById(`im-rrg-price-${q.symbol}`);
-        const changeEl = document.getElementById(`im-rrg-change-${q.symbol}`);
-        if (priceEl) priceEl.textContent = formatNumber(q.last_price);
-        if (changeEl && q.change_percent !== null && q.change_percent !== undefined) {
-          changeEl.textContent = `${q.change_percent >= 0 ? "+" : ""}${q.change_percent}%`;
-          changeEl.className = `im-rrg-symbol-row-change ${q.change_percent >= 0 ? "positive" : "negative"}`;
-        }
-      });
-    } catch (error) {
-      console.error("Drilldown quotes fetch failed:", error);
+
+    const CHUNK_SIZE = 15;
+    const chunks = [];
+    for (let i = 0; i < symbols.length; i += CHUNK_SIZE) {
+      chunks.push(symbols.slice(i, i + CHUNK_SIZE));
     }
+
+    function markUnavailable(chunkSymbols) {
+      chunkSymbols.forEach((symbol) => {
+        const priceEl = document.getElementById(`im-rrg-price-${symbol}`);
+        const changeEl = document.getElementById(`im-rrg-change-${symbol}`);
+        if (priceEl && priceEl.textContent === "\u2026") priceEl.textContent = "--";
+        if (changeEl && changeEl.textContent === "\u2026") changeEl.textContent = "--";
+      });
+    }
+
+    await Promise.all(
+      chunks.map(async (chunkSymbols) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(chunkSymbols.join(","))}`);
+          const result = await response.json();
+          if (!response.ok || !result.ok) throw new Error(result.error || "Quotes request failed.");
+
+          const returned = new Set();
+          (result.data || []).forEach((q) => {
+            returned.add(q.symbol);
+            const priceEl = document.getElementById(`im-rrg-price-${q.symbol}`);
+            const changeEl = document.getElementById(`im-rrg-change-${q.symbol}`);
+            if (priceEl) priceEl.textContent = formatNumber(q.last_price);
+            if (changeEl && q.change_percent !== null && q.change_percent !== undefined) {
+              changeEl.textContent = `${q.change_percent >= 0 ? "+" : ""}${q.change_percent}%`;
+              changeEl.className = `im-rrg-symbol-row-change ${q.change_percent >= 0 ? "positive" : "negative"}`;
+            }
+          });
+          // Any symbol in this chunk that Upstox couldn't resolve/quote —
+          // show "--" rather than leaving "…" stuck forever.
+          markUnavailable(chunkSymbols.filter((s) => !returned.has(s)));
+        } catch (error) {
+          console.error("Drilldown quotes chunk failed:", error);
+          markUnavailable(chunkSymbols);
+        }
+      })
+    );
   }
 
   function renderBelowSelectedList() {
