@@ -4494,8 +4494,8 @@ function clearLiveChartAiOverlay() {
           <div class="im-rrg-symbol-row" data-symbol="${escapeHtml(c.symbol)}">
             <input type="checkbox" class="im-rrg-symbol-check" data-symbol="${escapeHtml(c.symbol)}" ${checked} />
             <span class="im-rrg-symbol-row-name" title="${escapeHtml(c.name)}">${escapeHtml(c.symbol)}</span>
-            <span class="im-rrg-symbol-row-price">--</span>
-            <span class="im-rrg-symbol-row-change">--</span>
+            <span class="im-rrg-symbol-row-price" id="im-rrg-price-${escapeHtml(c.symbol)}">…</span>
+            <span class="im-rrg-symbol-row-change" id="im-rrg-change-${escapeHtml(c.symbol)}">…</span>
           </div>
         `;
       })
@@ -4527,6 +4527,28 @@ function clearLiveChartAiOverlay() {
         if (imRrgMode === "chart") loadImRrgSingleChart(symbol);
       });
     });
+
+    loadDrilldownQuotes(constituents.map((c) => c.symbol));
+  }
+
+  async function loadDrilldownQuotes(symbols) {
+    if (!symbols.length) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(symbols.join(","))}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Quotes request failed.");
+      (result.data || []).forEach((q) => {
+        const priceEl = document.getElementById(`im-rrg-price-${q.symbol}`);
+        const changeEl = document.getElementById(`im-rrg-change-${q.symbol}`);
+        if (priceEl) priceEl.textContent = formatNumber(q.last_price);
+        if (changeEl && q.change_percent !== null && q.change_percent !== undefined) {
+          changeEl.textContent = `${q.change_percent >= 0 ? "+" : ""}${q.change_percent}%`;
+          changeEl.className = `im-rrg-symbol-row-change ${q.change_percent >= 0 ? "positive" : "negative"}`;
+        }
+      });
+    } catch (error) {
+      console.error("Drilldown quotes fetch failed:", error);
+    }
   }
 
   function renderBelowSelectedList() {
