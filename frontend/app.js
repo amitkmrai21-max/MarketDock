@@ -4479,7 +4479,7 @@ function clearLiveChartAiOverlay() {
   function exitRrgDrilldown() {
     imRrgDrilldownIndex = null;
     imRrgDrilldownConstituents = null;
-    renderOneRrgSymbolList("im-rrg-below-symbols-list", imRrgSearchInput?.value);
+    renderBelowSelectedList();
     syncRrgSelectAllCheckboxes();
   }
 
@@ -4529,9 +4529,60 @@ function clearLiveChartAiOverlay() {
     });
   }
 
+  function renderBelowSelectedList() {
+    const container = document.getElementById("im-rrg-below-symbols-list");
+    if (!container) return;
+
+    if (!imRrgSelectedSymbols.size) {
+      container.innerHTML = `<div class="im-rrg-symbols-loading">Nothing selected yet — tick indices on the left to plot them here.</div>`;
+      return;
+    }
+
+    // Keep selected items in the same order as the master list, for a
+    // stable, predictable display.
+    const orderedSelected = imRrgAllSymbols.filter((s) => imRrgSelectedSymbols.has(s));
+
+    container.innerHTML = orderedSelected
+      .map((symbol) => {
+        const quote = imRrgQuotesMap[symbol];
+        const price = quote ? formatNumber(quote.last_price) : "--";
+        const change = quote && quote.change_percent !== null && quote.change_percent !== undefined
+          ? `${quote.change_percent >= 0 ? "+" : ""}${quote.change_percent}%`
+          : "--";
+        const changeClass = quote && quote.change_percent >= 0 ? "positive" : "negative";
+        return `
+          <div class="im-rrg-symbol-row" data-symbol="${escapeHtml(symbol)}">
+            <input type="checkbox" class="im-rrg-symbol-check" data-symbol="${escapeHtml(symbol)}" checked />
+            <span class="im-rrg-symbol-row-name">${escapeHtml(symbol)}</span>
+            <span class="im-rrg-symbol-row-price">${price}</span>
+            <span class="im-rrg-symbol-row-change ${changeClass}">${change}</span>
+          </div>
+        `;
+      })
+      .join("");
+
+    container.querySelectorAll(".im-rrg-symbol-check").forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        // Unticking here always means "remove from selection" (this list
+        // only ever shows selected items).
+        imRrgSelectedSymbols.delete(checkbox.dataset.symbol);
+        renderRrgSymbolPanel(imRrgSearchInput?.value);
+        window.clearTimeout(imRrgSelectionDebounce);
+        imRrgSelectionDebounce = window.setTimeout(fetchImRrg, 500);
+      });
+    });
+
+    container.querySelectorAll(".im-rrg-symbol-row-name").forEach((nameEl) => {
+      nameEl.addEventListener("click", () => {
+        const symbol = nameEl.closest(".im-rrg-symbol-row").dataset.symbol;
+        drillDownRrgIndex(symbol);
+      });
+    });
+  }
+
   function renderRrgSymbolPanel(filterText) {
     renderOneRrgSymbolList("im-rrg-symbols-list", filterText);
-    renderOneRrgSymbolList("im-rrg-below-symbols-list", filterText);
+    if (!imRrgDrilldownIndex) renderBelowSelectedList();
     if (typeof syncRrgSelectAllCheckboxes === "function") syncRrgSelectAllCheckboxes();
   }
 
