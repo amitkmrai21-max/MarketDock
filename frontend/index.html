@@ -1765,10 +1765,10 @@
         <article class="card index-hero">
           <div>
             <p class="eyebrow">Relative Rotation Graph &middot; NIFTY 50 benchmark</p>
-            <h2 class="index-title">Stock Rotation (RRG)</h2>
+            <h2 class="index-title">Sector &amp; Index Rotation</h2>
             <p class="subtitle">
-              Tracks how major stocks rotate through Leading, Weakening, Lagging, and Improving
-              quadrants relative to NIFTY 50. Not official JdK RRG and not financial advice.
+              Tick indices to plot on the RRG, or switch to Chart to view one index's own candles.
+              Not official JdK RRG and not financial advice.
             </p>
           </div>
         </article>
@@ -1776,11 +1776,14 @@
         <article class="card section-card">
           <div class="section-heading">
             <div>
-              <h2>Rotation Chart</h2>
+              <div class="im-rrg-mode-toggle">
+                <label><input type="radio" name="im-rrg-mode" value="rrg" checked /> RRG</label>
+                <label><input type="radio" name="im-rrg-mode" value="chart" /> Chart</label>
+              </div>
               <p id="im-rrg-status">Loading RRG data…</p>
             </div>
 
-           <div class="im-rrg-controls">
+            <div class="im-rrg-controls">
               <button class="im-rrg-timeframe-btn" type="button" data-rrg-timeframe="1h">1 Hour</button>
               <button class="im-rrg-timeframe-btn active" type="button" data-rrg-timeframe="1d">1 Day</button>
               <button class="im-rrg-run-btn" id="im-rrg-run-btn" type="button">&#9654; Run</button>
@@ -1790,18 +1793,38 @@
             </div>
           </div>
 
-          <div class="im-rrg-chart-wrap">
-            <canvas id="im-rrg-chart"></canvas>
-          </div>
+          <div class="im-rrg-layout">
+            <div class="im-rrg-symbols-panel">
+              <input type="text" id="im-rrg-search" class="im-rrg-search" placeholder="Search indices…" />
+              <div class="im-rrg-symbols-header">
+                <span></span>
+                <span>NAME</span>
+                <span>PRICE</span>
+                <span>% CHG</span>
+              </div>
+              <div class="im-rrg-symbols-list" id="im-rrg-symbols-list">
+                <div class="im-rrg-symbols-loading">Loading indices…</div>
+              </div>
+            </div>
 
-         <div class="im-rrg-legend">
-            <span class="im-rrg-legend-item im-rrg-leading">Leading</span>
-            <span class="im-rrg-legend-item im-rrg-weakening">Weakening</span>
-            <span class="im-rrg-legend-item im-rrg-lagging">Lagging</span>
-            <span class="im-rrg-legend-item im-rrg-improving">Improving</span>
-          </div>
+            <div class="im-rrg-main">
+              <div class="im-rrg-chart-wrap" id="im-rrg-rrg-view">
+                <canvas id="im-rrg-chart"></canvas>
+              </div>
 
-          <div class="im-rrg-symbol-list" id="im-rrg-symbol-list"></div>
+              <div class="im-rrg-chart-wrap" id="im-rrg-single-view" hidden>
+                <p id="im-rrg-single-title" class="im-rrg-single-title">Click an index in the list to view its chart</p>
+                <div id="im-rrg-single-chart" class="im-lightweight-chart"></div>
+              </div>
+
+              <div class="im-rrg-legend" id="im-rrg-quadrant-legend">
+                <span class="im-rrg-legend-item im-rrg-leading">Leading</span>
+                <span class="im-rrg-legend-item im-rrg-weakening">Weakening</span>
+                <span class="im-rrg-legend-item im-rrg-lagging">Lagging</span>
+                <span class="im-rrg-legend-item im-rrg-improving">Improving</span>
+              </div>
+            </div>
+          </div>
         </article>
       </section>
       
