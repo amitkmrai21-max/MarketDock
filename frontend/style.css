@@ -5157,6 +5157,23 @@ body[data-accent="green"] .settings-choice.active {
   margin-top: 18px;
 }
 
+.indian-market-mode .live-chart-layout.im-live-chart-full {
+  grid-template-columns: 1fr;
+}
+
+.indian-market-mode .im-chart-below-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+@media (max-width: 760px) {
+  .indian-market-mode .im-chart-below-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .indian-market-mode .chart-side-panel {
   display: grid;
   gap: 18px;
@@ -5196,7 +5213,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .im-lightweight-chart {
   position: relative;
   width: 100%;
-  min-height: 460px;
+  min-height: 600px;
   margin-top: 16px;
   overflow: hidden;
   border: 1px solid rgba(69, 182, 255, 0.28);
