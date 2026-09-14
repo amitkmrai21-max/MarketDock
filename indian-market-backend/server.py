@@ -1,5 +1,8 @@
 import os
 import time
+import re
+import csv
+import io
 from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
 
@@ -1030,7 +1033,10 @@ def build_rrg_data(interval, symbols=None):
 
     for symbol in plotted_symbols:
         try:
-            instrument_key = resolve_index_instrument_key(symbol)
+            is_known_index = symbol in RRG_AVAILABLE_SYMBOLS
+            instrument_key = (
+                resolve_index_instrument_key(symbol) if is_known_index else resolve_instrument_key(symbol)
+            )
             candles = fetch_upstox_candles(
                 instrument_key, config["unit"], config["step"],
                 chart_history_days=config["history_days"],
@@ -1114,13 +1120,94 @@ def build_rrg_data(interval, symbols=None):
     }
 
 
+INDEX_SLUG_OVERRIDES = {
+    "Nifty 50": "50", "Nifty Next 50": "junior", "Nifty 100": "100",
+    "Nifty 200": "200", "Nifty 500": "500", "Nifty Bank": "bank",
+    "Nifty Auto": "auto", "Nifty IT": "it", "Nifty Pharma": "pharma",
+    "Nifty FMCG": "fmcg", "Nifty Metal": "metal", "Nifty Realty": "realty",
+    "Nifty Energy": "energy", "Nifty Media": "media",
+    "Nifty PSU Bank": "psubank", "Nifty Private Bank": "pvtbank",
+    "Nifty Financial Services": "finance", "Nifty Infrastructure": "infra",
+    "Nifty Midcap 50": "midcap50", "Nifty Midcap 100": "midcap100",
+    "Nifty Midcap 150": "midcap150", "Nifty Smallcap 50": "smlcap50",
+    "Nifty Smallcap 100": "smlcap100", "Nifty Smallcap 250": "smallcap250",
+    "Nifty Oil & Gas": "oilgas", "Nifty Commodities": "commodities",
+    "Nifty Consumer Durables": "consumerdurables",
+    "Nifty India Consumption": "consumption",
+    "Nifty Healthcare Index": "healthcare",
+}
+
+_index_constituents_cache = {}
+CONSTITUENTS_CACHE_SECONDS = 3600  # constituent lists change rarely
+
+
+def derive_index_slug(index_name):
+    if index_name in INDEX_SLUG_OVERRIDES:
+        return INDEX_SLUG_OVERRIDES[index_name]
+    slug = index_name.replace("Nifty", "").replace("NIFTY", "")
+    slug = re.sub(r"[^a-zA-Z0-9]", "", slug).lower()
+    return slug
+
+
+def fetch_index_constituents(index_name):
+    """Fetches an index's real stock constituents from NSE Indices'
+    official published CSV (niftyindices.com) — never a guessed/fabricated
+    list. Returns [] (not an error) if the derived URL doesn't resolve,
+    since many niche index slugs can't be confirmed without NSE's own
+    lookup tool."""
+    cached = _index_constituents_cache.get(index_name)
+    if cached and time.time() - cached["fetched_at"] < CONSTITUENTS_CACHE_SECONDS:
+        return cached["data"]
+
+    slug = derive_index_slug(index_name)
+    url = f"https://www.niftyindices.com/IndexConstituent/ind_nifty{slug}list.csv"
+    headers = {"User-Agent": "Mozilla/5.0", "Accept": "text/csv,*/*"}
+
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        if not response.ok or "Company Name" not in response.text[:200]:
+            _index_constituents_cache[index_name] = {"data": [], "fetched_at": time.time()}
+            return []
+
+        reader = csv.DictReader(io.StringIO(response.text))
+        constituents = [
+            {"name": row.get("Company Name", "").strip(), "symbol": row.get("Symbol", "").strip()}
+            for row in reader
+            if row.get("Symbol", "").strip()
+        ]
+        _index_constituents_cache[index_name] = {"data": constituents, "fetched_at": time.time()}
+        return constituents
+    except Exception as error:
+        app.logger.warning("Could not fetch constituents for %s: %s", index_name, error)
+        _index_constituents_cache[index_name] = {"data": [], "fetched_at": time.time()}
+        return []
+
+
+@app.get("/api/index-constituents")
+def index_constituents():
+    index_name = request.args.get("index", "").strip()
+    if index_name not in RRG_AVAILABLE_SYMBOLS:
+        return jsonify({"ok": False, "error": "Unknown index."}), 404
+
+    constituents = fetch_index_constituents(index_name)
+    return jsonify(
+        {
+            "ok": True,
+            "index": index_name,
+            "constituents": constituents,
+            "available": bool(constituents),
+            "source": "NSE Indices (niftyindices.com)" if constituents else None,
+        }
+    )
+
+
 @app.get("/api/index-candles")
 def index_candles():
     symbol = request.args.get("symbol", "").strip()
     timeframe = request.args.get("timeframe", "1d").lower().strip()
 
-    if symbol not in RRG_AVAILABLE_SYMBOLS and symbol != RRG_BENCHMARK_SYMBOL:
-        return jsonify({"ok": False, "error": "Unknown symbol."}), 404
+    if not symbol:
+        return jsonify({"ok": False, "error": "Missing symbol."}), 400
 
     if timeframe not in UPSTOX_TIMEFRAMES:
         return jsonify({"ok": False, "error": "Unsupported timeframe. Use: 5m, 15m, 1h, or 1d."}), 400
@@ -1129,9 +1216,12 @@ def index_candles():
         return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
 
     try:
-        instrument_key = (
-            RRG_BENCHMARK_INSTRUMENT_KEY if symbol == RRG_BENCHMARK_SYMBOL else resolve_index_instrument_key(symbol)
-        )
+        if symbol == RRG_BENCHMARK_SYMBOL:
+            instrument_key = RRG_BENCHMARK_INSTRUMENT_KEY
+        elif symbol in RRG_AVAILABLE_SYMBOLS:
+            instrument_key = resolve_index_instrument_key(symbol)
+        else:
+            instrument_key = resolve_instrument_key(symbol)
         unit, interval = UPSTOX_TIMEFRAMES[timeframe]
         candles = fetch_upstox_candles(instrument_key, unit, interval, chart_history_days=90)
 
