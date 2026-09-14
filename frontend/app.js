@@ -4978,7 +4978,214 @@ function clearLiveChartAiOverlay() {
     new ResizeObserver(() => {
       if (!imLiveChart || !container.clientWidth) return;
       imLiveChart.applyOptions({ width: container.clientWidth });
+      scheduleImDrawingReposition();
     }).observe(container);
+
+    setupImDrawingTools();
+    loadSavedImDrawings();
+  }
+
+  // ===================== Indian Market drawing tools =====================
+  // Core subset (Cursor, Horizontal Line, Trend Line, Fibonacci Retracement,
+  // Clear) using the same patterns as the BTC live chart: horizontal lines
+  // use the native createPriceLine, trend lines use a native 2-point
+  // LineSeries, and fibonacci levels are drawn as SVG lines repositioned via
+  // timeToCoordinate/priceToCoordinate on every pan/zoom/resize.
+
+  const IM_DRAWING_STORAGE_KEY = "imChartDrawingsV1";
+  let imDrawingMode = "cursor";
+  let imDrawingColor = "#38bdf8";
+  let imUserDrawings = [];
+  let imDrawingPendingPoint = null;
+  let imDrawingRepositionFrame = null;
+
+  function getImDrawingOverlaySvg() {
+    return document.getElementById("im-drawing-overlay");
+  }
+
+  function setImDrawingToolHint(text) {
+    const hint = document.getElementById("im-drawing-tool-hint");
+    if (hint) hint.textContent = text || "";
+  }
+
+  function setImDrawingMode(mode) {
+    imDrawingMode = mode;
+    imDrawingPendingPoint = null;
+    document.querySelectorAll(".im-drawing-tool-btn[data-im-draw-tool]").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.imDrawTool === mode);
+    });
+    const hints = {
+      cursor: "",
+      horizontal: "Click the chart to place a horizontal line.",
+      trend: "Click the start point, then the end point.",
+      fibonacci: "Click the swing high, then the swing low (or reverse) to draw retracement levels."
+    };
+    setImDrawingToolHint(hints[mode] || "");
+  }
+
+  function saveImDrawings() {
+    try {
+      const serializable = imUserDrawings.map(({ id, type, color, price, t1, p1, t2, p2 }) => ({ id, type, color, price, t1, p1, t2, p2 }));
+      localStorage.setItem(IM_DRAWING_STORAGE_KEY, JSON.stringify(serializable));
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function scheduleImDrawingReposition() {
+    if (imDrawingRepositionFrame) return;
+    imDrawingRepositionFrame = window.requestAnimationFrame(imDrawingRepositionLoop);
+  }
+
+  function imDrawingRepositionLoop() {
+    repositionImDrawingOverlays();
+    const hasOverlayDrawings = imUserDrawings.some((d) => d.type === "trend" || d.type === "fibonacci");
+    imDrawingRepositionFrame = hasOverlayDrawings ? window.requestAnimationFrame(imDrawingRepositionLoop) : null;
+  }
+
+  function repositionImDrawingOverlays() {
+    if (!imLiveChart || !imLiveSeries) return;
+    imUserDrawings.forEach((drawing) => {
+      if (drawing.type === "fibonacci") {
+        const x1 = imLiveChart.timeScale().timeToCoordinate(drawing.t1);
+        const x2 = imLiveChart.timeScale().timeToCoordinate(drawing.t2);
+        if (x1 === null || x2 === null) return;
+        const left = Math.min(x1, x2);
+        const right = Math.max(x1, x2);
+        const high = Math.max(drawing.p1, drawing.p2);
+        const low = Math.min(drawing.p1, drawing.p2);
+        drawing.levelEls.forEach(({ line, text, level }) => {
+          const price = high - (high - low) * level.ratio;
+          const y = imLiveSeries.priceToCoordinate(price);
+          if (y === null) return;
+          line.setAttribute("x1", left);
+          line.setAttribute("x2", right);
+          line.setAttribute("y1", y);
+          line.setAttribute("y2", y);
+          text.setAttribute("x", right + 4);
+          text.setAttribute("y", y + 4);
+          text.textContent = `${level.label} — ${formatNumber(price)}`;
+        });
+      }
+    });
+  }
+
+  function imAddDrawing(type, points, color, persist = true) {
+    if (!imLiveChart || !imLiveSeries || !window.LightweightCharts) return null;
+    const id = `im${Date.now()}${Math.random().toString(16).slice(2, 6)}`;
+    const drawing = { id, type, color, ...points };
+
+    if (type === "horizontal") {
+      const numericPrice = Number(points.price);
+      if (!Number.isFinite(numericPrice) || numericPrice <= 0) return null;
+      drawing.ref = imLiveSeries.createPriceLine({
+        price: numericPrice,
+        color,
+        lineWidth: 1,
+        lineStyle: LightweightCharts.LineStyle.Solid,
+        axisLabelVisible: true,
+        title: "H-Line"
+      });
+    } else if (type === "trend") {
+      if (points.t1 === points.t2) return null;
+      const series = imLiveChart.addLineSeries({
+        color,
+        lineWidth: 2,
+        lineStyle: LightweightCharts.LineStyle.Solid,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false
+      });
+      const ordered = points.t1 <= points.t2
+        ? [{ time: points.t1, value: points.p1 }, { time: points.t2, value: points.p2 }]
+        : [{ time: points.t2, value: points.p2 }, { time: points.t1, value: points.p1 }];
+      series.setData(ordered);
+      drawing.ref = series;
+    } else if (type === "fibonacci") {
+      if (points.t1 === points.t2 || points.p1 === points.p2) return null;
+      const svg = getImDrawingOverlaySvg();
+      if (!svg) return null;
+      drawing.levelEls = FIB_LEVELS.map((level) => {
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("stroke", level.color);
+        line.setAttribute("stroke-width", level.ratio === 0.5 || level.ratio === 0.618 ? "2" : "1.5");
+        svg.appendChild(line);
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("fill", level.color);
+        text.setAttribute("font-size", "11");
+        text.setAttribute("font-weight", "700");
+        svg.appendChild(text);
+        return { line, text, level };
+      });
+    }
+
+    imUserDrawings.push(drawing);
+    if (persist) saveImDrawings();
+    scheduleImDrawingReposition();
+    return drawing;
+  }
+
+  function clearAllImDrawings() {
+    imUserDrawings.forEach((drawing) => {
+      if (drawing.type === "horizontal" && drawing.ref) imLiveSeries.removePriceLine(drawing.ref);
+      else if (drawing.type === "trend" && drawing.ref) imLiveChart.removeSeries(drawing.ref);
+      else if (drawing.type === "fibonacci" && drawing.levelEls) {
+        drawing.levelEls.forEach(({ line, text }) => { line.remove(); text.remove(); });
+      }
+    });
+    imUserDrawings = [];
+    saveImDrawings();
+  }
+
+  function loadSavedImDrawings() {
+    try {
+      const raw = localStorage.getItem(IM_DRAWING_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      saved.forEach((d) => imAddDrawing(d.type, d, d.color, false));
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function handleImChartClick(param) {
+    if (imDrawingMode === "cursor" || !param.point || !param.time || !imLiveSeries) return;
+    const price = imLiveSeries.coordinateToPrice(param.point.y);
+    if (price === null) return;
+
+    if (imDrawingMode === "horizontal") {
+      imAddDrawing("horizontal", { price }, imDrawingColor);
+      setImDrawingMode("cursor");
+      return;
+    }
+
+    if (!imDrawingPendingPoint) {
+      imDrawingPendingPoint = { time: param.time, price };
+      setImDrawingToolHint("Click the second point to finish.");
+      return;
+    }
+
+    const points = { t1: imDrawingPendingPoint.time, p1: imDrawingPendingPoint.price, t2: param.time, p2: price };
+    imAddDrawing(imDrawingMode, points, imDrawingColor);
+    imDrawingPendingPoint = null;
+    setImDrawingMode("cursor");
+  }
+
+  function setupImDrawingTools() {
+    if (!imLiveChart) return;
+    imLiveChart.subscribeClick(handleImChartClick);
+
+    document.querySelectorAll(".im-drawing-tool-btn[data-im-draw-tool]").forEach((btn) => {
+      btn.addEventListener("click", () => setImDrawingMode(btn.dataset.imDrawTool));
+    });
+
+    const colorPicker = document.getElementById("im-drawing-color-picker");
+    if (colorPicker) {
+      colorPicker.addEventListener("input", () => { imDrawingColor = colorPicker.value; });
+    }
+
+    const clearBtn = document.getElementById("im-clear-drawings-btn");
+    if (clearBtn) clearBtn.addEventListener("click", clearAllImDrawings);
   }
 
   function renderLiveChartCandles(candles) {
