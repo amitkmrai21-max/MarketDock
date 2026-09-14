@@ -4278,11 +4278,13 @@ function clearLiveChartAiOverlay() {
       .join("");
   }
 
-  function renderImRrg(data, revealCount) {
+  function renderImRrg(data, windowStart) {
     const canvas = document.getElementById("im-rrg-chart");
     if (!canvas || !Array.isArray(data?.trails)) return;
     if (imRrgChart) imRrgChart.destroy();
     renderImRrgSymbolList(data);
+
+    const windowSize = data.display_window || 8;
 
     const all = data.trails.flatMap((t) => (Array.isArray(t.points) ? t.points : []));
     const xs = all.map((p) => Number(p.x)).filter(Number.isFinite);
@@ -4297,7 +4299,8 @@ function clearLiveChartAiOverlay() {
     const datasets = data.trails.map((t) => {
       const color = getImRrgColor(t.symbol);
       const points = Array.isArray(t.points) ? t.points : [];
-      const visible = revealCount ? points.slice(0, revealCount) : points;
+      const start = windowStart === undefined ? Math.max(0, points.length - windowSize) : windowStart;
+      const visible = points.slice(start, start + windowSize);
       const last = visible.length - 1;
       return {
         label: t.symbol,
@@ -4376,13 +4379,14 @@ function clearLiveChartAiOverlay() {
     }
   }
 
-  function updateImRrgFrame(data, revealCount) {
+  function updateImRrgFrame(data, windowStart) {
     if (!imRrgChart) return;
+    const windowSize = data.display_window || 8;
     imRrgChart.data.datasets.forEach((dataset, index) => {
       const trail = data.trails[index];
       if (!trail) return;
       const points = Array.isArray(trail.points) ? trail.points : [];
-      const visible = points.slice(0, revealCount);
+      const visible = points.slice(windowStart, windowStart + windowSize);
       const last = visible.length - 1;
       dataset.data = visible.map((p, i) => ({
         x: Number(p.x),
@@ -4397,26 +4401,29 @@ function clearLiveChartAiOverlay() {
 
   function runImRrgAnimation() {
     if (!imRrgData || imRrgAnimTimer) return;
+    const windowSize = imRrgData.display_window || 8;
     const maxLen = Math.max(1, ...imRrgData.trails.map((t) => (t.points || []).length));
+    const lastWindowStart = Math.max(0, maxLen - windowSize);
     const runBtn = document.getElementById("im-rrg-run-btn");
     if (runBtn) runBtn.disabled = true;
 
-    // Start from frame 1 (fresh render so dataset order/colors match), then
-    // smoothly update the same chart instance frame by frame — Chart.js
-    // animates the point transitions itself, giving a fluid rotation
-    // instead of the chart flashing/rebuilding on every step.
-    let step = 1;
-    renderImRrg(imRrgData, step);
+    // Slide a fixed-size window across the full history (oldest points drop
+    // off the back as new ones appear at the front) instead of just growing
+    // a trail longer and longer — this is what gives a real RRG "Play" its
+    // smooth, continuously-flowing rotation instead of an ever-lengthening,
+    // erratic-looking path.
+    let windowStart = 0;
+    renderImRrg(imRrgData, windowStart);
 
     imRrgAnimTimer = window.setInterval(() => {
-      step += 1;
-      if (step > maxLen) {
+      windowStart += 1;
+      if (windowStart > lastWindowStart) {
         window.clearInterval(imRrgAnimTimer);
         imRrgAnimTimer = null;
         if (runBtn) runBtn.disabled = false;
         return;
       }
-      updateImRrgFrame(imRrgData, step);
+      updateImRrgFrame(imRrgData, windowStart);
     }, 500);
   }
 
