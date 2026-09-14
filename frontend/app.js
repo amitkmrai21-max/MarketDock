@@ -3849,6 +3849,12 @@ function clearLiveChartAiOverlay() {
       return;
     }
 
+    const bb = data.indicators.bollinger_bands || {};
+    const st = data.indicators.supertrend || {};
+    const adx = data.indicators.adx || {};
+    const stoch = data.indicators.stochastic || {};
+    const pivots = data.indicators.pivot_points || {};
+
     const metrics = [
       ["Price", formatNumber(data.price)],
       ["Change", `${data.change_percent >= 0 ? "+" : ""}${data.change_percent}%`],
@@ -3859,7 +3865,12 @@ function clearLiveChartAiOverlay() {
       ["EMA 9 / 21", `${formatNumber(data.indicators.ema_9)} / ${formatNumber(data.indicators.ema_21)}`],
       ["VWAP", formatNumber(data.indicators.vwap)],
       ["Volume Ratio", `${data.indicators.volume_ratio}x`],
-      ["ATR 14", formatNumber(data.indicators.atr_14)]
+      ["ATR 14", formatNumber(data.indicators.atr_14)],
+      ["Bollinger Bands", `${formatNumber(bb.lower)} / ${formatNumber(bb.middle)} / ${formatNumber(bb.upper)}`],
+      ["Supertrend", `${formatNumber(st.value)} (${st.trend || "--"})`],
+      ["ADX / +DI / -DI", `${adx.adx ?? "--"} / ${adx.plus_di ?? "--"} / ${adx.minus_di ?? "--"}`],
+      ["Stochastic %K/%D", `${stoch.k ?? "--"} / ${stoch.d ?? "--"}`],
+      ["Pivot (R1/S1)", `${formatNumber(pivots.pivot)} (${formatNumber(pivots.r1)} / ${formatNumber(pivots.s1)})`]
     ];
 
     grid.innerHTML = metrics
