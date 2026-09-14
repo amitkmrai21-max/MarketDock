@@ -4588,6 +4588,8 @@ function clearLiveChartAiOverlay() {
 
   let imRrgSelectionDebounce = null;
 
+  let imRrgPanelEverLoaded = false;
+
   async function loadImRrgSymbolPanel() {
     try {
       const [symbolsRes, quotesRes] = await Promise.all([
@@ -4596,8 +4598,9 @@ function clearLiveChartAiOverlay() {
       ]);
       if (symbolsRes.ok) {
         imRrgAllSymbols = symbolsRes.symbols || [];
-        if (!imRrgSelectedSymbols.size) {
+        if (!imRrgPanelEverLoaded) {
           imRrgSelectedSymbols = new Set(symbolsRes.default_selected || []);
+          imRrgPanelEverLoaded = true;
         }
       }
       if (quotesRes.ok) {
