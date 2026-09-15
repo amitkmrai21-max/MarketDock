@@ -5268,6 +5268,97 @@ body[data-accent="green"] .settings-choice.active {
   color: #ff6f7d;
 }
 
+.indian-market-mode .im-news-list {
+  display: grid;
+  gap: 12px;
+}
+
+.indian-market-mode .im-news-item {
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(29, 54, 85, 0.72);
+  background: rgba(16, 36, 61, 0.4);
+}
+
+.indian-market-mode .im-news-item a {
+  color: var(--im-text);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  line-height: 1.4;
+}
+
+.indian-market-mode .im-news-item a:hover {
+  color: var(--blue, #45b6ff);
+  text-decoration: underline;
+}
+
+.indian-market-mode .im-news-meta {
+  margin: 6px 0 8px;
+  color: var(--im-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.indian-market-mode .im-news-summary {
+  margin: 0;
+  color: var(--im-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.indian-market-mode .im-news-translate-btn {
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(69, 182, 255, 0.3);
+  background: rgba(69, 182, 255, 0.1);
+  color: var(--im-text);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.indian-market-mode .im-news-translate-btn:hover:not(:disabled) {
+  border-color: rgba(69, 182, 255, 0.7);
+  background: rgba(69, 182, 255, 0.2);
+}
+
+.indian-market-mode .im-news-translate-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.indian-market-mode .im-news-hindi {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  background: rgba(251, 191, 36, 0.07);
+}
+
+.indian-market-mode .im-news-hindi strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--im-text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.indian-market-mode .im-news-hindi p {
+  margin: 0;
+  color: var(--im-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.indian-market-mode .im-news-translate-error {
+  color: #ff6f7d !important;
+}
+
 .indian-market-mode .live-chart-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.8fr);

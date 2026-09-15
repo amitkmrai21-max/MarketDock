@@ -3,9 +3,11 @@ import time
 import re
 import csv
 import io
+import json
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
+from email.utils import parsedate_to_datetime
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
@@ -1841,6 +1843,230 @@ Rules:
             {
                 "ok": False,
                 "error": "AI coaching is temporarily unavailable. Please try again later.",
+            }
+        ), 502
+
+
+INDIA_NEWS_SOURCES = [
+    {"name": "Economic Times Markets", "url": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"},
+    {"name": "Business Standard Markets", "url": "https://www.business-standard.com/rss/markets-106.rss"},
+    {"name": "Livemint Markets", "url": "https://www.livemint.com/rss/markets"},
+]
+INDIA_NEWS_CACHE_SECONDS = 180
+india_news_cache = {"data": None, "updated_at": 0}
+
+
+def strip_html_tags(text):
+    text = str(text or "")
+    text = re.sub(r"<[^>]+>", " ", text)
+    replacements = {"&nbsp;": " ", "&amp;": "&", "&quot;": '"', "&#39;": "'", "&lt;": "<", "&gt;": ">"}
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return " ".join(text.split())
+
+
+def parse_rss_time(value):
+    if not value:
+        return None
+    try:
+        parsed = parsedate_to_datetime(value)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+    except (TypeError, ValueError, IndexError):
+        return None
+
+
+def format_rss_time(value):
+    parsed = parse_rss_time(value)
+    return parsed.strftime("%d %b %Y, %I:%M %p UTC") if parsed else "Published time unavailable"
+
+
+def get_xml_tag_text(node, tag_name):
+    tag = node.find(tag_name)
+    return tag.text.strip() if tag is not None and tag.text else ""
+
+
+def fetch_india_market_news():
+    import xml.etree.ElementTree as element_tree
+
+    collected, seen_urls = [], set()
+    now = datetime.now(timezone.utc)
+    keywords = (
+        "nifty", "sensex", "bse", "nse", "rupee", "rbi", "sebi", "ipo", "share", "stock",
+        "market", "index", "earnings", "results", "f&o", "futures", "options", "fii", "dii",
+        "bank nifty", "commodity", "gold", "crude",
+    )
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; IndianMarketAI-News/1.0)",
+        "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+    }
+
+    for source in INDIA_NEWS_SOURCES:
+        source_name, source_url = source.get("name", "Market news"), source.get("url", "")
+        try:
+            response = requests.get(source_url, timeout=12, headers=headers)
+            response.raise_for_status()
+            root = element_tree.fromstring(response.content)
+
+            for item in root.findall(".//item")[:40]:
+                headline = strip_html_tags(get_xml_tag_text(item, "title"))
+                url = get_xml_tag_text(item, "link")
+                description = strip_html_tags(get_xml_tag_text(item, "description"))
+                published_raw = get_xml_tag_text(item, "pubDate")
+                published_at = parse_rss_time(published_raw)
+
+                if not headline or not url.startswith(("https://", "http://")):
+                    continue
+
+                normalized_url = url.split("?")[0].rstrip("/")
+                if normalized_url in seen_urls:
+                    continue
+
+                searchable = f"{headline} {description}".lower()
+                if not any(keyword in searchable for keyword in keywords):
+                    continue
+
+                if published_at and (now - published_at).total_seconds() > 2 * 24 * 60 * 60:
+                    continue
+
+                seen_urls.add(normalized_url)
+                collected.append(
+                    {
+                        "headline": headline[:260],
+                        "source": source_name,
+                        "url": url[:1000],
+                        "published_time": format_rss_time(published_raw),
+                        "summary": description[:400] if description else "Open the original article for the publisher summary.",
+                        "_published_at": published_at.timestamp() if published_at else 0,
+                    }
+                )
+        except (requests.exceptions.RequestException, ValueError) as error:
+            app.logger.warning("India market news source unavailable (%s): %s", source_name, error)
+
+    collected.sort(key=lambda item: item.get("_published_at", 0), reverse=True)
+    result = []
+    for item in collected[:40]:
+        item.pop("_published_at", None)
+        result.append(item)
+    return result
+
+
+@app.get("/api/market-news")
+def market_news():
+    now = time.time()
+
+    if india_news_cache["data"] is not None and (now - india_news_cache["updated_at"]) < INDIA_NEWS_CACHE_SECONDS:
+        items = india_news_cache["data"]
+    else:
+        items = fetch_india_market_news()
+        if items:
+            india_news_cache["data"] = items
+            india_news_cache["updated_at"] = now
+        elif india_news_cache["data"] is not None:
+            items = india_news_cache["data"]
+
+    if not items:
+        return jsonify(
+            {
+                "ok": False,
+                "error": "No recent market news could be loaded right now. Please try again shortly.",
+            }
+        ), 502
+
+    return jsonify(
+        {
+            "ok": True,
+            "generated_at": now_utc(),
+            "count": len(items),
+            "items": items,
+            "disclaimer": "Publisher RSS headlines shown for research context only. Not financial advice.",
+        }
+    )
+
+
+def parse_json_from_model(text):
+    cleaned = str(text or "").strip()
+
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.IGNORECASE).strip()
+
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        cleaned = cleaned[start : end + 1]
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as error:
+        raise ValueError("AI returned invalid JSON.") from error
+
+
+@app.post("/api/news/translate")
+def translate_news_to_hindi():
+    payload = request.get_json(silent=True) or {}
+    headline = str(payload.get("headline", "")).strip()[:300]
+    summary = str(payload.get("summary", "")).strip()[:1200]
+    source = str(payload.get("source", "")).strip()[:100]
+
+    if not headline:
+        return jsonify({"ok": False, "error": "News headline is required for translation."}), 400
+
+    if not GEMINI_API_KEY:
+        return jsonify({"ok": False, "error": "Gemini is not configured on the server."}), 503
+
+    prompt = f"""Translate this Indian stock-market news headline and publisher summary into simple, natural
+Hindi in Devanagari script. Preserve company names, numbers, tickers, index names (NIFTY, SENSEX, Bank
+Nifty, etc.), prices, and dates exactly as given. Do not add predictions, advice, or any fact not present
+in the original text.
+
+Source: {source}
+Headline: {headline}
+Summary: {summary}
+
+Return only one JSON object and nothing else, in this exact shape:
+{{"headline_hi": "...", "summary_hi": "..."}}
+"""
+
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+        result = parse_json_from_model(response.text)
+
+        headline_hi = str(result.get("headline_hi", "")).strip()
+        summary_hi = str(result.get("summary_hi", "")).strip()
+
+        if not headline_hi:
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "Gemini returned an empty Hindi translation. Please try again.",
+                }
+            ), 502
+
+        return jsonify(
+            {
+                "ok": True,
+                "headline_hi": headline_hi,
+                "summary_hi": summary_hi,
+                "provider": "GEMINI",
+            }
+        )
+
+    except ValueError:
+        return jsonify(
+            {
+                "ok": False,
+                "error": "Gemini returned an unexpected response. Please try again.",
+            }
+        ), 502
+    except Exception:
+        app.logger.exception("Hindi news translation failed")
+
+        return jsonify(
+            {
+                "ok": False,
+                "error": "Hindi translation is temporarily unavailable. Please try again later.",
             }
         ), 502
 

@@ -1193,6 +1193,11 @@
           Watchlist
         </button>
 
+        <button class="nav-button" data-page="im-news" type="button">
+          <span class="nav-icon">&#128240;</span>
+          News
+        </button>
+
         <p class="nav-label">Journal</p>
 
        <button class="nav-button" data-page="im-live-chart" type="button">
@@ -1612,7 +1617,33 @@
           </div>
         </article>
       </section>
-      
+
+      <section class="page" id="im-news">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow">Publisher RSS &middot; Economic Times, Business Standard, Livemint</p>
+            <h2 class="index-title">Market News</h2>
+            <p class="subtitle">
+              Latest Indian equity-market headlines from financial publishers. Research context only — not financial advice.
+            </p>
+          </div>
+          <button class="setup-badge" id="im-news-refresh-btn" type="button" style="cursor:pointer;">Refresh</button>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <h2>Latest Headlines</h2>
+              <p id="im-news-updated">Loading market news…</p>
+            </div>
+          </div>
+
+          <div id="im-news-list" class="im-news-list">
+            <p class="empty-note">Loading market news…</p>
+          </div>
+        </article>
+      </section>
+
             <section class="page" id="im-live-chart">
         <article class="card index-hero">
           <div>

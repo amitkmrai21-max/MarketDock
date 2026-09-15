@@ -3634,6 +3634,10 @@ function clearLiveChartAiOverlay() {
       title: "Watchlist",
       subtitle: "Live last-traded price for popular NSE stocks."
     },
+    "im-news": {
+      title: "Market News",
+      subtitle: "Latest Indian equity-market headlines from financial publishers."
+    },
     "im-live-chart": {
       title: "Live Market Chart",
       subtitle: "Custom chart workspace for NIFTY 50 and Bank Nifty."
@@ -3692,6 +3696,10 @@ function clearLiveChartAiOverlay() {
 
     if (pageId === "im-rrg" && typeof fetchImRrg === "function") {
       loadImRrgSymbolPanel().then(fetchImRrg);
+    }
+
+    if (pageId === "im-news" && typeof loadImMarketNews === "function") {
+      loadImMarketNews();
     }
   }
 
@@ -4848,6 +4856,126 @@ function clearLiveChartAiOverlay() {
       window.clearInterval(watchlistTimer);
       watchlistTimer = null;
     }
+  }
+
+  // ===================== Indian Market news =====================
+  // Plain publisher RSS headlines (Economic Times / Business Standard / Livemint markets
+  // feeds), fetched via the backend so the browser doesn't need to deal with RSS/XML or
+  // CORS directly. Cached client-side per session; the Refresh button forces a re-fetch.
+
+  let imNewsLoaded = false;
+  let imNewsItems = [];
+
+  async function loadImMarketNews(forceRefresh = false) {
+    if (imNewsLoaded && !forceRefresh) return;
+
+    const listEl = document.getElementById("im-news-list");
+    const updatedEl = document.getElementById("im-news-updated");
+    const refreshBtn = document.getElementById("im-news-refresh-btn");
+
+    if (refreshBtn) refreshBtn.disabled = true;
+    if (updatedEl) updatedEl.textContent = "Loading market news...";
+    if (listEl) listEl.innerHTML = '<p class="empty-note">Loading market news...</p>';
+
+    try {
+      const response = await fetch("https://indian-market-ai-api.onrender.com/api/market-news");
+      const result = await response.json();
+
+      if (!response.ok || !result.ok || !Array.isArray(result.items)) {
+        throw new Error(result.error || "Market news request failed.");
+      }
+
+      imNewsLoaded = true;
+      imNewsItems = result.items;
+
+      if (updatedEl) {
+        updatedEl.textContent = `${result.count} headlines - Updated ${new Date(result.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      }
+
+      if (listEl) {
+        if (!result.items.length) {
+          listEl.innerHTML = '<p class="empty-note">No recent market headlines found. Please try refreshing shortly.</p>';
+        } else {
+          listEl.innerHTML = result.items
+            .map(
+              (item, index) => `
+                <div class="im-news-item">
+                  <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.headline)}</a>
+                  <p class="im-news-meta">${escapeHtml(item.source)} &middot; ${escapeHtml(item.published_time)}</p>
+                  <p class="im-news-summary">${escapeHtml(item.summary)}</p>
+                  <button class="im-news-translate-btn" type="button" data-news-translate="${index}">&#127760; हिंदी में पढ़ें</button>
+                  <div class="im-news-hindi" data-news-hindi="${index}" hidden></div>
+                </div>
+              `
+            )
+            .join("");
+        }
+      }
+    } catch (error) {
+      if (updatedEl) updatedEl.textContent = "Market news unavailable";
+      if (listEl) {
+        listEl.innerHTML = `<p class="empty-note">${escapeHtml(error.message || "Could not load market news. Please try again shortly.")}</p>`;
+      }
+    } finally {
+      if (refreshBtn) refreshBtn.disabled = false;
+    }
+  }
+
+  const imNewsRefreshBtn = document.getElementById("im-news-refresh-btn");
+  if (imNewsRefreshBtn) {
+    imNewsRefreshBtn.addEventListener("click", () => loadImMarketNews(true));
+  }
+
+  async function handleImNewsTranslateClick(button) {
+    const index = Number(button.dataset.newsTranslate);
+    const item = imNewsItems[index];
+    const hindiEl = document.querySelector(`[data-news-hindi="${index}"]`);
+    if (!item || !hindiEl) return;
+
+    if (hindiEl.dataset.loaded === "true") {
+      const nowHidden = !hindiEl.hidden;
+      hindiEl.hidden = nowHidden;
+      button.textContent = nowHidden ? "\u{1F310} हिंदी में पढ़ें" : "\u{1F310} अंग्रेज़ी में वापस जाएं";
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "अनुवाद हो रहा है...";
+
+    try {
+      const response = await fetch("https://indian-market-ai-api.onrender.com/api/news/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ headline: item.headline, summary: item.summary, source: item.source })
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || "Hindi translation failed.");
+      }
+
+      hindiEl.innerHTML = `
+        <strong>${escapeHtml(result.headline_hi)}</strong>
+        ${result.summary_hi ? `<p>${escapeHtml(result.summary_hi)}</p>` : ""}
+      `;
+      hindiEl.dataset.loaded = "true";
+      hindiEl.hidden = false;
+      button.textContent = "\u{1F310} अंग्रेज़ी में वापस जाएं";
+    } catch (error) {
+      hindiEl.innerHTML = `<p class="im-news-translate-error">${escapeHtml(error.message || "Hindi translation failed. Please try again.")}</p>`;
+      hindiEl.hidden = false;
+      button.textContent = "\u{1F310} फिर कोशिश करें";
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  const imNewsListEl = document.getElementById("im-news-list");
+  if (imNewsListEl) {
+    imNewsListEl.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-news-translate]");
+      if (button) handleImNewsTranslateClick(button);
+    });
   }
 
   let selectedChartMarket = "nifty";
