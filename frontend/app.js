@@ -3638,6 +3638,10 @@ function clearLiveChartAiOverlay() {
       title: "Market News",
       subtitle: "Latest Indian equity-market headlines from financial publishers."
     },
+    "im-alerts": {
+      title: "Price & Signal Alerts",
+      subtitle: "Browser alerts for NIFTY 50 / Bank Nifty price targets and decision changes."
+    },
     "im-live-chart": {
       title: "Live Market Chart",
       subtitle: "Custom chart workspace for NIFTY 50 and Bank Nifty."
@@ -3700,6 +3704,10 @@ function clearLiveChartAiOverlay() {
 
     if (pageId === "im-news" && typeof loadImMarketNews === "function") {
       loadImMarketNews();
+    }
+
+    if (pageId === "im-alerts" && typeof renderImAlerts === "function") {
+      renderImAlerts();
     }
   }
 
@@ -4038,6 +4046,9 @@ function clearLiveChartAiOverlay() {
     renderTechnicalMetrics(marketKey, data);
     renderConfirmations(marketKey, data);
     renderTradePlan(marketKey, data);
+
+    if (typeof checkImPriceAlerts === "function") checkImPriceAlerts(marketKey, data.price);
+    if (typeof checkImSignalAlert === "function") checkImSignalAlert(marketKey, data.decision.label);
   }
 
   function renderApiError(marketKey) {
@@ -4977,6 +4988,328 @@ function clearLiveChartAiOverlay() {
       if (button) handleImNewsTranslateClick(button);
     });
   }
+
+  // ===================== Indian Market price & signal alerts =====================
+  // Mirrors the BTC-side alert architecture (browser Notification API, checked on
+  // every technical-engine refresh while this tab is open — no background push
+  // service). Supports multiple price alerts across both NIFTY 50 and Bank Nifty,
+  // plus a single decision-change (BUY/SELL/HOLD) toggle covering both indices.
+
+  const IM_ALERT_SETTINGS_KEY = "imAlertSettingsV1";
+  const IM_ALERT_RUNTIME_KEY = "imAlertRuntimeV1";
+  const IM_PRICE_ALERTS_KEY = "imPriceAlertsV1";
+  const IM_MARKET_LABELS = { nifty: "NIFTY 50", banknifty: "Bank Nifty" };
+
+  function getImAlertSettings() {
+    try {
+      return { signalChangeEnabled: true, ...(JSON.parse(localStorage.getItem(IM_ALERT_SETTINGS_KEY)) || {}) };
+    } catch (error) {
+      return { signalChangeEnabled: true };
+    }
+  }
+
+  function saveImAlertSettings(settings) {
+    try {
+      localStorage.setItem(IM_ALERT_SETTINGS_KEY, JSON.stringify(settings));
+    } catch (error) { /* ignore */ }
+  }
+
+  function getImAlertRuntime() {
+    try {
+      return { lastPriceByMarket: {}, previousDecisionByMarket: {}, lastAlertMessage: "", lastAlertAt: null, ...(JSON.parse(localStorage.getItem(IM_ALERT_RUNTIME_KEY)) || {}) };
+    } catch (error) {
+      return { lastPriceByMarket: {}, previousDecisionByMarket: {}, lastAlertMessage: "", lastAlertAt: null };
+    }
+  }
+
+  function saveImAlertRuntime(runtime) {
+    try {
+      localStorage.setItem(IM_ALERT_RUNTIME_KEY, JSON.stringify(runtime));
+    } catch (error) { /* ignore */ }
+  }
+
+  function getImPriceAlerts() {
+    try {
+      return JSON.parse(localStorage.getItem(IM_PRICE_ALERTS_KEY)) || [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveImPriceAlerts(alerts) {
+    try {
+      localStorage.setItem(IM_PRICE_ALERTS_KEY, JSON.stringify(alerts));
+    } catch (error) { /* ignore */ }
+  }
+
+  function getImNotificationPermission() {
+    if (!("Notification" in window)) return "unsupported";
+    return Notification.permission;
+  }
+
+  function updateImNotificationUi(message = "") {
+    const badge = document.getElementById("im-notification-permission-badge");
+    const status = document.getElementById("im-notification-status");
+    const enableButton = document.getElementById("im-enable-notifications-btn");
+    const testButton = document.getElementById("im-test-notification-btn");
+    const permission = getImNotificationPermission();
+
+    const labels = {
+      granted: "Notifications: Enabled",
+      denied: "Notifications: Blocked",
+      default: "Notifications: Permission needed",
+      unsupported: "Notifications: Unsupported"
+    };
+
+    if (badge) {
+      badge.textContent = labels[permission] || labels.default;
+      badge.className = `notification-permission-badge notification-${permission}`;
+    }
+    if (enableButton) {
+      enableButton.hidden = permission === "granted" || permission === "unsupported";
+      enableButton.disabled = permission === "denied";
+    }
+    if (testButton) testButton.disabled = permission !== "granted";
+
+    if (status) {
+      if (message) {
+        status.textContent = message;
+      } else if (permission === "granted") {
+        status.textContent = "Browser alerts are enabled for this dashboard while it remains open.";
+      } else if (permission === "denied") {
+        status.textContent = "Notifications are blocked in browser settings. Allow notifications for this site, then reload.";
+      } else if (permission === "unsupported") {
+        status.textContent = "This browser does not support desktop/browser notifications.";
+      } else {
+        status.textContent = "Enable browser alerts to receive price and decision-change notifications.";
+      }
+    }
+  }
+
+  function sendImBrowserAlert(title, body, tag) {
+    const runtime = getImAlertRuntime();
+    const message = `${title}: ${body}`;
+    runtime.lastAlertMessage = message;
+    runtime.lastAlertAt = Date.now();
+    saveImAlertRuntime(runtime);
+
+    const lastAlertEl = document.getElementById("im-last-alert-status");
+    if (lastAlertEl) {
+      lastAlertEl.textContent = `${message} • ${new Date(runtime.lastAlertAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+    }
+
+    if (getImNotificationPermission() !== "granted") {
+      updateImNotificationUi("Alert condition detected, but browser notifications are not enabled.");
+      return;
+    }
+
+    try {
+      const notification = new Notification(title, { body, tag, renotify: true });
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    } catch (error) {
+      console.error(error);
+      updateImNotificationUi("Browser could not display the notification.");
+    }
+  }
+
+  async function requestImBrowserNotifications() {
+    if (!("Notification" in window)) {
+      updateImNotificationUi("This browser does not support desktop/browser notifications.");
+      return;
+    }
+    if (Notification.permission === "denied") {
+      updateImNotificationUi("Notifications are blocked. Open browser site settings, allow notifications, then reload.");
+      return;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      updateImNotificationUi(permission === "granted" ? "Browser alerts enabled. Use Test Alert to verify." : "Permission was not granted. Alerts will remain on-screen only.");
+    } catch (error) {
+      console.error(error);
+      updateImNotificationUi("Could not request notification permission.");
+    }
+  }
+
+  function renderImPriceAlertsTable() {
+    const body = document.getElementById("im-price-alert-table-body");
+    const empty = document.getElementById("im-price-alert-empty");
+    const alerts = getImPriceAlerts();
+
+    if (empty) empty.style.display = alerts.length ? "none" : "block";
+    if (!body) return;
+
+    body.innerHTML = alerts
+      .map(
+        (alert) => `
+          <tr>
+            <td>${escapeHtml(IM_MARKET_LABELS[alert.market] || alert.market)}</td>
+            <td>${alert.direction === "above" ? "At or above" : "At or below"}</td>
+            <td>${formatNumber(alert.target)}</td>
+            <td><button class="delete-trade-button" type="button" data-delete-alert-id="${alert.id}">Delete</button></td>
+          </tr>
+        `
+      )
+      .join("");
+  }
+
+  function renderImAlerts() {
+    const settings = getImAlertSettings();
+    const runtime = getImAlertRuntime();
+    const signalToggle = document.getElementById("im-signal-change-toggle");
+    if (signalToggle) signalToggle.checked = settings.signalChangeEnabled;
+
+    const lastAlertEl = document.getElementById("im-last-alert-status");
+    if (lastAlertEl) {
+      lastAlertEl.textContent = runtime.lastAlertMessage
+        ? `${runtime.lastAlertMessage} • ${new Date(runtime.lastAlertAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
+        : "No alert triggered yet.";
+    }
+
+    renderImPriceAlertsTable();
+    updateImNotificationUi();
+  }
+
+  function checkImPriceAlerts(marketKey, price) {
+    const currentPrice = Number(price);
+    if (!Number.isFinite(currentPrice) || currentPrice <= 0) return;
+
+    const alerts = getImPriceAlerts();
+    const runtime = getImAlertRuntime();
+    const previousPrice = Number(runtime.lastPriceByMarket[marketKey]);
+    let changed = false;
+    // Notifications are collected here and fired only after all local state below is
+    // persisted — sendImBrowserAlert does its own read-modify-write of the alert
+    // runtime (to record the "last alert" message), so firing it before this
+    // function's own final saveImAlertRuntime() would have that save clobber it.
+    const notifications = [];
+
+    alerts.forEach((alert) => {
+      if (alert.market !== marketKey) return;
+
+      if (
+        alert.direction === "above" &&
+        currentPrice >= alert.target &&
+        alert.triggeredFor !== alert.target &&
+        (!Number.isFinite(previousPrice) || previousPrice < alert.target)
+      ) {
+        alert.triggeredFor = alert.target;
+        changed = true;
+        notifications.push({
+          title: `${IM_MARKET_LABELS[marketKey]} Price Alert`,
+          body: `${IM_MARKET_LABELS[marketKey]} reached ${formatNumber(currentPrice)}, at or above your target of ${formatNumber(alert.target)}.`,
+          tag: `im-${marketKey}-above-${alert.target}`
+        });
+      } else if (
+        alert.direction === "below" &&
+        currentPrice <= alert.target &&
+        alert.triggeredFor !== alert.target &&
+        (!Number.isFinite(previousPrice) || previousPrice > alert.target)
+      ) {
+        alert.triggeredFor = alert.target;
+        changed = true;
+        notifications.push({
+          title: `${IM_MARKET_LABELS[marketKey]} Price Alert`,
+          body: `${IM_MARKET_LABELS[marketKey]} reached ${formatNumber(currentPrice)}, at or below your target of ${formatNumber(alert.target)}.`,
+          tag: `im-${marketKey}-below-${alert.target}`
+        });
+      } else if (alert.direction === "above" && currentPrice < alert.target && alert.triggeredFor === alert.target) {
+        alert.triggeredFor = null;
+        changed = true;
+      } else if (alert.direction === "below" && currentPrice > alert.target && alert.triggeredFor === alert.target) {
+        alert.triggeredFor = null;
+        changed = true;
+      }
+    });
+
+    runtime.lastPriceByMarket[marketKey] = currentPrice;
+    saveImAlertRuntime(runtime);
+    if (changed) {
+      saveImPriceAlerts(alerts);
+      renderImPriceAlertsTable();
+    }
+
+    notifications.forEach((n) => sendImBrowserAlert(n.title, n.body, n.tag));
+  }
+
+  function checkImSignalAlert(marketKey, label) {
+    const settings = getImAlertSettings();
+    const runtime = getImAlertRuntime();
+    const decision = String(label || "").toUpperCase() || null;
+    const previous = runtime.previousDecisionByMarket[marketKey];
+    const shouldNotify = Boolean(settings.signalChangeEnabled && previous && decision && previous !== decision);
+
+    runtime.previousDecisionByMarket[marketKey] = decision;
+    saveImAlertRuntime(runtime);
+
+    if (shouldNotify) {
+      sendImBrowserAlert(
+        `${IM_MARKET_LABELS[marketKey]} Decision Changed`,
+        `${previous} changed to ${decision}. Review live technical conditions before taking any action.`,
+        `im-${marketKey}-decision-change`
+      );
+    }
+  }
+
+  function setupImAlerts() {
+    const enableButton = document.getElementById("im-enable-notifications-btn");
+    const testButton = document.getElementById("im-test-notification-btn");
+    const form = document.getElementById("im-price-alert-form");
+    const signalToggle = document.getElementById("im-signal-change-toggle");
+    const tableBody = document.getElementById("im-price-alert-table-body");
+
+    if (enableButton) enableButton.addEventListener("click", requestImBrowserNotifications);
+    if (testButton) {
+      testButton.addEventListener("click", () => {
+        sendImBrowserAlert("Indian Market AI Test Alert", "Browser alerts are working. This is a test notification.", "im-test-alert");
+      });
+    }
+
+    if (form) {
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const market = document.getElementById("im-alert-market").value;
+        const direction = document.getElementById("im-alert-direction").value;
+        const targetInput = document.getElementById("im-alert-target");
+        const target = Number(targetInput.value);
+
+        if (!Number.isFinite(target) || target <= 0) {
+          alert("Please enter a valid target price.");
+          return;
+        }
+
+        const alerts = getImPriceAlerts();
+        alerts.unshift({ id: `ima${Date.now()}${Math.random().toString(16).slice(2, 6)}`, market, direction, target, triggeredFor: null });
+        saveImPriceAlerts(alerts);
+        renderImPriceAlertsTable();
+        form.reset();
+      });
+    }
+
+    if (signalToggle) {
+      signalToggle.addEventListener("change", () => {
+        const settings = getImAlertSettings();
+        settings.signalChangeEnabled = signalToggle.checked;
+        saveImAlertSettings(settings);
+      });
+    }
+
+    if (tableBody) {
+      tableBody.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-delete-alert-id]");
+        if (!button) return;
+        const alerts = getImPriceAlerts().filter((alert) => alert.id !== button.dataset.deleteAlertId);
+        saveImPriceAlerts(alerts);
+        renderImPriceAlertsTable();
+      });
+    }
+
+    renderImAlerts();
+  }
+
+  setupImAlerts();
 
   let selectedChartMarket = "nifty";
   let imLiveChart = null;

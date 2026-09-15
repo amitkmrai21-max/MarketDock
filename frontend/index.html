@@ -1210,6 +1210,11 @@
           RRG
         </button>
 
+        <button class="nav-button" data-page="im-alerts" type="button">
+          <span class="nav-icon">&#128276;</span>
+          Alerts
+        </button>
+
         <button class="nav-button" data-page="im-paper-trading" type="button">
           <span class="nav-icon">&#9635;</span>
           Paper Trading
@@ -1642,6 +1647,107 @@
             <p class="empty-note">Loading market news…</p>
           </div>
         </article>
+      </section>
+
+      <section class="page" id="im-alerts">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow">Runs while this dashboard is open</p>
+            <h2 class="index-title">Price &amp; Signal Alerts</h2>
+            <p class="subtitle">
+              Alerts use the live NIFTY 50 / Bank Nifty technical refresh (every 60 seconds). No order is placed.
+            </p>
+          </div>
+          <span class="notification-permission-badge" id="im-notification-permission-badge">Notifications: Checking...</span>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <h2>Browser Notifications</h2>
+              <p id="im-notification-status">Browser notification status is being checked...</p>
+            </div>
+          </div>
+
+          <div class="alert-controls">
+            <button class="enable-notifications-btn" id="im-enable-notifications-btn" type="button">
+              Enable Browser Alerts
+            </button>
+            <button class="test-notification-btn" id="im-test-notification-btn" type="button">
+              Test Alert
+            </button>
+          </div>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <h2>Add Price Alert</h2>
+              <p>Alert when NIFTY 50 or Bank Nifty reaches or crosses your target.</p>
+            </div>
+          </div>
+
+          <form class="im-alert-form" id="im-price-alert-form">
+            <select id="im-alert-market" aria-label="Market">
+              <option value="nifty">NIFTY 50</option>
+              <option value="banknifty">Bank Nifty</option>
+            </select>
+            <select id="im-alert-direction" aria-label="Direction">
+              <option value="above">Above</option>
+              <option value="below">Below</option>
+            </select>
+            <input id="im-alert-target" type="number" min="1" step="0.01" placeholder="Target price" aria-label="Target price" required />
+            <button class="primary-button" type="submit">Save Alert</button>
+          </form>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Market</th>
+                  <th>Condition</th>
+                  <th>Target</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="im-price-alert-table-body"></tbody>
+            </table>
+          </div>
+
+          <div class="empty-note" id="im-price-alert-empty">
+            No price alerts saved yet.
+          </div>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <h2>Decision Change Alert</h2>
+              <p>Notify when the technical engine's BUY / SELL / HOLD decision changes for either index.</p>
+            </div>
+          </div>
+
+          <label class="alert-toggle-row" for="im-signal-change-toggle">
+            <input id="im-signal-change-toggle" type="checkbox" checked />
+            <span>
+              <strong>Decision changes</strong>
+              <small>Example: NIFTY 50 changes from HOLD to BUY.</small>
+            </span>
+          </label>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <h2>Last Alert</h2>
+            </div>
+          </div>
+          <p id="im-last-alert-status">No alert triggered yet.</p>
+        </article>
+
+        <p class="alerts-note">
+          Browser alerts are educational dashboard notifications only, not trade instructions. They do not work after this website/tab is fully closed.
+        </p>
       </section>
 
             <section class="page" id="im-live-chart">
