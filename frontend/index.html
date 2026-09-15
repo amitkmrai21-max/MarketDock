@@ -1741,6 +1741,64 @@
             </div>
           </article>
 
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <h2>Chart Replay &amp; Backtesting</h2>
+                <p>Step through past candles bar-by-bar and practice trades against history. Paper research only.</p>
+              </div>
+              <span class="tag" id="im-replay-status-tag">Live</span>
+            </div>
+
+            <div class="replay-controls">
+              <button class="chart-control-button" id="im-replay-pick-btn" type="button">Pick Replay Start</button>
+              <button class="chart-control-button" id="im-replay-step-back-btn" type="button" disabled>&#9198; Back</button>
+              <button class="chart-control-button" id="im-replay-play-btn" type="button" disabled>&#9654; Play</button>
+              <button class="chart-control-button" id="im-replay-step-btn" type="button" disabled>&#9197; Step</button>
+              <select class="chart-control-button replay-speed-select" id="im-replay-speed" disabled>
+                <option value="2000">0.5x</option>
+                <option value="1000" selected>1x</option>
+                <option value="500">2x</option>
+                <option value="200">4x</option>
+              </select>
+              <button class="chart-control-button replay-danger-btn" id="im-replay-exit-btn" type="button" disabled>Exit Replay</button>
+            </div>
+            <p id="im-replay-position-text" class="im-chart-status">Click &quot;Pick Replay Start&quot;, then click a candle on the chart above.</p>
+
+            <div class="im-backtest-panel" id="im-backtest-panel" hidden>
+              <h3>Backtest Trade</h3>
+
+              <div class="im-backtest-open" id="im-backtest-open-trade" hidden>
+                <p id="im-backtest-open-summary"></p>
+                <button class="chart-control-button" id="im-backtest-close-btn" type="button">Close Now</button>
+              </div>
+
+              <form class="im-backtest-form" id="im-backtest-form">
+                <select id="im-backtest-direction" aria-label="Direction">
+                  <option value="LONG">Long</option>
+                  <option value="SHORT">Short</option>
+                </select>
+                <input id="im-backtest-entry" type="number" step="0.01" placeholder="Entry" aria-label="Entry price" readonly />
+                <input id="im-backtest-stop" type="number" step="0.01" placeholder="Stop-loss" aria-label="Stop-loss price" required />
+                <input id="im-backtest-target" type="number" step="0.01" placeholder="Target" aria-label="Target price" required />
+                <button class="primary-button" type="submit">Place Trade</button>
+              </form>
+
+              <div class="im-backtest-results">
+                <p id="im-backtest-summary">No backtest trades yet.</p>
+                <div class="im-backtest-table-wrap">
+                  <table class="im-backtest-table" id="im-backtest-table">
+                    <thead>
+                      <tr><th>Dir</th><th>Entry</th><th>Stop</th><th>Target</th><th>Exit</th><th>Result</th><th>R</th></tr>
+                    </thead>
+                    <tbody id="im-backtest-table-body"></tbody>
+                  </table>
+                </div>
+                <button class="chart-control-button replay-danger-btn" id="im-backtest-clear-btn" type="button">Clear Backtest History</button>
+              </div>
+            </div>
+          </article>
+
           <div class="im-chart-below-row">
             <article class="card section-card">
               <div class="section-heading">

@@ -4983,6 +4983,7 @@ function clearLiveChartAiOverlay() {
 
     setupImDrawingTools();
     loadSavedImDrawings();
+    setupImReplayControls();
   }
 
   // ===================== Indian Market drawing tools =====================
@@ -4999,6 +5000,15 @@ function clearLiveChartAiOverlay() {
   let imDrawingPendingPoint = null;
   let imDrawingRepositionFrame = null;
   let imLiveCandleRawData = [];
+
+  const IM_BACKTEST_STORAGE_KEY = "imBacktestResultsV1";
+  let imReplayActive = false;
+  let imReplayPicking = false;
+  let imReplayIndex = -1;
+  let imReplayPlaying = false;
+  let imReplayTimer = null;
+  let imReplaySpeedMs = 1000;
+  let imOpenBacktestTrade = null;
 
   function getImDrawingOverlaySvg() {
     return document.getElementById("im-drawing-overlay");
@@ -5449,6 +5459,10 @@ function clearLiveChartAiOverlay() {
   }
 
   function handleImChartClick(param) {
+    if (imReplayPicking) {
+      pickImReplayStart(param);
+      return;
+    }
     if (imDrawingMode === "cursor" || !param.point || !param.time || !imLiveSeries) return;
     const price = imLiveSeries.coordinateToPrice(param.point.y);
     if (price === null) return;
@@ -5494,6 +5508,315 @@ function clearLiveChartAiOverlay() {
     if (clearBtn) clearBtn.addEventListener("click", clearAllImDrawings);
   }
 
+  // ===================== Indian Market chart replay & backtesting =====================
+  // Replay steps through the already-fetched candle history (imLiveCandleRawData) one
+  // bar at a time by re-slicing it into the chart series — no extra network calls.
+  // While replay is active, live polling is paused. Backtesting is a single open
+  // paper trade at a time: its stop/target are checked against each newly revealed
+  // bar's high/low as replay steps forward, and closed trades are logged to a
+  // localStorage-backed results table with win rate and R-multiple stats.
+
+  function getImReplayEls() {
+    return {
+      statusTag: document.getElementById("im-replay-status-tag"),
+      pickBtn: document.getElementById("im-replay-pick-btn"),
+      stepBackBtn: document.getElementById("im-replay-step-back-btn"),
+      playBtn: document.getElementById("im-replay-play-btn"),
+      stepBtn: document.getElementById("im-replay-step-btn"),
+      speedSelect: document.getElementById("im-replay-speed"),
+      exitBtn: document.getElementById("im-replay-exit-btn"),
+      positionText: document.getElementById("im-replay-position-text"),
+      backtestPanel: document.getElementById("im-backtest-panel"),
+      openTradeBox: document.getElementById("im-backtest-open-trade"),
+      openTradeSummary: document.getElementById("im-backtest-open-summary"),
+      closeBtn: document.getElementById("im-backtest-close-btn"),
+      form: document.getElementById("im-backtest-form"),
+      directionSelect: document.getElementById("im-backtest-direction"),
+      entryInput: document.getElementById("im-backtest-entry"),
+      stopInput: document.getElementById("im-backtest-stop"),
+      targetInput: document.getElementById("im-backtest-target"),
+      summaryText: document.getElementById("im-backtest-summary"),
+      tableBody: document.getElementById("im-backtest-table-body"),
+      clearBtn: document.getElementById("im-backtest-clear-btn")
+    };
+  }
+
+  function resetImReplayEntryField() {
+    const els = getImReplayEls();
+    if (els.entryInput && !imOpenBacktestTrade && imLiveCandleRawData.length) {
+      els.entryInput.value = imLiveCandleRawData[imLiveCandleRawData.length - 1].close.toFixed(2);
+    }
+  }
+
+  function setImReplayControlsEnabled(active) {
+    const els = getImReplayEls();
+    [els.stepBackBtn, els.playBtn, els.stepBtn, els.speedSelect, els.exitBtn].forEach((el) => {
+      if (el) el.disabled = !active;
+    });
+    if (els.pickBtn) els.pickBtn.disabled = active;
+    if (els.backtestPanel) els.backtestPanel.hidden = !active;
+    if (els.statusTag) {
+      els.statusTag.textContent = active ? "REPLAY" : "Live";
+      els.statusTag.style.color = active ? "#fbbf24" : "";
+    }
+  }
+
+  function startImReplayPicking() {
+    if (!imLiveCandleRawData.length) return;
+    const els = getImReplayEls();
+    if (imReplayPicking) {
+      imReplayPicking = false;
+      if (els.positionText) els.positionText.textContent = 'Click "Pick Replay Start", then click a candle on the chart above.';
+      return;
+    }
+    imReplayPicking = true;
+    setImDrawingMode("cursor");
+    if (els.positionText) els.positionText.textContent = "Click any candle on the chart above to set the replay start point (click “Pick Replay Start” again to cancel).";
+  }
+
+  function pickImReplayStart(param) {
+    imReplayPicking = false;
+    if (!param || !param.time) return;
+    const index = imLiveCandleRawData.findIndex((candle) => candle.time === param.time);
+    if (index < 1) {
+      const els = getImReplayEls();
+      if (els.positionText) els.positionText.textContent = "Could not read that candle — try clicking directly on a bar.";
+      if (els.pickBtn) els.pickBtn.disabled = false;
+      return;
+    }
+    imReplayIndex = index;
+    imReplayActive = true;
+    stopLiveChartPolling();
+    setImReplayControlsEnabled(true);
+    renderImReplayFrame();
+  }
+
+  function renderImReplayFrame() {
+    if (!imLiveSeries || imReplayIndex < 0) return;
+    const visible = imLiveCandleRawData.slice(0, imReplayIndex + 1);
+    imLiveSeries.setData(visible.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
+
+    const current = visible[visible.length - 1];
+    const els = getImReplayEls();
+    if (els.positionText) {
+      els.positionText.textContent = `Replay bar ${imReplayIndex + 1} / ${imLiveCandleRawData.length} — ${formatChartTime(current.time * 1000)} — Close ${formatNumber(current.close)}`;
+    }
+    const priceEl = document.getElementById("im-chart-last-price");
+    if (priceEl) priceEl.textContent = formatNumber(current.close);
+
+    checkImBacktestTrade(current);
+    if (!imOpenBacktestTrade && els.entryInput) els.entryInput.value = current.close.toFixed(2);
+
+    if (imReplayIndex + 1 >= imLiveCandleRawData.length) pauseImReplay();
+  }
+
+  function stepImReplay(delta) {
+    const nextIndex = imReplayIndex + delta;
+    if (nextIndex < 0 || nextIndex >= imLiveCandleRawData.length) return;
+    imReplayIndex = nextIndex;
+    renderImReplayFrame();
+  }
+
+  function playImReplay() {
+    if (imReplayPlaying) return;
+    imReplayPlaying = true;
+    const els = getImReplayEls();
+    if (els.playBtn) els.playBtn.textContent = "⏸ Pause";
+    imReplayTimer = window.setInterval(() => stepImReplay(1), imReplaySpeedMs);
+  }
+
+  function pauseImReplay() {
+    imReplayPlaying = false;
+    if (imReplayTimer) {
+      window.clearInterval(imReplayTimer);
+      imReplayTimer = null;
+    }
+    const els = getImReplayEls();
+    if (els.playBtn) els.playBtn.textContent = "▶ Play";
+  }
+
+  function exitImReplay() {
+    if (!imReplayActive) return;
+    pauseImReplay();
+    if (imOpenBacktestTrade) {
+      const current = imLiveCandleRawData[imReplayIndex];
+      closeImBacktestTrade(current ? current.close : imOpenBacktestTrade.entry, "Closed (replay exited)", current ? current.time : imOpenBacktestTrade.entryTime);
+    }
+    imReplayActive = false;
+    imReplayIndex = -1;
+    imReplayPicking = false;
+    setImReplayControlsEnabled(false);
+    const els = getImReplayEls();
+    if (els.positionText) els.positionText.textContent = 'Click "Pick Replay Start", then click a candle on the chart above.';
+    if (els.pickBtn) els.pickBtn.disabled = false;
+    startLiveChartPolling();
+  }
+
+  function loadImBacktestResults() {
+    try {
+      return JSON.parse(localStorage.getItem(IM_BACKTEST_STORAGE_KEY)) || [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveImBacktestResults(results) {
+    try {
+      localStorage.setItem(IM_BACKTEST_STORAGE_KEY, JSON.stringify(results));
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function renderImBacktestResults() {
+    const els = getImReplayEls();
+    const results = loadImBacktestResults();
+
+    if (els.tableBody) {
+      els.tableBody.innerHTML = results
+        .map((trade) => {
+          const resultClass = trade.rMultiple > 0 ? "positive" : trade.rMultiple < 0 ? "negative" : "";
+          return `<tr>
+            <td>${trade.direction}</td>
+            <td>${formatNumber(trade.entry)}</td>
+            <td>${formatNumber(trade.stop)}</td>
+            <td>${formatNumber(trade.target)}</td>
+            <td>${formatNumber(trade.exit)}</td>
+            <td class="${resultClass}">${trade.outcome}</td>
+            <td class="${resultClass}">${trade.rMultiple >= 0 ? "+" : ""}${trade.rMultiple.toFixed(2)}R</td>
+          </tr>`;
+        })
+        .join("");
+    }
+
+    if (els.summaryText) {
+      if (!results.length) {
+        els.summaryText.textContent = "No backtest trades yet.";
+      } else {
+        const wins = results.filter((t) => t.rMultiple > 0).length;
+        const totalR = results.reduce((sum, t) => sum + t.rMultiple, 0);
+        const winRate = (wins / results.length) * 100;
+        els.summaryText.textContent = `${results.length} trades — ${wins} wins (${winRate.toFixed(0)}% win rate) — Total ${totalR >= 0 ? "+" : ""}${totalR.toFixed(2)}R — Avg ${(totalR / results.length).toFixed(2)}R`;
+      }
+    }
+  }
+
+  function updateImOpenTradeBox() {
+    const els = getImReplayEls();
+    if (!els.openTradeBox || !els.openTradeSummary) return;
+    if (!imOpenBacktestTrade) {
+      els.openTradeBox.hidden = true;
+      if (els.form) els.form.hidden = false;
+      return;
+    }
+    els.openTradeBox.hidden = false;
+    if (els.form) els.form.hidden = true;
+    const t = imOpenBacktestTrade;
+    els.openTradeSummary.textContent = `${t.direction} open — Entry ${formatNumber(t.entry)} — Stop ${formatNumber(t.stop)} — Target ${formatNumber(t.target)}`;
+  }
+
+  function placeImBacktestTrade(direction, entry, stop, target) {
+    if (imOpenBacktestTrade || imReplayIndex < 0) return;
+    if (direction === "LONG" && !(stop < entry && entry < target)) return;
+    if (direction === "SHORT" && !(target < entry && entry < stop)) return;
+    imOpenBacktestTrade = {
+      direction,
+      entry,
+      stop,
+      target,
+      entryIndex: imReplayIndex,
+      entryTime: imLiveCandleRawData[imReplayIndex].time
+    };
+    updateImOpenTradeBox();
+  }
+
+  function closeImBacktestTrade(exitPrice, outcome, exitTime) {
+    if (!imOpenBacktestTrade) return;
+    const t = imOpenBacktestTrade;
+    const risk = Math.abs(t.entry - t.stop) || 1;
+    const gain = t.direction === "LONG" ? exitPrice - t.entry : t.entry - exitPrice;
+    const rMultiple = gain / risk;
+
+    const results = loadImBacktestResults();
+    results.unshift({
+      direction: t.direction,
+      entry: t.entry,
+      stop: t.stop,
+      target: t.target,
+      exit: exitPrice,
+      outcome,
+      rMultiple,
+      entryTime: t.entryTime,
+      exitTime: exitTime || t.entryTime
+    });
+    saveImBacktestResults(results);
+    renderImBacktestResults();
+
+    imOpenBacktestTrade = null;
+    updateImOpenTradeBox();
+    resetImReplayEntryField();
+  }
+
+  function checkImBacktestTrade(currentBar) {
+    if (!imOpenBacktestTrade || imReplayIndex <= imOpenBacktestTrade.entryIndex) return;
+    const t = imOpenBacktestTrade;
+    if (t.direction === "LONG") {
+      if (currentBar.low <= t.stop) closeImBacktestTrade(t.stop, "LOSS", currentBar.time);
+      else if (currentBar.high >= t.target) closeImBacktestTrade(t.target, "WIN", currentBar.time);
+    } else {
+      if (currentBar.high >= t.stop) closeImBacktestTrade(t.stop, "LOSS", currentBar.time);
+      else if (currentBar.low <= t.target) closeImBacktestTrade(t.target, "WIN", currentBar.time);
+    }
+  }
+
+  function setupImReplayControls() {
+    const els = getImReplayEls();
+    if (!els.pickBtn) return;
+
+    els.pickBtn.addEventListener("click", startImReplayPicking);
+    els.stepBackBtn.addEventListener("click", () => stepImReplay(-1));
+    els.stepBtn.addEventListener("click", () => { pauseImReplay(); stepImReplay(1); });
+    els.playBtn.addEventListener("click", () => (imReplayPlaying ? pauseImReplay() : playImReplay()));
+    els.exitBtn.addEventListener("click", exitImReplay);
+    els.speedSelect.addEventListener("change", () => {
+      imReplaySpeedMs = Number(els.speedSelect.value) || 1000;
+      if (imReplayPlaying) { pauseImReplay(); playImReplay(); }
+    });
+
+    if (els.form) {
+      els.form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const direction = els.directionSelect.value;
+        const entry = Number(els.entryInput.value);
+        const stop = Number(els.stopInput.value);
+        const target = Number(els.targetInput.value);
+        if (![entry, stop, target].every((v) => Number.isFinite(v) && v > 0)) {
+          alert("Please enter valid positive stop-loss and target prices.");
+          return;
+        }
+        placeImBacktestTrade(direction, entry, stop, target);
+      });
+    }
+
+    if (els.closeBtn) {
+      els.closeBtn.addEventListener("click", () => {
+        if (!imOpenBacktestTrade || imReplayIndex < 0) return;
+        const current = imLiveCandleRawData[imReplayIndex];
+        closeImBacktestTrade(current.close, "MANUAL", current.time);
+      });
+    }
+
+    if (els.clearBtn) {
+      els.clearBtn.addEventListener("click", () => {
+        if (!window.confirm("Clear all backtest results?")) return;
+        saveImBacktestResults([]);
+        renderImBacktestResults();
+      });
+    }
+
+    renderImBacktestResults();
+  }
+
   function renderLiveChartCandles(candles) {
     if (!imLiveSeries || !Array.isArray(candles) || !candles.length) {
       return;
@@ -5515,6 +5838,7 @@ function clearLiveChartAiOverlay() {
     imLiveCandleRawData = candles
       .map((candle) => ({
         time: Math.floor(new Date(candle.time).getTime() / 1000),
+        open: Number(candle.open),
         high: Number(candle.high),
         low: Number(candle.low),
         close: Number(candle.close),
@@ -5522,6 +5846,8 @@ function clearLiveChartAiOverlay() {
       }))
       .filter((point) => Number.isFinite(point.time))
       .sort((a, b) => a.time - b.time);
+
+    if (!imReplayActive) resetImReplayEntryField();
   }
 
   async function refreshLiveChartCandles() {
@@ -5820,6 +6146,7 @@ function clearLiveChartAiOverlay() {
 
   root.querySelectorAll("[data-chart-market]").forEach((button) => {
     button.addEventListener("click", () => {
+      if (imReplayActive) exitImReplay();
       selectedChartMarket = button.dataset.chartMarket;
 
       root.querySelectorAll("[data-chart-market]").forEach((item) => {
@@ -5833,6 +6160,7 @@ function clearLiveChartAiOverlay() {
 
   root.querySelectorAll("[data-chart-timeframe]").forEach((button) => {
     button.addEventListener("click", () => {
+      if (imReplayActive) exitImReplay();
       selectedChartTimeframe = button.dataset.chartTimeframe;
 
       root.querySelectorAll("[data-chart-timeframe]").forEach((item) => {
@@ -5961,12 +6289,13 @@ function clearLiveChartAiOverlay() {
   window.IndianMarketMode = {
     start() {
       startTechnicalEnginePolling();
-      if (!chartRefreshTimer) startLiveChartPolling();
+      if (!chartRefreshTimer && !imReplayActive) startLiveChartPolling();
     },
     stop() {
       stopTechnicalEnginePolling();
       stopLiveChartPolling();
       stopWatchlistPolling();
+      pauseImReplay();
     }
   };
 
