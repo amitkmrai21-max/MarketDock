@@ -6282,6 +6282,92 @@ function clearLiveChartAiOverlay() {
     });
   }
 
+  // ===================== AI Trade Coach =====================
+  // Combines the manual Paper Trade journal (indianMarketPaperTrades — entry/stop/target
+  // only, no verified outcome) with chart-replay backtest results (imBacktestResultsV1 —
+  // has an actual WIN/LOSS exit and R-multiple) into one trade history, and sends it to
+  // the backend for a Gemini coaching review. Reuses renderGeminiReview() for consistent
+  // heading/bullet formatting with the AI Chart Review card above.
+
+  function collectImCoachTrades() {
+    let journalTrades = [];
+    let backtestTrades = [];
+    try {
+      journalTrades = JSON.parse(localStorage.getItem("indianMarketPaperTrades")) || [];
+    } catch (error) { /* ignore */ }
+    try {
+      backtestTrades = JSON.parse(localStorage.getItem("imBacktestResultsV1")) || [];
+    } catch (error) { /* ignore */ }
+
+    const fromBacktest = backtestTrades.map((t) => ({
+      direction: t.direction,
+      entry: t.entry,
+      stop: t.stop,
+      target: t.target,
+      exit: t.exit,
+      outcome: t.outcome,
+      rMultiple: t.rMultiple
+    }));
+    const fromJournal = journalTrades.map((t) => ({
+      direction: t.direction,
+      entry: t.entry,
+      stop: t.stop,
+      target: t.target
+    }));
+
+    return [...fromBacktest, ...fromJournal];
+  }
+
+  const coachButton = document.getElementById("im-coach-button");
+
+  if (coachButton) {
+    coachButton.addEventListener("click", async () => {
+      const title = document.getElementById("im-coach-title");
+      const text = document.getElementById("im-coach-text");
+      const trades = collectImCoachTrades();
+
+      if (!trades.length) {
+        if (title) title.textContent = "No trade history yet";
+        if (text) text.textContent = "Add a paper trade above or run a chart-replay backtest on the Live Chart page first.";
+        return;
+      }
+
+      coachButton.disabled = true;
+      coachButton.textContent = "Generating Gemini coaching...";
+      if (title) title.textContent = "Gemini coaching in progress";
+      if (text) text.textContent = `Sending ${trades.length} logged trade${trades.length === 1 ? "" : "s"} securely to the backend...`;
+
+      try {
+        const response = await fetch("https://indian-market-ai-api.onrender.com/api/ai-coach", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trades })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || "AI coaching request failed.");
+        }
+
+        const stats = result.stats || {};
+        title && (title.textContent = stats.closed_trades
+          ? `AI Trade Coach — ${stats.win_rate_percent}% win rate over ${stats.closed_trades} backtested trade${stats.closed_trades === 1 ? "" : "s"}`
+          : `AI Trade Coach — ${stats.total_trades} trade${stats.total_trades === 1 ? "" : "s"} reviewed`);
+        if (text) renderGeminiReview(text, result.coaching);
+        coachButton.textContent = "Refresh AI Coaching";
+      } catch (error) {
+        if (title) title.textContent = "AI coaching unavailable";
+        if (text) {
+          text.textContent = error.message || "Could not generate the coaching review. Please wait a moment and try again.";
+        }
+        coachButton.textContent = "Retry AI Coaching";
+      } finally {
+        coachButton.disabled = false;
+      }
+    });
+  }
+
   updateChartPage();
 
   // Expose start/stop hooks so the top-level mode toggle can pause background

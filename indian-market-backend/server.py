@@ -1728,5 +1728,122 @@ Rules:
         ), 502
 
 
+@app.post("/api/ai-coach")
+def ai_trade_coach():
+    payload = request.get_json(silent=True) or {}
+    trades = payload.get("trades")
+
+    if not isinstance(trades, list) or not trades:
+        return jsonify(
+            {
+                "ok": False,
+                "error": "No trade history to review yet. Add a paper trade or run a chart-replay backtest first.",
+            }
+        ), 400
+
+    if not GEMINI_API_KEY:
+        return jsonify(
+            {
+                "ok": False,
+                "error": "Gemini is not configured on the server.",
+            }
+        ), 503
+
+    trades = trades[:30]
+    closed = [t for t in trades if str(t.get("outcome", "")).upper() in ("WIN", "LOSS")]
+    wins = [t for t in closed if str(t.get("outcome", "")).upper() == "WIN"]
+    total_r = sum(float(t.get("rMultiple", 0) or 0) for t in closed)
+    win_rate = round((len(wins) / len(closed)) * 100, 1) if closed else None
+    avg_r = round(total_r / len(closed), 2) if closed else None
+    long_count = sum(1 for t in trades if str(t.get("direction", "")).upper() in ("LONG", "BUY"))
+    short_count = len(trades) - long_count
+
+    trades_text = "\n".join(
+        f"- {t.get('direction', '?')} | Entry {t.get('entry', '?')} | Stop {t.get('stop', '?')} | "
+        f"Target {t.get('target', '?')} | Exit {t.get('exit', '-')} | Outcome {t.get('outcome', 'OPEN/UNVERIFIED')} | "
+        f"R {t.get('rMultiple', '-')}"
+        for t in trades
+    )
+
+    stats_text = f"Total trades logged: {len(trades)} (Long: {long_count}, Short: {short_count}).\n"
+    if closed:
+        stats_text += (
+            f"Of these, {len(closed)} are verified chart-replay backtest results — "
+            f"Win rate: {win_rate}%, Total: {round(total_r, 2)}R, Average: {avg_r}R per trade.\n"
+        )
+    else:
+        stats_text += "None of these have a verified win/loss outcome yet — they are unconfirmed research log entries only.\n"
+
+    prompt = f"""
+You are a cautious, encouraging trading coach for a retail Indian-market paper-trading student. This is
+strictly educational research and paper-trading coaching; do not give financial advice, guarantee any
+outcome, or tell the user to place a real trade.
+
+Here is the student's trade history (paper trades and/or chart-replay backtests, most recent first):
+{trades_text}
+
+Aggregate stats (already computed correctly from the data above — use these numbers, do not recalculate them yourself):
+{stats_text}
+
+Write a concise Hinglish coaching note with exactly these five headings:
+1. Overall Performance
+2. Strengths
+3. Weaknesses / Mistakes
+4. Pattern Noticed
+5. Next Steps
+
+Rules:
+- Base your analysis only on the trade data and stats given above. Do not invent trades, news, or indicators.
+- Be specific: reference the actual entry/stop/target numbers or risk:reward ratios you can see, not generic advice.
+- If there are fewer than 5 trades, say so and note this is only a preliminary read.
+- Do not suggest real-money trading or use imperative execution language.
+- Keep the reply below 220 words.
+"""
+
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+        )
+
+        coaching_text = (response.text or "").strip()
+
+        if not coaching_text:
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "Gemini returned an empty coaching note. Please try again.",
+                }
+            ), 502
+
+        return jsonify(
+            {
+                "ok": True,
+                "generated_at": now_utc(),
+                "coaching": coaching_text,
+                "stats": {
+                    "total_trades": len(trades),
+                    "closed_trades": len(closed),
+                    "win_rate_percent": win_rate,
+                    "total_r": round(total_r, 2) if closed else None,
+                    "avg_r": avg_r,
+                },
+                "disclaimer": "Research and paper-trading coaching only. Not financial advice.",
+            }
+        )
+
+    except Exception:
+        app.logger.exception("AI trade coach request failed")
+
+        return jsonify(
+            {
+                "ok": False,
+                "error": "AI coaching is temporarily unavailable. Please try again later.",
+            }
+        ), 502
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
