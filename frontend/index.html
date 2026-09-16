@@ -1213,6 +1213,11 @@
           Watchlist
         </button>
 
+        <button class="nav-button" data-page="im-fo" type="button">
+          <span class="nav-icon">&#9878;</span>
+          F&amp;O
+        </button>
+
         <button class="nav-button" data-page="im-news" type="button">
           <span class="nav-icon">&#128240;</span>
           News
@@ -1919,6 +1924,42 @@
               </thead>
               <tbody id="im-watchlist-body">
                 <tr><td colspan="2">Loading watchlist…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="page" id="im-fo">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow">NSE F&amp;O &middot; Live prices</p>
+            <h2 class="index-title">F&amp;O Watchlist</h2>
+            <p class="subtitle">
+              Live last-traded price for a curated set of liquid, derivatives-eligible NSE stocks. Research view only — no order placement.
+            </p>
+          </div>
+          <div class="setup-badge" id="im-fo-status">Loading…</div>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <h2>F&amp;O Stocks</h2>
+              <p>Auto-refreshes every 20 seconds</p>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Last Price</th>
+                </tr>
+              </thead>
+              <tbody id="im-fo-body">
+                <tr><td colspan="2">Loading F&amp;O watchlist…</td></tr>
               </tbody>
             </table>
           </div>
