@@ -1162,6 +1162,16 @@
       <span class="im-ticker-value" id="im-ticker-banknifty-price">--</span>
       <span class="im-ticker-change" id="im-ticker-banknifty-change">--</span>
     </div>
+    <div class="im-ticker-item">
+      <span class="im-ticker-label">FINNIFTY</span>
+      <span class="im-ticker-value" id="im-ticker-finnifty-price">--</span>
+      <span class="im-ticker-change" id="im-ticker-finnifty-change">--</span>
+    </div>
+    <div class="im-ticker-item">
+      <span class="im-ticker-label">SENSEX</span>
+      <span class="im-ticker-value" id="im-ticker-sensex-price">--</span>
+      <span class="im-ticker-change" id="im-ticker-sensex-change">--</span>
+    </div>
     <div class="im-ticker-item im-ticker-status">
       <span class="im-ticker-dot" id="im-ticker-dot"></span>
       <span id="im-ticker-status-text">Connecting…</span>
@@ -1186,6 +1196,16 @@
         <button class="nav-button" data-page="im-banknifty" type="button">
           <span class="nav-icon">B</span>
           Bank Nifty
+        </button>
+
+        <button class="nav-button" data-page="im-finnifty" type="button">
+          <span class="nav-icon">F</span>
+          FINNIFTY
+        </button>
+
+        <button class="nav-button" data-page="im-sensex" type="button">
+          <span class="nav-icon">S</span>
+          Sensex
         </button>
 
         <button class="nav-button" data-page="im-watchlist" type="button">
@@ -1251,6 +1271,18 @@
             <div class="stat-label">Bank Nifty</div>
             <div class="stat-value" id="im-dash-banknifty-price">55,112.40</div>
             <div class="stat-change positive" id="im-dash-banknifty-change">Loading…</div>
+          </article>
+
+          <article class="card stat-card">
+            <div class="stat-label">FINNIFTY</div>
+            <div class="stat-value" id="im-dash-finnifty-price">25,076.65</div>
+            <div class="stat-change positive" id="im-dash-finnifty-change">Loading…</div>
+          </article>
+
+          <article class="card stat-card">
+            <div class="stat-label">SENSEX</div>
+            <div class="stat-value" id="im-dash-sensex-price">74,003.82</div>
+            <div class="stat-change positive" id="im-dash-sensex-change">Loading…</div>
           </article>
 
           <article class="card stat-card">
@@ -1587,6 +1619,276 @@
         </section>
       </section>
 
+      <section class="page" id="im-finnifty">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow" id="im-finnifty-eyebrow">NSE Index &middot; Live data</p>
+            <h2 class="index-title">Nifty Financial Services Research</h2>
+            <p class="index-value">
+              <span id="im-finnifty-hero-price">25,076.65</span>
+              <span class="positive" id="im-finnifty-hero-change" style="font-size: 16px;">&#9650; +0.51%</span>
+            </p>
+            <p class="subtitle">
+              Tracks banking, NBFC, insurance, and other financial-services stocks. Use structure and confirmation before recording a paper trade.
+            </p>
+          </div>
+
+          <div class="setup-badge">Wait for confirmation</div>
+        </article>
+
+        <div class="dashboard-grid">
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <h2>Technical Research Plan</h2>
+                <p>Example planning framework. Not financial advice.</p>
+              </div>
+              <span class="tag">FINNIFTY</span>
+            </div>
+
+            <div class="research-metrics">
+              <div class="research-metric">
+                <span>Trend</span>
+                <strong>Neutral to mildly positive</strong>
+              </div>
+
+              <div class="research-metric">
+                <span>Support zone</span>
+                <strong>24,850 &ndash; 24,900</strong>
+              </div>
+
+              <div class="research-metric">
+                <span>Resistance zone</span>
+                <strong>25,150 &ndash; 25,220</strong>
+              </div>
+
+              <div class="research-metric">
+                <span>Invalidation</span>
+                <strong>Close below support zone</strong>
+              </div>
+            </div>
+
+            <div class="research-rule">
+              <strong>Research rule:</strong>
+              Financial-services stocks are sensitive to rate and RBI-policy news. Confirm with price action, not headlines alone.
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <h2>Checklist</h2>
+                <p>Before a paper-trade entry</p>
+              </div>
+            </div>
+
+            <ul class="research-list">
+              <li>Mark current support and resistance.</li>
+              <li>Check whether price is trending or ranging.</li>
+              <li>Define entry, stop-loss, and target in advance.</li>
+              <li>Log the reason for the decision in the journal.</li>
+            </ul>
+          </article>
+        </div>
+
+        <section class="live-engine-section" aria-label="Nifty Financial Services technical confirmation engine">
+          <div class="live-engine-grid">
+            <article class="decision-card">
+              <p class="eyebrow">Connected confirmation engine</p>
+              <div class="decision-label decision-wait" id="im-finnifty-decision-label">
+                Loading technical decision...
+              </div>
+              <p class="decision-meta" id="im-finnifty-decision-reason">
+                Connecting to the research API.
+              </p>
+              <p class="api-status" id="im-finnifty-api-status">
+                Technical refresh: waiting for first update.
+              </p>
+            </article>
+
+            <article class="card section-card">
+              <div class="section-heading">
+                <div>
+                  <h2>Live Technical Metrics</h2>
+                  <p>Auto-refreshes every 60 seconds</p>
+                </div>
+              </div>
+
+              <div class="technical-grid" id="im-finnifty-technical-grid">
+                <div class="technical-item">
+                  <span>Loading</span>
+                  <strong>--</strong>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="live-engine-grid" style="margin-top: 18px;">
+            <article class="card section-card">
+              <div class="section-heading">
+                <div>
+                  <h2>Confirmation Matrix</h2>
+                  <p>Combined indicators and timeframe checks</p>
+                </div>
+                <span class="tag" id="im-finnifty-confirmation-count">-- / --</span>
+              </div>
+
+              <div class="confirmation-list" id="im-finnifty-confirmation-list">
+                <div class="empty-note">Loading indicator confirmations...</div>
+              </div>
+            </article>
+
+            <article class="card section-card">
+              <div class="section-heading">
+                <div>
+                  <h2>Research Trade Plan</h2>
+                  <p>Entry condition, risk level, targets, and exit rule</p>
+                </div>
+              </div>
+
+              <div class="trade-plan-list" id="im-finnifty-trade-plan">
+                <div class="empty-note">Loading research plan...</div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <section class="page" id="im-sensex">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow" id="im-sensex-eyebrow">BSE Index &middot; Live data</p>
+            <h2 class="index-title">SENSEX Research</h2>
+            <p class="index-value">
+              <span id="im-sensex-hero-price">74,003.82</span>
+              <span class="positive" id="im-sensex-hero-change" style="font-size: 16px;">&#9650; +0.55%</span>
+            </p>
+            <p class="subtitle">
+              BSE's 30-stock flagship index. Use market structure, key levels, and confirmation rules before recording a paper trade.
+            </p>
+          </div>
+
+          <div class="setup-badge">Wait for confirmation</div>
+        </article>
+
+        <div class="dashboard-grid">
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <h2>Technical Research Plan</h2>
+                <p>Example planning framework. Not financial advice.</p>
+              </div>
+              <span class="tag">SENSEX</span>
+            </div>
+
+            <div class="research-metrics">
+              <div class="research-metric">
+                <span>Trend</span>
+                <strong>Neutral to mildly positive</strong>
+              </div>
+
+              <div class="research-metric">
+                <span>Support zone</span>
+                <strong>73,450 &ndash; 73,600</strong>
+              </div>
+
+              <div class="research-metric">
+                <span>Resistance zone</span>
+                <strong>74,250 &ndash; 74,450</strong>
+              </div>
+
+              <div class="research-metric">
+                <span>Invalidation</span>
+                <strong>Close below support zone</strong>
+              </div>
+            </div>
+
+            <div class="research-rule">
+              <strong>Research rule:</strong>
+              Do not treat a level as a trade signal without price action and risk definition.
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
+                <h2>Checklist</h2>
+                <p>Before a paper-trade entry</p>
+              </div>
+            </div>
+
+            <ul class="research-list">
+              <li>Mark current support and resistance.</li>
+              <li>Check whether price is trending or ranging.</li>
+              <li>Define entry, stop-loss, and target in advance.</li>
+              <li>Log the reason for the decision in the journal.</li>
+            </ul>
+          </article>
+        </div>
+
+        <section class="live-engine-section" aria-label="SENSEX technical confirmation engine">
+          <div class="live-engine-grid">
+            <article class="decision-card">
+              <p class="eyebrow">Connected confirmation engine</p>
+              <div class="decision-label decision-wait" id="im-sensex-decision-label">
+                Loading technical decision...
+              </div>
+              <p class="decision-meta" id="im-sensex-decision-reason">
+                Connecting to the research API.
+              </p>
+              <p class="api-status" id="im-sensex-api-status">
+                Technical refresh: waiting for first update.
+              </p>
+            </article>
+
+            <article class="card section-card">
+              <div class="section-heading">
+                <div>
+                  <h2>Live Technical Metrics</h2>
+                  <p>Auto-refreshes every 60 seconds</p>
+                </div>
+              </div>
+
+              <div class="technical-grid" id="im-sensex-technical-grid">
+                <div class="technical-item">
+                  <span>Loading</span>
+                  <strong>--</strong>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="live-engine-grid" style="margin-top: 18px;">
+            <article class="card section-card">
+              <div class="section-heading">
+                <div>
+                  <h2>Confirmation Matrix</h2>
+                  <p>Combined indicators and timeframe checks</p>
+                </div>
+                <span class="tag" id="im-sensex-confirmation-count">-- / --</span>
+              </div>
+
+              <div class="confirmation-list" id="im-sensex-confirmation-list">
+                <div class="empty-note">Loading indicator confirmations...</div>
+              </div>
+            </article>
+
+            <article class="card section-card">
+              <div class="section-heading">
+                <div>
+                  <h2>Research Trade Plan</h2>
+                  <p>Entry condition, risk level, targets, and exit rule</p>
+                </div>
+              </div>
+
+              <div class="trade-plan-list" id="im-sensex-trade-plan">
+                <div class="empty-note">Loading research plan...</div>
+              </div>
+            </article>
+          </div>
+        </section>
+      </section>
+
       <section class="page" id="im-watchlist">
         <article class="card index-hero">
           <div>
@@ -1691,6 +1993,8 @@
             <select id="im-alert-market" aria-label="Market">
               <option value="nifty">NIFTY 50</option>
               <option value="banknifty">Bank Nifty</option>
+              <option value="finnifty">FINNIFTY</option>
+              <option value="sensex">Sensex</option>
             </select>
             <select id="im-alert-direction" aria-label="Direction">
               <option value="above">Above</option>
@@ -1783,6 +2087,14 @@
 
               <button class="chart-control-button" type="button" data-chart-market="banknifty">
                 Bank Nifty
+              </button>
+
+              <button class="chart-control-button" type="button" data-chart-market="finnifty">
+                FINNIFTY
+              </button>
+
+              <button class="chart-control-button" type="button" data-chart-market="sensex">
+                Sensex
               </button>
             </div>
 

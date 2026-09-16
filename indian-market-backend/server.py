@@ -31,6 +31,14 @@ UPSTOX_MARKETS = {
         "name": "Bank Nifty",
         "instrument_key": "NSE_INDEX|Nifty Bank",
     },
+    "finnifty": {
+        "name": "Nifty Financial Services",
+        "instrument_key": "NSE_INDEX|Nifty Fin Service",
+    },
+    "sensex": {
+        "name": "SENSEX",
+        "instrument_key": "BSE_INDEX|SENSEX",
+    },
 }
 
 UPSTOX_TIMEFRAMES = {
@@ -81,6 +89,48 @@ DEMO_MARKETS = {
         "trend_5m": "bullish",
         "trend_15m": "neutral",
         "trend_1h": "bullish",
+    },
+    "finnifty": {
+        "name": "Nifty Financial Services",
+        "price": 25076.65,
+        "open": 24960.30,
+        "high": 25128.40,
+        "low": 24902.10,
+        "previous_close": 24948.90,
+        "volume_ratio": 1.05,
+        "rsi_14": 56.2,
+        "ema_9": 25040.10,
+        "ema_21": 24995.60,
+        "ema_50": 24932.80,
+        "vwap": 25010.20,
+        "macd_histogram": 9.4,
+        "atr_14": 132.0,
+        "support": 24900.0,
+        "resistance": 25150.0,
+        "trend_5m": "bullish",
+        "trend_15m": "neutral",
+        "trend_1h": "bullish",
+    },
+    "sensex": {
+        "name": "SENSEX",
+        "price": 74003.82,
+        "open": 73680.40,
+        "high": 74180.60,
+        "low": 73510.20,
+        "previous_close": 73598.10,
+        "volume_ratio": 1.12,
+        "rsi_14": 57.6,
+        "ema_9": 73920.50,
+        "ema_21": 73810.20,
+        "ema_50": 73640.90,
+        "vwap": 73860.30,
+        "macd_histogram": 24.8,
+        "atr_14": 340.0,
+        "support": 73500.0,
+        "resistance": 74250.0,
+        "trend_5m": "bullish",
+        "trend_15m": "bullish",
+        "trend_1h": "neutral",
     },
 }
 
@@ -878,7 +928,7 @@ def market_analysis(market_key):
         return jsonify(
             {
                 "ok": False,
-                "error": "Unknown market. Use: nifty or banknifty.",
+                "error": "Unknown market. Use: " + ", ".join(DEMO_MARKETS.keys()) + ".",
             }
         ), 404
 
@@ -1532,7 +1582,7 @@ def live_candles(market_key):
         return jsonify(
             {
                 "ok": False,
-                "error": "Unknown market. Use: nifty or banknifty.",
+                "error": "Unknown market. Use: " + ", ".join(DEMO_MARKETS.keys()) + ".",
             }
         ), 404
 
@@ -1624,7 +1674,7 @@ def gemini_chart_review():
         return jsonify(
             {
                 "ok": False,
-                "error": "Unknown market. Use: nifty or banknifty.",
+                "error": "Unknown market. Use: " + ", ".join(DEMO_MARKETS.keys()) + ".",
             }
         ), 400
 

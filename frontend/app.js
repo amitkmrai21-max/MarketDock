@@ -3630,6 +3630,14 @@ function clearLiveChartAiOverlay() {
       title: "Bank Nifty Research",
       subtitle: "Volatility-aware research and disciplined paper-trading preparation."
     },
+    "im-finnifty": {
+      title: "Nifty Financial Services Research",
+      subtitle: "Financial-sector research and disciplined paper-trading preparation."
+    },
+    "im-sensex": {
+      title: "SENSEX Research",
+      subtitle: "BSE's flagship-index research and paper-trading preparation."
+    },
     "im-watchlist": {
       title: "Watchlist",
       subtitle: "Live last-traded price for popular NSE stocks."
@@ -4094,6 +4102,8 @@ function clearLiveChartAiOverlay() {
   function refreshTechnicalEngine() {
     loadMarketEngine("nifty");
     loadMarketEngine("banknifty");
+    loadMarketEngine("finnifty");
+    loadMarketEngine("sensex");
   }
 
   let technicalEngineTimer = null;
@@ -4998,7 +5008,7 @@ function clearLiveChartAiOverlay() {
   const IM_ALERT_SETTINGS_KEY = "imAlertSettingsV1";
   const IM_ALERT_RUNTIME_KEY = "imAlertRuntimeV1";
   const IM_PRICE_ALERTS_KEY = "imPriceAlertsV1";
-  const IM_MARKET_LABELS = { nifty: "NIFTY 50", banknifty: "Bank Nifty" };
+  const IM_MARKET_LABELS = { nifty: "NIFTY 50", banknifty: "Bank Nifty", finnifty: "FINNIFTY", sensex: "SENSEX" };
 
   function getImAlertSettings() {
     try {
@@ -5328,6 +5338,36 @@ function clearLiveChartAiOverlay() {
         stop: "54,833.20",
         target1: "55,391.60",
         target2: "55,670.80",
+        exit: "Exit if stop-loss is hit, price loses VWAP and EMA 21, or an opposite confirmed signal appears."
+      };
+    }
+
+    if (marketKey === "finnifty") {
+      return {
+        name: "Nifty Financial Services",
+        price: 25076.65,
+        support: 24900,
+        resistance: 25150,
+        decision: "BUY SETUP",
+        entry: "25,076.65 - 25,094.50",
+        stop: "24,932.80",
+        target1: "25,220.30",
+        target2: "25,364.00",
+        exit: "Exit if stop-loss is hit, price loses VWAP and EMA 21, or an opposite confirmed signal appears."
+      };
+    }
+
+    if (marketKey === "sensex") {
+      return {
+        name: "SENSEX",
+        price: 74003.82,
+        support: 73500,
+        resistance: 74250,
+        decision: "BUY SETUP",
+        entry: "74,003.82 - 74,050.20",
+        stop: "73,640.90",
+        target1: "74,366.60",
+        target2: "74,729.40",
         exit: "Exit if stop-loss is hit, price loses VWAP and EMA 21, or an opposite confirmed signal appears."
       };
     }
