@@ -1711,7 +1711,7 @@ setInterval(loadChart, 60000);
 setInterval(() => {
   if (typeof window.isAiPlanLocked === "function" && window.isAiPlanLocked()) return;
   refreshTechnicalAnalysis("Automatic technical refresh.");
-}, 60000);
+}, 10000);
 
 setInterval(loadRrg, 300000);
 /* ===== Dashboard tabs and settings ===== */
