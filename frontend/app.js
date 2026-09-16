@@ -3670,6 +3670,10 @@ function clearLiveChartAiOverlay() {
       title: "Stock Rotation (RRG)",
       subtitle: "Relative strength and momentum rotation versus NIFTY 50."
     },
+    "im-heatmap": {
+      title: "Sector Heatmap",
+      subtitle: "Live NSE constituents colored by daily % change — bigger tile, bigger move."
+    },
     "im-paper-trading": {
       title: "Paper Trading Journal",
       subtitle: "Record research setups only. No real-money order execution."
@@ -3748,6 +3752,12 @@ function clearLiveChartAiOverlay() {
       if (typeof startImRrgQuotesPolling === "function") startImRrgQuotesPolling();
     } else if (typeof stopImRrgQuotesPolling === "function") {
       stopImRrgQuotesPolling();
+    }
+
+    if (pageId === "im-heatmap") {
+      if (typeof startHeatmapPolling === "function") startHeatmapPolling();
+    } else if (typeof stopHeatmapPolling === "function") {
+      stopHeatmapPolling();
     }
 
     if (pageId === "im-news" && typeof loadImMarketNews === "function") {
@@ -5636,6 +5646,243 @@ function clearLiveChartAiOverlay() {
       loadImRrgSingleChart(symbol, button.dataset.imRrgChartTf);
     });
   });
+
+  // ===================== Sector / stock heatmap =====================
+  // Reuses the same backend endpoints as RRG's drilldown (index constituents
+  // + batched watchlist quotes) — no new backend work needed. Tile size is
+  // simply scaled by |% change| (we don't have market-cap weights to build a
+  // true treemap) and color is a red-to-green gradient through a neutral
+  // midpoint so it reads clearly on the dark theme.
+
+  let imHeatmapIndex = "Nifty 50";
+  let imHeatmapTimer = null;
+  let imHeatmapLoadToken = 0;
+  const imHeatmapConstituentsCache = {};
+  let imAllStocksCache = null;
+
+  function heatmapColor(changePercent) {
+    const clamped = Math.max(-3, Math.min(3, Number(changePercent) || 0));
+    const t = (clamped + 3) / 6;
+    const lerp = (a, b, f) => Math.round(a + (b - a) * f);
+    let r, g, b;
+    if (t < 0.5) {
+      const f = t / 0.5;
+      r = lerp(239, 51, f); g = lerp(68, 65, f); b = lerp(68, 85, f);
+    } else {
+      const f = (t - 0.5) / 0.5;
+      r = lerp(51, 34, f); g = lerp(65, 197, f); b = lerp(85, 94, f);
+    }
+    return `rgb(${r}, ${g}, ${b})`;
+  }
+
+  function heatmapTileHtml(symbol, name, quote) {
+    const change = quote && quote.change_percent !== null && quote.change_percent !== undefined
+      ? Number(quote.change_percent)
+      : null;
+    const price = quote ? formatNumber(quote.last_price) : "--";
+    const changeLabel = change !== null ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}%` : "--";
+    const weight = Math.max(1, Math.min(12, 1 + Math.abs(change || 0) * 2.2));
+    const color = heatmapColor(change);
+    const tooltip = `${name} (${symbol}) · ₹${price} · ${changeLabel}`;
+    return `
+      <div class="im-heatmap-tile" style="flex-grow:${weight}; background:${color};" title="${escapeHtml(tooltip)}">
+        <span class="im-heatmap-tile-symbol">${escapeHtml(symbol)}</span>
+        <span class="im-heatmap-tile-change">${changeLabel}</span>
+      </div>
+    `;
+  }
+
+  function renderHeatmapGrid(constituents, quoteMap) {
+    const grid = document.getElementById("im-heatmap-grid");
+    if (!grid) return;
+    grid.innerHTML = constituents.map((c) => heatmapTileHtml(c.symbol, c.name, quoteMap[c.symbol])).join("");
+  }
+
+  function setHeatmapProgress(loaded, total) {
+    const track = document.getElementById("im-heatmap-progress-track");
+    const fill = document.getElementById("im-heatmap-progress-fill");
+    if (!track || !fill) return;
+    if (total <= 0) {
+      track.hidden = true;
+      return;
+    }
+    track.hidden = false;
+    fill.style.width = `${Math.min(100, Math.round((loaded / total) * 100))}%`;
+  }
+
+  async function runWithConcurrency(total, limit, worker) {
+    let cursor = 0;
+    async function runner() {
+      while (cursor < total) {
+        const current = cursor++;
+        await worker(current);
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(limit, total) }, runner));
+  }
+
+  async function loadHeatmap(indexName) {
+    imHeatmapIndex = indexName;
+
+    if (indexName === "ALL") {
+      return loadAllStocksHeatmap();
+    }
+
+    const statusText = document.getElementById("im-heatmap-status-text");
+    const liveBadge = document.getElementById("im-heatmap-live-badge");
+    setHeatmapProgress(0, 0);
+    if (statusText) statusText.textContent = `Loading ${indexName}…`;
+    if (liveBadge) liveBadge.hidden = true;
+
+    try {
+      if (!imHeatmapConstituentsCache[indexName]) {
+        const cRes = await fetch(`${API_BASE_URL}/api/index-constituents?index=${encodeURIComponent(indexName)}`).then((r) => r.json());
+        if (!cRes.ok || !cRes.available) throw new Error(cRes.error || "Constituent list not available.");
+        imHeatmapConstituentsCache[indexName] = cRes.constituents;
+      }
+      const constituents = imHeatmapConstituentsCache[indexName];
+      const symbols = constituents.map((c) => c.symbol);
+
+      const CHUNK_SIZE = 40;
+      const chunks = [];
+      for (let i = 0; i < symbols.length; i += CHUNK_SIZE) chunks.push(symbols.slice(i, i + CHUNK_SIZE));
+      const quoteMap = {};
+      await Promise.all(
+        chunks.map(async (chunk) => {
+          try {
+            const qRes = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(chunk.join(","))}`).then((r) => r.json());
+            if (qRes.ok) (qRes.data || []).forEach((q) => { quoteMap[q.symbol] = q; });
+          } catch (error) {
+            console.error("Heatmap quote chunk failed:", error);
+          }
+        })
+      );
+
+      if (imHeatmapIndex !== indexName) return; // user switched index mid-fetch
+
+      renderHeatmapGrid(constituents, quoteMap);
+      if (statusText) statusText.textContent = `${indexName} · ${constituents.length} stocks`;
+      if (liveBadge) liveBadge.hidden = false;
+    } catch (error) {
+      console.error("Heatmap load failed:", error);
+      if (statusText) statusText.textContent = `Could not load heatmap for ${indexName}.`;
+      const grid = document.getElementById("im-heatmap-grid");
+      if (grid) grid.innerHTML = `<div class="im-rrg-symbols-loading">Could not load heatmap for ${escapeHtml(indexName)}.</div>`;
+    }
+  }
+
+  // "All NSE Stocks" pulls the full 5000+ symbol universe once (names only,
+  // cached), then fetches live quotes in 100-symbol chunks with limited
+  // concurrency — firing all ~50 chunk requests at once would hammer the
+  // free-tier backend and Upstox's API, so only a handful run in parallel.
+  // Tiles are appended as each chunk resolves instead of waiting for
+  // everything, since a full cold run can take well over a minute.
+  async function loadAllStocksHeatmap() {
+    const myToken = ++imHeatmapLoadToken;
+    const statusText = document.getElementById("im-heatmap-status-text");
+    const liveBadge = document.getElementById("im-heatmap-live-badge");
+    const grid = document.getElementById("im-heatmap-grid");
+    if (statusText) statusText.textContent = "Loading full NSE stock list…";
+    if (liveBadge) liveBadge.hidden = true;
+    if (grid) grid.innerHTML = "";
+    setHeatmapProgress(0, 1);
+
+    try {
+      if (!imAllStocksCache) {
+        const res = await fetch(`${API_BASE_URL}/api/stocks/all`).then((r) => r.json());
+        if (!res.ok) throw new Error(res.error || "Could not load the stock universe.");
+        imAllStocksCache = res.data || [];
+      }
+      if (myToken !== imHeatmapLoadToken) return;
+
+      const stocks = imAllStocksCache;
+      const nameBySymbol = {};
+      stocks.forEach((s) => { nameBySymbol[s.symbol] = s.name; });
+      const symbols = stocks.map((s) => s.symbol);
+
+      const CHUNK_SIZE = 100;
+      const CONCURRENCY = 6;
+      const chunks = [];
+      for (let i = 0; i < symbols.length; i += CHUNK_SIZE) chunks.push(symbols.slice(i, i + CHUNK_SIZE));
+
+      let loadedCount = 0;
+
+      await runWithConcurrency(chunks.length, CONCURRENCY, async (i) => {
+        if (myToken !== imHeatmapLoadToken) return;
+        const chunk = chunks[i];
+        try {
+          const qRes = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(chunk.join(","))}`).then((r) => r.json());
+          if (myToken !== imHeatmapLoadToken) return;
+          if (qRes.ok) {
+            const quoteMap = {};
+            (qRes.data || []).forEach((q) => { quoteMap[q.symbol] = q; });
+            const tilesHtml = chunk
+              .filter((symbol) => quoteMap[symbol])
+              .map((symbol) => heatmapTileHtml(symbol, nameBySymbol[symbol] || symbol, quoteMap[symbol]))
+              .join("");
+            if (grid && tilesHtml) grid.insertAdjacentHTML("beforeend", tilesHtml);
+          }
+        } catch (error) {
+          console.error("All-stocks heatmap chunk failed:", error);
+        } finally {
+          loadedCount += chunk.length;
+          if (myToken === imHeatmapLoadToken) {
+            setHeatmapProgress(loadedCount, symbols.length);
+            if (statusText) {
+              statusText.textContent = `Loading all NSE stocks… ${loadedCount.toLocaleString("en-IN")} / ${symbols.length.toLocaleString("en-IN")}`;
+            }
+          }
+        }
+      });
+
+      if (myToken !== imHeatmapLoadToken) return;
+      setHeatmapProgress(0, 0);
+      if (statusText) statusText.textContent = `All NSE stocks · ${symbols.length.toLocaleString("en-IN")} listed`;
+      if (liveBadge) liveBadge.hidden = false;
+    } catch (error) {
+      console.error("All-stocks heatmap failed:", error);
+      if (statusText) statusText.textContent = "Could not load the full stock list right now.";
+      if (grid) grid.innerHTML = `<div class="im-rrg-symbols-loading">Could not load the full stock list right now.</div>`;
+      setHeatmapProgress(0, 0);
+    }
+  }
+
+  document.querySelectorAll(".im-heatmap-index-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".im-heatmap-index-btn").forEach((b) => b.classList.remove("active"));
+      button.classList.add("active");
+      const indexName = button.dataset.heatmapIndex;
+      const refreshBtn = document.getElementById("im-heatmap-refresh-btn");
+      if (refreshBtn) refreshBtn.hidden = indexName !== "ALL";
+      loadHeatmap(indexName);
+    });
+  });
+
+  const imHeatmapRefreshBtn = document.getElementById("im-heatmap-refresh-btn");
+  if (imHeatmapRefreshBtn) {
+    imHeatmapRefreshBtn.addEventListener("click", () => {
+      if (imHeatmapIndex === "ALL") loadAllStocksHeatmap();
+    });
+  }
+
+  function startHeatmapPolling() {
+    loadHeatmap(imHeatmapIndex);
+    if (imHeatmapTimer) return;
+    // "All NSE Stocks" is refreshed manually only — auto-polling 5000+
+    // symbols every 20 seconds would repeatedly hammer the backend and
+    // Upstox for a view that's already a heavy one-off load.
+    imHeatmapTimer = window.setInterval(() => {
+      if (imHeatmapIndex === "ALL") return;
+      loadHeatmap(imHeatmapIndex);
+    }, 20000);
+  }
+
+  function stopHeatmapPolling() {
+    if (imHeatmapTimer) {
+      window.clearInterval(imHeatmapTimer);
+      imHeatmapTimer = null;
+    }
+  }
 
   let watchlistTimer = null;
 

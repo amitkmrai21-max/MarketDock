@@ -4183,6 +4183,128 @@ body[data-accent="green"] .settings-choice.active {
   background: linear-gradient(135deg, #1d6fbd, #17a2ff);
 }
 
+.indian-market-mode .im-heatmap-index-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.indian-market-mode .im-heatmap-index-btn {
+  padding: 6px 13px;
+  border: 1px solid var(--im-border);
+  border-radius: 999px;
+  background: rgba(12, 27, 46, 0.6);
+  color: var(--im-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.indian-market-mode .im-heatmap-index-btn.active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+}
+
+.indian-market-mode .im-heatmap-all-btn {
+  border-color: rgba(247, 201, 72, 0.4);
+  color: #ecd690;
+}
+
+.indian-market-mode .im-heatmap-all-btn.active {
+  background: linear-gradient(135deg, #b45309, #d97706);
+  border-color: transparent;
+  color: #fff;
+}
+
+.indian-market-mode .im-heatmap-refresh-btn {
+  margin-left: 4px;
+}
+
+.indian-market-mode .im-heatmap-progress-track {
+  width: 100%;
+  max-width: 420px;
+  height: 5px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  overflow: hidden;
+}
+
+.indian-market-mode .im-heatmap-progress-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #1d6fbd, #17a2ff);
+  transition: width 0.25s ease;
+}
+
+.indian-market-mode .im-heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 14px;
+  color: var(--im-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.indian-market-mode .im-heatmap-legend-bar {
+  width: 140px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ef4444, #334155, #22c55e);
+}
+
+.indian-market-mode .im-heatmap-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.indian-market-mode .im-heatmap-tile {
+  flex-basis: 90px;
+  min-width: 90px;
+  height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 6px;
+  cursor: default;
+  transition: transform 0.15s ease;
+}
+
+.indian-market-mode .im-heatmap-tile:hover {
+  transform: scale(1.04);
+  z-index: 1;
+}
+
+.indian-market-mode .im-heatmap-tile-symbol {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.indian-market-mode .im-heatmap-tile-change {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 760px) {
+  .indian-market-mode .im-heatmap-tile {
+    flex-basis: 72px;
+    min-width: 72px;
+    height: 66px;
+  }
+}
+
 .indian-market-mode .im-rrg-zoom-btn {
   padding: 7px 14px;
   border: 1px solid var(--im-border);

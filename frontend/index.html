@@ -1283,6 +1283,11 @@
           RRG
         </button>
 
+        <button class="nav-button" data-page="im-heatmap" type="button">
+          <span class="nav-icon">&#9638;</span>
+          Heatmap
+        </button>
+
         <button class="nav-button" data-page="im-alerts" type="button">
           <span class="nav-icon">&#128276;</span>
           Alerts
@@ -2601,7 +2606,61 @@
           </div>
         </article>
       </section>
-      
+
+      <section class="page" id="im-heatmap">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow">Live Sector &amp; Stock Heatmap</p>
+            <h2 class="index-title">Sector Heatmap</h2>
+            <p class="subtitle">
+              Bigger tile = bigger move today. Green = up, red = down. Pick an index below.
+            </p>
+          </div>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <div class="im-heatmap-index-group" id="im-heatmap-index-group">
+                <button class="im-heatmap-index-btn active" type="button" data-heatmap-index="Nifty 50">NIFTY 50</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty Bank">Bank Nifty</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty IT">IT</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty Auto">Auto</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty Pharma">Pharma</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty FMCG">FMCG</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty Metal">Metal</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty Realty">Realty</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty Energy">Energy</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty Private Bank">Private Bank</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty PSU Bank">PSU Bank</button>
+                <button class="im-heatmap-index-btn" type="button" data-heatmap-index="Nifty Financial Services">Financial Services</button>
+                <button class="im-heatmap-index-btn im-heatmap-all-btn" type="button" data-heatmap-index="ALL">All NSE Stocks (5000+)</button>
+                <button class="im-rrg-zoom-btn im-heatmap-refresh-btn" id="im-heatmap-refresh-btn" type="button" hidden>&#8635; Refresh</button>
+              </div>
+              <p id="im-heatmap-status" class="status-line">
+                <span id="im-heatmap-status-text">Loading heatmap…</span><span class="im-rrg-live-badge" id="im-heatmap-live-badge" hidden>Live</span>
+              </p>
+              <div class="im-heatmap-progress-track" id="im-heatmap-progress-track" hidden>
+                <div class="im-heatmap-progress-fill" id="im-heatmap-progress-fill"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="im-heatmap-legend">
+            <span>Weak</span>
+            <span class="im-heatmap-legend-bar"></span>
+            <span>Strong</span>
+          </div>
+
+          <div class="im-heatmap-grid" id="im-heatmap-grid">
+            <div class="im-rrg-skeleton-row"></div>
+            <div class="im-rrg-skeleton-row"></div>
+            <div class="im-rrg-skeleton-row"></div>
+            <div class="im-rrg-skeleton-row"></div>
+          </div>
+        </article>
+      </section>
+
       <section class="page" id="im-paper-trading">
         <div class="paper-grid">
           <article class="card section-card">

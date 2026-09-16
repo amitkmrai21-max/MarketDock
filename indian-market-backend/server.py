@@ -2541,5 +2541,20 @@ def search_stocks():
     return jsonify({"ok": True, "count": len(results), "universe_size": len(universe), "data": results})
 
 
+@app.get("/api/stocks/all")
+def all_stocks():
+    """Returns the full NSE equity/ETF universe (symbol + name only, no
+    prices) for the market-wide heatmap. Deliberately separate from the
+    price-fetching endpoints — the frontend fetches this once and then
+    pulls live quotes for it in its own chunked batches."""
+    try:
+        universe = get_nse_equity_universe()
+    except Exception as error:
+        app.logger.warning("Stock universe fetch failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not load the stock universe right now."}), 502
+
+    return jsonify({"ok": True, "count": len(universe), "data": universe})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
