@@ -1926,13 +1926,15 @@
 
           <div class="im-watchlist-tabs" id="im-watchlist-tabs"></div>
 
-          <form class="im-alert-form" id="im-watchlist-add-form">
-            <input id="im-watchlist-add-symbol" type="text" placeholder="Symbol, e.g. RELIANCE" aria-label="Symbol to add" autocomplete="off" />
-            <button class="primary-button" type="submit">Add to This Watchlist</button>
+          <div class="im-watchlist-toolbar">
+            <div class="im-watchlist-search-wrap">
+              <input id="im-watchlist-search-input" type="text" placeholder="Search 5,000+ NSE stocks by name or symbol to add..." aria-label="Search stocks to add" autocomplete="off" />
+              <div id="im-watchlist-search-results" class="im-watchlist-search-results" hidden></div>
+            </div>
             <button class="chart-control-button replay-danger-btn" id="im-watchlist-delete-btn" type="button">Delete This Watchlist</button>
-          </form>
+          </div>
 
-          <p id="im-watchlist-ai-note" class="im-chart-status">AI score: a momentum read (0-100) from today's live % change. Not financial advice.</p>
+          <p id="im-watchlist-ai-note" class="im-chart-status">AI score: a momentum read (0-100) from today's live % change. Not financial advice. Up to 100 stocks per watchlist, up to 10 watchlists.</p>
 
           <div class="table-wrap">
             <table>

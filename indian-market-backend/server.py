@@ -2465,5 +2465,75 @@ def commodities():
         ), 502
 
 
+# ===================== NSE stock search (for building watchlists) =====================
+# Reuses the same public instrument master as the commodities feature (no auth
+# needed for the catalog). Filtered to genuine NSE-listed equities and ETFs —
+# identified by ISIN prefix (INE = equity, INF = mutual-fund/ETF units) rather
+# than instrument_type, since Upstox tags government/state bonds on this
+# segment as "EQUITY" too. This gives a searchable universe of 5000+ symbols
+# without ever sending the whole list to the frontend.
+
+EQUITY_ISIN_PREFIXES = ("INE", "INF")
+_nse_equity_universe_cache = {"rows": None, "fetched_at": 0}
+
+
+def get_nse_equity_universe():
+    now = time.time()
+    if _nse_equity_universe_cache["rows"] is not None and (now - _nse_equity_universe_cache["fetched_at"]) < INSTRUMENT_MASTER_CACHE_SECONDS:
+        return _nse_equity_universe_cache["rows"]
+
+    universe = []
+    seen_symbols = set()
+    for row in get_instrument_master_rows():
+        if row.get("exchange") != "NSE_EQ":
+            continue
+        instrument_key = row.get("instrument_key", "")
+        isin = instrument_key.split("|")[-1] if "|" in instrument_key else ""
+        if not isin.startswith(EQUITY_ISIN_PREFIXES):
+            continue
+        symbol = row.get("tradingsymbol", "").strip()
+        if not symbol or symbol in seen_symbols:
+            continue
+        seen_symbols.add(symbol)
+        universe.append({"symbol": symbol, "name": row.get("name", "").strip()})
+
+    _nse_equity_universe_cache["rows"] = universe
+    _nse_equity_universe_cache["fetched_at"] = now
+    return universe
+
+
+@app.get("/api/stocks/search")
+def search_stocks():
+    query = request.args.get("q", "").strip().upper()
+    try:
+        limit = max(1, min(50, int(request.args.get("limit", 25))))
+    except ValueError:
+        limit = 25
+
+    if not query:
+        return jsonify({"ok": True, "data": []})
+
+    try:
+        universe = get_nse_equity_universe()
+    except Exception as error:
+        app.logger.warning("Stock universe fetch failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not search stocks right now."}), 502
+
+    starts_with = []
+    contains = []
+    for stock in universe:
+        symbol = stock["symbol"]
+        name = stock["name"].upper()
+        if symbol.startswith(query):
+            starts_with.append(stock)
+        elif query in symbol or query in name:
+            contains.append(stock)
+
+    starts_with.sort(key=lambda s: (len(s["symbol"]), s["symbol"]))
+    results = (starts_with + contains)[:limit]
+
+    return jsonify({"ok": True, "count": len(results), "universe_size": len(universe), "data": results})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)

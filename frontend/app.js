@@ -4157,7 +4157,13 @@ function clearLiveChartAiOverlay() {
   // ai_score/ai_label the backend derives from live % change).
 
   const IM_WATCHLISTS_KEY = "imWatchlistsV2";
-  const IM_DEFAULT_WATCHLIST_SYMBOLS = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "LT"];
+  const IM_MAX_WATCHLISTS = 10;
+  const IM_MAX_SYMBOLS_PER_WATCHLIST = 100;
+  const IM_DEFAULT_WATCHLIST_SYMBOLS = [
+    "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL",
+    "ITC", "KOTAKBANK", "LT", "HINDUNILVR", "BAJFINANCE", "MARUTI", "TITAN",
+    "SUNPHARMA", "AXISBANK", "ASIANPAINT", "WIPRO", "TATAMOTORS", "NTPC"
+  ];
   let activeImWatchlistId = null;
 
   function getImWatchlists() {
@@ -4253,14 +4259,154 @@ function clearLiveChartAiOverlay() {
     }
   }
 
+  function addSymbolToActiveWatchlist(symbol) {
+    symbol = String(symbol || "").trim().toUpperCase();
+    if (!symbol) return;
+
+    const lists = getImWatchlists();
+    const active = getActiveImWatchlist();
+    const target = lists.find((w) => w.id === active.id);
+    if (!target) return;
+
+    if (target.symbols.includes(symbol)) return;
+
+    if (target.symbols.length >= IM_MAX_SYMBOLS_PER_WATCHLIST) {
+      alert(`"${target.name}" already has ${IM_MAX_SYMBOLS_PER_WATCHLIST} stocks, the maximum per watchlist. Remove one before adding another.`);
+      return;
+    }
+
+    target.symbols.push(symbol);
+    saveImWatchlists(lists);
+    fetchWatchlist();
+  }
+
+  let imWatchlistSearchDebounce = null;
+  let imWatchlistSearchActiveIndex = -1;
+  let imWatchlistSearchResults = [];
+
+  function hideImWatchlistSearchResults() {
+    const resultsEl = document.getElementById("im-watchlist-search-results");
+    if (resultsEl) {
+      resultsEl.hidden = true;
+      resultsEl.innerHTML = "";
+    }
+    imWatchlistSearchResults = [];
+    imWatchlistSearchActiveIndex = -1;
+  }
+
+  function renderImWatchlistSearchResults(results) {
+    imWatchlistSearchResults = results;
+    imWatchlistSearchActiveIndex = -1;
+    const resultsEl = document.getElementById("im-watchlist-search-results");
+    if (!resultsEl) return;
+
+    if (!results.length) {
+      resultsEl.innerHTML = `<div class="im-watchlist-search-empty">No matching NSE stocks found.</div>`;
+      resultsEl.hidden = false;
+      return;
+    }
+
+    resultsEl.innerHTML = results
+      .map(
+        (stock, index) => `
+          <div class="im-watchlist-search-item" data-search-index="${index}">
+            <strong>${escapeHtml(stock.symbol)}</strong>
+            <span>${escapeHtml(stock.name)}</span>
+          </div>
+        `
+      )
+      .join("");
+    resultsEl.hidden = false;
+  }
+
+  async function runImWatchlistSearch(query) {
+    const resultsEl = document.getElementById("im-watchlist-search-results");
+    if (!query) {
+      hideImWatchlistSearchResults();
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=25`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Stock search failed.");
+      renderImWatchlistSearchResults(Array.isArray(result.data) ? result.data : []);
+    } catch (error) {
+      console.error("Stock search failed:", error);
+      if (resultsEl) {
+        resultsEl.innerHTML = `<div class="im-watchlist-search-empty">${escapeHtml(error.message || "Stock search failed.")}</div>`;
+        resultsEl.hidden = false;
+      }
+    }
+  }
+
+  function setupImWatchlistSearch() {
+    const input = document.getElementById("im-watchlist-search-input");
+    const resultsEl = document.getElementById("im-watchlist-search-results");
+    if (!input || !resultsEl) return;
+
+    input.addEventListener("input", () => {
+      const query = input.value.trim();
+      if (imWatchlistSearchDebounce) window.clearTimeout(imWatchlistSearchDebounce);
+      imWatchlistSearchDebounce = window.setTimeout(() => runImWatchlistSearch(query), 250);
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (resultsEl.hidden || !imWatchlistSearchResults.length) return;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        imWatchlistSearchActiveIndex = Math.min(imWatchlistSearchActiveIndex + 1, imWatchlistSearchResults.length - 1);
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        imWatchlistSearchActiveIndex = Math.max(imWatchlistSearchActiveIndex - 1, 0);
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        const chosen = imWatchlistSearchResults[imWatchlistSearchActiveIndex] || imWatchlistSearchResults[0];
+        if (chosen) {
+          addSymbolToActiveWatchlist(chosen.symbol);
+          input.value = "";
+          hideImWatchlistSearchResults();
+        }
+        return;
+      } else if (event.key === "Escape") {
+        hideImWatchlistSearchResults();
+        return;
+      } else {
+        return;
+      }
+      Array.from(resultsEl.children).forEach((child, index) => {
+        child.classList.toggle("active", index === imWatchlistSearchActiveIndex);
+      });
+    });
+
+    resultsEl.addEventListener("click", (event) => {
+      const item = event.target.closest("[data-search-index]");
+      if (!item) return;
+      const stock = imWatchlistSearchResults[Number(item.dataset.searchIndex)];
+      if (stock) {
+        addSymbolToActiveWatchlist(stock.symbol);
+        input.value = "";
+        hideImWatchlistSearchResults();
+        input.focus();
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".im-watchlist-search-wrap")) hideImWatchlistSearchResults();
+    });
+  }
+
   function setupImWatchlistControls() {
     const tabsEl = document.getElementById("im-watchlist-tabs");
     if (tabsEl) {
       tabsEl.addEventListener("click", (event) => {
         if (event.target.closest("#im-watchlist-new-btn")) {
+          const lists = getImWatchlists();
+          if (lists.length >= IM_MAX_WATCHLISTS) {
+            alert(`You can have up to ${IM_MAX_WATCHLISTS} watchlists. Delete one before adding a new one.`);
+            return;
+          }
           const name = window.prompt("Name for the new watchlist:");
           if (!name || !name.trim()) return;
-          const lists = getImWatchlists();
           const id = `wl${Date.now()}${Math.random().toString(16).slice(2, 6)}`;
           lists.push({ id, name: name.trim().slice(0, 40), symbols: [] });
           saveImWatchlists(lists);
@@ -4279,25 +4425,7 @@ function clearLiveChartAiOverlay() {
       });
     }
 
-    const addForm = document.getElementById("im-watchlist-add-form");
-    if (addForm) {
-      addForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const input = document.getElementById("im-watchlist-add-symbol");
-        const symbol = input.value.trim().toUpperCase();
-        if (!symbol) return;
-
-        const lists = getImWatchlists();
-        const active = getActiveImWatchlist();
-        const target = lists.find((w) => w.id === active.id);
-        if (target && !target.symbols.includes(symbol)) {
-          target.symbols.push(symbol);
-          saveImWatchlists(lists);
-          fetchWatchlist();
-        }
-        input.value = "";
-      });
-    }
+    setupImWatchlistSearch();
 
     const deleteBtn = document.getElementById("im-watchlist-delete-btn");
     if (deleteBtn) {
