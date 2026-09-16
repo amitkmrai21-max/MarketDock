@@ -1910,7 +1910,7 @@
             <p class="eyebrow">NSE Equity &middot; Live prices</p>
             <h2 class="index-title">Watchlist</h2>
             <p class="subtitle">
-              Live last-traded price for popular NSE stocks. Research view only — no order placement.
+              Live last-traded price for your own NSE stock lists, each with a quick momentum-based AI score. Research view only — no order placement.
             </p>
           </div>
           <div class="setup-badge" id="im-watchlist-status">Loading…</div>
@@ -1919,10 +1919,20 @@
         <article class="card section-card">
           <div class="section-heading">
             <div>
-              <h2>Stocks</h2>
+              <h2>Your Watchlists</h2>
               <p>Auto-refreshes every 20 seconds</p>
             </div>
           </div>
+
+          <div class="im-watchlist-tabs" id="im-watchlist-tabs"></div>
+
+          <form class="im-alert-form" id="im-watchlist-add-form">
+            <input id="im-watchlist-add-symbol" type="text" placeholder="Symbol, e.g. RELIANCE" aria-label="Symbol to add" autocomplete="off" />
+            <button class="primary-button" type="submit">Add to This Watchlist</button>
+            <button class="chart-control-button replay-danger-btn" id="im-watchlist-delete-btn" type="button">Delete This Watchlist</button>
+          </form>
+
+          <p id="im-watchlist-ai-note" class="im-chart-status">AI score: a momentum read (0-100) from today's live % change. Not financial advice.</p>
 
           <div class="table-wrap">
             <table>
@@ -1930,10 +1940,12 @@
                 <tr>
                   <th>Symbol</th>
                   <th>Last Price</th>
+                  <th>AI Score</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody id="im-watchlist-body">
-                <tr><td colspan="2">Loading watchlist…</td></tr>
+                <tr><td colspan="4">Loading watchlist…</td></tr>
               </tbody>
             </table>
           </div>

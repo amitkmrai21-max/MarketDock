@@ -4151,14 +4151,64 @@ function clearLiveChartAiOverlay() {
     }
   }
 
+  // ===================== Multiple watchlists + AI score =====================
+  // Each watchlist is just {id, name, symbols[]} in localStorage; fetching still
+  // reuses the same /api/watchlist?symbols= endpoint (now with a per-row
+  // ai_score/ai_label the backend derives from live % change).
+
+  const IM_WATCHLISTS_KEY = "imWatchlistsV2";
+  const IM_DEFAULT_WATCHLIST_SYMBOLS = ["RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "LT"];
+  let activeImWatchlistId = null;
+
+  function getImWatchlists() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(IM_WATCHLISTS_KEY));
+      if (Array.isArray(saved) && saved.length) return saved;
+    } catch (error) { /* ignore */ }
+    return [{ id: "default", name: "My Watchlist", symbols: [...IM_DEFAULT_WATCHLIST_SYMBOLS] }];
+  }
+
+  function saveImWatchlists(lists) {
+    try {
+      localStorage.setItem(IM_WATCHLISTS_KEY, JSON.stringify(lists));
+    } catch (error) { /* ignore */ }
+  }
+
+  function getActiveImWatchlist() {
+    const lists = getImWatchlists();
+    if (!activeImWatchlistId || !lists.some((w) => w.id === activeImWatchlistId)) {
+      activeImWatchlistId = lists[0].id;
+    }
+    return lists.find((w) => w.id === activeImWatchlistId) || lists[0];
+  }
+
+  function renderImWatchlistTabs() {
+    const lists = getImWatchlists();
+    getActiveImWatchlist();
+    const tabsEl = document.getElementById("im-watchlist-tabs");
+    if (!tabsEl) return;
+    tabsEl.innerHTML =
+      lists
+        .map(
+          (w) => `<button class="im-watchlist-tab ${w.id === activeImWatchlistId ? "active" : ""}" type="button" data-watchlist-id="${escapeHtml(w.id)}">${escapeHtml(w.name)}</button>`
+        )
+        .join("") + `<button class="im-watchlist-tab-new" type="button" id="im-watchlist-new-btn">+ New</button>`;
+  }
+
+  function renderAiScoreBadge(score, label) {
+    if (score === null || score === undefined || !label) return `<span class="im-ai-score">--</span>`;
+    const cls = `im-ai-score-${String(label).toLowerCase().replace(/\s+/g, "-")}`;
+    return `<span class="im-ai-score ${cls}">${score} &middot; ${escapeHtml(label)}</span>`;
+  }
+
   function renderWatchlist(rows) {
     const body = document.getElementById("im-watchlist-body");
     const status = document.getElementById("im-watchlist-status");
     if (!body) return;
 
     if (!Array.isArray(rows) || !rows.length) {
-      body.innerHTML = `<tr><td colspan="2">No watchlist data available right now.</td></tr>`;
-      if (status) status.textContent = "Unavailable";
+      body.innerHTML = `<tr><td colspan="4">No symbols in this watchlist yet. Add one above.</td></tr>`;
+      if (status) status.textContent = "Empty";
       return;
     }
 
@@ -4168,6 +4218,8 @@ function clearLiveChartAiOverlay() {
           <tr>
             <td>${escapeHtml(row.symbol)}</td>
             <td>${formatNumber(row.last_price)}</td>
+            <td>${renderAiScoreBadge(row.ai_score, row.ai_label)}</td>
+            <td><button class="delete-trade-button" type="button" data-remove-symbol="${escapeHtml(row.symbol)}">Remove</button></td>
           </tr>
         `
       )
@@ -4178,8 +4230,16 @@ function clearLiveChartAiOverlay() {
 
   async function fetchWatchlist() {
     const status = document.getElementById("im-watchlist-status");
+    const watchlist = getActiveImWatchlist();
+
+    if (!watchlist.symbols.length) {
+      renderWatchlist([]);
+      if (status) status.textContent = "Empty";
+      return;
+    }
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/watchlist`);
+      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${watchlist.symbols.join(",")}`);
       const result = await response.json();
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "Watchlist request failed.");
@@ -4188,8 +4248,95 @@ function clearLiveChartAiOverlay() {
     } catch (error) {
       console.error("Watchlist fetch failed:", error);
       if (status) status.textContent = "Unavailable";
+      const body = document.getElementById("im-watchlist-body");
+      if (body) body.innerHTML = `<tr><td colspan="4">${escapeHtml(error.message || "Could not load watchlist.")}</td></tr>`;
     }
   }
+
+  function setupImWatchlistControls() {
+    const tabsEl = document.getElementById("im-watchlist-tabs");
+    if (tabsEl) {
+      tabsEl.addEventListener("click", (event) => {
+        if (event.target.closest("#im-watchlist-new-btn")) {
+          const name = window.prompt("Name for the new watchlist:");
+          if (!name || !name.trim()) return;
+          const lists = getImWatchlists();
+          const id = `wl${Date.now()}${Math.random().toString(16).slice(2, 6)}`;
+          lists.push({ id, name: name.trim().slice(0, 40), symbols: [] });
+          saveImWatchlists(lists);
+          activeImWatchlistId = id;
+          renderImWatchlistTabs();
+          fetchWatchlist();
+          return;
+        }
+
+        const tabBtn = event.target.closest("[data-watchlist-id]");
+        if (tabBtn) {
+          activeImWatchlistId = tabBtn.dataset.watchlistId;
+          renderImWatchlistTabs();
+          fetchWatchlist();
+        }
+      });
+    }
+
+    const addForm = document.getElementById("im-watchlist-add-form");
+    if (addForm) {
+      addForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const input = document.getElementById("im-watchlist-add-symbol");
+        const symbol = input.value.trim().toUpperCase();
+        if (!symbol) return;
+
+        const lists = getImWatchlists();
+        const active = getActiveImWatchlist();
+        const target = lists.find((w) => w.id === active.id);
+        if (target && !target.symbols.includes(symbol)) {
+          target.symbols.push(symbol);
+          saveImWatchlists(lists);
+          fetchWatchlist();
+        }
+        input.value = "";
+      });
+    }
+
+    const deleteBtn = document.getElementById("im-watchlist-delete-btn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", () => {
+        const lists = getImWatchlists();
+        if (lists.length <= 1) {
+          alert("You need at least one watchlist. Add another before deleting this one.");
+          return;
+        }
+        const active = getActiveImWatchlist();
+        if (!window.confirm(`Delete watchlist "${active.name}"?`)) return;
+        const remaining = lists.filter((w) => w.id !== active.id);
+        saveImWatchlists(remaining);
+        activeImWatchlistId = remaining[0].id;
+        renderImWatchlistTabs();
+        fetchWatchlist();
+      });
+    }
+
+    const bodyEl = document.getElementById("im-watchlist-body");
+    if (bodyEl) {
+      bodyEl.addEventListener("click", (event) => {
+        const removeBtn = event.target.closest("[data-remove-symbol]");
+        if (!removeBtn) return;
+        const lists = getImWatchlists();
+        const active = getActiveImWatchlist();
+        const target = lists.find((w) => w.id === active.id);
+        if (target) {
+          target.symbols = target.symbols.filter((s) => s !== removeBtn.dataset.removeSymbol);
+          saveImWatchlists(lists);
+          fetchWatchlist();
+        }
+      });
+    }
+
+    renderImWatchlistTabs();
+  }
+
+  setupImWatchlistControls();
 
   // A curated, liquid subset of NSE F&O-eligible stocks across sectors (not the
   // complete ~180-stock F&O universe) — reuses the existing /api/watchlist

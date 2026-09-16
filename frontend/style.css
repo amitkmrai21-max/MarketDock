@@ -5388,6 +5388,85 @@ body[data-accent="green"] .settings-choice.active {
   width: 150px;
 }
 
+.indian-market-mode .im-watchlist-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.indian-market-mode .im-watchlist-tab {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(69, 182, 255, 0.2);
+  background: rgba(16, 36, 61, 0.55);
+  color: var(--im-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.indian-market-mode .im-watchlist-tab:hover {
+  border-color: rgba(69, 182, 255, 0.5);
+  color: var(--im-text);
+}
+
+.indian-market-mode .im-watchlist-tab.active {
+  border-color: transparent;
+  color: #ffffff;
+  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+}
+
+.indian-market-mode .im-watchlist-tab-new {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px dashed rgba(69, 182, 255, 0.4);
+  background: transparent;
+  color: var(--im-blue);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.indian-market-mode .im-watchlist-tab-new:hover {
+  background: rgba(69, 182, 255, 0.1);
+}
+
+.indian-market-mode .im-ai-score {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.indian-market-mode .im-ai-score-strong-bullish {
+  color: #7be3ad;
+  background: rgba(54, 207, 131, 0.16);
+}
+
+.indian-market-mode .im-ai-score-bullish {
+  color: #a7e9c4;
+  background: rgba(54, 207, 131, 0.1);
+}
+
+.indian-market-mode .im-ai-score-neutral {
+  color: #fde68a;
+  background: rgba(250, 204, 21, 0.1);
+}
+
+.indian-market-mode .im-ai-score-bearish {
+  color: #ffb4bc;
+  background: rgba(255, 111, 125, 0.1);
+}
+
+.indian-market-mode .im-ai-score-strong-bearish {
+  color: #ffa3ab;
+  background: rgba(255, 111, 125, 0.16);
+}
+
 .indian-market-mode #im-options-expiry {
   padding: 8px 10px;
   border-radius: 8px;

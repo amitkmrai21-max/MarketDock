@@ -1052,6 +1052,31 @@ def fetch_quotes_with_change(symbols, resolver=None):
     return results
 
 
+def compute_ai_score(change_percent):
+    """A deterministic momentum score (0-100) from today's live % change —
+    not an LLM call, so it computes instantly for every watchlist row on
+    every poll with no extra API cost. Saturates at +/-3% change (treated
+    as maximally bullish/bearish) and reads 50 (neutral) at 0% change."""
+    if change_percent is None:
+        return None, "Unknown"
+
+    capped = max(-3.0, min(3.0, change_percent))
+    score = round(50 + (capped / 3.0) * 50)
+
+    if score >= 80:
+        label = "Strong Bullish"
+    elif score >= 60:
+        label = "Bullish"
+    elif score > 40:
+        label = "Neutral"
+    elif score > 20:
+        label = "Bearish"
+    else:
+        label = "Strong Bearish"
+
+    return score, label
+
+
 @app.get("/api/top-mover/<index_key>")
 def top_mover(index_key):
     index_key = index_key.lower().strip()
@@ -1544,6 +1569,10 @@ def watchlist():
 
     try:
         results = fetch_quotes_with_change(symbols)
+        for row in results:
+            score, label = compute_ai_score(row.get("change_percent"))
+            row["ai_score"] = score
+            row["ai_label"] = label
         results.sort(key=lambda item: symbols.index(item["symbol"]) if item["symbol"] in symbols else 999)
 
         updated_at = now_utc()
