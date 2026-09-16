@@ -161,36 +161,30 @@ def fetch_upstox_candles(instrument_key, unit, interval, chart_history_days=None
     back gracefully if either piece is unavailable. Raises only if BOTH the
     historical and intraday fetches fail.
 
-    The two fetches are independent Upstox calls, so they run concurrently
-    instead of one after another — this roughly halves the wait per symbol,
-    which matters most when many symbols are fetched at once (e.g. RRG)."""
+    Deliberately sequential, not threaded: this already runs inside an outer
+    per-symbol thread pool (e.g. RRG fetches ~13 symbols at once), and the
+    free-tier instance's CPU is small enough that nesting another thread
+    pool per symbol added scheduling overhead and made things slower, not
+    faster."""
     if not UPSTOX_ACCESS_TOKEN:
         raise RuntimeError("Live market data is not configured on the server.")
-
-    def _history():
-        return _fetch_upstox_history_window(instrument_key, unit, interval, chart_history_days or 30)
-
-    def _intraday():
-        return _fetch_upstox_intraday(instrument_key, unit, interval)
 
     history_candles = []
     intraday_candles = []
     history_error = None
     intraday_error = None
 
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        history_future = executor.submit(_history)
-        intraday_future = executor.submit(_intraday)
+    try:
+        history_candles = _fetch_upstox_history_window(
+            instrument_key, unit, interval, chart_history_days or 30
+        )
+    except Exception as error:
+        history_error = error
 
-        try:
-            history_candles = history_future.result()
-        except Exception as error:
-            history_error = error
-
-        try:
-            intraday_candles = intraday_future.result()
-        except Exception as error:
-            intraday_error = error
+    try:
+        intraday_candles = _fetch_upstox_intraday(instrument_key, unit, interval)
+    except Exception as error:
+        intraday_error = error
 
     if not history_candles and not intraday_candles:
         raise history_error or intraday_error or RuntimeError("No candle data available.")

@@ -2524,12 +2524,18 @@
                 <label><input type="radio" name="im-rrg-mode" value="chart" /> Chart</label>
               </div>
               <p id="im-rrg-status"><span id="im-rrg-status-text">Loading RRG data…</span><span class="im-rrg-live-badge" id="im-rrg-live-badge" hidden>Live</span></p>
+              <p id="im-rrg-point-info" class="im-rrg-point-info" hidden></p>
             </div>
 
             <div class="im-rrg-controls">
               <button class="im-rrg-timeframe-btn" type="button" data-rrg-timeframe="1h">1 Hour</button>
               <button class="im-rrg-timeframe-btn active" type="button" data-rrg-timeframe="1d">1 Day</button>
               <button class="im-rrg-run-btn" id="im-rrg-run-btn" type="button">&#9654; Run</button>
+              <div class="im-rrg-speed-group" id="im-rrg-speed-group">
+                <button class="im-rrg-speed-btn" type="button" data-rrg-speed="1000">0.5x</button>
+                <button class="im-rrg-speed-btn active" type="button" data-rrg-speed="500">1x</button>
+                <button class="im-rrg-speed-btn" type="button" data-rrg-speed="250">2x</button>
+              </div>
               <button class="im-rrg-zoom-btn" id="im-rrg-zoom-in-btn" type="button">Zoom In</button>
               <button class="im-rrg-zoom-btn" id="im-rrg-zoom-out-btn" type="button">Zoom Out</button>
               <button class="im-rrg-zoom-btn" id="im-rrg-zoom-reset-btn" type="button">Reset View</button>

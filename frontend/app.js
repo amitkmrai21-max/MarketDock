@@ -4805,6 +4805,8 @@ function clearLiveChartAiOverlay() {
   let imRrgTimeframe = "1d";
   let imRrgData = null;
   let imRrgAnimTimer = null;
+  let imRrgAnimWindowStart = 0;
+  let imRrgAnimSpeedMs = 500;
   let imRrgSelectedSymbols = new Set();
   let imRrgAllSymbols = [];
   let imRrgQuotesMap = {};
@@ -4884,16 +4886,28 @@ function clearLiveChartAiOverlay() {
         const { ctx } = chart;
         chart.data.datasets.forEach((dataset, index) => {
           const meta = chart.getDatasetMeta(index);
-          const element = meta?.data?.[meta.data.length - 1];
-          const raw = dataset.data[dataset.data.length - 1];
-          if (!element || !raw) return;
-          const map = { "North-East": "\u2197", "South-East": "\u2198", "North-West": "\u2196", "South-West": "\u2199", Flat: "\u2192" };
+          const points = meta?.data || [];
+          const last = points[points.length - 1];
+          const prev = points[points.length - 2];
+          if (!last) return;
+
+          // Point the arrowhead along the actual on-screen direction of
+          // travel (angle between the last two plotted points) instead of
+          // one of 8 fixed compass directions \u2014 this replaces the old
+          // dot-plus-tiny-arrow marker with a single arrow that shows
+          // exactly which way the symbol is moving.
+          const angle = prev ? Math.atan2(last.y - prev.y, last.x - prev.x) : 0;
+          const size = 7;
           ctx.save();
+          ctx.translate(last.x, last.y);
+          ctx.rotate(angle);
           ctx.fillStyle = dataset.borderColor || "#fff";
-          ctx.font = "bold 16px Arial";
-          ctx.textAlign = "left";
-          ctx.textBaseline = "middle";
-          ctx.fillText(map[raw.direction || "Flat"] || "\u2192", element.x + 8, element.y);
+          ctx.beginPath();
+          ctx.moveTo(size + 2, 0);
+          ctx.lineTo(-size * 0.6, size * 0.75);
+          ctx.lineTo(-size * 0.6, -size * 0.75);
+          ctx.closePath();
+          ctx.fill();
           ctx.restore();
         });
       }
@@ -4952,7 +4966,11 @@ function clearLiveChartAiOverlay() {
         borderWidth: 2,
         pointBorderColor: color.border,
         pointBackgroundColor(c) { return c.raw?.isLatest ? color.border : "rgba(15,23,42,.95)"; },
-        pointRadius(c) { return c.raw?.isLatest ? 5 : 2; },
+        // The latest point is drawn as an arrowhead by imRrgArrowsPlugin
+        // instead of a dot — radius 0 hides the circle there while
+        // pointHitRadius keeps it clickable/hoverable in the same spot.
+        pointRadius(c) { return c.raw?.isLatest ? 0 : 2; },
+        pointHitRadius: 10,
         pointHoverRadius: 7,
         showLine: true,
         tension: 0.35
@@ -4969,6 +4987,13 @@ function clearLiveChartAiOverlay() {
         aspectRatio: 1.8,
         interaction: { intersect: false, mode: "nearest" },
         animation: { duration: 450, easing: "easeInOutQuad" },
+        onClick(event, elements) {
+          if (!elements.length) return;
+          const el = elements[0];
+          const dataset = imRrgChart.data.datasets[el.datasetIndex];
+          const point = dataset?.data?.[el.index];
+          showImRrgPointInfo(dataset?.label, point?.timestamp);
+        },
         plugins: {
           legend: { display: false },
           tooltip: {
@@ -5010,6 +5035,20 @@ function clearLiveChartAiOverlay() {
     if (liveBadge) liveBadge.hidden = !isLive;
   }
 
+  function showImRrgPointInfo(symbol, timestamp) {
+    const el = document.getElementById("im-rrg-point-info");
+    if (!el) return;
+    if (!symbol || !timestamp) {
+      el.hidden = true;
+      return;
+    }
+    const formatted = new Date(timestamp).toLocaleString("en-IN", {
+      day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+    el.textContent = `${symbol} · ${formatted}`;
+    el.hidden = false;
+  }
+
   async function fetchImRrg() {
     setImRrgStatus(`Loading ${imRrgTimeframe.toUpperCase()} RRG data…`, false);
     try {
@@ -5027,6 +5066,8 @@ function clearLiveChartAiOverlay() {
         throw new Error(result.error || "RRG request failed.");
       }
       imRrgData = result.data;
+      if (typeof pauseImRrgAnimation === "function") pauseImRrgAnimation();
+      imRrgAnimWindowStart = 0;
       renderImRrg(imRrgData);
       setImRrgStatus(`${imRrgTimeframe.toUpperCase()} RRG updated \u00B7 NIFTY 50 benchmark`, true);
     } catch (error) {
@@ -5459,32 +5500,61 @@ function clearLiveChartAiOverlay() {
     imRrgChart.update();
   }
 
-  function runImRrgAnimation() {
-    if (!imRrgData || imRrgAnimTimer) return;
+  function imRrgLastWindowStart() {
     const windowSize = imRrgData.display_window || 8;
     const maxLen = Math.max(1, ...imRrgData.trails.map((t) => (t.points || []).length));
-    const lastWindowStart = Math.max(0, maxLen - windowSize);
+    return Math.max(0, maxLen - windowSize);
+  }
+
+  function pauseImRrgAnimation() {
+    if (imRrgAnimTimer) {
+      window.clearInterval(imRrgAnimTimer);
+      imRrgAnimTimer = null;
+    }
     const runBtn = document.getElementById("im-rrg-run-btn");
-    if (runBtn) runBtn.disabled = true;
+    if (runBtn) {
+      runBtn.textContent = "▶ Run";
+      runBtn.classList.remove("running");
+    }
+  }
+
+  function stepImRrgAnimation() {
+    const lastWindowStart = imRrgLastWindowStart();
+    imRrgAnimWindowStart += 1;
+    if (imRrgAnimWindowStart > lastWindowStart) {
+      imRrgAnimWindowStart = lastWindowStart;
+      pauseImRrgAnimation();
+      return;
+    }
+    updateImRrgFrame(imRrgData, imRrgAnimWindowStart);
+  }
+
+  function runImRrgAnimation() {
+    if (!imRrgData || imRrgAnimTimer) return;
+    const runBtn = document.getElementById("im-rrg-run-btn");
 
     // Slide a fixed-size window across the full history (oldest points drop
     // off the back as new ones appear at the front) instead of just growing
     // a trail longer and longer — this is what gives a real RRG "Play" its
     // smooth, continuously-flowing rotation instead of an ever-lengthening,
-    // erratic-looking path.
-    let windowStart = 0;
-    renderImRrg(imRrgData, windowStart);
+    // erratic-looking path. Restart from the beginning only if a previous
+    // run already finished; otherwise resume from wherever it was paused.
+    if (imRrgAnimWindowStart >= imRrgLastWindowStart()) {
+      imRrgAnimWindowStart = 0;
+      renderImRrg(imRrgData, imRrgAnimWindowStart);
+    }
 
-    imRrgAnimTimer = window.setInterval(() => {
-      windowStart += 1;
-      if (windowStart > lastWindowStart) {
-        window.clearInterval(imRrgAnimTimer);
-        imRrgAnimTimer = null;
-        if (runBtn) runBtn.disabled = false;
-        return;
-      }
-      updateImRrgFrame(imRrgData, windowStart);
-    }, 500);
+    if (runBtn) {
+      runBtn.textContent = "⏸ Pause";
+      runBtn.classList.add("running");
+    }
+
+    imRrgAnimTimer = window.setInterval(stepImRrgAnimation, imRrgAnimSpeedMs);
+  }
+
+  function toggleImRrgAnimation() {
+    if (imRrgAnimTimer) pauseImRrgAnimation();
+    else runImRrgAnimation();
   }
 
   document.querySelectorAll(".im-rrg-timeframe-btn").forEach((button) => {
@@ -5497,7 +5567,21 @@ function clearLiveChartAiOverlay() {
   });
 
   const imRrgRunBtn = document.getElementById("im-rrg-run-btn");
-  if (imRrgRunBtn) imRrgRunBtn.addEventListener("click", runImRrgAnimation);
+  if (imRrgRunBtn) imRrgRunBtn.addEventListener("click", toggleImRrgAnimation);
+
+  document.querySelectorAll(".im-rrg-speed-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      imRrgAnimSpeedMs = Number(button.dataset.rrgSpeed) || 500;
+      document.querySelectorAll(".im-rrg-speed-btn").forEach((b) => b.classList.remove("active"));
+      button.classList.add("active");
+      // Apply immediately if a run is already in progress, instead of
+      // waiting for the next play to pick up the new speed.
+      if (imRrgAnimTimer) {
+        window.clearInterval(imRrgAnimTimer);
+        imRrgAnimTimer = window.setInterval(stepImRrgAnimation, imRrgAnimSpeedMs);
+      }
+    });
+  });
 
   const imRrgZoomInBtn = document.getElementById("im-rrg-zoom-in-btn");
   const imRrgZoomOutBtn = document.getElementById("im-rrg-zoom-out-btn");
