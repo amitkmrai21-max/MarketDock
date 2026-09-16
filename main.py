@@ -1774,7 +1774,7 @@ def home():
 
 @app.get("/robots.txt")
 def robots_txt():
-    content = "User-agent: *\nAllow: /\n\nSitemap: https://btc-signal-website.onrender.com/sitemap.xml\n"
+    content = "User-agent: *\nAllow: /\n\nSitemap: https://marketdock.onrender.com/sitemap.xml\n"
     return Response(content=content, media_type="text/plain")
 
 
@@ -1784,7 +1784,7 @@ def sitemap_xml():
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
         "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n"
         "  <url>\n"
-        "    <loc>https://btc-signal-website.onrender.com/</loc>\n"
+        "    <loc>https://marketdock.onrender.com/</loc>\n"
         "    <changefreq>hourly</changefreq>\n"
         "    <priority>1.0</priority>\n"
         "  </url>\n"
