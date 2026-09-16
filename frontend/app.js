@@ -4213,22 +4213,28 @@ function clearLiveChartAiOverlay() {
     if (!body) return;
 
     if (!Array.isArray(rows) || !rows.length) {
-      body.innerHTML = `<tr><td colspan="4">No symbols in this watchlist yet. Add one above.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="5">No symbols in this watchlist yet. Add one above.</td></tr>`;
       if (status) status.textContent = "Empty";
       return;
     }
 
     body.innerHTML = rows
-      .map(
-        (row) => `
+      .map((row) => {
+        const changePercent = Number(row.change_percent);
+        const hasChange = Number.isFinite(changePercent);
+        const arrow = hasChange ? (changePercent >= 0 ? "▲" : "▼") : "";
+        const changeClass = hasChange ? (changePercent >= 0 ? "positive" : "negative") : "";
+        const changeText = hasChange ? `${arrow} ${changePercent >= 0 ? "+" : ""}${changePercent}%` : "--";
+        return `
           <tr>
             <td>${escapeHtml(row.symbol)}</td>
             <td>${formatNumber(row.last_price)}</td>
+            <td class="${changeClass}">${changeText}</td>
             <td>${renderAiScoreBadge(row.ai_score, row.ai_label)}</td>
             <td><button class="delete-trade-button" type="button" data-remove-symbol="${escapeHtml(row.symbol)}">Remove</button></td>
           </tr>
-        `
-      )
+        `;
+      })
       .join("");
 
     if (status) status.textContent = "Live";
@@ -4255,7 +4261,7 @@ function clearLiveChartAiOverlay() {
       console.error("Watchlist fetch failed:", error);
       if (status) status.textContent = "Unavailable";
       const body = document.getElementById("im-watchlist-body");
-      if (body) body.innerHTML = `<tr><td colspan="4">${escapeHtml(error.message || "Could not load watchlist.")}</td></tr>`;
+      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load watchlist.")}</td></tr>`;
     }
   }
 
