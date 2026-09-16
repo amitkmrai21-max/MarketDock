@@ -30,20 +30,20 @@
       <img class="brand-logo" src="/frontend/image-1.png" alt="BTC AI Signal logo">
 
      <div class="brand-text">
-        <h1 id="brandTitle">BTC AI Signal</h1>
-        <p id="brandSubtitle">Live market analysis, virtual paper trading and Gemini/Groq AI signals</p>
+        <h1 id="brandTitle">Indian Market AI</h1>
+        <p id="brandSubtitle">NIFTY 50 and Bank Nifty research dashboard with paper-trading workflow</p>
       </div>
     </div>
     
   </header>
 
-  <button id="modeSliderToggle" class="mode-slider" type="button" data-mode="btc" aria-label="Switch between BTC and Indian Market">
-    <span class="mode-slider-label mode-slider-label-left">B</span>
-    <span class="mode-slider-label mode-slider-label-right">IN</span>
+  <button id="modeSliderToggle" class="mode-slider" type="button" data-mode="indian" aria-label="Switch between BTC and Indian Market">
+    <span class="mode-slider-label mode-slider-label-left">IN</span>
+    <span class="mode-slider-label mode-slider-label-right">B</span>
     <span class="mode-slider-thumb"></span>
   </button>
 
-  <div id="btcModeRoot">
+  <div id="btcModeRoot" hidden>
   <nav class="app-tabs" aria-label="Dashboard navigation">
     <button class="app-tab active" type="button" data-tab="dashboard">Dashboard</button>
     <button class="app-tab" type="button" data-tab="live-chart">Live Chart</button>
@@ -1149,7 +1149,7 @@
   </main>
   </div>
 
- <div id="indianModeRoot" hidden>
+ <div id="indianModeRoot">
 <div class="indian-market-mode">
   <div class="im-ticker-bar" id="im-ticker-bar">
     <div class="im-ticker-item">

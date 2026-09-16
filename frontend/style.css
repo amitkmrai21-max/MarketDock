@@ -2911,21 +2911,21 @@ body {
   width: 36px;
   height: 32px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #f7931a, #ffb84d);
+  background: linear-gradient(135deg, #1d4ed8, #22c55e);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
   transition: transform 0.25s ease, background 0.25s ease;
 }
 
-.mode-slider[data-mode="indian"] .mode-slider-thumb {
+.mode-slider[data-mode="btc"] .mode-slider-thumb {
   transform: translateX(40px);
-  background: linear-gradient(135deg, #1d4ed8, #22c55e);
+  background: linear-gradient(135deg, #f7931a, #ffb84d);
 }
 
-.mode-slider[data-mode="btc"] .mode-slider-label-left {
+.mode-slider[data-mode="indian"] .mode-slider-label-left {
   color: #0b1220;
 }
 
-.mode-slider[data-mode="indian"] .mode-slider-label-right {
+.mode-slider[data-mode="btc"] .mode-slider-label-right {
   color: #0b1220;
 }
 

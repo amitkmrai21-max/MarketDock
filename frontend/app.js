@@ -3610,8 +3610,8 @@ function clearLiveChartAiOverlay() {
     setMode(slider.dataset.mode === "indian" ? "btc" : "indian");
   });
 
-  let savedMode = "btc";
-  try { savedMode = localStorage.getItem("btcAiSignalActiveMode") || "btc"; } catch (error) { /* ignore */ }
+  let savedMode = "indian";
+  try { savedMode = localStorage.getItem("btcAiSignalActiveMode") || "indian"; } catch (error) { /* ignore */ }
   setMode(savedMode);
 })();
 
