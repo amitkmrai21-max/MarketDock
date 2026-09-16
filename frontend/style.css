@@ -3092,6 +3092,10 @@ body {
   letter-spacing: 0.2px;
 }
 
+#refreshBtn.nav-action-btn .btn-subline {
+  font-size: 13px !important;
+}
+
 .nav-action-group .api-key-prompt {
   font-size: 9.5px;
   max-width: 120px;
