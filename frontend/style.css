@@ -4218,6 +4218,58 @@ body[data-accent="green"] .settings-choice.active {
   font-size: 11px;
 }
 
+.indian-market-mode .im-rrg-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(54, 207, 131, 0.35);
+  background: rgba(54, 207, 131, 0.12);
+  color: var(--im-green);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.indian-market-mode .im-rrg-live-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--im-green);
+  box-shadow: 0 0 0 0 rgba(54, 207, 131, 0.6);
+  animation: im-rrg-pulse 1.6s ease-out infinite;
+}
+
+@keyframes im-rrg-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(54, 207, 131, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(54, 207, 131, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(54, 207, 131, 0); }
+}
+
+.indian-market-mode .im-rrg-skeleton-row {
+  height: 24px;
+  margin: 5px 0;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(69, 182, 255, 0.06) 25%,
+    rgba(69, 182, 255, 0.15) 37%,
+    rgba(69, 182, 255, 0.06) 63%
+  );
+  background-size: 400% 100%;
+  animation: im-rrg-shimmer 1.4s ease infinite;
+}
+
+@keyframes im-rrg-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
 .indian-market-mode .im-rrg-mode-toggle {
   display: flex;
   gap: 16px;
@@ -4293,10 +4345,12 @@ body[data-accent="green"] .settings-choice.active {
   padding: 6px;
   border-radius: 6px;
   font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 .indian-market-mode .im-rrg-symbol-row:hover {
-  background: rgba(69, 182, 255, 0.08);
+  background: rgba(69, 182, 255, 0.12);
 }
 
 .indian-market-mode .im-rrg-symbol-check {

@@ -3736,8 +3736,15 @@ function clearLiveChartAiOverlay() {
       fetchAllTopMovers();
     }
 
-    if (pageId === "im-rrg" && typeof fetchImRrg === "function") {
-      loadImRrgSymbolPanel().then(fetchImRrg);
+    if (pageId === "im-rrg") {
+      // The symbol/quotes panel and the RRG chart data are independent —
+      // fetching them in parallel instead of chaining with .then() roughly
+      // halves how long the page feels like it's opening.
+      if (typeof loadImRrgSymbolPanel === "function") loadImRrgSymbolPanel();
+      if (typeof fetchImRrg === "function") fetchImRrg();
+      if (typeof startImRrgQuotesPolling === "function") startImRrgQuotesPolling();
+    } else if (typeof stopImRrgQuotesPolling === "function") {
+      stopImRrgQuotesPolling();
     }
 
     if (pageId === "im-news" && typeof loadImMarketNews === "function") {
@@ -4805,6 +4812,7 @@ function clearLiveChartAiOverlay() {
   let imRrgSingleChart = null;
   let imRrgSingleSeries = null;
   let imRrgSelectedSingleSymbol = null;
+  const RRG_BENCHMARK_SYMBOL_NAME = "NIFTY 50";
 
   const imRrgColors = {
     "NIFTY 50": { border: "#e2e8f0", background: "rgba(226,232,240,.18)" }
@@ -4995,11 +5003,24 @@ function clearLiveChartAiOverlay() {
     });
   }
 
+  function setImRrgStatus(text, isLive) {
+    const statusText = document.getElementById("im-rrg-status-text");
+    const liveBadge = document.getElementById("im-rrg-live-badge");
+    if (statusText) statusText.textContent = text;
+    if (liveBadge) liveBadge.hidden = !isLive;
+  }
+
   async function fetchImRrg() {
-    const status = document.getElementById("im-rrg-status");
-    if (status) status.textContent = `Loading ${imRrgTimeframe.toUpperCase()} RRG data…`;
+    setImRrgStatus(`Loading ${imRrgTimeframe.toUpperCase()} RRG data…`, false);
     try {
-      const symbolsParam = `&symbols=${encodeURIComponent(Array.from(imRrgSelectedSymbols).join(","))}`;
+      // On the very first load the symbol panel hasn't resolved its default
+      // selection yet (it loads in parallel, not before this call) — leave
+      // the symbols param off entirely so the backend applies its own
+      // defaults, instead of sending an empty list that would plot only
+      // the benchmark.
+      const symbolsParam = imRrgPanelEverLoaded
+        ? `&symbols=${encodeURIComponent(Array.from(imRrgSelectedSymbols).join(","))}`
+        : "";
       const response = await fetch(`${API_BASE_URL}/api/rrg?interval=${imRrgTimeframe}${symbolsParam}`);
       const result = await response.json();
       if (!response.ok || !result.ok) {
@@ -5007,10 +5028,10 @@ function clearLiveChartAiOverlay() {
       }
       imRrgData = result.data;
       renderImRrg(imRrgData);
-      if (status) status.textContent = `${imRrgTimeframe.toUpperCase()} RRG updated \u00B7 NIFTY 50 benchmark`;
+      setImRrgStatus(`${imRrgTimeframe.toUpperCase()} RRG updated \u00B7 NIFTY 50 benchmark`, true);
     } catch (error) {
       console.error("RRG fetch failed:", error);
-      if (status) status.textContent = "RRG data unavailable right now.";
+      setImRrgStatus("RRG data unavailable right now.", false);
     }
   }
 
@@ -5060,10 +5081,10 @@ function clearLiveChartAiOverlay() {
       });
     });
 
-    container.querySelectorAll(".im-rrg-symbol-row-name").forEach((nameEl) => {
-      nameEl.addEventListener("click", () => {
-        const symbol = nameEl.closest(".im-rrg-symbol-row").dataset.symbol;
-        drillDownRrgIndex(symbol);
+    container.querySelectorAll(".im-rrg-symbol-row").forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("input")) return;
+        drillDownRrgIndex(row.dataset.symbol);
       });
     });
   }
@@ -5148,10 +5169,10 @@ function clearLiveChartAiOverlay() {
       });
     });
 
-    container.querySelectorAll(".im-rrg-symbol-row-name").forEach((nameEl) => {
-      nameEl.addEventListener("click", () => {
-        const symbol = nameEl.closest(".im-rrg-symbol-row").dataset.symbol;
-        if (imRrgMode === "chart") loadImRrgSingleChart(symbol);
+    container.querySelectorAll(".im-rrg-symbol-row").forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("input")) return;
+        if (imRrgMode === "chart") loadImRrgSingleChart(row.dataset.symbol);
       });
     });
 
@@ -5248,10 +5269,10 @@ function clearLiveChartAiOverlay() {
       });
     });
 
-    container.querySelectorAll(".im-rrg-symbol-row-name").forEach((nameEl) => {
-      nameEl.addEventListener("click", () => {
-        const symbol = nameEl.closest(".im-rrg-symbol-row").dataset.symbol;
-        drillDownRrgIndex(symbol);
+    container.querySelectorAll(".im-rrg-symbol-row").forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("input")) return;
+        drillDownRrgIndex(row.dataset.symbol);
       });
     });
   }
@@ -5288,6 +5309,32 @@ function clearLiveChartAiOverlay() {
       console.error("RRG symbol panel load failed:", error);
       const container = document.getElementById("im-rrg-symbols-list");
       if (container) container.innerHTML = `<div class="im-rrg-symbols-loading">Could not load index list.</div>`;
+    }
+  }
+
+  let imRrgQuotesTimer = null;
+
+  async function refreshImRrgQuotes() {
+    try {
+      const quotesRes = await fetch(`${API_BASE_URL}/api/rrg/quotes`).then((r) => r.json());
+      if (!quotesRes.ok) return;
+      imRrgQuotesMap = {};
+      (quotesRes.data || []).forEach((q) => { imRrgQuotesMap[q.symbol] = q; });
+      renderRrgSymbolPanel(document.getElementById("im-rrg-search")?.value);
+    } catch (error) {
+      console.error("RRG quotes refresh failed:", error);
+    }
+  }
+
+  function startImRrgQuotesPolling() {
+    if (imRrgQuotesTimer) return;
+    imRrgQuotesTimer = window.setInterval(refreshImRrgQuotes, 20000);
+  }
+
+  function stopImRrgQuotesPolling() {
+    if (imRrgQuotesTimer) {
+      window.clearInterval(imRrgQuotesTimer);
+      imRrgQuotesTimer = null;
     }
   }
 
@@ -5338,6 +5385,14 @@ function clearLiveChartAiOverlay() {
       if (quadrantLegend) quadrantLegend.hidden = !isRrg;
       if (runBtn) runBtn.hidden = !isRrg;
       zoomBtns.forEach((b) => { if (b) b.hidden = !isRrg; });
+
+      // Switching to Chart mode used to leave a bare "click an index" message
+      // until the user clicked something — show a real chart immediately
+      // (whatever was last drilled into, or the first selected index).
+      if (!isRrg && !imRrgSelectedSingleSymbol) {
+        const fallbackSymbol = imRrgDrilldownIndex || Array.from(imRrgSelectedSymbols)[0] || RRG_BENCHMARK_SYMBOL_NAME;
+        loadImRrgSingleChart(fallbackSymbol);
+      }
     });
   });
 

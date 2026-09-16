@@ -2523,7 +2523,7 @@
                 <label><input type="radio" name="im-rrg-mode" value="rrg" checked /> RRG</label>
                 <label><input type="radio" name="im-rrg-mode" value="chart" /> Chart</label>
               </div>
-              <p id="im-rrg-status">Loading RRG data…</p>
+              <p id="im-rrg-status"><span id="im-rrg-status-text">Loading RRG data…</span><span class="im-rrg-live-badge" id="im-rrg-live-badge" hidden>Live</span></p>
             </div>
 
             <div class="im-rrg-controls">
@@ -2546,7 +2546,12 @@
                 <span>% CHG</span>
               </div>
               <div class="im-rrg-symbols-list" id="im-rrg-symbols-list">
-                <div class="im-rrg-symbols-loading">Loading indices…</div>
+                <div class="im-rrg-skeleton-row"></div>
+                <div class="im-rrg-skeleton-row"></div>
+                <div class="im-rrg-skeleton-row"></div>
+                <div class="im-rrg-skeleton-row"></div>
+                <div class="im-rrg-skeleton-row"></div>
+                <div class="im-rrg-skeleton-row"></div>
               </div>
             </div>
 
@@ -2575,7 +2580,9 @@
                   <span>% CHG</span>
                 </div>
                 <div class="im-rrg-symbols-list im-rrg-below-list" id="im-rrg-below-symbols-list">
-                  <div class="im-rrg-symbols-loading">Loading indices…</div>
+                  <div class="im-rrg-skeleton-row"></div>
+                  <div class="im-rrg-skeleton-row"></div>
+                  <div class="im-rrg-skeleton-row"></div>
                 </div>
               </div>
             </div>
