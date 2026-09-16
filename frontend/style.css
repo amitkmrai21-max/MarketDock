@@ -3075,6 +3075,8 @@ body {
   border-radius: 10px !important;
   white-space: nowrap;
   letter-spacing: 0.1px;
+  min-width: 153px;
+  text-align: center;
 }
 
 .nav-ai-wrap {
