@@ -4,6 +4,7 @@ import re
 import csv
 import io
 import json
+import gzip
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
@@ -2271,6 +2272,167 @@ Return only one JSON object and nothing else, in this exact shape:
                 "ok": False,
                 "error": "Hindi translation is temporarily unavailable. Please try again later.",
             }
+        ), 502
+
+
+# ===================== Commodities (MCX) =====================
+# MCX futures contracts expire monthly/periodically (unlike a perpetual index),
+# so there is no single fixed instrument_key to hardcode. Instead, this
+# resolves the current nearest-expiry, standard-lot contract for each
+# commodity from Upstox's public instrument master (no auth required for the
+# catalog itself — only the live quote afterwards needs the access token),
+# and re-resolves it once the cache expires so the rollover to the next
+# month's contract happens automatically without a code change.
+
+MCX_COMMODITIES = {
+    "gold": {"name": "Gold", "prefix": "GOLD"},
+    "silver": {"name": "Silver", "prefix": "SILVER"},
+    "crudeoil": {"name": "Crude Oil", "prefix": "CRUDEOIL"},
+    "naturalgas": {"name": "Natural Gas", "prefix": "NATURALGAS"},
+}
+
+INSTRUMENT_MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/complete.csv.gz"
+INSTRUMENT_MASTER_CACHE_SECONDS = 12 * 60 * 60
+_instrument_master_cache = {"rows": None, "fetched_at": 0}
+
+COMMODITY_CONTRACT_CACHE_SECONDS = 12 * 60 * 60
+_commodity_contract_cache = {}
+
+COMMODITY_QUOTE_CACHE_SECONDS = 20
+_commodity_quote_cache = {"data": None, "fetched_at": 0}
+
+
+def get_instrument_master_rows():
+    now = time.time()
+    if _instrument_master_cache["rows"] is not None and (now - _instrument_master_cache["fetched_at"]) < INSTRUMENT_MASTER_CACHE_SECONDS:
+        return _instrument_master_cache["rows"]
+
+    response = requests.get(INSTRUMENT_MASTER_URL, timeout=30)
+    response.raise_for_status()
+    text = gzip.decompress(response.content).decode("utf-8")
+    rows = list(csv.DictReader(io.StringIO(text)))
+
+    _instrument_master_cache["rows"] = rows
+    _instrument_master_cache["fetched_at"] = now
+    return rows
+
+
+def find_current_mcx_future(prefix):
+    """Finds the nearest-expiry, standard-lot MCX future for the given
+    commodity prefix (GOLD/SILVER/CRUDEOIL/NATURALGAS) — matching the trading
+    symbol exactly against PREFIX + 2-digit-year + 3-letter-month + FUT, which
+    excludes mini/guinea/petal/other variant contracts that share the same
+    instrument `name` but trade as separate, smaller-lot contracts."""
+    pattern = re.compile(rf"^{re.escape(prefix)}\d{{2}}[A-Z]{{3}}FUT$")
+    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+
+    candidates = []
+    for row in get_instrument_master_rows():
+        if row.get("exchange") != "MCX_FO" or row.get("instrument_type") != "FUTCOM":
+            continue
+        if not pattern.match(row.get("tradingsymbol", "")):
+            continue
+        try:
+            expiry_date = datetime.strptime(row.get("expiry", ""), "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        if expiry_date >= today:
+            candidates.append((expiry_date, row))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda pair: pair[0])
+    _, nearest_row = candidates[0]
+    return {
+        "instrument_key": nearest_row.get("instrument_key"),
+        "trading_symbol": nearest_row.get("tradingsymbol"),
+        "expiry": candidates[0][0].isoformat(),
+    }
+
+
+def get_current_commodity_contract(commodity_key):
+    cached = _commodity_contract_cache.get(commodity_key)
+    now = time.time()
+    if cached and now - cached["fetched_at"] < COMMODITY_CONTRACT_CACHE_SECONDS:
+        return cached["data"]
+
+    contract = find_current_mcx_future(MCX_COMMODITIES[commodity_key]["prefix"])
+    if contract:
+        _commodity_contract_cache[commodity_key] = {"data": contract, "fetched_at": now}
+    return contract
+
+
+@app.get("/api/commodities")
+def commodities():
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify(
+            {"ok": False, "error": "Live market data is not configured on the server."}
+        ), 503
+
+    now = time.time()
+    if _commodity_quote_cache["data"] is not None and (now - _commodity_quote_cache["fetched_at"]) < COMMODITY_QUOTE_CACHE_SECONDS:
+        return jsonify({"ok": True, "updated_at": _commodity_quote_cache["updated_at"], "data": _commodity_quote_cache["data"]})
+
+    try:
+        contracts = {}
+        for key in MCX_COMMODITIES:
+            contract = get_current_commodity_contract(key)
+            if contract:
+                contracts[key] = contract
+
+        if not contracts:
+            return jsonify(
+                {"ok": False, "error": "Could not resolve current commodity contracts."}
+            ), 502
+
+        instrument_keys = ",".join(c["instrument_key"] for c in contracts.values())
+        url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={quote(instrument_keys, safe=',')}"
+        headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
+
+        response = requests.get(url, headers=headers, timeout=20)
+        response.raise_for_status()
+        quote_data = (response.json().get("data") or {})
+
+        reverse_map = {contract["instrument_key"]: key for key, contract in contracts.items()}
+
+        results = []
+        for info in quote_data.values():
+            commodity_key = reverse_map.get(info.get("instrument_token", ""))
+            if not commodity_key:
+                continue
+
+            last_price = info.get("last_price")
+            previous_close = info.get("cp")
+            change_percent = None
+            if last_price is not None and previous_close:
+                change_percent = round(((last_price - previous_close) / previous_close) * 100, 2)
+
+            results.append(
+                {
+                    "key": commodity_key,
+                    "name": MCX_COMMODITIES[commodity_key]["name"],
+                    "trading_symbol": contracts[commodity_key]["trading_symbol"],
+                    "expiry": contracts[commodity_key]["expiry"],
+                    "last_price": last_price,
+                    "change_percent": change_percent,
+                }
+            )
+
+        order = list(MCX_COMMODITIES.keys())
+        results.sort(key=lambda row: order.index(row["key"]) if row["key"] in order else 999)
+
+        updated_at = now_utc()
+        _commodity_quote_cache["data"] = results
+        _commodity_quote_cache["fetched_at"] = now
+        _commodity_quote_cache["updated_at"] = updated_at
+
+        return jsonify({"ok": True, "updated_at": updated_at, "data": results})
+
+    except Exception as error:
+        app.logger.warning("Commodities fetch failed: %s", error)
+        return jsonify(
+            {"ok": False, "error": "Could not fetch commodity prices right now."}
         ), 502
 
 

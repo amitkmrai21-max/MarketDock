@@ -1223,6 +1223,11 @@
           Options
         </button>
 
+        <button class="nav-button" data-page="im-commodities" type="button">
+          <span class="nav-icon">&#9679;</span>
+          Commodities
+        </button>
+
         <button class="nav-button" data-page="im-news" type="button">
           <span class="nav-icon">&#128240;</span>
           News
@@ -2019,6 +2024,44 @@
               </thead>
               <tbody id="im-options-body">
                 <tr><td colspan="7">Loading option chain…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="page" id="im-commodities">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow">MCX &middot; Live prices</p>
+            <h2 class="index-title">Commodities</h2>
+            <p class="subtitle">
+              Current-month MCX futures for Gold, Silver, Crude Oil, and Natural Gas. The contract shown rolls over automatically as each month's expiry passes. Research view only — no order placement.
+            </p>
+          </div>
+          <div class="setup-badge" id="im-commodities-status">Loading…</div>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <h2>MCX Futures</h2>
+              <p>Auto-refreshes every 20 seconds</p>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Commodity</th>
+                  <th>Contract</th>
+                  <th>Last Price</th>
+                  <th>Change</th>
+                </tr>
+              </thead>
+              <tbody id="im-commodities-body">
+                <tr><td colspan="4">Loading commodity prices…</td></tr>
               </tbody>
             </table>
           </div>

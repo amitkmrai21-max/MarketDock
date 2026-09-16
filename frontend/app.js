@@ -3650,6 +3650,10 @@ function clearLiveChartAiOverlay() {
       title: "Option Chain",
       subtitle: "NIFTY 50 and Bank Nifty option chain by strike."
     },
+    "im-commodities": {
+      title: "Commodities",
+      subtitle: "Current-month MCX futures for Gold, Silver, Crude Oil, and Natural Gas."
+    },
     "im-news": {
       title: "Market News",
       subtitle: "Latest Indian equity-market headlines from financial publishers."
@@ -3720,6 +3724,12 @@ function clearLiveChartAiOverlay() {
       if (typeof startOptionsChainPolling === "function") startOptionsChainPolling();
     } else if (typeof stopOptionsChainPolling === "function") {
       stopOptionsChainPolling();
+    }
+
+    if (pageId === "im-commodities") {
+      if (typeof startCommoditiesPolling === "function") startCommoditiesPolling();
+    } else if (typeof stopCommoditiesPolling === "function") {
+      stopCommoditiesPolling();
     }
 
     if (pageId === "im-dashboard" && typeof fetchAllTopMovers === "function") {
@@ -4390,6 +4400,71 @@ function clearLiveChartAiOverlay() {
       selectedOptionsExpiry = optionsExpirySelect.value;
       loadOptionChain();
     });
+  }
+
+  // ===================== Commodities (MCX) =====================
+
+  function renderCommodities(rows) {
+    const body = document.getElementById("im-commodities-body");
+    const status = document.getElementById("im-commodities-status");
+    if (!body) return;
+
+    if (!Array.isArray(rows) || !rows.length) {
+      body.innerHTML = `<tr><td colspan="4">No commodity data available right now.</td></tr>`;
+      if (status) status.textContent = "Unavailable";
+      return;
+    }
+
+    body.innerHTML = rows
+      .map((row) => {
+        const changePercent = Number(row.change_percent);
+        const hasChange = Number.isFinite(changePercent);
+        const changeClass = hasChange ? (changePercent >= 0 ? "positive" : "negative") : "";
+        const changeText = hasChange ? `${changePercent >= 0 ? "+" : ""}${changePercent}%` : "--";
+        return `
+          <tr>
+            <td>${escapeHtml(row.name)}</td>
+            <td>${escapeHtml(row.trading_symbol)} &middot; ${escapeHtml(row.expiry)}</td>
+            <td>${formatNumber(row.last_price)}</td>
+            <td class="${changeClass}">${changeText}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    if (status) status.textContent = "Live";
+  }
+
+  async function fetchCommodities() {
+    const status = document.getElementById("im-commodities-status");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/commodities`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || "Commodities request failed.");
+      }
+      renderCommodities(result.data);
+    } catch (error) {
+      console.error("Commodities fetch failed:", error);
+      if (status) status.textContent = "Unavailable";
+      const body = document.getElementById("im-commodities-body");
+      if (body) body.innerHTML = `<tr><td colspan="4">${escapeHtml(error.message || "Could not load commodity prices.")}</td></tr>`;
+    }
+  }
+
+  let commoditiesTimer = null;
+
+  function startCommoditiesPolling() {
+    if (commoditiesTimer) return;
+    fetchCommodities();
+    commoditiesTimer = window.setInterval(fetchCommodities, 20000);
+  }
+
+  function stopCommoditiesPolling() {
+    if (commoditiesTimer) {
+      window.clearInterval(commoditiesTimer);
+      commoditiesTimer = null;
+    }
   }
 
   function renderTopMover(indexKey, mover) {
@@ -7115,6 +7190,7 @@ function clearLiveChartAiOverlay() {
       stopWatchlistPolling();
       stopFoWatchlistPolling();
       stopOptionsChainPolling();
+      stopCommoditiesPolling();
       pauseImReplay();
     }
   };
