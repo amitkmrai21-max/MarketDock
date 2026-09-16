@@ -3701,6 +3701,9 @@ function clearLiveChartAiOverlay() {
     }
 
     if (pageId === "im-live-chart") {
+      // RRG's Chart view borrows this same chart node — make sure it's back
+      // in its home slot here before it's shown/resized.
+      if (typeof restoreSharedChartHome === "function") restoreSharedChartHome();
       if (typeof createImLiveChart === "function") createImLiveChart();
       window.setTimeout(() => {
         if (imLiveChart) imLiveChart.applyOptions({ width: document.getElementById("im-lightweight-chart")?.clientWidth || 0 });
@@ -4811,9 +4814,10 @@ function clearLiveChartAiOverlay() {
   let imRrgAllSymbols = [];
   let imRrgQuotesMap = {};
   let imRrgMode = "rrg";
-  let imRrgSingleChart = null;
-  let imRrgSingleSeries = null;
   let imRrgSelectedSingleSymbol = null;
+  let imRrgChartTimeframe = "1d";
+  let imSharedChartHomeParent = null;
+  let imSharedChartHomeNextSibling = null;
   const RRG_BENCHMARK_SYMBOL_NAME = "NIFTY 50";
 
   const imRrgColors = {
@@ -5415,6 +5419,9 @@ function clearLiveChartAiOverlay() {
       const singleView = document.getElementById("im-rrg-single-view");
       const quadrantLegend = document.getElementById("im-rrg-quadrant-legend");
       const runBtn = document.getElementById("im-rrg-run-btn");
+      const speedGroup = document.getElementById("im-rrg-speed-group");
+      const chartTfGroup = document.getElementById("im-rrg-chart-timeframes");
+      const rrgTimeframeBtns = document.querySelectorAll(".im-rrg-timeframe-btn");
       const zoomBtns = [
         document.getElementById("im-rrg-zoom-in-btn"),
         document.getElementById("im-rrg-zoom-out-btn"),
@@ -5425,54 +5432,85 @@ function clearLiveChartAiOverlay() {
       if (singleView) singleView.hidden = isRrg;
       if (quadrantLegend) quadrantLegend.hidden = !isRrg;
       if (runBtn) runBtn.hidden = !isRrg;
+      // The playback speed control only applies to the RRG rotation replay,
+      // not the Chart view — hide it there instead of leaving a dead control.
+      if (speedGroup) speedGroup.hidden = !isRrg;
+      if (chartTfGroup) chartTfGroup.hidden = isRrg;
+      rrgTimeframeBtns.forEach((b) => { b.hidden = !isRrg; });
       zoomBtns.forEach((b) => { if (b) b.hidden = !isRrg; });
 
-      // Switching to Chart mode used to leave a bare "click an index" message
-      // until the user clicked something — show a real chart immediately
-      // (whatever was last drilled into, or the first selected index).
-      if (!isRrg && !imRrgSelectedSingleSymbol) {
-        const fallbackSymbol = imRrgDrilldownIndex || Array.from(imRrgSelectedSymbols)[0] || RRG_BENCHMARK_SYMBOL_NAME;
-        loadImRrgSingleChart(fallbackSymbol);
+      if (isRrg) {
+        restoreSharedChartHome();
+      } else {
+        // Chart mode always shows a real chart immediately (whatever was
+        // last drilled into, or the first selected index) instead of a
+        // bare "click an index" placeholder.
+        const symbol = imRrgSelectedSingleSymbol || imRrgDrilldownIndex || Array.from(imRrgSelectedSymbols)[0] || RRG_BENCHMARK_SYMBOL_NAME;
+        loadImRrgSingleChart(symbol);
       }
     });
   });
 
-  function createImRrgSingleChart() {
-    const container = document.getElementById("im-rrg-single-chart");
-    if (!container || imRrgSingleChart || !window.LightweightCharts) return;
-    imRrgSingleChart = LightweightCharts.createChart(container, {
-      width: container.clientWidth,
-      height: 420,
-      layout: { background: { color: "#081728" }, textColor: "#93a9c3" },
-      grid: { vertLines: { color: "rgba(29, 54, 85, 0.6)" }, horzLines: { color: "rgba(29, 54, 85, 0.6)" } },
-      rightPriceScale: { borderColor: "rgba(69, 182, 255, 0.3)" },
-      timeScale: { borderColor: "rgba(69, 182, 255, 0.3)", timeVisible: true, secondsVisible: false },
-      crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
-    });
-    imRrgSingleSeries = imRrgSingleChart.addCandlestickSeries({
-      upColor: "#36cf83", downColor: "#ff6f7d",
-      borderUpColor: "#36cf83", borderDownColor: "#ff6f7d",
-      wickUpColor: "#7be3ad", wickDownColor: "#ffa3ab"
-    });
-    new ResizeObserver(() => {
-      if (imRrgSingleChart && container.clientWidth) imRrgSingleChart.applyOptions({ width: container.clientWidth });
-    }).observe(container);
+  // The RRG "Chart" view reuses the exact same chart instance, drawing
+  // toolbar and tools as the Live Chart page (imLiveChart/imLiveSeries)
+  // instead of a second bare chart — the whole #im-lightweight-chart node
+  // (canvas + toolbar) is physically moved into RRG's mount point while
+  // Chart mode is active, and moved back when leaving it.
+  function mountSharedChartForRrg() {
+    const mount = document.getElementById("im-rrg-chart-mount");
+    const chartEl = document.getElementById("im-lightweight-chart");
+    if (!mount || !chartEl || chartEl.parentElement === mount) return;
+
+    if (typeof imReplayActive !== "undefined" && imReplayActive && typeof exitImReplay === "function") {
+      exitImReplay();
+    }
+
+    if (!imSharedChartHomeParent) {
+      imSharedChartHomeParent = chartEl.parentElement;
+      imSharedChartHomeNextSibling = chartEl.nextSibling;
+    }
+
+    mount.appendChild(chartEl);
+    if (typeof createImLiveChart === "function") createImLiveChart();
+    window.setTimeout(() => {
+      if (typeof imLiveChart !== "undefined" && imLiveChart && chartEl.clientWidth) {
+        imLiveChart.applyOptions({ width: chartEl.clientWidth });
+      }
+    }, 50);
   }
 
-  async function loadImRrgSingleChart(symbol) {
+  function restoreSharedChartHome() {
+    const chartEl = document.getElementById("im-lightweight-chart");
+    if (!chartEl || !imSharedChartHomeParent || chartEl.parentElement === imSharedChartHomeParent) return;
+
+    if (imSharedChartHomeNextSibling && imSharedChartHomeNextSibling.parentElement === imSharedChartHomeParent) {
+      imSharedChartHomeParent.insertBefore(chartEl, imSharedChartHomeNextSibling);
+    } else {
+      imSharedChartHomeParent.appendChild(chartEl);
+    }
+
+    window.setTimeout(() => {
+      if (typeof imLiveChart !== "undefined" && imLiveChart && chartEl.clientWidth) {
+        imLiveChart.applyOptions({ width: chartEl.clientWidth });
+      }
+    }, 50);
+  }
+
+  async function loadImRrgSingleChart(symbol, timeframe) {
     imRrgSelectedSingleSymbol = symbol;
-    createImRrgSingleChart();
+    if (timeframe) imRrgChartTimeframe = timeframe;
+    mountSharedChartForRrg();
     const title = document.getElementById("im-rrg-single-title");
     if (title) title.textContent = `Loading ${symbol}…`;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/index-candles?symbol=${encodeURIComponent(symbol)}&timeframe=${imRrgTimeframe === "1h" ? "1h" : "1d"}`);
+      const response = await fetch(`${API_BASE_URL}/api/index-candles?symbol=${encodeURIComponent(symbol)}&timeframe=${imRrgChartTimeframe}`);
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || "Chart request failed.");
       const points = (result.candles || [])
         .map((c) => ({ time: Math.floor(new Date(c.time).getTime() / 1000), open: c.open, high: c.high, low: c.low, close: c.close }))
         .filter((p) => Number.isFinite(p.time))
         .sort((a, b) => a.time - b.time);
-      if (imRrgSingleSeries) imRrgSingleSeries.setData(points);
+      if (typeof imLiveSeries !== "undefined" && imLiveSeries) imLiveSeries.setData(points);
       if (title) title.textContent = symbol;
     } catch (error) {
       console.error("Single index chart failed:", error);
@@ -5589,6 +5627,15 @@ function clearLiveChartAiOverlay() {
   if (imRrgZoomInBtn) imRrgZoomInBtn.addEventListener("click", () => imRrgChart?.zoom(1.25));
   if (imRrgZoomOutBtn) imRrgZoomOutBtn.addEventListener("click", () => imRrgChart?.zoom(0.8));
   if (imRrgZoomResetBtn) imRrgZoomResetBtn.addEventListener("click", () => imRrgChart?.resetZoom());
+
+  document.querySelectorAll(".im-rrg-chart-tf-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".im-rrg-chart-tf-btn").forEach((b) => b.classList.remove("active"));
+      button.classList.add("active");
+      const symbol = imRrgSelectedSingleSymbol || RRG_BENCHMARK_SYMBOL_NAME;
+      loadImRrgSingleChart(symbol, button.dataset.imRrgChartTf);
+    });
+  });
 
   let watchlistTimer = null;
 

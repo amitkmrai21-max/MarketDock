@@ -2536,6 +2536,12 @@
                 <button class="im-rrg-speed-btn active" type="button" data-rrg-speed="500">1x</button>
                 <button class="im-rrg-speed-btn" type="button" data-rrg-speed="250">2x</button>
               </div>
+              <div class="im-rrg-chart-timeframes" id="im-rrg-chart-timeframes" hidden>
+                <button class="im-rrg-chart-tf-btn" type="button" data-im-rrg-chart-tf="5m">5m</button>
+                <button class="im-rrg-chart-tf-btn" type="button" data-im-rrg-chart-tf="15m">15m</button>
+                <button class="im-rrg-chart-tf-btn" type="button" data-im-rrg-chart-tf="1h">1h</button>
+                <button class="im-rrg-chart-tf-btn active" type="button" data-im-rrg-chart-tf="1d">1D</button>
+              </div>
               <button class="im-rrg-zoom-btn" id="im-rrg-zoom-in-btn" type="button">Zoom In</button>
               <button class="im-rrg-zoom-btn" id="im-rrg-zoom-out-btn" type="button">Zoom Out</button>
               <button class="im-rrg-zoom-btn" id="im-rrg-zoom-reset-btn" type="button">Reset View</button>
@@ -2568,7 +2574,7 @@
 
               <div class="im-rrg-chart-wrap" id="im-rrg-single-view" hidden>
                 <p id="im-rrg-single-title" class="im-rrg-single-title">Click an index in the list to view its chart</p>
-                <div id="im-rrg-single-chart" class="im-lightweight-chart"></div>
+                <div id="im-rrg-chart-mount"></div>
               </div>
 
              <div class="im-rrg-legend" id="im-rrg-quadrant-legend">

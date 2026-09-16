@@ -4158,6 +4158,31 @@ body[data-accent="green"] .settings-choice.active {
   background: linear-gradient(135deg, #1d6fbd, #17a2ff);
 }
 
+.indian-market-mode .im-rrg-chart-timeframes {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--im-border);
+  border-radius: 8px;
+  background: rgba(12, 27, 46, 0.6);
+}
+
+.indian-market-mode .im-rrg-chart-tf-btn {
+  padding: 5px 11px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--im-muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.indian-market-mode .im-rrg-chart-tf-btn.active {
+  color: #fff;
+  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+}
+
 .indian-market-mode .im-rrg-zoom-btn {
   padding: 7px 14px;
   border: 1px solid var(--im-border);
@@ -4434,8 +4459,10 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .im-rrg-single-title {
   text-align: center;
-  color: var(--im-muted);
-  font-size: 13px;
+  color: var(--im-text);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
   margin-bottom: 8px;
 }
 
