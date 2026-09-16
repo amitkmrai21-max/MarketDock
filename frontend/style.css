@@ -5380,6 +5380,64 @@ body[data-accent="green"] .settings-choice.active {
   width: 150px;
 }
 
+.indian-market-mode #im-options-expiry {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(69, 182, 255, 0.2);
+  background: rgba(16, 36, 61, 0.55);
+  color: var(--im-text);
+  font-size: 12px;
+}
+
+.indian-market-mode .im-options-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.indian-market-mode .im-options-table th,
+.indian-market-mode .im-options-table td {
+  padding: 8px 10px;
+  text-align: center;
+  border-bottom: 1px solid rgba(29, 54, 85, 0.6);
+}
+
+.indian-market-mode .im-options-table thead tr:first-child th {
+  color: var(--im-text);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  background: rgba(69, 182, 255, 0.08);
+}
+
+.indian-market-mode .im-options-table thead tr:last-child th {
+  color: var(--im-muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+}
+
+.indian-market-mode .im-options-table .im-options-strike {
+  font-weight: 800;
+  color: var(--im-text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.indian-market-mode .im-options-table tr.im-options-atm td {
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.indian-market-mode .im-options-table tr.im-options-atm .im-options-strike {
+  color: #fbbf24;
+}
+
+.indian-market-mode .im-options-table .im-options-call-side {
+  color: #7be3ad;
+}
+
+.indian-market-mode .im-options-table .im-options-put-side {
+  color: #ffa3ab;
+}
+
 .indian-market-mode .live-chart-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(290px, 0.8fr);

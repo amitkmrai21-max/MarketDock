@@ -160,7 +160,7 @@ def fetch_upstox_candles(instrument_key, unit, interval, chart_history_days=None
     back gracefully if either piece is unavailable. Raises only if BOTH the
     historical and intraday fetches fail."""
     if not UPSTOX_ACCESS_TOKEN:
-        raise RuntimeError("Upstox access token is not configured on the server.")
+        raise RuntimeError("Live market data is not configured on the server.")
 
     history_candles = []
     intraday_candles = []
@@ -213,7 +213,7 @@ def _fetch_upstox_history_window(instrument_key, unit, interval, days_back):
 
     response = requests.get(url, headers=headers, timeout=25)
     if not response.ok:
-        raise RuntimeError(f"Upstox historical window request failed: status={response.status_code}")
+        raise RuntimeError(f"Live historical data request failed: status={response.status_code}")
 
     payload = response.json()
     raw_candles = (payload.get("data") or {}).get("candles") or []
@@ -231,7 +231,7 @@ def _fetch_upstox_intraday(instrument_key, unit, interval):
 
     response = requests.get(url, headers=headers, timeout=20)
     if not response.ok:
-        raise RuntimeError(f"Upstox candle request failed: status={response.status_code}")
+        raise RuntimeError(f"Live candle request failed: status={response.status_code}")
 
     payload = response.json()
     raw_candles = (payload.get("data") or {}).get("candles") or []
@@ -256,7 +256,7 @@ def _fetch_upstox_last_trading_day(instrument_key, unit, interval):
 
     response = requests.get(url, headers=headers, timeout=20)
     if not response.ok:
-        raise RuntimeError(f"Upstox historical candle request failed: status={response.status_code}")
+        raise RuntimeError(f"Live historical candle request failed: status={response.status_code}")
 
     payload = response.json()
     raw_candles = (payload.get("data") or {}).get("candles") or []
@@ -596,7 +596,7 @@ def get_real_market_snapshot(market_key):
         "trend_5m": classify_trend(candles_5m),
         "trend_15m": classify_trend(candles_15m) if len(candles_15m) >= 21 else "neutral",
         "trend_1h": classify_trend(candles_1h) if len(candles_1h) >= 21 else "neutral",
-        "data_source": "upstox_live",
+        "data_source": "live",
         "session_status": session_status,
         "bollinger_bands": calculate_bollinger_bands(closes),
         "supertrend": calculate_supertrend(candles_5m),
@@ -1060,7 +1060,7 @@ def top_mover(index_key):
         return jsonify({"ok": False, "error": "Unknown index. Use: nifty or banknifty."}), 404
 
     if not UPSTOX_ACCESS_TOKEN:
-        return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
 
     cached = _top_mover_cache.get(index_key)
     if cached and time.time() - cached["fetched_at"] < TOP_MOVER_CACHE_SECONDS:
@@ -1329,7 +1329,7 @@ def build_rrg_data(interval, symbols=None):
         "tail_points": config["tail"],
         "display_window": 8,
         "trails": trails,
-        "source": "Upstox market data",
+        "source": "Live market data",
         "updated_at": now_utc(),
         "disclaimer": (
             "Stocks are compared with NIFTY 50 as benchmark in this RRG-style "
@@ -1432,7 +1432,7 @@ def index_candles():
         return jsonify({"ok": False, "error": "Unsupported timeframe. Use: 5m, 15m, 1h, or 1d."}), 400
 
     if not UPSTOX_ACCESS_TOKEN:
-        return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
 
     try:
         if symbol == RRG_BENCHMARK_SYMBOL:
@@ -1479,7 +1479,7 @@ RRG_QUOTES_CACHE_SECONDS = 60
 @app.get("/api/rrg/quotes")
 def rrg_quotes():
     if not UPSTOX_ACCESS_TOKEN:
-        return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
 
     cached = _rrg_quotes_cache["data"]
     if cached and time.time() - _rrg_quotes_cache["fetched_at"] < RRG_QUOTES_CACHE_SECONDS:
@@ -1502,7 +1502,7 @@ def rrg():
         return jsonify({"ok": False, "error": "Unsupported interval. Use: 1d or 1h."}), 400
 
     if not UPSTOX_ACCESS_TOKEN:
-        return jsonify({"ok": False, "error": "Upstox access token is not configured on the server."}), 503
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
 
     symbols_param_present = "symbols" in request.args
     symbols_param = request.args.get("symbols", "")
@@ -1530,7 +1530,7 @@ def rrg():
 def watchlist():
     if not UPSTOX_ACCESS_TOKEN:
         return jsonify(
-            {"ok": False, "error": "Upstox access token is not configured on the server."}
+            {"ok": False, "error": "Live market data is not configured on the server."}
         ), 503
 
     symbols_param = request.args.get("symbols", "")
@@ -1559,7 +1559,7 @@ def live_status():
     return jsonify(
         {
             "ok": True,
-            "provider": "upstox",
+            "provider": "live_feed",
             "token_configured": bool(UPSTOX_ACCESS_TOKEN),
             "mode": "intraday-candle-polling",
             "markets": list(UPSTOX_MARKETS.keys()),
@@ -1598,7 +1598,7 @@ def live_candles(market_key):
         return jsonify(
             {
                 "ok": False,
-                "error": "Upstox access token is not configured on the server.",
+                "error": "Live market data is not configured on the server.",
             }
         ), 503
 
@@ -1615,7 +1615,7 @@ def live_candles(market_key):
             return jsonify(
                 {
                     "ok": False,
-                    "provider": "upstox",
+                    "provider": "live_feed",
                     "error": "No candle data is available for this instrument and timeframe.",
                 }
             ), 502
@@ -1625,7 +1625,7 @@ def live_candles(market_key):
         return jsonify(
             {
                 "ok": True,
-                "provider": "upstox",
+                "provider": "live_feed",
                 "mode": "intraday-candle-polling",
                 "market": market["name"],
                 "market_key": market_key,
@@ -1642,24 +1642,177 @@ def live_candles(market_key):
         )
 
     except requests.RequestException:
-        app.logger.exception("Upstox candle request failed")
+        app.logger.exception("Live candle request failed")
 
         return jsonify(
             {
                 "ok": False,
-                "provider": "upstox",
-                "error": "Could not reach Upstox candle data right now.",
+                "provider": "live_feed",
+                "error": "Could not reach live candle data right now.",
             }
         ), 502
     except Exception as error:
-        app.logger.warning("Upstox candle request failed: %s", error)
+        app.logger.warning("Live candle request failed: %s", error)
 
         return jsonify(
             {
                 "ok": False,
-                "provider": "upstox",
-                "error": "Upstox candle data is temporarily unavailable.",
+                "provider": "live_feed",
+                "error": "Live candle data is temporarily unavailable.",
             }
+        ), 502
+
+
+# ===================== Options chain (NIFTY / Bank Nifty) =====================
+# Uses Upstox's dedicated option-contract and option-chain endpoints (v2), not
+# the LTP/candle endpoints used elsewhere. Field names are best-effort based on
+# Upstox's published option-chain response shape; fields are read defensively
+# with .get() so an unexpected shape degrades to "--" values on the frontend
+# rather than a 500 error.
+
+UPSTOX_OPTIONS_UNDERLYINGS = {
+    "nifty": {"name": "NIFTY 50", "instrument_key": "NSE_INDEX|Nifty 50"},
+    "banknifty": {"name": "Bank Nifty", "instrument_key": "NSE_INDEX|Nifty Bank"},
+}
+
+_option_expiry_cache = {}
+OPTION_EXPIRY_CACHE_SECONDS = 3600
+_option_chain_cache = {}
+OPTION_CHAIN_CACHE_SECONDS = 15
+
+
+@app.get("/api/options/expiries/<market_key>")
+def option_expiries(market_key):
+    market_key = market_key.lower().strip()
+
+    if market_key not in UPSTOX_OPTIONS_UNDERLYINGS:
+        return jsonify(
+            {"ok": False, "error": "Unknown market. Use: nifty or banknifty."}
+        ), 404
+
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify(
+            {"ok": False, "error": "Live market data is not configured on the server."}
+        ), 503
+
+    cached = _option_expiry_cache.get(market_key)
+    if cached and time.time() - cached["fetched_at"] < OPTION_EXPIRY_CACHE_SECONDS:
+        return jsonify({"ok": True, "expiries": cached["data"]})
+
+    instrument_key = UPSTOX_OPTIONS_UNDERLYINGS[market_key]["instrument_key"]
+    url = f"https://api.upstox.com/v2/option/contract?instrument_key={quote(instrument_key, safe='')}"
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
+
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        contracts = (response.json() or {}).get("data", [])
+        expiries = sorted({c.get("expiry") for c in contracts if c.get("expiry")})
+
+        if not expiries:
+            return jsonify(
+                {"ok": False, "error": "No option expiries were returned for this market."}
+            ), 502
+
+        _option_expiry_cache[market_key] = {"data": expiries, "fetched_at": time.time()}
+        return jsonify({"ok": True, "expiries": expiries})
+
+    except Exception as error:
+        app.logger.warning("Option expiries fetch failed for %s: %s", market_key, error)
+        return jsonify(
+            {"ok": False, "error": "Could not fetch option expiries right now."}
+        ), 502
+
+
+@app.get("/api/options/chain/<market_key>")
+def option_chain(market_key):
+    market_key = market_key.lower().strip()
+    expiry = request.args.get("expiry", "").strip()
+
+    if market_key not in UPSTOX_OPTIONS_UNDERLYINGS:
+        return jsonify(
+            {"ok": False, "error": "Unknown market. Use: nifty or banknifty."}
+        ), 404
+
+    if not expiry:
+        return jsonify(
+            {"ok": False, "error": "expiry query parameter is required (YYYY-MM-DD)."}
+        ), 400
+
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify(
+            {"ok": False, "error": "Live market data is not configured on the server."}
+        ), 503
+
+    cache_key = f"{market_key}:{expiry}"
+    cached = _option_chain_cache.get(cache_key)
+    if cached and time.time() - cached["fetched_at"] < OPTION_CHAIN_CACHE_SECONDS:
+        return jsonify({"ok": True, "updated_at": cached["updated_at"], "data": cached["data"]})
+
+    instrument_key = UPSTOX_OPTIONS_UNDERLYINGS[market_key]["instrument_key"]
+    url = (
+        "https://api.upstox.com/v2/option/chain"
+        f"?instrument_key={quote(instrument_key, safe='')}&expiry_date={quote(expiry, safe='')}"
+    )
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
+
+    try:
+        response = requests.get(url, headers=headers, timeout=20)
+        response.raise_for_status()
+        raw_chain = (response.json() or {}).get("data", [])
+
+        if not raw_chain:
+            return jsonify(
+                {"ok": False, "error": "No option chain data was returned for this expiry."}
+            ), 502
+
+        underlying_spot = None
+        rows = []
+        for item in raw_chain:
+            if underlying_spot is None:
+                underlying_spot = item.get("underlying_spot_price")
+
+            call = item.get("call_options") or {}
+            put = item.get("put_options") or {}
+            call_market = call.get("market_data") or {}
+            put_market = put.get("market_data") or {}
+            call_greeks = call.get("option_greeks") or {}
+            put_greeks = put.get("option_greeks") or {}
+
+            rows.append(
+                {
+                    "strike": item.get("strike_price"),
+                    "call": {
+                        "ltp": call_market.get("ltp"),
+                        "oi": call_market.get("oi"),
+                        "volume": call_market.get("volume"),
+                        "iv": call_greeks.get("iv"),
+                    },
+                    "put": {
+                        "ltp": put_market.get("ltp"),
+                        "oi": put_market.get("oi"),
+                        "volume": put_market.get("volume"),
+                        "iv": put_greeks.get("iv"),
+                    },
+                }
+            )
+
+        rows.sort(key=lambda row: row["strike"] if row["strike"] is not None else 0)
+
+        result = {
+            "market": UPSTOX_OPTIONS_UNDERLYINGS[market_key]["name"],
+            "expiry": expiry,
+            "underlying_spot_price": underlying_spot,
+            "rows": rows,
+        }
+        updated_at = now_utc()
+        _option_chain_cache[cache_key] = {"data": result, "fetched_at": time.time(), "updated_at": updated_at}
+        return jsonify({"ok": True, "updated_at": updated_at, "data": result})
+
+    except Exception as error:
+        app.logger.warning("Option chain fetch failed for %s %s: %s", market_key, expiry, error)
+        return jsonify(
+            {"ok": False, "error": "Could not fetch the option chain right now."}
         ), 502
 
 
@@ -1705,7 +1858,7 @@ and paper trading only; do not give financial advice, guarantee an outcome, or t
 a real trade.
 
 Review the following technical-engine snapshot for {analysis["market"]} on the {timeframe} timeframe.
-Data source: {"live Upstox market data" if is_live else "demo/reference data (live feed unavailable right now)"}.
+Data source: {"live market data" if is_live else "demo/reference data (live feed unavailable right now)"}.
 
 Current price: {analysis["price"]}
 Open / high / low: {analysis["open"]} / {analysis["high"]} / {analysis["low"]}

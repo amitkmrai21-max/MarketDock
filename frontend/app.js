@@ -3646,6 +3646,10 @@ function clearLiveChartAiOverlay() {
       title: "F&O Watchlist",
       subtitle: "Live last-traded price for liquid, derivatives-eligible NSE stocks."
     },
+    "im-options": {
+      title: "Option Chain",
+      subtitle: "NIFTY 50 and Bank Nifty option chain by strike."
+    },
     "im-news": {
       title: "Market News",
       subtitle: "Latest Indian equity-market headlines from financial publishers."
@@ -3710,6 +3714,12 @@ function clearLiveChartAiOverlay() {
       if (typeof startFoWatchlistPolling === "function") startFoWatchlistPolling();
     } else if (typeof stopFoWatchlistPolling === "function") {
       stopFoWatchlistPolling();
+    }
+
+    if (pageId === "im-options") {
+      if (typeof startOptionsChainPolling === "function") startOptionsChainPolling();
+    } else if (typeof stopOptionsChainPolling === "function") {
+      stopOptionsChainPolling();
     }
 
     if (pageId === "im-dashboard" && typeof fetchAllTopMovers === "function") {
@@ -4010,13 +4020,13 @@ function clearLiveChartAiOverlay() {
     const statusBadge = document.getElementById("im-market-status");
     const statusText = document.getElementById("im-market-status-text");
     if (statusBadge && statusText) {
-      const isLive = data.data_source === "upstox_live";
+      const isLive = data.data_source === "live";
       statusText.textContent = isLive ? "Live market data" : "Demo data mode";
       statusBadge.classList.toggle("market-status-live", isLive);
       statusBadge.classList.toggle("market-status-demo", !isLive);
     }
 
-    const isLiveData = data.data_source === "upstox_live";
+    const isLiveData = data.data_source === "live";
     const changeArrow = data.change_percent >= 0 ? "\u25B2" : "\u25BC";
     const changeClass = data.change_percent >= 0 ? "positive" : "negative";
     const changeText = `${changeArrow} ${data.change_percent >= 0 ? "+" : ""}${data.change_percent}% ${isLiveData ? "" : "\u00B7 Demo"}`.trim();
@@ -4235,6 +4245,151 @@ function clearLiveChartAiOverlay() {
       window.clearInterval(foWatchlistTimer);
       foWatchlistTimer = null;
     }
+  }
+
+  // ===================== Options chain (NIFTY / Bank Nifty) =====================
+
+  let selectedOptionsMarket = "nifty";
+  let selectedOptionsExpiry = null;
+  let optionsChainTimer = null;
+
+  function formatOptionNumber(value) {
+    if (value === null || value === undefined) return "--";
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toLocaleString("en-IN") : "--";
+  }
+
+  function renderOptionChain(data) {
+    const body = document.getElementById("im-options-body");
+    const meta = document.getElementById("im-options-meta");
+    const status = document.getElementById("im-options-status");
+    if (!body) return;
+
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="7">No option chain data available for this expiry.</td></tr>`;
+      if (status) status.textContent = "Unavailable";
+      return;
+    }
+
+    const spot = Number(data.underlying_spot_price);
+    let atmStrike = null;
+    if (Number.isFinite(spot)) {
+      atmStrike = rows.reduce((closest, row) => {
+        const strike = Number(row.strike);
+        if (!Number.isFinite(strike)) return closest;
+        if (closest === null || Math.abs(strike - spot) < Math.abs(closest - spot)) return strike;
+        return closest;
+      }, null);
+    }
+
+    body.innerHTML = rows
+      .map((row) => {
+        const strike = Number(row.strike);
+        const isAtm = atmStrike !== null && strike === atmStrike;
+        const call = row.call || {};
+        const put = row.put || {};
+        return `
+          <tr class="${isAtm ? "im-options-atm" : ""}">
+            <td class="im-options-call-side">${formatOptionNumber(call.oi)}</td>
+            <td class="im-options-call-side">${formatOptionNumber(call.volume)}</td>
+            <td class="im-options-call-side">${formatOptionNumber(call.ltp)}</td>
+            <td class="im-options-strike">${formatOptionNumber(row.strike)}</td>
+            <td class="im-options-put-side">${formatOptionNumber(put.ltp)}</td>
+            <td class="im-options-put-side">${formatOptionNumber(put.volume)}</td>
+            <td class="im-options-put-side">${formatOptionNumber(put.oi)}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    if (meta) {
+      meta.textContent = `${data.market} · Expiry ${data.expiry} · Spot ${Number.isFinite(spot) ? formatNumber(spot) : "--"}`;
+    }
+    if (status) status.textContent = "Live";
+  }
+
+  async function loadOptionChain() {
+    const status = document.getElementById("im-options-status");
+    if (!selectedOptionsExpiry) return;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/options/chain/${selectedOptionsMarket}?expiry=${selectedOptionsExpiry}`
+      );
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || "Option chain request failed.");
+      }
+      renderOptionChain(result.data);
+    } catch (error) {
+      console.error("Option chain fetch failed:", error);
+      if (status) status.textContent = "Unavailable";
+      const body = document.getElementById("im-options-body");
+      if (body) body.innerHTML = `<tr><td colspan="7">${escapeHtml(error.message || "Could not load the option chain.")}</td></tr>`;
+    }
+  }
+
+  async function loadOptionExpiries() {
+    const select = document.getElementById("im-options-expiry");
+    const meta = document.getElementById("im-options-meta");
+    const status = document.getElementById("im-options-status");
+    if (!select) return;
+
+    if (meta) meta.textContent = "Loading expiries...";
+    if (status) status.textContent = "Loading...";
+    select.innerHTML = "";
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/options/expiries/${selectedOptionsMarket}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok || !Array.isArray(result.expiries) || !result.expiries.length) {
+        throw new Error(result.error || "Could not load option expiries.");
+      }
+
+      select.innerHTML = result.expiries.map((expiry) => `<option value="${escapeHtml(expiry)}">${escapeHtml(expiry)}</option>`).join("");
+      selectedOptionsExpiry = result.expiries[0];
+      select.value = selectedOptionsExpiry;
+      await loadOptionChain();
+    } catch (error) {
+      console.error("Option expiries fetch failed:", error);
+      if (meta) meta.textContent = error.message || "Could not load option expiries.";
+      if (status) status.textContent = "Unavailable";
+      const body = document.getElementById("im-options-body");
+      if (body) body.innerHTML = `<tr><td colspan="7">${escapeHtml(error.message || "Could not load option expiries.")}</td></tr>`;
+    }
+  }
+
+  function startOptionsChainPolling() {
+    if (optionsChainTimer) return;
+    loadOptionExpiries();
+    optionsChainTimer = window.setInterval(loadOptionChain, 20000);
+  }
+
+  function stopOptionsChainPolling() {
+    if (optionsChainTimer) {
+      window.clearInterval(optionsChainTimer);
+      optionsChainTimer = null;
+    }
+  }
+
+  document.querySelectorAll("[data-options-market]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedOptionsMarket = button.dataset.optionsMarket;
+      document.querySelectorAll("[data-options-market]").forEach((item) => {
+        item.classList.toggle("active", item === button);
+      });
+      selectedOptionsExpiry = null;
+      loadOptionExpiries();
+    });
+  });
+
+  const optionsExpirySelect = document.getElementById("im-options-expiry");
+  if (optionsExpirySelect) {
+    optionsExpirySelect.addEventListener("change", () => {
+      selectedOptionsExpiry = optionsExpirySelect.value;
+      loadOptionChain();
+    });
   }
 
   function renderTopMover(indexKey, mover) {
@@ -4683,7 +4838,7 @@ function clearLiveChartAiOverlay() {
               changeEl.className = `im-rrg-symbol-row-change ${q.change_percent >= 0 ? "positive" : "negative"}`;
             }
           });
-          // Any symbol in this chunk that Upstox couldn't resolve/quote —
+          // Any symbol in this chunk that couldn't be resolved/quoted —
           // show "--" rather than leaving "…" stuck forever.
           markUnavailable(chunkSymbols.filter((s) => !returned.has(s)));
         } catch (error) {
@@ -6434,7 +6589,7 @@ function clearLiveChartAiOverlay() {
     const subtitle = document.getElementById("im-chart-market-subtitle");
 
     if (status) {
-      status.textContent = "Loading Upstox candles...";
+      status.textContent = "Loading live candles...";
     }
 
     try {
@@ -6471,16 +6626,16 @@ function clearLiveChartAiOverlay() {
       }
 
       if (status) {
-        status.textContent = "Upstox candle feed";
+        status.textContent = "Live candle feed";
       }
 
       if (subtitle && latest) {
-        subtitle.textContent = `Upstox market-data candles - Last candle: ${formatChartTime(
+        subtitle.textContent = `Live market-data candles - Last candle: ${formatChartTime(
           latest.time
         )} - Refreshes every 60 seconds during market hours.`;
       }
     } catch (error) {
-      console.error("Upstox live candle refresh failed:", error);
+      console.error("Live candle refresh failed:", error);
 
       if (status) {
         status.textContent = `Live error: ${error.message}`;
@@ -6620,7 +6775,7 @@ function clearLiveChartAiOverlay() {
 
     if (!latestLiveCandleData) {
       subtitle.textContent =
-        "Backend confirmation-engine data. Demo market values remain active until Upstox live data is connected.";
+        "Backend confirmation-engine data. Demo market values remain active until live data is connected.";
       status.textContent = "Backend demo feed";
       price.textContent = formatNumber(profile.price);
       decision.textContent = profile.decision;
@@ -6696,7 +6851,7 @@ function clearLiveChartAiOverlay() {
     }
 
     title.textContent = `${profile.name} - ${selectedChartTimeframe}`;
-    subtitle.textContent = "Demo chart only. Upstox live candle feed will replace this after API setup.";
+    subtitle.textContent = "Demo chart only. Live candle feed will replace this after API setup.";
     status.textContent = "Demo feed";
     price.textContent = formatNumber(profile.price);
     decision.textContent = profile.decision;
@@ -6959,6 +7114,7 @@ function clearLiveChartAiOverlay() {
       stopLiveChartPolling();
       stopWatchlistPolling();
       stopFoWatchlistPolling();
+      stopOptionsChainPolling();
       pauseImReplay();
     }
   };

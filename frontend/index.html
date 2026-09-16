@@ -1218,6 +1218,11 @@
           F&amp;O
         </button>
 
+        <button class="nav-button" data-page="im-options" type="button">
+          <span class="nav-icon">&#8942;</span>
+          Options
+        </button>
+
         <button class="nav-button" data-page="im-news" type="button">
           <span class="nav-icon">&#128240;</span>
           News
@@ -1966,6 +1971,60 @@
         </article>
       </section>
 
+      <section class="page" id="im-options">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow">Option Chain &middot; Live</p>
+            <h2 class="index-title">Option Chain</h2>
+            <p class="subtitle">
+              NIFTY 50 and Bank Nifty option chain by strike. Research view only — no order placement.
+            </p>
+          </div>
+          <div class="setup-badge" id="im-options-status">Loading…</div>
+        </article>
+
+        <article class="card section-card">
+          <div class="chart-controls">
+            <div class="chart-control-group">
+              <span class="chart-control-label">Index</span>
+              <button class="chart-control-button active" type="button" data-options-market="nifty">NIFTY 50</button>
+              <button class="chart-control-button" type="button" data-options-market="banknifty">Bank Nifty</button>
+            </div>
+
+            <div class="chart-control-group">
+              <span class="chart-control-label">Expiry</span>
+              <select id="im-options-expiry" aria-label="Expiry date"></select>
+            </div>
+          </div>
+
+          <p id="im-options-meta" class="im-chart-status">Loading expiries…</p>
+
+          <div class="table-wrap">
+            <table class="im-options-table">
+              <thead>
+                <tr>
+                  <th colspan="3">CALL</th>
+                  <th>STRIKE</th>
+                  <th colspan="3">PUT</th>
+                </tr>
+                <tr>
+                  <th>OI</th>
+                  <th>Volume</th>
+                  <th>LTP</th>
+                  <th></th>
+                  <th>LTP</th>
+                  <th>Volume</th>
+                  <th>OI</th>
+                </tr>
+              </thead>
+              <tbody id="im-options-body">
+                <tr><td colspan="7">Loading option chain…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
       <section class="page" id="im-news">
         <article class="card index-hero">
           <div>
@@ -2101,7 +2160,7 @@
             <p class="eyebrow">Chart Workspace &middot; Demo until live data is connected</p>
             <h2 class="index-title">Live Market Chart</h2>
             <p class="subtitle">
-              Custom chart workspace for NIFTY 50 and Bank Nifty. Real-time candles will connect after Upstox market data setup.
+              Custom chart workspace for NIFTY 50 and Bank Nifty. Real-time candles will connect after live market data setup.
             </p>
           </div>
 
@@ -2221,7 +2280,7 @@
               <span id="im-drawing-tool-hint" class="drawing-tool-hint"></span>
               <svg id="im-drawing-overlay" class="live-chart-drawing-overlay"></svg>
             </div>
-            <p id="im-chart-status" class="im-chart-status">Loading Upstox candles…</p>
+            <p id="im-chart-status" class="im-chart-status">Loading live candles…</p>
 
             <div class="chart-legend">
               <span><i class="legend-dot legend-price"></i>Price candles</span>
