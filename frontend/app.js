@@ -1245,7 +1245,7 @@ function setupAlerts() {
   if (testButton) {
     testButton.addEventListener("click", () => {
       sendBrowserAlert(
-        "BTC AI Signal Test Alert",
+        "BTC Market Test Alert",
         "Browser alerts are working. This is a test notification.",
         { tag: "btc-ai-signal-test" }
       );
@@ -3593,7 +3593,7 @@ function clearLiveChartAiOverlay() {
     btcRoot.hidden = isIndian;
     indianRoot.hidden = !isIndian;
     slider.dataset.mode = mode;
-    if (brandTitle) brandTitle.textContent = isIndian ? "Indian Market AI" : "BTC AI Signal";
+    if (brandTitle) brandTitle.textContent = isIndian ? "Indian Market" : "BTC Market";
     if (brandSubtitle) {
       brandSubtitle.textContent = isIndian
         ? "NIFTY 50 and Bank Nifty research dashboard with paper-trading workflow"
@@ -5860,7 +5860,7 @@ function clearLiveChartAiOverlay() {
     if (enableButton) enableButton.addEventListener("click", requestImBrowserNotifications);
     if (testButton) {
       testButton.addEventListener("click", () => {
-        sendImBrowserAlert("Indian Market AI Test Alert", "Browser alerts are working. This is a test notification.", "im-test-alert");
+        sendImBrowserAlert("Indian Market Test Alert", "Browser alerts are working. This is a test notification.", "im-test-alert");
       });
     }
 
