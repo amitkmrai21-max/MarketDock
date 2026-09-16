@@ -44,37 +44,73 @@
   </button>
 
   <div id="btcModeRoot" hidden>
-  <nav class="app-tabs" aria-label="Dashboard navigation">
-    <button class="app-tab active" type="button" data-tab="dashboard">Dashboard</button>
-    <button class="app-tab" type="button" data-tab="live-chart">Live Chart</button>
-    <button class="app-tab" type="button" data-tab="technical">Technical</button>
-    <button class="app-tab" type="button" data-tab="tools">Tools</button>
-    <button class="app-tab" type="button" data-tab="news">News</button>
-    <button class="app-tab" type="button" data-tab="chart-analysis">Chart Analysis</button>
-    <button class="app-tab" type="button" data-tab="virtual-trading">Virtual Trading</button>
-    <div class="nav-action-group">
-      <button id="refreshBtn" class="nav-action-btn" type="button">Refresh<span class="btn-subline">Technical</span></button>
-      <div class="ai-btn-wrap nav-ai-wrap">
-        <button id="geminiAiBtn" class="gemini-ai-btn nav-action-btn" type="button">Run Gemini<span class="btn-subtext">(Dashboard / Live Chart)</span></button>
-        <p id="geminiKeyPrompt" class="api-key-prompt"></p>
-        <button id="geminiRetryBtn" class="retry-ai-btn" type="button" hidden>Try Again</button>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <nav class="nav" aria-label="Dashboard navigation">
+        <p class="nav-label">Workspace</p>
+
+        <button class="nav-button app-tab active" type="button" data-tab="dashboard">
+          <span class="nav-icon">&#9723;</span>
+          Dashboard
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="live-chart">
+          <span class="nav-icon">&#9121;</span>
+          Live Chart
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="technical">
+          <span class="nav-icon">T</span>
+          Technical
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="tools">
+          <span class="nav-icon">&#9881;</span>
+          Tools
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="news">
+          <span class="nav-icon">&#128240;</span>
+          News
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="chart-analysis">
+          <span class="nav-icon">&#128202;</span>
+          Chart Analysis
+        </button>
+
+        <button class="nav-button app-tab" type="button" data-tab="virtual-trading">
+          <span class="nav-icon">&#9635;</span>
+          Virtual Trading
+        </button>
+      </nav>
+    </aside>
+
+    <div class="content">
+      <div class="btc-topbar">
+        <div class="nav-action-group">
+          <button id="refreshBtn" class="nav-action-btn" type="button">Refresh<span class="btn-subline">Technical</span></button>
+          <div class="ai-btn-wrap nav-ai-wrap">
+            <button id="geminiAiBtn" class="gemini-ai-btn nav-action-btn" type="button">Run Gemini<span class="btn-subtext">(Dashboard / Live Chart)</span></button>
+            <p id="geminiKeyPrompt" class="api-key-prompt"></p>
+            <button id="geminiRetryBtn" class="retry-ai-btn" type="button" hidden>Try Again</button>
+          </div>
+          <div class="ai-btn-wrap nav-ai-wrap">
+            <button id="groqLiveBtn" class="groq-live-btn nav-action-btn" type="button">Run Groq<span class="btn-subtext">(Dashboard / Live Chart)</span></button>
+            <p id="groqKeyPrompt" class="api-key-prompt"></p>
+            <button id="groqRetryBtn" class="retry-ai-btn" type="button" hidden>Try Again</button>
+          </div>
+        </div>
+        <button
+          id="settingsMenuButton"
+          class="settings-menu-button"
+          type="button"
+          aria-label="Open settings"
+          aria-controls="settingsDrawer"
+        >
+          ☰
+        </button>
       </div>
-      <div class="ai-btn-wrap nav-ai-wrap">
-        <button id="groqLiveBtn" class="groq-live-btn nav-action-btn" type="button">Run Groq<span class="btn-subtext">(Dashboard / Live Chart)</span></button>
-        <p id="groqKeyPrompt" class="api-key-prompt"></p>
-        <button id="groqRetryBtn" class="retry-ai-btn" type="button" hidden>Try Again</button>
-      </div>
-    </div>
-    <button
-      id="settingsMenuButton"
-      class="settings-menu-button"
-      type="button"
-      aria-label="Open settings"
-      aria-controls="settingsDrawer"
-    >
-      ☰
-    </button>
-  </nav>
 
   <main class="dashboard">
     <section class="tab-panel active" data-panel="dashboard">
@@ -1147,6 +1183,8 @@
       </p>
     </section>
   </main>
+    </div>
+  </div>
   </div>
 
  <div id="indianModeRoot">

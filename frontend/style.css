@@ -2936,40 +2936,135 @@ body {
   }
 }
 
-.app-tabs {
+#btcModeRoot .app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 250px 1fr;
+}
+
+#btcModeRoot .sidebar {
+  position: sticky;
+  top: 44px;
+  height: calc(100vh - 44px);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  border-right: 1px solid var(--border);
+  background: rgba(7, 17, 31, 0.92);
+}
+
+#btcModeRoot .sidebar .nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+#btcModeRoot .nav-label {
+  margin: 18px 10px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+#btcModeRoot .nav-button {
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: 1400px;
-  margin: 0 auto;
+  gap: 10px;
+  padding: 12px;
+  margin: 4px 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: 0.2s ease;
+}
+
+#btcModeRoot .nav-button:hover {
+  color: var(--text);
+  border-color: rgba(56, 189, 248, 0.24);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+#btcModeRoot .nav-button.active {
+  color: #ffffff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+  box-shadow: 0 6px 16px rgba(23, 162, 255, 0.25);
+}
+
+#btcModeRoot .nav-button.active .nav-icon {
+  color: #ffffff;
+}
+
+#btcModeRoot .nav-icon {
+  width: 20px;
+  color: var(--blue);
+  text-align: center;
+  font-weight: 800;
+}
+
+#btcModeRoot .content {
+  min-width: 0;
+}
+
+#btcModeRoot .btc-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
   padding: 12px 20px;
-  overflow-x: auto;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
-}
-
-.app-tabs::-webkit-scrollbar {
-  height: 4px;
-}
-
-.app-tabs::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.app-tabs::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
-  border-radius: 999px;
 }
 
 .nav-action-group {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-left: auto;
-  padding-left: 16px;
-  border-left: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+@media (max-width: 760px) {
+  #btcModeRoot .app-shell {
+    display: block;
+  }
+
+  #btcModeRoot .sidebar {
+    position: static;
+    height: auto;
+    padding: 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #btcModeRoot .nav-label {
+    display: none;
+  }
+
+  #btcModeRoot .sidebar .nav {
+    display: flex;
+    gap: 7px;
+    overflow-x: auto;
+  }
+
+  #btcModeRoot .nav-button {
+    width: auto;
+    min-width: max-content;
+    margin: 0;
+  }
+
+  #btcModeRoot .btc-topbar {
+    flex-wrap: wrap;
+  }
 }
 
 .nav-action-btn {
