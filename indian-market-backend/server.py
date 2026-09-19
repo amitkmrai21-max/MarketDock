@@ -1113,13 +1113,54 @@ def top_mover(index_key):
         return jsonify({"ok": False, "error": "Could not fetch top mover data right now."}), 502
 
 
+_nse_equity_key_index = {"map": None, "fetched_at": 0}
+
+
+def get_nse_equity_instrument_key_index():
+    """Local in-memory {SYMBOL: instrument_key} lookup built from the
+    instrument master that's already downloaded and cached for other
+    features (stock search, commodities). Resolving a symbol against this
+    is an in-memory dict lookup instead of a live Upstox search API
+    round-trip, which was the main cost of resolving many stock symbols at
+    once (heatmap, watchlists, F&O)."""
+    now = time.time()
+    cached = _nse_equity_key_index["map"]
+    if cached is not None and (now - _nse_equity_key_index["fetched_at"]) < INSTRUMENT_MASTER_CACHE_SECONDS:
+        return cached
+
+    index = {}
+    for row in get_instrument_master_rows():
+        if row.get("exchange") != "NSE_EQ":
+            continue
+        symbol = row.get("tradingsymbol", "").strip().upper()
+        instrument_key = row.get("instrument_key", "")
+        if symbol and instrument_key and symbol not in index:
+            index[symbol] = instrument_key
+
+    _nse_equity_key_index["map"] = index
+    _nse_equity_key_index["fetched_at"] = now
+    return index
+
+
 def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
-    """Looks up a stock's real Upstox instrument_key by trading symbol, using
-    Upstox's own instrument search — never a guessed/hardcoded ISIN, since a
-    wrong ISIN would silently point at the wrong company."""
+    """Looks up a stock's real Upstox instrument_key by trading symbol. For
+    the common case (NSE cash-market equities) this is a local lookup
+    against the already-cached instrument master — no network round-trip.
+    Anything not found there, or a non-default exchange/segment, falls back
+    to Upstox's own instrument search — never a guessed/hardcoded ISIN,
+    since a wrong ISIN would silently point at the wrong company."""
     cache_key = f"{exchange}:{segment}:{trading_symbol.upper()}"
     if cache_key in _instrument_key_cache:
         return _instrument_key_cache[cache_key]
+
+    if exchange == "NSE" and segment == "EQ":
+        try:
+            local_key = get_nse_equity_instrument_key_index().get(trading_symbol.upper())
+        except Exception:
+            local_key = None
+        if local_key:
+            _instrument_key_cache[cache_key] = local_key
+            return local_key
 
     url = "https://api.upstox.com/v2/instruments/search"
     headers = {
@@ -1390,6 +1431,7 @@ INDEX_SLUG_OVERRIDES = {
 
 _index_constituents_cache = {}
 CONSTITUENTS_CACHE_SECONDS = 3600  # constituent lists change rarely
+CONSTITUENTS_ERROR_CACHE_SECONDS = 60  # but a fetch error should retry soon, not wait the full hour
 
 
 def derive_index_slug(index_name):
@@ -1415,8 +1457,10 @@ def fetch_index_constituents(index_name):
     headers = {"User-Agent": "Mozilla/5.0", "Accept": "text/csv,*/*"}
 
     try:
-        response = requests.get(url, headers=headers, timeout=15)
+        response = requests.get(url, headers=headers, timeout=10)
         if not response.ok or "Company Name" not in response.text[:200]:
+            # A bad response for this slug means the index genuinely isn't
+            # published this way — worth remembering for the full hour.
             _index_constituents_cache[index_name] = {"data": [], "fetched_at": time.time()}
             return []
 
@@ -1430,7 +1474,13 @@ def fetch_index_constituents(index_name):
         return constituents
     except Exception as error:
         app.logger.warning("Could not fetch constituents for %s: %s", index_name, error)
-        _index_constituents_cache[index_name] = {"data": [], "fetched_at": time.time()}
+        # A network error/timeout is likely transient — cache it only
+        # briefly so a temporary hiccup doesn't look "unavailable" for a
+        # full hour once niftyindices.com responds normally again.
+        _index_constituents_cache[index_name] = {
+            "data": [],
+            "fetched_at": time.time() - CONSTITUENTS_CACHE_SECONDS + CONSTITUENTS_ERROR_CACHE_SECONDS,
+        }
         return []
 
 

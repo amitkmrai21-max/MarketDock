@@ -5730,9 +5730,15 @@ function clearLiveChartAiOverlay() {
 
     const statusText = document.getElementById("im-heatmap-status-text");
     const liveBadge = document.getElementById("im-heatmap-live-badge");
+    const grid = document.getElementById("im-heatmap-grid");
     setHeatmapProgress(0, 0);
     if (statusText) statusText.textContent = `Loading ${indexName}…`;
     if (liveBadge) liveBadge.hidden = true;
+    // Clear any stale error/old tiles from a previous index right away,
+    // instead of leaving them visible under the new "Loading…" status.
+    if (grid && !imHeatmapConstituentsCache[indexName]) {
+      grid.innerHTML = `<div class="im-rrg-skeleton-row"></div><div class="im-rrg-skeleton-row"></div><div class="im-rrg-skeleton-row"></div>`;
+    }
 
     try {
       if (!imHeatmapConstituentsCache[indexName]) {
