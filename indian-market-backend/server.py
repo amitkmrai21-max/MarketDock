@@ -1113,54 +1113,13 @@ def top_mover(index_key):
         return jsonify({"ok": False, "error": "Could not fetch top mover data right now."}), 502
 
 
-_nse_equity_key_index = {"map": None, "fetched_at": 0}
-
-
-def get_nse_equity_instrument_key_index():
-    """Local in-memory {SYMBOL: instrument_key} lookup built from the
-    instrument master that's already downloaded and cached for other
-    features (stock search, commodities). Resolving a symbol against this
-    is an in-memory dict lookup instead of a live Upstox search API
-    round-trip, which was the main cost of resolving many stock symbols at
-    once (heatmap, watchlists, F&O)."""
-    now = time.time()
-    cached = _nse_equity_key_index["map"]
-    if cached is not None and (now - _nse_equity_key_index["fetched_at"]) < INSTRUMENT_MASTER_CACHE_SECONDS:
-        return cached
-
-    index = {}
-    for row in get_instrument_master_rows():
-        if row.get("exchange") != "NSE_EQ":
-            continue
-        symbol = row.get("tradingsymbol", "").strip().upper()
-        instrument_key = row.get("instrument_key", "")
-        if symbol and instrument_key and symbol not in index:
-            index[symbol] = instrument_key
-
-    _nse_equity_key_index["map"] = index
-    _nse_equity_key_index["fetched_at"] = now
-    return index
-
-
 def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
-    """Looks up a stock's real Upstox instrument_key by trading symbol. For
-    the common case (NSE cash-market equities) this is a local lookup
-    against the already-cached instrument master — no network round-trip.
-    Anything not found there, or a non-default exchange/segment, falls back
-    to Upstox's own instrument search — never a guessed/hardcoded ISIN,
-    since a wrong ISIN would silently point at the wrong company."""
+    """Looks up a stock's real Upstox instrument_key by trading symbol, using
+    Upstox's own instrument search — never a guessed/hardcoded ISIN, since a
+    wrong ISIN would silently point at the wrong company."""
     cache_key = f"{exchange}:{segment}:{trading_symbol.upper()}"
     if cache_key in _instrument_key_cache:
         return _instrument_key_cache[cache_key]
-
-    if exchange == "NSE" and segment == "EQ":
-        try:
-            local_key = get_nse_equity_instrument_key_index().get(trading_symbol.upper())
-        except Exception:
-            local_key = None
-        if local_key:
-            _instrument_key_cache[cache_key] = local_key
-            return local_key
 
     url = "https://api.upstox.com/v2/instruments/search"
     headers = {
