@@ -3926,6 +3926,162 @@ function clearLiveChartAiOverlay() {
         trades.length === 1 ? "trade" : "trades"
       }`;
     }
+
+    renderTradeStats(trades);
+  }
+
+  let imPerfEquityChart = null;
+
+  // Educational metrics computed from the paper-trade journal only — no
+  // broker data. Sharpe here is a simplified per-trade mean/stdev ratio
+  // (not annualized), since this is a discrete trade log rather than an
+  // evenly-sampled price time series.
+  function computeTradeStats(trades) {
+    const closed = trades.filter((trade) => trade.status === "closed" && Number.isFinite(trade.pnl));
+    const stats = {
+      closedCount: closed.length,
+      winRate: null,
+      totalPnl: 0,
+      avgWin: null,
+      avgLoss: null,
+      profitFactor: null,
+      maxDrawdown: 0,
+      sharpe: null,
+      equityCurve: []
+    };
+
+    if (!closed.length) return stats;
+
+    // Trades are stored newest-first (unshift on add); walk oldest-first
+    // for a chronological equity curve.
+    const chronological = [...closed].reverse();
+    const wins = [];
+    const losses = [];
+    let cumulative = 0;
+    let peak = 0;
+    let maxDrawdown = 0;
+
+    chronological.forEach((trade, index) => {
+      cumulative += trade.pnl;
+      stats.equityCurve.push({ x: index + 1, y: cumulative });
+      peak = Math.max(peak, cumulative);
+      maxDrawdown = Math.min(maxDrawdown, cumulative - peak);
+      (trade.pnl >= 0 ? wins : losses).push(trade.pnl);
+    });
+
+    stats.totalPnl = cumulative;
+    stats.maxDrawdown = maxDrawdown;
+    stats.winRate = (wins.length / closed.length) * 100;
+    stats.avgWin = wins.length ? wins.reduce((a, b) => a + b, 0) / wins.length : null;
+    stats.avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : null;
+
+    const grossWin = wins.reduce((a, b) => a + b, 0);
+    const grossLoss = Math.abs(losses.reduce((a, b) => a + b, 0));
+    stats.profitFactor = grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : null);
+
+    const pnls = closed.map((trade) => trade.pnl);
+    const mean = pnls.reduce((a, b) => a + b, 0) / pnls.length;
+    const variance = pnls.reduce((sum, p) => sum + (p - mean) ** 2, 0) / pnls.length;
+    const stdev = Math.sqrt(variance);
+    stats.sharpe = stdev > 0 ? mean / stdev : null;
+
+    return stats;
+  }
+
+  function renderTradeStats(trades) {
+    const stats = computeTradeStats(trades || loadTrades());
+
+    const closedCountEl = document.getElementById("im-perf-closed-count");
+    const winRateEl = document.getElementById("im-perf-win-rate");
+    const totalPnlEl = document.getElementById("im-perf-total-pnl");
+    const profitFactorEl = document.getElementById("im-perf-profit-factor");
+    const avgWinLossEl = document.getElementById("im-perf-avg-win-loss");
+    const maxDrawdownEl = document.getElementById("im-perf-max-drawdown");
+    const sharpeEl = document.getElementById("im-perf-sharpe");
+    const emptyNote = document.getElementById("im-perf-empty-note");
+    const canvas = document.getElementById("im-perf-equity-chart");
+
+    if (closedCountEl) closedCountEl.textContent = String(stats.closedCount);
+
+    if (!stats.closedCount) {
+      if (winRateEl) winRateEl.textContent = "--";
+      if (totalPnlEl) { totalPnlEl.textContent = "--"; totalPnlEl.className = ""; }
+      if (profitFactorEl) profitFactorEl.textContent = "--";
+      if (avgWinLossEl) avgWinLossEl.textContent = "--";
+      if (maxDrawdownEl) maxDrawdownEl.textContent = "--";
+      if (sharpeEl) sharpeEl.textContent = "--";
+      if (emptyNote) emptyNote.style.display = "flex";
+      if (canvas) canvas.style.visibility = "hidden";
+      return;
+    }
+
+    if (emptyNote) emptyNote.style.display = "none";
+    if (canvas) canvas.style.visibility = "visible";
+
+    const fmtSigned = (value) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
+
+    if (winRateEl) winRateEl.textContent = `${stats.winRate.toFixed(1)}%`;
+    if (totalPnlEl) {
+      totalPnlEl.textContent = fmtSigned(stats.totalPnl);
+      totalPnlEl.className = stats.totalPnl >= 0 ? "positive" : "negative";
+    }
+    if (profitFactorEl) {
+      profitFactorEl.textContent = stats.profitFactor === null ? "--" : stats.profitFactor === Infinity ? "∞" : stats.profitFactor.toFixed(2);
+    }
+    if (avgWinLossEl) {
+      const avgWinText = stats.avgWin === null ? "--" : `+${stats.avgWin.toFixed(2)}`;
+      const avgLossText = stats.avgLoss === null ? "--" : stats.avgLoss.toFixed(2);
+      avgWinLossEl.textContent = `${avgWinText} / ${avgLossText}`;
+    }
+    if (maxDrawdownEl) maxDrawdownEl.textContent = stats.maxDrawdown.toFixed(2);
+    if (sharpeEl) sharpeEl.textContent = stats.sharpe === null ? "--" : stats.sharpe.toFixed(2);
+
+    if (canvas && typeof Chart !== "undefined") {
+      const isPositive = stats.totalPnl >= 0;
+      const lineColor = isPositive ? "#22c55e" : "#ef4444";
+      const fillColor = isPositive ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)";
+
+      if (imPerfEquityChart) {
+        imPerfEquityChart.data.datasets[0].data = stats.equityCurve;
+        imPerfEquityChart.data.datasets[0].borderColor = lineColor;
+        imPerfEquityChart.data.datasets[0].backgroundColor = fillColor;
+        imPerfEquityChart.update();
+      } else {
+        imPerfEquityChart = new Chart(canvas.getContext("2d"), {
+          type: "line",
+          data: {
+            datasets: [{
+              label: "Cumulative P&L",
+              data: stats.equityCurve,
+              borderColor: lineColor,
+              backgroundColor: fillColor,
+              fill: true,
+              tension: 0.25,
+              pointRadius: 2,
+              pointHoverRadius: 5
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { intersect: false, mode: "index" },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  title(c) { return `Trade #${c[0]?.raw?.x ?? ""}`; },
+                  label(c) { return `Cumulative P&L: ${fmtSigned(c.raw?.y ?? 0)}`; }
+                }
+              }
+            },
+            scales: {
+              x: { type: "linear", title: { display: true, text: "Closed trade #", color: "#94a3b8" }, ticks: { color: "#94a3b8", precision: 0 }, grid: { color: "rgba(148,163,184,.12)" } },
+              y: { title: { display: true, text: "Cumulative P&L", color: "#94a3b8" }, ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,.12)" } }
+            }
+          }
+        });
+      }
+    }
   }
 
   if (form) {

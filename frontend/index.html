@@ -3033,6 +3033,52 @@
           <article class="card section-card">
             <div class="section-heading">
               <div>
+                <h2>Performance Stats</h2>
+                <p>Computed from your closed paper trades only. Educational metric, not investment advice.</p>
+              </div>
+            </div>
+
+            <div class="im-options-summary">
+              <div class="im-options-summary-card">
+                <span class="im-options-summary-label">Closed Trades</span>
+                <strong id="im-perf-closed-count">0</strong>
+              </div>
+              <div class="im-options-summary-card">
+                <span class="im-options-summary-label">Win Rate</span>
+                <strong id="im-perf-win-rate">--</strong>
+              </div>
+              <div class="im-options-summary-card">
+                <span class="im-options-summary-label">Total P&amp;L</span>
+                <strong id="im-perf-total-pnl">--</strong>
+              </div>
+              <div class="im-options-summary-card">
+                <span class="im-options-summary-label">Profit Factor</span>
+                <strong id="im-perf-profit-factor">--</strong>
+              </div>
+              <div class="im-options-summary-card">
+                <span class="im-options-summary-label">Avg Win / Avg Loss</span>
+                <strong id="im-perf-avg-win-loss">--</strong>
+              </div>
+              <div class="im-options-summary-card">
+                <span class="im-options-summary-label">Max Drawdown</span>
+                <strong id="im-perf-max-drawdown">--</strong>
+              </div>
+              <div class="im-options-summary-card">
+                <span class="im-options-summary-label">Sharpe Ratio</span>
+                <strong id="im-perf-sharpe">--</strong>
+                <span class="im-options-summary-note">Per-trade P&amp;L basis, not annualized</span>
+              </div>
+            </div>
+
+            <div class="im-perf-chart-wrap">
+              <canvas id="im-perf-equity-chart" height="220"></canvas>
+              <p class="im-chart-status" id="im-perf-empty-note">No closed trades yet — stats and the equity curve will appear once trades are marked closed.</p>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <div class="section-heading">
+              <div>
                 <h2>AI Trade Coach</h2>
                 <p>Gemini reviews your paper-trade journal and chart-replay backtests for patterns and mistakes.</p>
               </div>

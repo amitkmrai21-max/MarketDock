@@ -6086,6 +6086,22 @@ body[data-accent="green"] .settings-choice.active {
   font-size: 11px;
 }
 
+.indian-market-mode .im-perf-chart-wrap {
+  position: relative;
+  margin-top: 6px;
+  min-height: 220px;
+}
+
+.indian-market-mode .im-perf-chart-wrap #im-perf-empty-note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin: 0;
+}
+
 .indian-market-mode .im-options-table .im-options-call-side {
   color: #7be3ad;
 }
