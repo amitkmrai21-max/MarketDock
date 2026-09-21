@@ -10,12 +10,25 @@ let liveCandleRawData = [];
 // IIFE) since both BTC and Indian Market code call it.
 let aiErrorToastHideTimer = null;
 
+// A bare "Failed to fetch" (or similar) is the raw browser TypeError for a
+// request that never got a response at all — most often the free-tier
+// backend waking up from sleep or a slow request timing out at a proxy
+// before Render replies. That raw text means nothing to most people, so
+// swap it for a plain-language explanation everywhere it would show.
+function friendlyAiErrorMessage(message) {
+  const text = String(message || "");
+  if (/failed to fetch|networkerror|load failed|network request failed/i.test(text)) {
+    return "Could not reach the server — it may be waking up from sleep (free-tier services pause after inactivity) or the request timed out. Please try again in a moment.";
+  }
+  return text || "AI analysis is temporarily unavailable. Please try again later.";
+}
+
 function showAiErrorToast(message) {
   const toast = document.getElementById("aiErrorToast");
   const textEl = document.getElementById("aiErrorToastText");
   if (!toast || !textEl) return;
 
-  textEl.textContent = message || "AI analysis is temporarily unavailable. Please try again later.";
+  textEl.textContent = friendlyAiErrorMessage(message);
   toast.classList.add("ai-error-toast-visible");
 
   if (aiErrorToastHideTimer) window.clearTimeout(aiErrorToastHideTimer);
@@ -1697,7 +1710,7 @@ async function loadAiAnalysis() {
     }
 
     setText("geminiSignalAction", "Unavailable");
-    setText("geminiReason", error.message || "Gemini AI could not respond. Please try again.");
+    setText("geminiReason", friendlyAiErrorMessage(error.message));
     setText("geminiUpdatedAt", "Gemini refresh failed. Please try again.");
     return false;
   } finally {
@@ -1725,7 +1738,7 @@ function setupTimeframeButtons(){document.querySelectorAll(".timeframe-btn").for
 function setupZoomButtons(){const zin=getElement("zoomInBtn"),zout=getElement("zoomOutBtn"),reset=getElement("resetZoomBtn");if(zin)zin.addEventListener("click",()=>btcChart?.zoom({x:1.35}));if(zout)zout.addEventListener("click",()=>btcChart?.zoom({x:.74}));if(reset)reset.addEventListener("click",()=>btcChart?.resetZoom());}
 function setupRrgButtons(){const reset=getElement("rrgResetBtn");document.querySelectorAll(".rrg-timeframe-btn").forEach((button)=>button.addEventListener("click",async()=>{const frame=button.dataset.rrgTimeframe;if(!["1h","1d"].includes(frame))return;activeRrgTimeframe=frame;document.querySelectorAll(".rrg-timeframe-btn").forEach((item)=>item.classList.remove("active"));button.classList.add("active");await loadRrg();}));if(reset)reset.addEventListener("click",()=>rrgChart?.resetZoom());}
 function setUploadedChartText(id,value){const element=getElement(id);if(element)element.textContent=value||"--";}
-function setupChartAnalyser(){const input=getElement("chartImageInput"),preview=getElement("chartImagePreview"),button=getElement("analyseChartBtn"),status=getElement("chartAnalyseStatus"),box=getElement("chartAnalysisResult");if(!input||!preview||!button||!status||!box)return;input.addEventListener("change",()=>{const file=input.files[0];box.hidden=true;if(!file){preview.hidden=true;preview.removeAttribute("src");status.textContent="Upload PNG, JPG, or WEBP chart image. Maximum 8 MB.";return;}if(!["image/png","image/jpeg","image/webp"].includes(file.type)||file.size>8*1024*1024){input.value="";preview.hidden=true;preview.removeAttribute("src");status.textContent="Select PNG, JPG, or WEBP only; maximum size is 8 MB.";return;}preview.src=URL.createObjectURL(file);preview.hidden=false;status.textContent=`Selected: ${file.name}. Click Analyse with Gemini AI.`;});button.addEventListener("click",async()=>{const file=input.files[0];if(!file){status.textContent="Please upload a chart image first.";return;}const form=new FormData();form.append("file",file);button.disabled=true;button.textContent="Analysing Chart...";status.textContent="Gemini is reading the uploaded chart screenshot...";box.hidden=true;try{const response=await fetch("/api/chart-analyser",{method:"POST",body:form}),data=await response.json();if(!response.ok)throw new Error(data.detail||"Chart analysis failed.");const signal=["BUY","SELL","HOLD"].includes(data.signal)?data.signal:"HOLD",element=getElement("uploadedChartSignal"),color=getSignalColor(signal);if(element){element.textContent=signal;element.style.color=color;element.style.borderColor=color;}setUploadedChartText("uploadedChartConfidence",`Confidence: ${Number(data.confidence||0)}%`);setUploadedChartText("uploadedChartRisk",data.risk);setUploadedChartText("uploadedChartTrend",data.trend);setUploadedChartText("uploadedChartPattern",data.pattern);setUploadedChartText("uploadedChartSupport",data.support);setUploadedChartText("uploadedChartResistance",data.resistance);setUploadedChartText("uploadedChartReason",data.reason);setUploadedChartText("uploadedChartEntry",data.entry_idea);setUploadedChartText("uploadedChartInvalidation",data.invalidation_idea);setUploadedChartText("uploadedChartWarning",data.warning);box.hidden=false;status.textContent="Chart analysis complete. Educational use only.";}catch(error){console.error(error);status.textContent=`Chart analysis error: ${error.message}`;showAiErrorToast(error.message);}finally{button.disabled=false;button.textContent="Analyse with Gemini AI";}});}
+function setupChartAnalyser(){const input=getElement("chartImageInput"),preview=getElement("chartImagePreview"),button=getElement("analyseChartBtn"),status=getElement("chartAnalyseStatus"),box=getElement("chartAnalysisResult");if(!input||!preview||!button||!status||!box)return;input.addEventListener("change",()=>{const file=input.files[0];box.hidden=true;if(!file){preview.hidden=true;preview.removeAttribute("src");status.textContent="Upload PNG, JPG, or WEBP chart image. Maximum 8 MB.";return;}if(!["image/png","image/jpeg","image/webp"].includes(file.type)||file.size>8*1024*1024){input.value="";preview.hidden=true;preview.removeAttribute("src");status.textContent="Select PNG, JPG, or WEBP only; maximum size is 8 MB.";return;}preview.src=URL.createObjectURL(file);preview.hidden=false;status.textContent=`Selected: ${file.name}. Click Analyse with Gemini AI.`;});button.addEventListener("click",async()=>{const file=input.files[0];if(!file){status.textContent="Please upload a chart image first.";return;}const form=new FormData();form.append("file",file);button.disabled=true;button.textContent="Analysing Chart...";status.textContent="Gemini is reading the uploaded chart screenshot...";box.hidden=true;try{const response=await fetch("/api/chart-analyser",{method:"POST",body:form}),data=await response.json();if(!response.ok)throw new Error(data.detail||"Chart analysis failed.");const signal=["BUY","SELL","HOLD"].includes(data.signal)?data.signal:"HOLD",element=getElement("uploadedChartSignal"),color=getSignalColor(signal);if(element){element.textContent=signal;element.style.color=color;element.style.borderColor=color;}setUploadedChartText("uploadedChartConfidence",`Confidence: ${Number(data.confidence||0)}%`);setUploadedChartText("uploadedChartRisk",data.risk);setUploadedChartText("uploadedChartTrend",data.trend);setUploadedChartText("uploadedChartPattern",data.pattern);setUploadedChartText("uploadedChartSupport",data.support);setUploadedChartText("uploadedChartResistance",data.resistance);setUploadedChartText("uploadedChartReason",data.reason);setUploadedChartText("uploadedChartEntry",data.entry_idea);setUploadedChartText("uploadedChartInvalidation",data.invalidation_idea);setUploadedChartText("uploadedChartWarning",data.warning);box.hidden=false;status.textContent="Chart analysis complete. Educational use only.";}catch(error){console.error(error);status.textContent=`Chart analysis error: ${friendlyAiErrorMessage(error.message)}`;showAiErrorToast(error.message);}finally{button.disabled=false;button.textContent="Analyse with Gemini AI";}});}
 function setupGeminiAiButton(){const button=getElement("geminiAiBtn");if(!button)return;button.addEventListener("click",async()=>{if(aiRefreshInProgress)return;button.disabled=true;button.textContent="Running Gemini AI...";try{await loadAiAnalysis();}finally{button.disabled=false;button.innerHTML="Run Gemini<span class=\"btn-subtext\">(Dashboard / Live Chart)</span>";}});getElement("geminiRetryBtn")?.addEventListener("click",()=>button.click());}
 function setupTechnicalRetryButton(){const button=getElement("retryTechnicalBtn");if(button)button.addEventListener("click",async()=>{button.disabled=true;await refreshTechnicalAnalysis("Retrying live technical analysis.");button.disabled=false;});}
 
@@ -6450,7 +6463,7 @@ function clearLiveChartAiOverlay() {
       if (statusEl) statusEl.textContent = "";
     } catch (error) {
       console.error("AI chart scan failed:", error);
-      if (statusEl) statusEl.textContent = error.message || "Could not analyse this stock right now.";
+      if (statusEl) statusEl.textContent = friendlyAiErrorMessage(error.message);
       if (resultEl) resultEl.hidden = true;
       showAiErrorToast(error.message);
     }
@@ -6628,7 +6641,7 @@ function clearLiveChartAiOverlay() {
       hindiEl.hidden = false;
       button.textContent = "\u{1F310} अंग्रेज़ी में वापस जाएं";
     } catch (error) {
-      hindiEl.innerHTML = `<p class="im-news-translate-error">${escapeHtml(error.message || "Hindi translation failed. Please try again.")}</p>`;
+      hindiEl.innerHTML = `<p class="im-news-translate-error">${escapeHtml(friendlyAiErrorMessage(error.message))}</p>`;
       hindiEl.hidden = false;
       button.textContent = "\u{1F310} फिर कोशिश करें";
       showAiErrorToast(error.message);
@@ -8655,7 +8668,7 @@ function clearLiveChartAiOverlay() {
       } catch (error) {
         if (title) title.textContent = "AI coaching unavailable";
         if (text) {
-          text.textContent = error.message || "Could not generate the coaching review. Please wait a moment and try again.";
+          text.textContent = friendlyAiErrorMessage(error.message);
         }
         coachButton.textContent = "Retry AI Coaching";
         showAiErrorToast(error.message);
