@@ -76,39 +76,39 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 18px 30px;
+  gap: 14px;
+  padding: 12px 22px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-  background: rgba(7, 17, 31, 0.84);
+  background: var(--bg);
   backdrop-filter: blur(16px);
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .brand-logo {
-  width: 70px;
-  height: 70px;
-  flex: 0 0 70px;
-  border: 1px solid rgba(96, 165, 250, 0.55);
-  border-radius: 12px;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border: 1px solid rgba(139, 92, 246, 0.55);
+  border-radius: 9px;
   object-fit: contain;
-  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.22), 0 0 18px rgba(59, 130, 246, 0.28);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.22), 0 0 12px rgba(139, 92, 246, 0.22);
 }
 
 .brand h1 {
   margin: 0;
-  font-size: 25px;
-  line-height: 1.1;
+  font-size: 19px;
+  line-height: 1.15;
 }
 
 .brand p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .topbar-actions {
@@ -2878,13 +2878,13 @@ body {
 }
 
 .mode-toggle-btn {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border: none;
   border-radius: 6px;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
@@ -2906,7 +2906,7 @@ body {
 #btcModeRoot .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 250px 1fr;
+  grid-template-columns: 208px 1fr;
 }
 
 #btcModeRoot .sidebar {
@@ -2915,7 +2915,7 @@ body {
   height: calc(100vh - 44px);
   display: flex;
   flex-direction: column;
-  padding: 20px 14px;
+  padding: 16px 12px;
   border-right: 1px solid var(--border);
   background: var(--bg);
 }
@@ -2941,16 +2941,16 @@ body {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
+  gap: 8px;
+  padding: 7px 9px;
   margin: 1px 0;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--muted);
   background: transparent;
   cursor: pointer;
   text-align: left;
-  font-size: 13px;
+  font-size: 12px;
   transition: 0.2s ease;
 }
 
@@ -4645,7 +4645,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .app-shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 250px 1fr;
+  grid-template-columns: 208px 1fr;
 }
 
 .indian-market-mode .sidebar {
@@ -4654,7 +4654,7 @@ body[data-accent="green"] .settings-choice.active {
   height: calc(100vh - 44px);
   display: flex;
   flex-direction: column;
-  padding: 20px 14px;
+  padding: 16px 12px;
   border-right: 1px solid var(--im-border);
   background: var(--im-bg);
 }
@@ -4714,16 +4714,16 @@ body[data-accent="green"] .settings-choice.active {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
+  gap: 8px;
+  padding: 7px 9px;
   margin: 1px 0;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--im-muted);
   background: transparent;
   cursor: pointer;
   text-align: left;
-  font-size: 13px;
+  font-size: 12px;
   transition: 0.2s ease;
 }
 
