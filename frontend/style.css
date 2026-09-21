@@ -6086,6 +6086,13 @@ body[data-accent="green"] .settings-choice.active {
   font-size: 11px;
 }
 
+.indian-market-mode .im-journal-heading-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
 .indian-market-mode .im-perf-chart-wrap {
   position: relative;
   margin-top: 6px;

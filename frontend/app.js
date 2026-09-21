@@ -4260,6 +4260,47 @@ function clearLiveChartAiOverlay() {
     });
   }
 
+  function exportTradesToCsv() {
+    const trades = loadTrades();
+    if (!trades.length) {
+      alert("No paper trades to export yet.");
+      return;
+    }
+
+    const headers = ["Index", "Direction", "Order Type", "Entry", "Qty", "Stop", "Target", "Status", "Exit Price", "Exit Reason", "P&L"];
+    const rows = trades.map((trade) => [
+      imTradeMarketLabel(trade.index),
+      trade.direction,
+      trade.orderType === "limit" ? "Limit" : "Market",
+      trade.entry,
+      trade.qty ?? "",
+      trade.stop,
+      trade.target,
+      trade.status || "",
+      trade.exitPrice ?? "",
+      trade.exitReason || "",
+      Number.isFinite(trade.pnl) ? trade.pnl : ""
+    ]);
+
+    const csvEscape = (value) => {
+      const text = String(value);
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+
+    const csvContent = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `marketdock-paper-trades-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  document.getElementById("im-journal-export-btn")?.addEventListener("click", exportTradesToCsv);
+
   setupImPositionSizer();
   renderTrades();
 
