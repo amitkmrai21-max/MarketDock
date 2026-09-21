@@ -4905,6 +4905,178 @@ body[data-accent="green"] .settings-choice.active {
   gap: 18px;
 }
 
+/* Dashboard page only: dense, adjoining "terminal panel" layout instead of
+   gapped floating cards -- thin dividers between panels, no per-card
+   radius/border/shadow, tabular-mono numbers. Scoped to #im-dashboard so
+   every other page keeps the normal rounded-card look. */
+#im-dashboard .stats-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid var(--im-border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+#im-dashboard .stats-grid .stat-card {
+  border-radius: 0;
+  border-right: 1px solid var(--im-border);
+  border-bottom: 1px solid var(--im-border);
+  background: var(--im-panel);
+  min-height: 0;
+  padding: 14px 16px;
+}
+
+#im-dashboard .stats-grid .stat-card:last-child {
+  border-right: none;
+  border-bottom: none;
+}
+
+#im-dashboard .stat-value {
+  margin-top: 8px;
+  font-size: 20px;
+}
+
+#im-dashboard .dashboard-grid {
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 0;
+  border: 1px solid var(--im-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#im-dashboard .dashboard-grid > .card {
+  border-radius: 0;
+  border: none;
+  border-right: 1px solid var(--im-border);
+  background: var(--im-panel);
+}
+
+#im-dashboard .market-list {
+  gap: 0;
+}
+
+#im-dashboard .market-list .card {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--im-border);
+  background: var(--im-panel);
+}
+
+#im-dashboard .market-list .card:last-child {
+  border-bottom: none;
+}
+
+#im-dashboard .im-mover-card {
+  align-items: flex-start;
+  text-align: left;
+}
+
+#im-dashboard .signal-box {
+  border: none;
+  border-radius: 0;
+  background: none;
+  height: 100%;
+}
+
+@media (max-width: 1080px) {
+  #im-dashboard .stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #im-dashboard .stats-grid .stat-card:nth-child(3) {
+    border-right: none;
+  }
+
+  #im-dashboard .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #im-dashboard .dashboard-grid > .card {
+    border-right: none;
+    border-bottom: 1px solid var(--im-border);
+  }
+}
+
+@media (max-width: 620px) {
+  #im-dashboard .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #im-dashboard .stats-grid .stat-card:nth-child(odd) {
+    border-right: 1px solid var(--im-border);
+  }
+
+  #im-dashboard .stats-grid .stat-card:nth-child(even) {
+    border-right: none;
+  }
+}
+
+/* BTC Dashboard tab: same dense adjoining-panel treatment as #im-dashboard. */
+[data-panel="dashboard"] .metrics {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 14px;
+}
+
+[data-panel="dashboard"] .metric-box {
+  border-radius: 0;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  min-height: 0;
+  padding: 14px 16px;
+}
+
+[data-panel="dashboard"] .metric-box:last-child {
+  border-right: none;
+}
+
+[data-panel="dashboard"] .chart-and-analyser-grid {
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+[data-panel="dashboard"] .chart-panel,
+[data-panel="dashboard"] .chart-analyser-panel {
+  border-radius: 0;
+  border: none;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+[data-panel="dashboard"] .chart-analyser-panel {
+  border-right: none;
+}
+
+@media (max-width: 760px) {
+  [data-panel="dashboard"] .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  [data-panel="dashboard"] .metric-box {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  [data-panel="dashboard"] .metric-box:last-child {
+    border-bottom: none;
+  }
+
+  [data-panel="dashboard"] .chart-and-analyser-grid {
+    grid-template-columns: 1fr;
+  }
+
+  [data-panel="dashboard"] .chart-panel {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
 .indian-market-mode .section-card {
   padding: 20px;
 }
@@ -4947,8 +5119,8 @@ body[data-accent="green"] .settings-choice.active {
   padding: 22px;
   overflow: hidden;
   align-items: end;
-  border: 1px dashed rgba(139, 92, 246, 0.26);
-  border-radius: 12px;
+  border: none;
+  border-radius: 0;
   background:
     linear-gradient(rgba(29, 54, 85, 0.35) 1px, transparent 1px),
     linear-gradient(90deg, rgba(29, 54, 85, 0.35) 1px, transparent 1px),
