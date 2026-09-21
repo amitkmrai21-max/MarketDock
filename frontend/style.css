@@ -3994,6 +3994,17 @@ body[data-accent="green"] .settings-choice.active {
   font: inherit;
 }
 
+.indian-market-mode .settings-menu-button {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+@media (max-width: 720px) {
+  .indian-market-mode .settings-menu-button {
+    font-size: 0.9rem;
+  }
+}
+
 .indian-market-mode .im-ticker-bar {
   position: sticky;
   top: 0;
