@@ -1251,6 +1251,11 @@
           Watchlist
         </button>
 
+        <button class="nav-button" data-page="im-scanner" type="button">
+          <span class="nav-icon">&#128269;</span>
+          Scanner
+        </button>
+
         <button class="nav-button" data-page="im-fo" type="button">
           <span class="nav-icon">&#9878;</span>
           F&amp;O
@@ -1992,6 +1997,72 @@
               </thead>
               <tbody id="im-watchlist-body">
                 <tr><td colspan="5">Loading watchlist…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="page" id="im-scanner">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow">Live NSE Market Scanner</p>
+            <h2 class="index-title">Market Scanner</h2>
+            <p class="subtitle">
+              Scan for today's top gainers, losers, and momentum leaders. Research view only — no order placement.
+            </p>
+          </div>
+        </article>
+
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <div class="im-heatmap-index-group" id="im-scanner-filter-group">
+                <button class="im-scanner-filter-btn active" type="button" data-scanner-filter="gainers">Top Gainers</button>
+                <button class="im-scanner-filter-btn" type="button" data-scanner-filter="losers">Top Losers</button>
+                <button class="im-scanner-filter-btn" type="button" data-scanner-filter="strong_bullish">Strong Bullish</button>
+                <button class="im-scanner-filter-btn" type="button" data-scanner-filter="strong_bearish">Strong Bearish</button>
+              </div>
+
+              <div class="im-heatmap-index-group" id="im-scanner-universe-group">
+                <button class="im-scanner-universe-btn active" type="button" data-scanner-universe="Nifty 50">NIFTY 50</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty Bank">Bank Nifty</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty IT">IT</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty Auto">Auto</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty Pharma">Pharma</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty FMCG">FMCG</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty Metal">Metal</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty Realty">Realty</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty Energy">Energy</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty Private Bank">Private Bank</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty PSU Bank">PSU Bank</button>
+                <button class="im-scanner-universe-btn" type="button" data-scanner-universe="Nifty Financial Services">Financial Services</button>
+                <button class="im-scanner-universe-btn im-heatmap-all-btn" type="button" data-scanner-universe="ALL">All NSE Stocks (5000+)</button>
+                <button class="im-rrg-zoom-btn im-heatmap-refresh-btn" id="im-scanner-refresh-btn" type="button" hidden>&#8635; Refresh</button>
+              </div>
+
+              <p id="im-scanner-status" class="status-line">
+                <span id="im-scanner-status-text">Loading scanner…</span><span class="im-rrg-live-badge" id="im-scanner-live-badge" hidden>Live</span>
+              </p>
+              <div class="im-heatmap-progress-track" id="im-scanner-progress-track" hidden>
+                <div class="im-heatmap-progress-fill" id="im-scanner-progress-fill"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Symbol</th>
+                  <th>Name</th>
+                  <th>Last Price</th>
+                  <th>Change</th>
+                </tr>
+              </thead>
+              <tbody id="im-scanner-body">
+                <tr><td colspan="5">Loading scanner…</td></tr>
               </tbody>
             </table>
           </div>

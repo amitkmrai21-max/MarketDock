@@ -3642,6 +3642,10 @@ function clearLiveChartAiOverlay() {
       title: "Watchlist",
       subtitle: "Live last-traded price for popular NSE stocks."
     },
+    "im-scanner": {
+      title: "Market Scanner",
+      subtitle: "Scan NSE stocks for today's top gainers, losers, and momentum leaders."
+    },
     "im-fo": {
       title: "F&O Watchlist",
       subtitle: "Live last-traded price for liquid, derivatives-eligible NSE stocks."
@@ -3758,6 +3762,12 @@ function clearLiveChartAiOverlay() {
       if (typeof startHeatmapPolling === "function") startHeatmapPolling();
     } else if (typeof stopHeatmapPolling === "function") {
       stopHeatmapPolling();
+    }
+
+    if (pageId === "im-scanner") {
+      if (typeof startScannerPolling === "function") startScannerPolling();
+    } else if (typeof stopScannerPolling === "function") {
+      stopScannerPolling();
     }
 
     if (pageId === "im-news" && typeof loadImMarketNews === "function") {
@@ -5887,6 +5897,209 @@ function clearLiveChartAiOverlay() {
     if (imHeatmapTimer) {
       window.clearInterval(imHeatmapTimer);
       imHeatmapTimer = null;
+    }
+  }
+
+  // ===================== Market scanner =====================
+  // Reuses the same universe/quote endpoints as the heatmap (including the
+  // shared imAllStocksCache and runWithConcurrency helper) — no new backend
+  // work. Switching the FILTER (gainers/losers/strong bullish/bearish) just
+  // re-sorts the last fetched batch instantly; switching the UNIVERSE
+  // (a sector, or All NSE Stocks) triggers a fresh fetch.
+
+  let imScannerFilter = "gainers";
+  let imScannerUniverse = "Nifty 50";
+  let imScannerTimer = null;
+  let imScannerLoadToken = 0;
+  let imScannerLastQuotes = [];
+  const imScannerConstituentsCache = {};
+
+  function setScannerProgress(loaded, total) {
+    const track = document.getElementById("im-scanner-progress-track");
+    const fill = document.getElementById("im-scanner-progress-fill");
+    if (!track || !fill) return;
+    if (total <= 0) {
+      track.hidden = true;
+      return;
+    }
+    track.hidden = false;
+    fill.style.width = `${Math.min(100, Math.round((loaded / total) * 100))}%`;
+  }
+
+  function renderScannerTable(rows) {
+    const body = document.getElementById("im-scanner-body");
+    if (!body) return;
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="5">No matching stocks right now.</td></tr>`;
+      return;
+    }
+    body.innerHTML = rows
+      .map((r, i) => {
+        const changeClass = r.change_percent >= 0 ? "positive" : "negative";
+        const changeLabel = `${r.change_percent >= 0 ? "+" : ""}${r.change_percent.toFixed(2)}%`;
+        return `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${escapeHtml(r.symbol)}</td>
+            <td>${escapeHtml(r.name || "")}</td>
+            <td>${formatNumber(r.last_price)}</td>
+            <td class="${changeClass}">${changeLabel}</td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  function applyScannerFilterAndRender(quotes) {
+    let filtered;
+    if (imScannerFilter === "losers") {
+      filtered = quotes.slice().sort((a, b) => a.change_percent - b.change_percent).slice(0, 25);
+    } else if (imScannerFilter === "strong_bullish") {
+      filtered = quotes.filter((q) => q.ai_label === "Strong Bullish").sort((a, b) => b.change_percent - a.change_percent).slice(0, 50);
+    } else if (imScannerFilter === "strong_bearish") {
+      filtered = quotes.filter((q) => q.ai_label === "Strong Bearish").sort((a, b) => a.change_percent - b.change_percent).slice(0, 50);
+    } else {
+      filtered = quotes.slice().sort((a, b) => b.change_percent - a.change_percent).slice(0, 25);
+    }
+    renderScannerTable(filtered);
+  }
+
+  async function loadScanner() {
+    const myToken = ++imScannerLoadToken;
+    const statusText = document.getElementById("im-scanner-status-text");
+    const liveBadge = document.getElementById("im-scanner-live-badge");
+    const body = document.getElementById("im-scanner-body");
+    const isAll = imScannerUniverse === "ALL";
+
+    setScannerProgress(0, isAll ? 1 : 0);
+    if (statusText) statusText.textContent = isAll ? "Loading full NSE stock list…" : `Loading ${imScannerUniverse}…`;
+    if (liveBadge) liveBadge.hidden = true;
+    if (body) body.innerHTML = `<tr><td colspan="5">Loading…</td></tr>`;
+
+    try {
+      let stocks;
+      if (isAll) {
+        if (!imAllStocksCache) {
+          const res = await fetch(`${API_BASE_URL}/api/stocks/all`).then((r) => r.json());
+          if (!res.ok) throw new Error(res.error || "Could not load the stock universe.");
+          imAllStocksCache = res.data || [];
+        }
+        stocks = imAllStocksCache;
+      } else {
+        if (!imScannerConstituentsCache[imScannerUniverse]) {
+          const cRes = await fetch(`${API_BASE_URL}/api/index-constituents?index=${encodeURIComponent(imScannerUniverse)}`).then((r) => r.json());
+          if (!cRes.ok || !cRes.available) throw new Error(cRes.error || "Constituent list not available.");
+          imScannerConstituentsCache[imScannerUniverse] = cRes.constituents;
+        }
+        stocks = imScannerConstituentsCache[imScannerUniverse];
+      }
+
+      if (myToken !== imScannerLoadToken) return;
+
+      const nameBySymbol = {};
+      stocks.forEach((s) => { nameBySymbol[s.symbol] = s.name; });
+      const symbols = stocks.map((s) => s.symbol);
+
+      const CHUNK_SIZE = 100;
+      const CONCURRENCY = 6;
+      const chunks = [];
+      for (let i = 0; i < symbols.length; i += CHUNK_SIZE) chunks.push(symbols.slice(i, i + CHUNK_SIZE));
+
+      const allQuotes = [];
+      let loadedCount = 0;
+
+      await runWithConcurrency(chunks.length, CONCURRENCY, async (i) => {
+        if (myToken !== imScannerLoadToken) return;
+        const chunk = chunks[i];
+        try {
+          const qRes = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(chunk.join(","))}`).then((r) => r.json());
+          if (myToken !== imScannerLoadToken) return;
+          if (qRes.ok) {
+            (qRes.data || []).forEach((q) => {
+              if (q.change_percent !== null && q.change_percent !== undefined) {
+                allQuotes.push({
+                  symbol: q.symbol,
+                  name: nameBySymbol[q.symbol] || q.symbol,
+                  last_price: q.last_price,
+                  change_percent: Number(q.change_percent),
+                  ai_label: q.ai_label
+                });
+              }
+            });
+          }
+        } catch (error) {
+          console.error("Scanner quote chunk failed:", error);
+        } finally {
+          loadedCount += chunk.length;
+          if (myToken === imScannerLoadToken && isAll) {
+            setScannerProgress(loadedCount, symbols.length);
+            if (statusText) {
+              statusText.textContent = `Loading all NSE stocks… ${loadedCount.toLocaleString("en-IN")} / ${symbols.length.toLocaleString("en-IN")}`;
+            }
+          }
+        }
+      });
+
+      if (myToken !== imScannerLoadToken) return;
+
+      imScannerLastQuotes = allQuotes;
+      applyScannerFilterAndRender(allQuotes);
+      setScannerProgress(0, 0);
+      if (statusText) {
+        statusText.textContent = isAll
+          ? `All NSE stocks · ${symbols.length.toLocaleString("en-IN")} scanned`
+          : `${imScannerUniverse} · ${symbols.length} stocks scanned`;
+      }
+      if (liveBadge) liveBadge.hidden = false;
+    } catch (error) {
+      console.error("Scanner load failed:", error);
+      if (statusText) statusText.textContent = "Could not load scanner data right now.";
+      if (body) body.innerHTML = `<tr><td colspan="5">Could not load scanner data right now.</td></tr>`;
+      setScannerProgress(0, 0);
+    }
+  }
+
+  document.querySelectorAll(".im-scanner-filter-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".im-scanner-filter-btn").forEach((b) => b.classList.remove("active"));
+      button.classList.add("active");
+      imScannerFilter = button.dataset.scannerFilter;
+      if (imScannerLastQuotes.length) applyScannerFilterAndRender(imScannerLastQuotes);
+    });
+  });
+
+  document.querySelectorAll(".im-scanner-universe-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".im-scanner-universe-btn").forEach((b) => b.classList.remove("active"));
+      button.classList.add("active");
+      imScannerUniverse = button.dataset.scannerUniverse;
+      const refreshBtn = document.getElementById("im-scanner-refresh-btn");
+      if (refreshBtn) refreshBtn.hidden = imScannerUniverse !== "ALL";
+      loadScanner();
+    });
+  });
+
+  const imScannerRefreshBtn = document.getElementById("im-scanner-refresh-btn");
+  if (imScannerRefreshBtn) {
+    imScannerRefreshBtn.addEventListener("click", () => {
+      if (imScannerUniverse === "ALL") loadScanner();
+    });
+  }
+
+  function startScannerPolling() {
+    loadScanner();
+    if (imScannerTimer) return;
+    // Same reasoning as the heatmap: never auto-poll "All NSE Stocks".
+    imScannerTimer = window.setInterval(() => {
+      if (imScannerUniverse === "ALL") return;
+      loadScanner();
+    }, 20000);
+  }
+
+  function stopScannerPolling() {
+    if (imScannerTimer) {
+      window.clearInterval(imScannerTimer);
+      imScannerTimer = null;
     }
   }
 

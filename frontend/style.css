@@ -4190,7 +4190,9 @@ body[data-accent="green"] .settings-choice.active {
   margin-bottom: 10px;
 }
 
-.indian-market-mode .im-heatmap-index-btn {
+.indian-market-mode .im-heatmap-index-btn,
+.indian-market-mode .im-scanner-filter-btn,
+.indian-market-mode .im-scanner-universe-btn {
   padding: 6px 13px;
   border: 1px solid var(--im-border);
   border-radius: 999px;
@@ -4201,10 +4203,16 @@ body[data-accent="green"] .settings-choice.active {
   cursor: pointer;
 }
 
-.indian-market-mode .im-heatmap-index-btn.active {
+.indian-market-mode .im-heatmap-index-btn.active,
+.indian-market-mode .im-scanner-filter-btn.active,
+.indian-market-mode .im-scanner-universe-btn.active {
   color: #fff;
   border-color: transparent;
   background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+}
+
+.indian-market-mode #im-scanner-filter-group {
+  margin-bottom: 8px;
 }
 
 .indian-market-mode .im-heatmap-all-btn {
