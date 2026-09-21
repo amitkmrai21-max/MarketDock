@@ -2915,18 +2915,18 @@ function createLiveCandlestickChart() {
     width: container.clientWidth,
     height: 520,
     layout: {
-      background: { color: "#07111f" },
-      textColor: "#cbd5e1"
+      background: { color: "#0c0a14" },
+      textColor: "#c4b5fd"
     },
     grid: {
-      vertLines: { color: "rgba(30, 41, 59, 0.72)" },
-      horzLines: { color: "rgba(30, 41, 59, 0.72)" }
+      vertLines: { color: "rgba(38, 33, 56, 0.72)" },
+      horzLines: { color: "rgba(38, 33, 56, 0.72)" }
     },
     rightPriceScale: {
-      borderColor: "rgba(56, 189, 248, 0.34)"
+      borderColor: "rgba(139, 92, 246, 0.34)"
     },
     timeScale: {
-      borderColor: "rgba(56, 189, 248, 0.34)",
+      borderColor: "rgba(139, 92, 246, 0.34)",
       timeVisible: true,
       secondsVisible: false
     },
@@ -2936,10 +2936,10 @@ function createLiveCandlestickChart() {
   });
 
  liveCandleSeries = liveCandleChart.addCandlestickSeries({
-  upColor: "#22c55e",
-  downColor: "#ef4444",
-  borderUpColor: "#22c55e",
-  borderDownColor: "#ef4444",
+  upColor: "#34d399",
+  downColor: "#f87171",
+  borderUpColor: "#34d399",
+  borderDownColor: "#f87171",
   wickUpColor: "#86efac",
   wickDownColor: "#fca5a5"
 });
@@ -5474,7 +5474,7 @@ function clearLiveChartAiOverlay() {
             zoom: {
               wheel: { enabled: true, speed: 0.18 },
               pinch: { enabled: true },
-              drag: { enabled: true, threshold: 2, backgroundColor: "rgba(59,130,246,.16)", borderColor: "#60a5fa", borderWidth: 1 },
+              drag: { enabled: true, threshold: 2, backgroundColor: "rgba(139,92,246,.16)", borderColor: "#a78bfa", borderWidth: 1 },
               mode: "xy"
             }
           }
@@ -6827,23 +6827,23 @@ function clearLiveChartAiOverlay() {
     imStockDetailChart = LightweightCharts.createChart(container, {
       width: container.clientWidth,
       height: 380,
-      layout: { background: { color: "#081728" }, textColor: "#93a9c3" },
+      layout: { background: { color: "#0c0a14" }, textColor: "#c4b5fd" },
       grid: {
-        vertLines: { color: "rgba(29, 54, 85, 0.6)" },
-        horzLines: { color: "rgba(29, 54, 85, 0.6)" }
+        vertLines: { color: "rgba(38, 33, 56, 0.6)" },
+        horzLines: { color: "rgba(38, 33, 56, 0.6)" }
       },
-      rightPriceScale: { borderColor: "rgba(69, 182, 255, 0.3)" },
-      timeScale: { borderColor: "rgba(69, 182, 255, 0.3)", timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: "rgba(139, 92, 246, 0.3)" },
+      timeScale: { borderColor: "rgba(139, 92, 246, 0.3)", timeVisible: true, secondsVisible: false },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
     });
 
     imStockDetailSeries = imStockDetailChart.addCandlestickSeries({
-      upColor: "#36cf83",
-      downColor: "#ff6f7d",
-      borderUpColor: "#36cf83",
-      borderDownColor: "#ff6f7d",
-      wickUpColor: "#7be3ad",
-      wickDownColor: "#ffa3ab"
+      upColor: "#34d399",
+      downColor: "#f87171",
+      borderUpColor: "#34d399",
+      borderDownColor: "#f87171",
+      wickUpColor: "#86efac",
+      wickDownColor: "#fca5a5"
     });
 
     new ResizeObserver(() => {
@@ -7761,18 +7761,18 @@ function clearLiveChartAiOverlay() {
       width: container.clientWidth,
       height: 600,
       layout: {
-        background: { color: "#081728" },
-        textColor: "#93a9c3"
+        background: { color: "#0c0a14" },
+        textColor: "#c4b5fd"
       },
       grid: {
-        vertLines: { color: "rgba(29, 54, 85, 0.6)" },
-        horzLines: { color: "rgba(29, 54, 85, 0.6)" }
+        vertLines: { color: "rgba(38, 33, 56, 0.6)" },
+        horzLines: { color: "rgba(38, 33, 56, 0.6)" }
       },
       rightPriceScale: {
-        borderColor: "rgba(69, 182, 255, 0.3)"
+        borderColor: "rgba(139, 92, 246, 0.3)"
       },
       timeScale: {
-        borderColor: "rgba(69, 182, 255, 0.3)",
+        borderColor: "rgba(139, 92, 246, 0.3)",
         timeVisible: true,
         secondsVisible: false
       },
@@ -7782,12 +7782,12 @@ function clearLiveChartAiOverlay() {
     });
 
     imLiveSeries = imLiveChart.addCandlestickSeries({
-      upColor: "#36cf83",
-      downColor: "#ff6f7d",
-      borderUpColor: "#36cf83",
-      borderDownColor: "#ff6f7d",
-      wickUpColor: "#7be3ad",
-      wickDownColor: "#ffa3ab"
+      upColor: "#34d399",
+      downColor: "#f87171",
+      borderUpColor: "#34d399",
+      borderDownColor: "#f87171",
+      wickUpColor: "#86efac",
+      wickDownColor: "#fca5a5"
     });
 
     new ResizeObserver(() => {

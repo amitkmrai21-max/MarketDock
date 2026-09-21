@@ -276,7 +276,7 @@ button:disabled {
 }
 
 .card {
-  padding: 24px;
+  padding: 18px;
 }
 
 .card h2,
@@ -329,14 +329,14 @@ button:disabled {
 
 .metric-box,
 .paper-metric {
-  min-height: 98px;
-  padding: 16px;
+  min-height: 78px;
+  padding: 13px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: linear-gradient(145deg, rgba(21, 48, 80, 0.8), rgba(10, 27, 47, 0.86));
+  border-radius: 10px;
+  background: var(--surface);
 }
 
 .metric-box span,
@@ -351,11 +351,11 @@ button:disabled {
 }
 
 .metric-box strong {
-  margin-top: 10px;
+  margin-top: 6px;
   color: var(--text);
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(1.18rem, 2vw, 1.8rem);
+  font-size: clamp(1rem, 1.6vw, 1.4rem);
 }
 
 .status-line,
@@ -3983,12 +3983,12 @@ body[data-accent="green"] .settings-choice.active {
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 28px;
-  height: 36px;
-  padding: 0 20px;
+  gap: 22px;
+  height: 30px;
+  padding: 0 16px;
   border-bottom: 1px solid var(--im-border);
   background: var(--im-bg);
-  font-size: 12px;
+  font-size: 11px;
   overflow-x: auto;
 }
 
@@ -4856,8 +4856,8 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .stat-card {
   position: relative;
-  min-height: 138px;
-  padding: 18px 18px 18px 22px;
+  min-height: 104px;
+  padding: 13px 14px;
   overflow: hidden;
 }
 
@@ -4871,9 +4871,9 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .stat-value {
-  margin-top: 14px;
+  margin-top: 8px;
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.4px;
@@ -5078,15 +5078,15 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .section-card {
-  padding: 20px;
+  padding: 15px;
 }
 
 .indian-market-mode .section-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 15px;
-  margin-bottom: 18px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .indian-market-mode .section-heading h2 {
@@ -5202,10 +5202,10 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .index-hero {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 18px;
+  gap: 14px;
   align-items: center;
-  padding: 22px;
-  margin-bottom: 18px;
+  padding: 16px;
+  margin-bottom: 14px;
 }
 
 .indian-market-mode .index-title {
