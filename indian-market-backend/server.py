@@ -2214,6 +2214,62 @@ Rules:
         return jsonify({"ok": False, "error": "AI analysis is temporarily unavailable. Please try again later.", "reason": "unknown"}), 502
 
 
+@app.get("/api/stock-technical/<symbol>")
+def stock_technical(symbol):
+    """Same indicator set as the AI Chart Scanner, but plain JSON with no AI
+    call -- powers the per-stock detail page's chart/technicals view without
+    needing GEMINI_API_KEY/GROQ_API_KEY configured, only Upstox."""
+    symbol = symbol.strip().upper()
+
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
+
+    try:
+        snapshot = get_stock_technical_snapshot(symbol)
+    except Exception as error:
+        app.logger.warning("Stock technical snapshot failed for %s: %s", symbol, error)
+        return jsonify({"ok": False, "error": f"Could not fetch live data for {symbol}. Check the symbol and try again."}), 502
+
+    return jsonify(
+        {
+            "ok": True,
+            "symbol": symbol,
+            "generated_at": now_utc(),
+            "indicators": snapshot,
+            "disclaimer": "Educational technical data only. Not financial advice.",
+        }
+    )
+
+
+@app.get("/api/stock-news/<symbol>")
+def stock_news(symbol):
+    symbol = symbol.strip().upper()
+
+    try:
+        universe = get_nse_equity_universe()
+    except Exception as error:
+        app.logger.warning("Stock universe fetch failed for news lookup: %s", error)
+        return jsonify({"ok": False, "error": "Could not load stock news right now."}), 502
+
+    company_name = next((stock["name"] for stock in universe if stock["symbol"] == symbol), "")
+    if not company_name:
+        return jsonify({"ok": False, "error": f"Unknown symbol: {symbol}."}), 404
+
+    items = fetch_stock_news(symbol, company_name)
+
+    return jsonify(
+        {
+            "ok": True,
+            "symbol": symbol,
+            "company_name": company_name,
+            "generated_at": now_utc(),
+            "count": len(items),
+            "items": items,
+            "disclaimer": "Publisher RSS headlines matched by company name, for research context only. Not financial advice. Coverage may be sparse for less-covered stocks.",
+        }
+    )
+
+
 @app.post("/api/ai-coach")
 def ai_trade_coach():
     payload = request.get_json(silent=True) or {}
@@ -2362,16 +2418,14 @@ def get_xml_tag_text(node, tag_name):
     return tag.text.strip() if tag is not None and tag.text else ""
 
 
-def fetch_india_market_news():
+def _fetch_rss_news(keyword_matcher, max_age_seconds, limit):
+    """Shared RSS pull used by both the general market-news feed and the
+    per-stock news filter below -- only the match condition and the age
+    window differ between the two callers."""
     import xml.etree.ElementTree as element_tree
 
     collected, seen_urls = [], set()
     now = datetime.now(timezone.utc)
-    keywords = (
-        "nifty", "sensex", "bse", "nse", "rupee", "rbi", "sebi", "ipo", "share", "stock",
-        "market", "index", "earnings", "results", "f&o", "futures", "options", "fii", "dii",
-        "bank nifty", "commodity", "gold", "crude",
-    )
     headers = {
         "User-Agent": "Mozilla/5.0 (compatible; IndianMarketAI-News/1.0)",
         "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
@@ -2399,10 +2453,10 @@ def fetch_india_market_news():
                     continue
 
                 searchable = f"{headline} {description}".lower()
-                if not any(keyword in searchable for keyword in keywords):
+                if not keyword_matcher(searchable):
                     continue
 
-                if published_at and (now - published_at).total_seconds() > 2 * 24 * 60 * 60:
+                if published_at and (now - published_at).total_seconds() > max_age_seconds:
                     continue
 
                 seen_urls.add(normalized_url)
@@ -2421,10 +2475,43 @@ def fetch_india_market_news():
 
     collected.sort(key=lambda item: item.get("_published_at", 0), reverse=True)
     result = []
-    for item in collected[:40]:
+    for item in collected[:limit]:
         item.pop("_published_at", None)
         result.append(item)
     return result
+
+
+def fetch_india_market_news():
+    keywords = (
+        "nifty", "sensex", "bse", "nse", "rupee", "rbi", "sebi", "ipo", "share", "stock",
+        "market", "index", "earnings", "results", "f&o", "futures", "options", "fii", "dii",
+        "bank nifty", "commodity", "gold", "crude",
+    )
+    return _fetch_rss_news(
+        keyword_matcher=lambda text: any(keyword in text for keyword in keywords),
+        max_age_seconds=2 * 24 * 60 * 60,
+        limit=40,
+    )
+
+
+def fetch_stock_news(symbol, company_name):
+    """There's no dedicated per-stock news API wired up -- this reuses the
+    same general-market RSS pool and filters by the stock's own symbol/name
+    instead of generic market keywords. Coverage is limited to whatever the
+    publishers actually wrote about this specific stock, so results can be
+    sparse or empty for less-covered names."""
+    name_lower = (company_name or "").strip().lower()
+    name_short = re.sub(r"\s+(ltd|limited|inc|corp|corporation)\.?$", "", name_lower).strip()
+    search_terms = {term for term in {symbol.strip().lower(), name_lower, name_short} if len(term) >= 3}
+
+    if not search_terms:
+        return []
+
+    return _fetch_rss_news(
+        keyword_matcher=lambda text: any(term in text for term in search_terms),
+        max_age_seconds=14 * 24 * 60 * 60,
+        limit=15,
+    )
 
 
 @app.get("/api/market-news")
