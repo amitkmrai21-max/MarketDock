@@ -3653,7 +3653,7 @@ function clearLiveChartAiOverlay() {
     if (brandSubtitle) {
       brandSubtitle.textContent = isIndian
         ? "NIFTY 50 and Bank Nifty research dashboard with paper-trading workflow"
-        : "Live market analysis, virtual paper trading and Gemini/Groq AI signals";
+        : "Live market analysis and Gemini/Groq AI signals";
     }
     try { localStorage.setItem("btcAiSignalActiveMode", mode); } catch (error) { /* ignore */ }
     if (window.IndianMarketMode) {
