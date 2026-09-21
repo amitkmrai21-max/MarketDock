@@ -4121,6 +4121,7 @@ function clearLiveChartAiOverlay() {
 
     if (typeof checkImPriceAlerts === "function") checkImPriceAlerts(marketKey, data.price);
     if (typeof checkImSignalAlert === "function") checkImSignalAlert(marketKey, data.decision.label);
+    if (typeof checkImConditionAlerts === "function") checkImConditionAlerts(marketKey, data);
   }
 
   function renderApiError(marketKey) {
@@ -6710,6 +6711,154 @@ function clearLiveChartAiOverlay() {
     }
   }
 
+  // ===================== Custom condition alerts =====================
+  // Combines up to 3 numeric conditions (Price/RSI/Volume Ratio/MACD
+  // Histogram) with AND. Checked from the same market-refresh tick that
+  // already re-renders the dashboard for the 4 known indices — no new
+  // polling, just reading fields already present in that data.
+
+  const IM_CONDITION_ALERTS_KEY = "imConditionAlertsV1";
+  const IM_CONDITION_FIELD_LABELS = {
+    price: "Price",
+    rsi_14: "RSI (14)",
+    volume_ratio: "Volume Ratio",
+    macd_histogram: "MACD Histogram"
+  };
+  const IM_CONDITION_FIELD_GETTERS = {
+    price: (d) => Number(d.price),
+    rsi_14: (d) => Number(d.indicators?.rsi_14),
+    volume_ratio: (d) => Number(d.indicators?.volume_ratio),
+    macd_histogram: (d) => Number(d.indicators?.macd_histogram)
+  };
+
+  function getImConditionAlerts() {
+    try {
+      return JSON.parse(localStorage.getItem(IM_CONDITION_ALERTS_KEY)) || [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveImConditionAlerts(alerts) {
+    try {
+      localStorage.setItem(IM_CONDITION_ALERTS_KEY, JSON.stringify(alerts));
+    } catch (error) {
+      // Browser storage unavailable: current session will still work.
+    }
+  }
+
+  function describeImConditionAlert(alert) {
+    return alert.conditions
+      .map((c) => `${IM_CONDITION_FIELD_LABELS[c.field] || c.field} ${c.operator} ${c.threshold}`)
+      .join(" AND ");
+  }
+
+  function renderImConditionAlertsTable() {
+    const body = document.getElementById("im-condition-alert-table-body");
+    const empty = document.getElementById("im-condition-alert-empty");
+    const alerts = getImConditionAlerts();
+
+    if (empty) empty.style.display = alerts.length ? "none" : "block";
+    if (!body) return;
+
+    body.innerHTML = alerts
+      .map(
+        (alert) => `
+          <tr>
+            <td>${escapeHtml(IM_MARKET_LABELS[alert.market] || alert.market)}</td>
+            <td>${escapeHtml(describeImConditionAlert(alert))}</td>
+            <td><button class="delete-trade-button" type="button" data-delete-condition-alert-id="${alert.id}">Delete</button></td>
+          </tr>
+        `
+      )
+      .join("");
+  }
+
+  function checkImConditionAlerts(marketKey, data) {
+    const alerts = getImConditionAlerts();
+    let changed = false;
+    const notifications = [];
+
+    alerts.forEach((alert) => {
+      if (alert.market !== marketKey) return;
+
+      const allMet = alert.conditions.every((c) => {
+        const getter = IM_CONDITION_FIELD_GETTERS[c.field];
+        if (!getter) return false;
+        const value = getter(data);
+        if (!Number.isFinite(value)) return false;
+        return c.operator === ">" ? value > c.threshold : value < c.threshold;
+      });
+
+      if (allMet && !alert.triggered) {
+        alert.triggered = true;
+        changed = true;
+        notifications.push({
+          title: `${IM_MARKET_LABELS[marketKey]} Condition Alert`,
+          body: `Conditions met: ${describeImConditionAlert(alert)}`,
+          tag: `im-condition-${alert.id}`
+        });
+      } else if (!allMet && alert.triggered) {
+        // Re-arm so the same alert can fire again next time the conditions
+        // are freshly met, instead of only ever notifying once.
+        alert.triggered = false;
+        changed = true;
+      }
+    });
+
+    if (changed) saveImConditionAlerts(alerts);
+    notifications.forEach((n) => sendImBrowserAlert(n.title, n.body, n.tag));
+  }
+
+  function setupImConditionAlerts() {
+    const form = document.getElementById("im-condition-alert-form");
+    const tableBody = document.getElementById("im-condition-alert-table-body");
+
+    if (form) {
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const market = document.getElementById("im-condition-alert-market").value;
+        const rows = [...form.querySelectorAll(".im-condition-row")];
+
+        const conditions = rows
+          .map((row) => ({
+            field: row.querySelector(".im-condition-field").value,
+            operator: row.querySelector(".im-condition-operator").value,
+            threshold: Number(row.querySelector(".im-condition-value").value)
+          }))
+          .filter((c) => c.field && Number.isFinite(c.threshold));
+
+        if (!conditions.length) {
+          alert("Add at least one condition with a value.");
+          return;
+        }
+
+        const alerts = getImConditionAlerts();
+        alerts.unshift({
+          id: `imc${Date.now()}${Math.random().toString(16).slice(2, 6)}`,
+          market,
+          conditions,
+          triggered: false
+        });
+        saveImConditionAlerts(alerts);
+        renderImConditionAlertsTable();
+        form.reset();
+      });
+    }
+
+    if (tableBody) {
+      tableBody.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-delete-condition-alert-id]");
+        if (!button) return;
+        const alerts = getImConditionAlerts().filter((alert) => alert.id !== button.dataset.deleteConditionAlertId);
+        saveImConditionAlerts(alerts);
+        renderImConditionAlertsTable();
+      });
+    }
+
+    renderImConditionAlertsTable();
+  }
+
   function setupImAlerts() {
     const enableButton = document.getElementById("im-enable-notifications-btn");
     const testButton = document.getElementById("im-test-notification-btn");
@@ -6767,6 +6916,7 @@ function clearLiveChartAiOverlay() {
   }
 
   setupImAlerts();
+  setupImConditionAlerts();
 
   let selectedChartMarket = "nifty";
   let imLiveChart = null;

@@ -5742,6 +5742,33 @@ body[data-accent="green"] .settings-choice.active {
   width: 150px;
 }
 
+.indian-market-mode .im-condition-alert-form {
+  align-items: flex-start;
+}
+
+.indian-market-mode .im-condition-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed var(--im-border);
+  border-radius: 8px;
+}
+
+.indian-market-mode .im-condition-row .im-condition-field {
+  flex: 1 1 200px;
+}
+
+.indian-market-mode .im-condition-row .im-condition-operator {
+  flex: 0 0 60px;
+}
+
+.indian-market-mode .im-condition-row .im-condition-value {
+  flex: 0 0 110px;
+  width: auto;
+}
+
 .indian-market-mode .im-watchlist-tabs {
   display: flex;
   flex-wrap: wrap;
