@@ -175,15 +175,18 @@ def describe_ai_error(error):
 
 
 # By default the Gemini SDK retries a failing request up to 5 times with
-# exponential backoff (1s, 2s, 4s, 8s...) on exactly the status codes that
-# mean "busy"/"quota exhausted" (429/500/502/503/504) — so on a busy day the
-# SDK alone can spend 15-30+ seconds retrying before generate_ai_text below
-# ever gets a chance to fall back to Groq, which defeats the point of a fast
-# fallback. Cut Gemini's own retry budget to one quick extra attempt so a
-# real outage is detected in ~1-2 seconds instead.
+# exponential backoff on exactly the status codes that mean "busy"/"quota
+# exhausted" (429/500/502/503/504) — so on a busy day the SDK alone can
+# spend 15-30+ seconds retrying before generate_ai_text below ever gets a
+# chance to fall back to Groq. Measured against the live endpoint: cutting
+# just the retry *count* wasn't enough — Gemini was slow to respond rather
+# than failing fast, so each of the 2 attempts ran out its own 15s timeout
+# (~30s total, matching what was actually observed). No retry at all
+# (attempts=1) plus a short per-request timeout means a real outage or a
+# slow response either one hands off to Groq in a few seconds.
 GEMINI_HTTP_OPTIONS = genai_types.HttpOptions(
-    timeout=15000,
-    retry_options=genai_types.HttpRetryOptions(attempts=2, initial_delay=0.5, max_delay=2),
+    timeout=8000,
+    retry_options=genai_types.HttpRetryOptions(attempts=1),
 )
 
 
