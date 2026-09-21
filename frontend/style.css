@@ -1,30 +1,33 @@
 :root {
-  --bg: #07111f;
-  --surface: #0d1a2b;
-  --surface-soft: #101f34;
-  --surface-elevated: #132641;
-  --border: rgba(148, 163, 184, 0.17);
-  --border-strong: rgba(56, 189, 248, 0.38);
-  --text: #f8fafc;
-  --text-soft: #cbd5e1;
-  --muted: #94a3b8;
-  --green: #22c55e;
-  --red: #ef4444;
-  --yellow: #facc15;
-  --blue: #38bdf8;
+  /* Terminal Pro theme: near-black ground, amber/gold accent. --blue is
+     kept as the variable name for backward compatibility with existing
+     var(--blue) references, but now holds the amber accent. */
+  --bg: #0a0a0c;
+  --surface: #101013;
+  --surface-soft: #17171b;
+  --surface-elevated: #1c1c20;
+  --border: rgba(148, 163, 184, 0.14);
+  --border-strong: rgba(212, 160, 23, 0.4);
+  --text: #f2f2f4;
+  --text-soft: #d4d4d8;
+  --muted: #8b8b93;
+  --green: #00d68f;
+  --red: #ff5c5c;
+  --yellow: #f0b90b;
+  --blue: #d4a017;
   --purple: #a78bfa;
   --cyan: #22d3ee;
-  --amber: #fbbf24;
-  --shadow: 0 18px 42px rgba(0, 0, 0, 0.28);
+  --amber: #d4a017;
+  --shadow: 0 18px 42px rgba(0, 0, 0, 0.4);
   --ai-color: #a78bfa;
   --ai-border: rgba(167, 139, 250, 0.5);
   --ai-bg: rgba(124, 58, 237, 0.16);
-  --technical-color: #38bdf8;
-  --technical-border: rgba(56, 189, 248, 0.5);
-  --technical-bg: rgba(2, 132, 199, 0.16);
-  --confirmation-color: #fbbf24;
-  --confirmation-border: rgba(251, 191, 36, 0.52);
-  --confirmation-bg: rgba(180, 83, 9, 0.18);
+  --technical-color: #d4a017;
+  --technical-border: rgba(212, 160, 23, 0.5);
+  --technical-bg: rgba(212, 160, 23, 0.12);
+  --confirmation-color: #f0b90b;
+  --confirmation-border: rgba(240, 185, 11, 0.52);
+  --confirmation-bg: rgba(180, 131, 9, 0.18);
 }
 
 * {
@@ -36,11 +39,11 @@ body {
   min-height: 100vh;
   margin: 0;
   color: var(--text);
-  font-family: Arial, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
   background:
-    radial-gradient(circle at 12% 0%, rgba(14, 165, 233, 0.14), transparent 28rem),
-    radial-gradient(circle at 90% 8%, rgba(124, 58, 237, 0.1), transparent 25rem),
-    linear-gradient(180deg, #07111f 0%, #081322 42%, #050d18 100%);
+    radial-gradient(circle at 12% 0%, rgba(212, 160, 23, 0.07), transparent 28rem),
+    radial-gradient(circle at 90% 8%, rgba(0, 214, 143, 0.05), transparent 25rem),
+    linear-gradient(180deg, #0a0a0c 0%, #0a0a0c 42%, #08080a 100%);
 }
 
 button,
@@ -358,6 +361,8 @@ button:disabled {
 .metric-box strong {
   margin-top: 10px;
   color: var(--text);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
   font-size: clamp(1.18rem, 2vw, 1.8rem);
 }
 
@@ -2988,19 +2993,19 @@ body {
 
 #btcModeRoot .nav-button:hover {
   color: var(--text);
-  border-color: rgba(56, 189, 248, 0.24);
-  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(212, 160, 23, 0.22);
+  background: rgba(212, 160, 23, 0.08);
 }
 
 #btcModeRoot .nav-button.active {
   color: #ffffff;
-  border-color: transparent;
-  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
-  box-shadow: 0 6px 16px rgba(23, 162, 255, 0.25);
+  border-color: rgba(212, 160, 23, 0.3);
+  background: #17171b;
+  box-shadow: none;
 }
 
 #btcModeRoot .nav-button.active .nav-icon {
-  color: #ffffff;
+  color: var(--blue);
 }
 
 #btcModeRoot .nav-icon {
@@ -3138,8 +3143,8 @@ body {
 .app-tab.active,
 .settings-menu-button:hover {
   color: var(--text);
-  background: rgba(59, 130, 246, 0.16);
-  border-color: rgba(59, 130, 246, 0.46);
+  background: rgba(212, 160, 23, 0.14);
+  border-color: rgba(212, 160, 23, 0.4);
 }
 
 .app-tab:focus-visible,
@@ -3147,7 +3152,7 @@ body {
 .settings-choice:focus-visible,
 .settings-close:focus-visible,
 .reset-settings-btn:focus-visible {
-  outline: 3px solid rgba(59, 130, 246, 0.5);
+  outline: 3px solid rgba(212, 160, 23, 0.5);
   outline-offset: 2px;
 }
 
@@ -3958,18 +3963,21 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 /* ===== Indian Market mode (scoped under .indian-market-mode) ===== */
+/* Terminal Pro theme: near-black ground, amber/gold accent (--im-blue kept
+   as the variable name for backward compatibility with the hundreds of
+   existing var(--im-blue) references, but now holds the amber accent). */
 .indian-market-mode {
-  --im-bg: #07111f;
-  --im-panel: #0c1b2e;
-  --im-panel-2: #10243d;
-  --im-border: #1d3655;
-  --im-text: #edf5ff;
-  --im-muted: #93a9c3;
-  --im-blue: #45b6ff;
-  --im-green: #36cf83;
-  --im-red: #ff6f7d;
-  --im-yellow: #f7c948;
-  --im-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+  --im-bg: #0a0a0c;
+  --im-panel: #101013;
+  --im-panel-2: #17171b;
+  --im-border: #232328;
+  --im-text: #f2f2f4;
+  --im-muted: #8b8b93;
+  --im-blue: #d4a017;
+  --im-green: #00d68f;
+  --im-red: #ff5c5c;
+  --im-yellow: #f0b90b;
+  --im-shadow: 0 18px 45px rgba(0, 0, 0, 0.4);
 }
 
 .indian-market-mode,
@@ -3980,11 +3988,11 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode {
   margin: 0;
   min-height: 100vh;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
   color: var(--im-text);
   background:
-    radial-gradient(circle at top right, rgba(36, 126, 190, 0.18), transparent 34%),
-    radial-gradient(circle at bottom left, rgba(38, 190, 136, 0.1), transparent 28%),
+    radial-gradient(circle at top right, rgba(212, 160, 23, 0.08), transparent 34%),
+    radial-gradient(circle at bottom left, rgba(0, 214, 143, 0.05), transparent 28%),
     var(--im-bg);
 }
 
@@ -4036,12 +4044,14 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-ticker-value {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   color: var(--im-text);
 }
 
 .indian-market-mode .im-ticker-change {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   font-size: 12px;
@@ -4755,19 +4765,19 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .nav-button:hover {
   color: var(--im-text);
-  border-color: rgba(69, 182, 255, 0.24);
-  background: rgba(69, 182, 255, 0.1);
+  border-color: rgba(212, 160, 23, 0.22);
+  background: rgba(212, 160, 23, 0.08);
 }
 
 .indian-market-mode .nav-button.active {
   color: #ffffff;
-  border-color: transparent;
-  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
-  box-shadow: 0 6px 16px rgba(23, 162, 255, 0.25);
+  border-color: rgba(212, 160, 23, 0.3);
+  background: #17171b;
+  box-shadow: none;
 }
 
 .indian-market-mode .nav-button.active .nav-icon {
-  color: #ffffff;
+  color: var(--im-blue);
 }
 
 .indian-market-mode .nav-icon {
@@ -4904,8 +4914,10 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .stat-value {
   margin-top: 14px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-size: 26px;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.4px;
 }
 
@@ -5434,6 +5446,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .technical-item strong {
   display: block;
   margin-top: 5px;
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
   font-size: 14px;
   font-variant-numeric: tabular-nums;
 }
