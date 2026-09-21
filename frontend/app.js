@@ -3641,17 +3641,15 @@ function clearLiveChartAiOverlay() {
 (function setupModeToggle() {
   const btcRoot = document.getElementById("btcModeRoot");
   const indianRoot = document.getElementById("indianModeRoot");
-  const slider = document.getElementById("modeSliderToggle");
-  const brandTitle = document.getElementById("brandTitle");
+  const toggleButtons = [document.getElementById("modeToggleIndian"), document.getElementById("modeToggleBtc")].filter(Boolean);
   const brandSubtitle = document.getElementById("brandSubtitle");
-  if (!btcRoot || !indianRoot || !slider) return;
+  if (!btcRoot || !indianRoot || !toggleButtons.length) return;
 
   function setMode(mode) {
     const isIndian = mode === "indian";
     btcRoot.hidden = isIndian;
     indianRoot.hidden = !isIndian;
-    slider.dataset.mode = mode;
-    if (brandTitle) brandTitle.textContent = isIndian ? "Indian Market" : "BTC Market";
+    toggleButtons.forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
     if (brandSubtitle) {
       brandSubtitle.textContent = isIndian
         ? "NIFTY 50 and Bank Nifty research dashboard with paper-trading workflow"
@@ -3664,8 +3662,8 @@ function clearLiveChartAiOverlay() {
     }
   }
 
-  slider.addEventListener("click", () => {
-    setMode(slider.dataset.mode === "indian" ? "btc" : "indian");
+  toggleButtons.forEach((button) => {
+    button.addEventListener("click", () => setMode(button.dataset.mode));
   });
 
   let savedMode = "indian";
