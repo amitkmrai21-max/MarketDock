@@ -6335,3 +6335,48 @@ body[data-accent="green"] .settings-choice.active {
   font-size: 13px;
   line-height: 1.55;
 }
+
+.indian-market-mode .im-ai-scanner-search-wrap {
+  max-width: 480px;
+  margin-bottom: 14px;
+}
+
+.indian-market-mode .im-ai-scanner-indicator-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+  margin: 12px 0 18px;
+}
+
+.indian-market-mode .im-ai-scanner-stat {
+  padding: 10px 12px;
+  border: 1px solid var(--im-border);
+  border-radius: 10px;
+  background: rgba(12, 27, 46, 0.6);
+}
+
+.indian-market-mode .im-ai-scanner-stat-label {
+  display: block;
+  color: var(--im-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.indian-market-mode .im-ai-scanner-stat-value {
+  display: block;
+  margin-top: 3px;
+  color: var(--im-text);
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.indian-market-mode .im-ai-scanner-analysis {
+  padding: 16px 18px;
+  border: 1px solid rgba(167, 139, 250, 0.35);
+  border-radius: 12px;
+  background: rgba(124, 58, 237, 0.08);
+  margin-bottom: 12px;
+}

@@ -139,6 +139,7 @@ DEMO_MARKETS = {
 # so simultaneous dashboard/technical-engine requests don't each hit the API.
 LIVE_SNAPSHOT_CACHE_SECONDS = 20
 _live_snapshot_cache = {}
+_stock_snapshot_cache = {}
 
 
 def now_utc():
@@ -547,16 +548,11 @@ def classify_trend(candles, fast_period=9, slow_period=21):
     return "neutral"
 
 
-def get_real_market_snapshot(market_key):
-    """Builds a market dict with the SAME shape as DEMO_MARKETS entries, but
-    populated from real Upstox data, so calculate_confirmation_engine can
-    consume it unchanged. Raises on failure so the caller can fall back."""
-    market = UPSTOX_MARKETS[market_key]
-    cached = _live_snapshot_cache.get(market_key)
-    if cached and time.time() - cached["fetched_at"] < LIVE_SNAPSHOT_CACHE_SECONDS:
-        return cached["data"]
-
-    candles_5m = fetch_upstox_candles(market["instrument_key"], "minutes", 5, chart_history_days=5)
+def build_technical_snapshot(name, candles_5m):
+    """Computes the full technical readout (RSI/EMA/VWAP/MACD/ATR/support-
+    resistance/trend/Bollinger/Supertrend/ADX/Stochastic/Pivots) from 5-
+    minute candles. Shared by the known-index snapshot below and the AI
+    Chart Scanner (any NSE stock) so the indicator math isn't duplicated."""
     if len(candles_5m) < 30:
         raise RuntimeError("Not enough live candle history yet for a reliable snapshot.")
 
@@ -583,8 +579,8 @@ def get_real_market_snapshot(market_key):
     today_ist = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date().isoformat()
     session_status = "live" if latest_candle_date == today_ist else "closed"
 
-    snapshot = {
-        "name": market["name"],
+    return {
+        "name": name,
         "price": round(price, 2),
         "open": round(session_open, 2),
         "high": round(session_high, 2),
@@ -603,7 +599,6 @@ def get_real_market_snapshot(market_key):
         "trend_5m": classify_trend(candles_5m),
         "trend_15m": classify_trend(candles_15m) if len(candles_15m) >= 21 else "neutral",
         "trend_1h": classify_trend(candles_1h) if len(candles_1h) >= 21 else "neutral",
-        "data_source": "live",
         "session_status": session_status,
         "bollinger_bands": calculate_bollinger_bands(closes),
         "supertrend": calculate_supertrend(candles_5m),
@@ -611,7 +606,37 @@ def get_real_market_snapshot(market_key):
         "stochastic": calculate_stochastic(candles_5m),
         "pivot_points": calculate_pivot_points(candles_5m),
     }
+
+
+def get_real_market_snapshot(market_key):
+    """Builds a market dict with the SAME shape as DEMO_MARKETS entries, but
+    populated from real Upstox data, so calculate_confirmation_engine can
+    consume it unchanged. Raises on failure so the caller can fall back."""
+    market = UPSTOX_MARKETS[market_key]
+    cached = _live_snapshot_cache.get(market_key)
+    if cached and time.time() - cached["fetched_at"] < LIVE_SNAPSHOT_CACHE_SECONDS:
+        return cached["data"]
+
+    candles_5m = fetch_upstox_candles(market["instrument_key"], "minutes", 5, chart_history_days=5)
+    snapshot = build_technical_snapshot(market["name"], candles_5m)
+    snapshot["data_source"] = "live"
     _live_snapshot_cache[market_key] = {"data": snapshot, "fetched_at": time.time()}
+    return snapshot
+
+
+def get_stock_technical_snapshot(symbol):
+    """Same technical snapshot as get_real_market_snapshot, but for any NSE
+    stock symbol (used by the AI Chart Scanner) instead of one of the 4
+    fixed index markets."""
+    cache_key = symbol.upper()
+    cached = _stock_snapshot_cache.get(cache_key)
+    if cached and time.time() - cached["fetched_at"] < LIVE_SNAPSHOT_CACHE_SECONDS:
+        return cached["data"]
+
+    instrument_key = resolve_instrument_key(symbol)
+    candles_5m = fetch_upstox_candles(instrument_key, "minutes", 5, chart_history_days=5)
+    snapshot = build_technical_snapshot(cache_key, candles_5m)
+    _stock_snapshot_cache[cache_key] = {"data": snapshot, "fetched_at": time.time()}
     return snapshot
 
 
@@ -2015,6 +2040,93 @@ Rules:
                 "error": "Gemini review is temporarily unavailable. Please try again later.",
             }
         ), 502
+
+
+@app.post("/api/ai-chart-scanner")
+def ai_chart_scanner():
+    """Pick-any-stock AI technical readout: computes the same indicator set
+    used for the known indices (RSI/EMA/VWAP/MACD/Bollinger/Supertrend/ADX/
+    Stochastic/Pivots) for an arbitrary NSE stock, then asks Gemini to
+    explain it in plain Hinglish. Educational only — never an instruction to
+    place a real trade."""
+    payload = request.get_json(silent=True) or {}
+    symbol = str(payload.get("symbol", "")).strip().upper()
+
+    if not symbol:
+        return jsonify({"ok": False, "error": "Please provide a stock symbol."}), 400
+
+    if not GEMINI_API_KEY:
+        return jsonify({"ok": False, "error": "Gemini is not configured on the server."}), 503
+
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
+
+    try:
+        snapshot = get_stock_technical_snapshot(symbol)
+    except Exception as error:
+        app.logger.warning("AI chart scanner snapshot failed for %s: %s", symbol, error)
+        return jsonify(
+            {"ok": False, "error": f"Could not fetch live data for {symbol}. Check the symbol and try again."}
+        ), 502
+
+    indicators_text = f"""Price: {snapshot['price']}
+Open: {snapshot['open']} | High: {snapshot['high']} | Low: {snapshot['low']}
+RSI(14): {snapshot['rsi_14']}
+EMA 9/21/50: {snapshot['ema_9']} / {snapshot['ema_21']} / {snapshot['ema_50']}
+VWAP: {snapshot['vwap']}
+MACD histogram: {snapshot['macd_histogram']}
+ATR(14): {snapshot['atr_14']}
+Support: {snapshot['support']} | Resistance: {snapshot['resistance']}
+Trend (5m/15m/1h): {snapshot['trend_5m']} / {snapshot['trend_15m']} / {snapshot['trend_1h']}
+Bollinger Bands: {snapshot['bollinger_bands']}
+Supertrend: {snapshot['supertrend']}
+ADX/+DI/-DI: {snapshot['adx']}
+Stochastic: {snapshot['stochastic']}
+Pivot Points: {snapshot['pivot_points']}
+Volume vs 20-candle average: {snapshot['volume_ratio']}x"""
+
+    prompt = f"""
+You are an educational technical-analysis explainer for a retail Indian-market research/paper-trading app.
+This is strictly educational, not financial advice, and must never instruct the user to place a real trade.
+
+Here are the current live technical readings for {symbol} (NSE), from 5-minute candles today:
+{indicators_text}
+
+Write a concise Hinglish summary with exactly these five headings:
+1. Trend
+2. Momentum
+3. Key Levels
+4. Setup
+5. Risk Note
+
+Rules:
+- Base your analysis only on the numbers given above. Do not invent news, fundamentals, or data not shown.
+- For "Setup", describe honestly what the data suggests (Breakout / Pullback / Range / No clear setup) — do not force a setup if the indicators are mixed.
+- Do not use imperative execution language ("buy now", "sell now", "enter here").
+- Keep the reply under 180 words.
+"""
+
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+        analysis_text = (response.text or "").strip()
+
+        if not analysis_text:
+            return jsonify({"ok": False, "error": "Gemini returned an empty analysis. Please try again."}), 502
+
+        return jsonify(
+            {
+                "ok": True,
+                "symbol": symbol,
+                "generated_at": now_utc(),
+                "indicators": snapshot,
+                "analysis": analysis_text,
+                "disclaimer": "Educational technical-analysis summary only. Not financial advice.",
+            }
+        )
+    except Exception:
+        app.logger.exception("AI chart scanner request failed for %s", symbol)
+        return jsonify({"ok": False, "error": "AI analysis is temporarily unavailable. Please try again later."}), 502
 
 
 @app.post("/api/ai-coach")

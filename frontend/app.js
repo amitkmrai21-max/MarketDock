@@ -3646,6 +3646,10 @@ function clearLiveChartAiOverlay() {
       title: "Market Scanner",
       subtitle: "Scan NSE stocks for today's top gainers, losers, and momentum leaders."
     },
+    "im-ai-scanner": {
+      title: "AI Chart Scanner",
+      subtitle: "Pick any NSE stock for an instant AI-written technical summary. Educational only."
+    },
     "im-fo": {
       title: "F&O Watchlist",
       subtitle: "Live last-traded price for liquid, derivatives-eligible NSE stocks."
@@ -6124,6 +6128,188 @@ function clearLiveChartAiOverlay() {
       imScannerTimer = null;
     }
   }
+
+  // ===================== AI Chart Scanner =====================
+  // Pick any NSE stock, get an instant AI-written technical summary. Reuses
+  // the same stock search endpoint as the Watchlist's "add stock" box, and
+  // the same renderGeminiReview() text formatter the AI Trade Coach uses —
+  // both proven UI patterns, just wired to a new stock-picker + endpoint.
+
+  let imAiScannerSearchDebounce = null;
+  let imAiScannerSearchResults = [];
+  let imAiScannerSearchActiveIndex = -1;
+
+  function hideImAiScannerSearchResults() {
+    const el = document.getElementById("im-ai-scanner-search-results");
+    if (el) {
+      el.hidden = true;
+      el.innerHTML = "";
+    }
+    imAiScannerSearchResults = [];
+    imAiScannerSearchActiveIndex = -1;
+  }
+
+  function updateImAiScannerActiveHighlight() {
+    const resultsEl = document.getElementById("im-ai-scanner-search-results");
+    if (!resultsEl) return;
+    [...resultsEl.querySelectorAll(".im-watchlist-search-item")].forEach((el, i) => {
+      el.classList.toggle("active", i === imAiScannerSearchActiveIndex);
+    });
+  }
+
+  function renderImAiScannerSearchResults(results) {
+    imAiScannerSearchResults = results;
+    imAiScannerSearchActiveIndex = -1;
+    const el = document.getElementById("im-ai-scanner-search-results");
+    if (!el) return;
+    if (!results.length) {
+      el.innerHTML = `<div class="im-watchlist-search-empty">No matching NSE stocks found.</div>`;
+      el.hidden = false;
+      return;
+    }
+    el.innerHTML = results
+      .map((s, i) => `
+        <div class="im-watchlist-search-item" data-search-index="${i}">
+          <strong>${escapeHtml(s.symbol)}</strong>
+          <span>${escapeHtml(s.name)}</span>
+        </div>
+      `)
+      .join("");
+    el.hidden = false;
+  }
+
+  async function runImAiScannerSearch(query) {
+    if (!query) {
+      hideImAiScannerSearchResults();
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=15`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Stock search failed.");
+      renderImAiScannerSearchResults(Array.isArray(result.data) ? result.data : []);
+    } catch (error) {
+      console.error("AI scanner stock search failed:", error);
+      hideImAiScannerSearchResults();
+    }
+  }
+
+  function renderAiScannerIndicators(snapshot) {
+    const grid = document.getElementById("im-ai-scanner-indicators");
+    if (!grid) return;
+    const tiles = [
+      ["Price", formatNumber(snapshot.price)],
+      ["RSI (14)", snapshot.rsi_14],
+      ["VWAP", formatNumber(snapshot.vwap)],
+      ["MACD Hist", snapshot.macd_histogram],
+      ["EMA 21", formatNumber(snapshot.ema_21)],
+      ["Support", formatNumber(snapshot.support)],
+      ["Resistance", formatNumber(snapshot.resistance)],
+      ["Trend (5m)", snapshot.trend_5m],
+      ["ADX", snapshot.adx ? snapshot.adx.adx : "--"],
+      ["Supertrend", snapshot.supertrend ? snapshot.supertrend.trend : "--"],
+      ["Volume vs Avg", snapshot.volume_ratio !== undefined ? `${snapshot.volume_ratio}x` : "--"],
+      ["Session", snapshot.session_status]
+    ];
+    grid.innerHTML = tiles
+      .map(
+        ([label, value]) => `
+          <div class="im-ai-scanner-stat">
+            <span class="im-ai-scanner-stat-label">${escapeHtml(label)}</span>
+            <span class="im-ai-scanner-stat-value">${escapeHtml(String(value === undefined || value === null ? "--" : value))}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  async function runAiChartScan(symbol) {
+    const statusEl = document.getElementById("im-ai-scanner-status");
+    const resultEl = document.getElementById("im-ai-scanner-result");
+    const symbolEl = document.getElementById("im-ai-scanner-symbol");
+    const updatedEl = document.getElementById("im-ai-scanner-updated");
+    const analysisEl = document.getElementById("im-ai-scanner-analysis");
+
+    if (statusEl) statusEl.textContent = `Analysing ${symbol}…`;
+    if (resultEl) resultEl.hidden = true;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ai-chart-scanner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "AI chart scan failed.");
+
+      if (symbolEl) symbolEl.textContent = result.symbol;
+      if (updatedEl) {
+        const generated = new Date(result.generated_at);
+        updatedEl.textContent = `Live snapshot · ${generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+      }
+      renderAiScannerIndicators(result.indicators || {});
+      if (analysisEl) renderGeminiReview(analysisEl, result.analysis);
+      if (resultEl) resultEl.hidden = false;
+      if (statusEl) statusEl.textContent = "";
+    } catch (error) {
+      console.error("AI chart scan failed:", error);
+      if (statusEl) statusEl.textContent = error.message || "Could not analyse this stock right now.";
+      if (resultEl) resultEl.hidden = true;
+    }
+  }
+
+  function setupImAiScannerSearch() {
+    const input = document.getElementById("im-ai-scanner-search-input");
+    const resultsEl = document.getElementById("im-ai-scanner-search-results");
+    if (!input || !resultsEl) return;
+
+    input.addEventListener("input", () => {
+      const query = input.value.trim();
+      if (imAiScannerSearchDebounce) window.clearTimeout(imAiScannerSearchDebounce);
+      imAiScannerSearchDebounce = window.setTimeout(() => runImAiScannerSearch(query), 250);
+    });
+
+    resultsEl.addEventListener("click", (event) => {
+      const item = event.target.closest(".im-watchlist-search-item");
+      if (!item) return;
+      const stock = imAiScannerSearchResults[Number(item.dataset.searchIndex)];
+      if (!stock) return;
+      input.value = stock.symbol;
+      hideImAiScannerSearchResults();
+      runAiChartScan(stock.symbol);
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!input.contains(event.target) && !resultsEl.contains(event.target)) {
+        hideImAiScannerSearchResults();
+      }
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const active = imAiScannerSearchResults[imAiScannerSearchActiveIndex];
+        if (active) {
+          input.value = active.symbol;
+          hideImAiScannerSearchResults();
+          runAiChartScan(active.symbol);
+        } else if (input.value.trim()) {
+          hideImAiScannerSearchResults();
+          runAiChartScan(input.value.trim().toUpperCase());
+        }
+      } else if (event.key === "ArrowDown" && imAiScannerSearchResults.length) {
+        event.preventDefault();
+        imAiScannerSearchActiveIndex = Math.min(imAiScannerSearchActiveIndex + 1, imAiScannerSearchResults.length - 1);
+        updateImAiScannerActiveHighlight();
+      } else if (event.key === "ArrowUp" && imAiScannerSearchResults.length) {
+        event.preventDefault();
+        imAiScannerSearchActiveIndex = Math.max(imAiScannerSearchActiveIndex - 1, 0);
+        updateImAiScannerActiveHighlight();
+      }
+    });
+  }
+
+  setupImAiScannerSearch();
 
   let watchlistTimer = null;
 
