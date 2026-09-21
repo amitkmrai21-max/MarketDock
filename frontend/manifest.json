@@ -1,0 +1,37 @@
+{
+  "name": "MarketDock — BTC & Indian Market Research",
+  "short_name": "MarketDock",
+  "description": "Live BTC/USDT and NIFTY/Bank Nifty research dashboard with technical analysis, Gemini/Groq AI review, and paper trading. Educational only — not financial advice.",
+  "start_url": "/frontend/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "icons": [
+    {
+      "src": "/frontend/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/frontend/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/frontend/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/frontend/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

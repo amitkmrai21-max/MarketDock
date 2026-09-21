@@ -15,7 +15,9 @@
   <meta property="og:image" content="https://marketdock.onrender.com/frontend/image-1.png" />
 
   <link rel="icon" type="image/png" href="/frontend/image-1.png">
-  <link rel="apple-touch-icon" href="/frontend/image-1.png">
+  <link rel="apple-touch-icon" href="/frontend/icon-192.png">
+  <link rel="manifest" href="/frontend/manifest.json">
+  <meta name="theme-color" content="#07111f">
 
   <link rel="stylesheet" href="/frontend/style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -3189,5 +3191,12 @@
   </aside>
 
   <script src="/frontend/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/frontend/sw.js").catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
