@@ -96,7 +96,7 @@ button:disabled {
   border: 1px solid rgba(96, 165, 250, 0.55);
   border-radius: 12px;
   object-fit: contain;
-  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.22), 0 0 18px rgba(59, 130, 246, 0.28);
+  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.22), 0 0 18px rgba(59, 130, 246, 0.28);
 }
 
 .brand h1 {
@@ -141,7 +141,7 @@ button:disabled {
 .rrg-timeframe-btn:hover,
 .reset-paper-btn:hover,
 .retry-technical-btn:hover {
-  border-color: rgba(56, 189, 248, 0.75);
+  border-color: rgba(139, 92, 246, 0.75);
   background: rgba(20, 54, 86, 0.98);
 }
 
@@ -272,7 +272,7 @@ button:disabled {
 }
 
 .tv-attribution a {
-  color: #60a5fa;
+  color: #a78bfa;
 }
 
 .card {
@@ -413,10 +413,10 @@ button:disabled {
 
 .timeframe-btn.active,
 .rrg-timeframe-btn.active {
-  border-color: #93c5fd;
+  border-color: #a78bfa;
   color: #fff;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
+  box-shadow: 0 6px 16px rgba(139, 92, 246, 0.32);
 }
 
 canvas {
@@ -621,7 +621,7 @@ canvas {
 }
 
 .eth-legend::before {
-  background: #60a5fa;
+  background: #a78bfa;
 }
 
 .sol-legend::before {
@@ -777,7 +777,7 @@ canvas {
 }
 
 .confidence-tag {
-  border-color: rgba(56, 189, 248, 0.36);
+  border-color: rgba(139, 92, 246, 0.36);
   background: linear-gradient(145deg, rgba(3, 105, 161, 0.34), rgba(8, 32, 52, 0.78));
 }
 
@@ -871,13 +871,7 @@ canvas {
 }
 
 .timeframe-analysis-card::before {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 3px;
-  height: 100%;
-  content: "";
-  background: linear-gradient(180deg, #38bdf8, #6366f1);
+  display: none;
 }
 
 .timeframe-title-row {
@@ -1129,7 +1123,7 @@ canvas {
 }
 
 .agreement-overview {
-  border-color: rgba(56, 189, 248, 0.42);
+  border-color: rgba(139, 92, 246, 0.42);
   background: linear-gradient(145deg, rgba(3, 105, 161, 0.2), rgba(7, 22, 39, 0.82));
 }
 
@@ -1153,7 +1147,7 @@ canvas {
   width: 0;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #38bdf8, #22c55e);
+  background: linear-gradient(90deg, #8b5cf6, #22c55e);
   box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
   transition: width 360ms ease;
 }
@@ -1216,7 +1210,7 @@ canvas {
 .key-distance-card {
   min-width: 0;
   padding: 15px;
-  border: 1px solid rgba(56, 189, 248, 0.24);
+  border: 1px solid rgba(139, 92, 246, 0.24);
   border-radius: 14px;
   background: rgba(4, 15, 27, 0.48);
 }
@@ -1484,7 +1478,7 @@ canvas {
 }
 
 .paper-action-row input:focus {
-  border-color: #60a5fa;
+  border-color: #a78bfa;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
 }
 
@@ -1580,7 +1574,7 @@ canvas {
   align-items: center;
   gap: 7px;
   padding: 6px;
-  border: 1px solid rgba(56, 189, 248, 0.34);
+  border: 1px solid rgba(139, 92, 246, 0.34);
   border-radius: 11px;
   background: rgba(5, 15, 28, 0.94);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
@@ -1603,7 +1597,7 @@ canvas {
 }
 
 .layout-editor-btn:hover {
-  border-color: rgba(56, 189, 248, 0.75);
+  border-color: rgba(139, 92, 246, 0.75);
   background: rgba(18, 61, 96, 0.96);
 }
 
@@ -1618,7 +1612,7 @@ canvas {
 }
 
 .layout-edit-mode .layout-editable {
-  outline: 1px dashed rgba(56, 189, 248, 0.48);
+  outline: 1px dashed rgba(139, 92, 246, 0.48);
   outline-offset: 4px;
 }
 
@@ -1632,7 +1626,7 @@ canvas {
 }
 
 .layout-editable.drag-over {
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.75), 0 14px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.75), 0 14px 40px rgba(0, 0, 0, 0.35);
 }
 
 .layout-editable.layout-height-compact {
@@ -1863,7 +1857,7 @@ canvas {
 .swing-structure-card {
   background:
     radial-gradient(circle at 92% 5%, rgba(239, 68, 68, 0.14), transparent 22rem),
-    radial-gradient(circle at 7% 100%, rgba(56, 189, 248, 0.1), transparent 20rem),
+    radial-gradient(circle at 7% 100%, rgba(139, 92, 246, 0.1), transparent 20rem),
     linear-gradient(145deg, rgba(39, 21, 35, 0.96), rgba(7, 20, 35, 0.99));
 }
 
@@ -1939,7 +1933,7 @@ canvas {
 }
 
 .swing-price-item {
-  border-color: rgba(56, 189, 248, 0.4);
+  border-color: rgba(139, 92, 246, 0.4);
   background: linear-gradient(145deg, rgba(3, 105, 161, 0.22), rgba(4, 15, 27, 0.76));
 }
 
@@ -1959,7 +1953,7 @@ canvas {
 }
 
 .status-level {
-  border-color: rgba(56, 189, 248, 0.44);
+  border-color: rgba(139, 92, 246, 0.44);
   background: linear-gradient(145deg, rgba(3, 105, 161, 0.2), rgba(4, 15, 27, 0.72));
 }
 
@@ -2132,7 +2126,7 @@ canvas {
 }
 
 .setup-decision-panel {
-  border-color: rgba(56, 189, 248, 0.36);
+  border-color: rgba(139, 92, 246, 0.36);
   background: linear-gradient(145deg, rgba(3, 105, 161, 0.19), rgba(7, 22, 39, 0.86));
 }
 
@@ -2290,7 +2284,7 @@ canvas {
 .gemini-news-card {
   background:
     radial-gradient(circle at 90% 0%, rgba(167, 139, 250, 0.15), transparent 22rem),
-    radial-gradient(circle at 6% 100%, rgba(56, 189, 248, 0.1), transparent 19rem),
+    radial-gradient(circle at 6% 100%, rgba(139, 92, 246, 0.1), transparent 19rem),
     linear-gradient(145deg, rgba(25, 31, 70, 0.97), rgba(7, 19, 35, 0.99));
 }
 
@@ -2758,7 +2752,7 @@ canvas {
 }
 
 .price-alert-action-row input:focus {
-  border-color: #60a5fa;
+  border-color: #a78bfa;
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.16);
 }
 
@@ -3488,7 +3482,7 @@ body[data-accent="green"] .settings-choice.active {
   gap: 7px;
   margin-top: 12px;
   padding: 13px;
-  border: 1px solid rgba(56, 189, 248, 0.34);
+  border: 1px solid rgba(139, 92, 246, 0.34);
   border-radius: 11px;
   background: rgba(3, 105, 161, 0.12);
 }
@@ -3511,7 +3505,7 @@ body[data-accent="green"] .settings-choice.active {
 .live-chart-card {
   background:
     radial-gradient(circle at 88% 0%, rgba(34, 197, 94, 0.11), transparent 22rem),
-    radial-gradient(circle at 8% 100%, rgba(56, 189, 248, 0.1), transparent 20rem),
+    radial-gradient(circle at 8% 100%, rgba(139, 92, 246, 0.1), transparent 20rem),
     linear-gradient(145deg, rgba(12, 34, 54, 0.98), rgba(5, 16, 29, 0.99));
 }
 
@@ -3570,16 +3564,16 @@ body[data-accent="green"] .settings-choice.active {
   min-height: 39px;
   padding: 9px 12px;
   cursor: pointer;
-  border: 1px solid rgba(125, 211, 252, 0.24);
+  border: 1px solid rgba(139, 92, 246, 0.24);
   border-radius: 10px;
   color: #cbd5e1;
-  background: rgba(15, 35, 59, 0.82);
+  background: var(--surface-soft);
   font-size: 0.8rem;
   font-weight: 800;
 }
 
 .live-chart-timeframe-btn:hover {
-  border-color: rgba(56, 189, 248, 0.72);
+  border-color: rgba(139, 92, 246, 0.72);
   color: #e0f2fe;
   background: rgba(17, 56, 88, 0.96);
 }
@@ -3636,7 +3630,7 @@ body[data-accent="green"] .settings-choice.active {
   min-height: 480px;
   margin-top: 16px;
   overflow: hidden;
-  border: 1px solid rgba(56, 189, 248, 0.34);
+  border: 1px solid rgba(139, 92, 246, 0.34);
   border-radius: 14px;
   background:
     radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.08), transparent 26rem),
@@ -4099,7 +4093,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .im-rrg-timeframe-btn.active {
   color: #fff;
   border-color: transparent;
-  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
 }
 
 .indian-market-mode .im-rrg-run-btn {
@@ -4146,7 +4140,7 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .im-rrg-speed-btn.active {
   color: #fff;
-  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
 }
 
 .indian-market-mode .im-rrg-chart-timeframes {
@@ -4171,7 +4165,7 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .im-rrg-chart-tf-btn.active {
   color: #fff;
-  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
 }
 
 .indian-market-mode .im-heatmap-index-group {
@@ -4199,7 +4193,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .im-scanner-universe-btn.active {
   color: #fff;
   border-color: transparent;
-  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
 }
 
 .indian-market-mode #im-scanner-filter-group {
@@ -4235,7 +4229,7 @@ body[data-accent="green"] .settings-choice.active {
   height: 100%;
   width: 0%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #1d6fbd, #17a2ff);
+  background: linear-gradient(90deg, #6d28d9, #8b5cf6);
   transition: width 0.25s ease;
 }
 
@@ -4317,7 +4311,7 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .im-rrg-zoom-btn:hover {
   color: var(--im-text);
-  border-color: rgba(69, 182, 255, 0.4);
+  border-color: rgba(139, 92, 246, 0.4);
 }
 
 .indian-market-mode .im-rrg-chart-wrap {
@@ -4325,7 +4319,7 @@ body[data-accent="green"] .settings-choice.active {
   width: 100%;
   max-width: 1100px;
   margin: 18px auto 0;
-  border: 1px solid rgba(69, 182, 255, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   border-radius: 12px;
   background: #081728;
   padding: 16px;
@@ -4433,9 +4427,9 @@ body[data-accent="green"] .settings-choice.active {
   border-radius: 6px;
   background: linear-gradient(
     90deg,
-    rgba(69, 182, 255, 0.06) 25%,
-    rgba(69, 182, 255, 0.15) 37%,
-    rgba(69, 182, 255, 0.06) 63%
+    rgba(139, 92, 246, 0.06) 25%,
+    rgba(139, 92, 246, 0.15) 37%,
+    rgba(139, 92, 246, 0.06) 63%
   );
   background-size: 400% 100%;
   animation: im-rrg-shimmer 1.4s ease infinite;
@@ -4451,8 +4445,8 @@ body[data-accent="green"] .settings-choice.active {
   padding: 4px 10px;
   display: inline-block;
   border-radius: 999px;
-  border: 1px solid rgba(69, 182, 255, 0.3);
-  background: rgba(69, 182, 255, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.1);
   color: var(--im-text);
   font-size: 11px;
   font-weight: 700;
@@ -4538,7 +4532,7 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-rrg-symbol-row:hover {
-  background: rgba(69, 182, 255, 0.12);
+  background: rgba(139, 92, 246, 0.12);
 }
 
 .indian-market-mode .im-rrg-symbol-check {
@@ -4616,7 +4610,7 @@ body[data-accent="green"] .settings-choice.active {
   padding: 5px 10px;
   border: 1px solid var(--im-border);
   border-radius: 7px;
-  background: rgba(69, 182, 255, 0.12);
+  background: rgba(139, 92, 246, 0.12);
   color: var(--im-blue);
   font-size: 11px;
   font-weight: 700;
@@ -4937,10 +4931,10 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .tag,
 .indian-market-mode .setup-badge {
   padding: 6px 9px;
-  border: 1px solid rgba(69, 182, 255, 0.22);
+  border: 1px solid rgba(139, 92, 246, 0.22);
   border-radius: 999px;
-  color: #9bd6ff;
-  background: rgba(69, 182, 255, 0.08);
+  color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.08);
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
@@ -4953,7 +4947,7 @@ body[data-accent="green"] .settings-choice.active {
   padding: 22px;
   overflow: hidden;
   align-items: end;
-  border: 1px dashed rgba(69, 182, 255, 0.26);
+  border: 1px dashed rgba(139, 92, 246, 0.26);
   border-radius: 12px;
   background:
     linear-gradient(rgba(29, 54, 85, 0.35) 1px, transparent 1px),
@@ -4964,7 +4958,7 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .line-chart {
   height: 176px;
-  border-bottom: 2px solid rgba(69, 182, 255, 0.8);
+  border-bottom: 2px solid rgba(139, 92, 246, 0.8);
   border-radius: 0 0 50% 0;
   transform: skewY(-9deg);
   box-shadow: 0 12px 0 -9px rgba(54, 207, 131, 0.82);
@@ -5017,7 +5011,7 @@ body[data-accent="green"] .settings-choice.active {
   padding: 16px;
   border: 1px solid rgba(54, 207, 131, 0.18);
   border-radius: 12px;
-  background: linear-gradient(135deg, rgba(54, 207, 131, 0.1), rgba(69, 182, 255, 0.06));
+  background: linear-gradient(135deg, rgba(54, 207, 131, 0.1), rgba(139, 92, 246, 0.06));
 }
 
 .indian-market-mode .signal-title {
@@ -5096,7 +5090,7 @@ body[data-accent="green"] .settings-choice.active {
   padding: 11px 12px;
   border-radius: 9px;
   color: var(--im-muted);
-  background: rgba(69, 182, 255, 0.07);
+  background: rgba(139, 92, 246, 0.07);
   font-size: 13px;
   line-height: 1.55;
 }
@@ -5164,8 +5158,8 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-trade-status-open {
-  color: #45b6ff;
-  background: rgba(69, 182, 255, 0.15);
+  color: #a78bfa;
+  background: rgba(139, 92, 246, 0.15);
 }
 
 .indian-market-mode .im-trade-status-closed {
@@ -5194,7 +5188,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode input:focus,
 .indian-market-mode select:focus {
   border-color: var(--im-blue);
-  box-shadow: 0 0 0 3px rgba(69, 182, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
 }
 
 .indian-market-mode .primary-button {
@@ -5352,10 +5346,10 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .decision-card {
   padding: 20px;
-  border: 1px solid rgba(69, 182, 255, 0.28);
+  border: 1px solid rgba(139, 92, 246, 0.28);
   border-radius: 14px;
   background:
-    linear-gradient(135deg, rgba(69, 182, 255, 0.12), rgba(54, 207, 131, 0.06)),
+    linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(54, 207, 131, 0.06)),
     rgba(12, 27, 46, 0.88);
   box-shadow: var(--im-shadow);
 }
@@ -5539,7 +5533,7 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .chart-control-button {
   padding: 8px 10px;
-  border: 1px solid rgba(69, 182, 255, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   border-radius: 8px;
   color: var(--im-muted);
   background: rgba(16, 36, 61, 0.55);
@@ -5551,9 +5545,9 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .chart-control-button:hover,
 .indian-market-mode .chart-control-button.active {
-  border-color: rgba(69, 182, 255, 0.65);
+  border-color: rgba(139, 92, 246, 0.65);
   color: var(--im-text);
-  background: rgba(69, 182, 255, 0.16);
+  background: rgba(139, 92, 246, 0.16);
 }
 
 .indian-market-mode .replay-controls {
@@ -5604,8 +5598,8 @@ body[data-accent="green"] .settings-choice.active {
   margin-bottom: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(69, 182, 255, 0.1);
-  border: 1px solid rgba(69, 182, 255, 0.25);
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.25);
 }
 
 .indian-market-mode .im-backtest-open p {
@@ -5625,7 +5619,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .im-backtest-form input {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(69, 182, 255, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   background: rgba(16, 36, 61, 0.55);
   color: var(--im-text);
   font-size: 12px;
@@ -5719,8 +5713,8 @@ body[data-accent="green"] .settings-choice.active {
   margin-top: 10px;
   padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(69, 182, 255, 0.3);
-  background: rgba(69, 182, 255, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.1);
   color: var(--im-text);
   font-size: 11px;
   font-weight: 700;
@@ -5729,8 +5723,8 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-news-translate-btn:hover:not(:disabled) {
-  border-color: rgba(69, 182, 255, 0.7);
-  background: rgba(69, 182, 255, 0.2);
+  border-color: rgba(139, 92, 246, 0.7);
+  background: rgba(139, 92, 246, 0.2);
 }
 
 .indian-market-mode .im-news-translate-btn:disabled {
@@ -5776,7 +5770,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .im-alert-form input {
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(69, 182, 255, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   background: rgba(16, 36, 61, 0.55);
   color: var(--im-text);
   font-size: 13px;
@@ -5823,7 +5817,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .im-watchlist-tab {
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid rgba(69, 182, 255, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   background: rgba(16, 36, 61, 0.55);
   color: var(--im-muted);
   font-size: 12px;
@@ -5833,20 +5827,20 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-watchlist-tab:hover {
-  border-color: rgba(69, 182, 255, 0.5);
+  border-color: rgba(139, 92, 246, 0.5);
   color: var(--im-text);
 }
 
 .indian-market-mode .im-watchlist-tab.active {
   border-color: transparent;
   color: #ffffff;
-  background: linear-gradient(135deg, #1d6fbd, #17a2ff);
+  background: linear-gradient(135deg, #6d28d9, #8b5cf6);
 }
 
 .indian-market-mode .im-watchlist-tab-new {
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px dashed rgba(69, 182, 255, 0.4);
+  border: 1px dashed rgba(139, 92, 246, 0.4);
   background: transparent;
   color: var(--im-blue);
   font-size: 12px;
@@ -5855,7 +5849,7 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-watchlist-tab-new:hover {
-  background: rgba(69, 182, 255, 0.1);
+  background: rgba(139, 92, 246, 0.1);
 }
 
 .indian-market-mode .im-watchlist-toolbar {
@@ -5876,7 +5870,7 @@ body[data-accent="green"] .settings-choice.active {
   width: 100%;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid rgba(69, 182, 255, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   background: rgba(16, 36, 61, 0.55);
   color: var(--im-text);
   font-size: 13px;
@@ -5890,7 +5884,7 @@ body[data-accent="green"] .settings-choice.active {
   right: 0;
   max-height: 280px;
   overflow-y: auto;
-  border: 1px solid rgba(69, 182, 255, 0.3);
+  border: 1px solid rgba(139, 92, 246, 0.3);
   border-radius: 10px;
   background: #0b1c33;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
@@ -5912,7 +5906,7 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .im-watchlist-search-item:hover,
 .indian-market-mode .im-watchlist-search-item.active {
-  background: rgba(69, 182, 255, 0.14);
+  background: rgba(139, 92, 246, 0.14);
 }
 
 .indian-market-mode .im-watchlist-search-item strong {
@@ -5972,7 +5966,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode #im-options-expiry {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(69, 182, 255, 0.2);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   background: rgba(16, 36, 61, 0.55);
   color: var(--im-text);
   font-size: 12px;
@@ -5996,7 +5990,7 @@ body[data-accent="green"] .settings-choice.active {
   color: var(--im-text);
   font-size: 12px;
   letter-spacing: 0.06em;
-  background: rgba(69, 182, 255, 0.08);
+  background: rgba(139, 92, 246, 0.08);
 }
 
 .indian-market-mode .im-options-table thead tr:last-child th {
@@ -6177,7 +6171,7 @@ body[data-accent="green"] .settings-choice.active {
   min-height: 600px;
   margin-top: 16px;
   overflow: hidden;
-  border: 1px solid rgba(69, 182, 255, 0.28);
+  border: 1px solid rgba(139, 92, 246, 0.28);
   border-radius: 12px;
   background: #081728;
 }
@@ -6227,7 +6221,7 @@ body[data-accent="green"] .settings-choice.active {
   right: 0;
   left: 0;
   height: 1px;
-  background: rgba(69, 182, 255, 0.1);
+  background: rgba(139, 92, 246, 0.1);
 }
 
 .indian-market-mode .grid-line-1 {
@@ -6317,11 +6311,11 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .level-entry {
   top: 48%;
-  border-color: rgba(69, 182, 255, 0.9);
+  border-color: rgba(139, 92, 246, 0.9);
 }
 
 .indian-market-mode .level-entry span {
-  background: rgba(69, 182, 255, 0.78);
+  background: rgba(139, 92, 246, 0.78);
 }
 
 .indian-market-mode .level-stop {
