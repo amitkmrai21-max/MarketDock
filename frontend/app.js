@@ -228,9 +228,9 @@ function formatSignedScore(value) { const number = Number(value); return Number.
 function toNumber(value) { const number = Number(value); return Number.isFinite(number) ? number : null; }
 
 function getSignalColor(signal) {
-  if (signal === "BUY") return "#22c55e";
-  if (signal === "SELL") return "#ef4444";
-  return "#facc15";
+  if (signal === "BUY") return "#34d399";
+  if (signal === "SELL") return "#f87171";
+  return "#fbbf24";
 }
 
 function setMiniSignal(id, signal) {
@@ -839,7 +839,7 @@ function loadPaperPortfolio() { try { const saved = localStorage.getItem(PAPER_S
 function savePaperPortfolio(p) { localStorage.setItem(PAPER_STORAGE_KEY, JSON.stringify(normalisePaperPortfolio(p))); }
 function addPaperTrade(p, type, amountInr, btcAmount) { p.history.unshift({ type, amountInr, btcAmount, priceInr: currentBtcPriceInr, timestamp: Date.now() }); p.history = p.history.slice(0, 50); }
 function renderPaperHistory(history) { const box = getElement("paperTradeHistory"); if (!box) return; if (!history.length) { box.textContent = "No virtual trades yet."; return; } box.innerHTML = ""; history.forEach((trade) => { const item = document.createElement("div"); const date = new Date(trade.timestamp).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); item.className = `history-item ${trade.type.includes("SELL") || trade.type.includes("SHORT") ? "history-sell" : "history-buy"}`; item.textContent = `${trade.type} • ${formatInr(trade.amountInr)} • ${formatBtc(trade.btcAmount)} • ${date}`; box.appendChild(item); }); }
-function renderPaperTrading() { const p = loadPaperPortfolio(), mark = Number(currentBtcPriceInr) || 0, value = p.cashInr + p.btcHolding * mark - p.shortBtcHolding * mark, pnl = value - DEFAULT_PAPER_CASH, pct = (pnl / DEFAULT_PAPER_CASH) * 100; const longAvg = p.btcHolding > PAPER_EPSILON ? p.totalCostInr / p.btcHolding : 0, shortAvg = p.shortBtcHolding > PAPER_EPSILON ? p.shortProceedsInr / p.shortBtcHolding : 0; const position = p.btcHolding > PAPER_EPSILON ? "LONG BTC" : p.shortBtcHolding > PAPER_EPSILON ? "SHORT BTC" : "No open position"; setText("paperCash", formatInr(p.cashInr)); setText("paperBtcHolding", formatBtc(p.btcHolding)); setText("paperShortBtcHolding", formatBtc(p.shortBtcHolding)); setText("paperPositionType", position); setText("paperAvgPrice", p.btcHolding > PAPER_EPSILON ? formatInr(longAvg) : "No long position"); setText("paperShortAvgPrice", p.shortBtcHolding > PAPER_EPSILON ? formatInr(shortAvg) : "No short position"); setText("paperPortfolioValue", formatInr(value)); const pos = getElement("paperPositionType"), pnlElement = getElement("paperPnl"); if (pos) pos.style.color = position === "LONG BTC" ? "#22c55e" : position === "SHORT BTC" ? "#ef4444" : "#cbd5e1"; if (pnlElement) { const prefix = pnl >= 0 ? "+" : ""; pnlElement.textContent = `${prefix}${formatInr(pnl)} (${prefix}${pct.toFixed(2)}%)`; pnlElement.style.color = pnl >= 0 ? "#22c55e" : "#ef4444"; } renderPaperHistory(p.history); }
+function renderPaperTrading() { const p = loadPaperPortfolio(), mark = Number(currentBtcPriceInr) || 0, value = p.cashInr + p.btcHolding * mark - p.shortBtcHolding * mark, pnl = value - DEFAULT_PAPER_CASH, pct = (pnl / DEFAULT_PAPER_CASH) * 100; const longAvg = p.btcHolding > PAPER_EPSILON ? p.totalCostInr / p.btcHolding : 0, shortAvg = p.shortBtcHolding > PAPER_EPSILON ? p.shortProceedsInr / p.shortBtcHolding : 0; const position = p.btcHolding > PAPER_EPSILON ? "LONG BTC" : p.shortBtcHolding > PAPER_EPSILON ? "SHORT BTC" : "No open position"; setText("paperCash", formatInr(p.cashInr)); setText("paperBtcHolding", formatBtc(p.btcHolding)); setText("paperShortBtcHolding", formatBtc(p.shortBtcHolding)); setText("paperPositionType", position); setText("paperAvgPrice", p.btcHolding > PAPER_EPSILON ? formatInr(longAvg) : "No long position"); setText("paperShortAvgPrice", p.shortBtcHolding > PAPER_EPSILON ? formatInr(shortAvg) : "No short position"); setText("paperPortfolioValue", formatInr(value)); const pos = getElement("paperPositionType"), pnlElement = getElement("paperPnl"); if (pos) pos.style.color = position === "LONG BTC" ? "#34d399" : position === "SHORT BTC" ? "#f87171" : "#cbd5e1"; if (pnlElement) { const prefix = pnl >= 0 ? "+" : ""; pnlElement.textContent = `${prefix}${formatInr(pnl)} (${prefix}${pct.toFixed(2)}%)`; pnlElement.style.color = pnl >= 0 ? "#34d399" : "#f87171"; } renderPaperHistory(p.history); }
 
 function getDefaultAlertSettings() {
   return {
@@ -1337,7 +1337,7 @@ function setupAlerts() {
 
   renderAlertSettings();
 }
-function updatePrice(data) { const btc = data?.bitcoin, price = Number(btc?.usd), change = Number(btc?.usd_24h_change || 0); if (!Number.isFinite(price)) throw new Error("Live BTC price was not received."); currentBtcPriceUsd = price; currentBtcPriceInr = price * USD_INR_RATE; setText("btcPrice", formatUsd(price)); const changeBox = getElement("btcChange"); if (changeBox) { changeBox.textContent = `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`; changeBox.style.color = change >= 0 ? "#22c55e" : "#ef4444"; } setText("marketUpdatedAt", `Live price updated: ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`);  renderPaperTrading(); checkPriceAlerts(price); }
+function updatePrice(data) { const btc = data?.bitcoin, price = Number(btc?.usd), change = Number(btc?.usd_24h_change || 0); if (!Number.isFinite(price)) throw new Error("Live BTC price was not received."); currentBtcPriceUsd = price; currentBtcPriceInr = price * USD_INR_RATE; setText("btcPrice", formatUsd(price)); const changeBox = getElement("btcChange"); if (changeBox) { changeBox.textContent = `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`; changeBox.style.color = change >= 0 ? "#34d399" : "#f87171"; } setText("marketUpdatedAt", `Live price updated: ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`);  renderPaperTrading(); checkPriceAlerts(price); }
   
 
 function getNewsImpactClass(impact) {
@@ -1721,7 +1721,7 @@ async function refreshFastData() { try { await Promise.all([loadPrice(true), loa
 async function refreshTechnicalAnalysis(prefix = "Live technical analysis refreshed.") { return loadTechnicalFallback(prefix, true); }
 async function refreshAllData() { if (technicalRefreshInProgress) return; try { await Promise.all([refreshFastData(), refreshTechnicalAnalysis("Live technical analysis refreshed.")]); } catch (error) { console.error("Technical refresh error:", error); } loadRrg().catch((error) => console.error("RRG refresh error:", error)); }
 
-function renderChart(labels, data, label) { const canvas = getElement("btcChart"); if (!canvas) return; if (btcChart) btcChart.destroy(); btcChart = new Chart(canvas.getContext("2d"), { type: "line", data: { labels, datasets: [{ label: `BTC/USD • ${label}`, data, borderColor: "#22c55e", backgroundColor: "rgba(34, 197, 94, 0.15)", borderWidth: 2, fill: true, tension: 0.28, pointRadius: 0, pointHoverRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, interaction: { intersect: false, mode: "index" }, plugins: { legend: { labels: { color: "#ffffff" } }, tooltip: { callbacks: { label(context) { return `BTC: ${formatUsd(context.raw)}`; } } }, zoom: { limits: { x: { min: "original", max: "original", minRange: 2 } }, pan: { enabled: true, mode: "x", threshold: 2 }, zoom: { wheel: { enabled: true, speed: 0.25 }, pinch: { enabled: true }, drag: { enabled: true, threshold: 2, backgroundColor: "rgba(59, 130, 246, 0.18)", borderColor: "#60a5fa", borderWidth: 1 }, mode: "x" } } }, scales: { x: { ticks: { color: "#cbd5e1", maxTicksLimit: 7 }, grid: { color: "#1e293b" } }, y: { ticks: { color: "#cbd5e1", callback(value) { return formatUsd(value); } }, grid: { color: "#1e293b" } } } } }); }
+function renderChart(labels, data, label) { const canvas = getElement("btcChart"); if (!canvas) return; if (btcChart) btcChart.destroy(); btcChart = new Chart(canvas.getContext("2d"), { type: "line", data: { labels, datasets: [{ label: `BTC/USD • ${label}`, data, borderColor: "#34d399", backgroundColor: "rgba(34, 197, 94, 0.15)", borderWidth: 2, fill: true, tension: 0.28, pointRadius: 0, pointHoverRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, interaction: { intersect: false, mode: "index" }, plugins: { legend: { labels: { color: "#ffffff" } }, tooltip: { callbacks: { label(context) { return `BTC: ${formatUsd(context.raw)}`; } } }, zoom: { limits: { x: { min: "original", max: "original", minRange: 2 } }, pan: { enabled: true, mode: "x", threshold: 2 }, zoom: { wheel: { enabled: true, speed: 0.25 }, pinch: { enabled: true }, drag: { enabled: true, threshold: 2, backgroundColor: "rgba(59, 130, 246, 0.18)", borderColor: "#60a5fa", borderWidth: 1 }, mode: "x" } } }, scales: { x: { ticks: { color: "#cbd5e1", maxTicksLimit: 7 }, grid: { color: "#1e293b" } }, y: { ticks: { color: "#cbd5e1", callback(value) { return formatUsd(value); } }, grid: { color: "#1e293b" } } } } }); }
 function getRrgQuadrant(x, y) { return x >= 100 && y >= 100 ? "Leading" : x >= 100 ? "Weakening" : y < 100 ? "Lagging" : "Improving"; }
 function createRrgQuadrantsPlugin() { return { id: "rrgQuadrants", beforeDatasetsDraw(chart) { const { ctx, chartArea, scales } = chart; if (!chartArea || !scales.x || !scales.y) return; const { left, right, top, bottom } = chartArea, cx = scales.x.getPixelForValue(100), cy = scales.y.getPixelForValue(100); if (!Number.isFinite(cx) || !Number.isFinite(cy)) return; ctx.save(); [["rgba(59, 130, 246, 0.13)", left, top, cx-left, cy-top], ["rgba(34, 197, 94, 0.13)", cx, top, right-cx, cy-top], ["rgba(239, 68, 68, 0.13)", left, cy, cx-left, bottom-cy], ["rgba(250, 204, 21, 0.13)", cx, cy, right-cx, bottom-cy]].forEach(([c,x,y,w,h]) => { ctx.fillStyle=c; ctx.fillRect(x,y,w,h); }); ctx.strokeStyle="rgba(255,255,255,.96)"; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(cx,top); ctx.lineTo(cx,bottom); ctx.stroke(); ctx.beginPath(); ctx.moveTo(left,cy); ctx.lineTo(right,cy); ctx.stroke(); ctx.font="700 13px Arial"; ctx.fillStyle="#fff"; ctx.textBaseline="top"; ctx.textAlign="left"; ctx.fillText("IMPROVING",left+14,top+14); ctx.textAlign="right"; ctx.fillText("LEADING",right-14,top+14); ctx.textBaseline="bottom"; ctx.textAlign="left"; ctx.fillText("LAGGING",left+14,bottom-14); ctx.textAlign="right"; ctx.fillText("WEAKENING",right-14,bottom-14); ctx.restore(); } }; }
 function createRrgDirectionArrowsPlugin() { return { id: "rrgDirectionArrows", afterDatasetsDraw(chart) { const { ctx } = chart; chart.data.datasets.forEach((dataset, index) => { const meta = chart.getDatasetMeta(index), element = meta?.data?.[meta.data.length - 1], raw = dataset.data[dataset.data.length - 1]; if (!element || !raw) return; const map = { "North-East": "↗", "South-East": "↘", "North-West": "↖", "South-West": "↙", Flat: "→" }; ctx.save(); ctx.fillStyle = dataset.borderColor || "#fff"; ctx.font = "bold 20px Arial"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(map[raw.direction || "Flat"] || "→", element.x + 9, element.y); ctx.restore(); }); } }; }
@@ -2356,7 +2356,7 @@ function createDrawingHandlePair(color) {
   const makeHandle = () => {
     const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     circle.setAttribute("r", "5");
-    circle.setAttribute("fill", "#07111f");
+    circle.setAttribute("fill", "#0c0a14");
     circle.setAttribute("stroke", color);
     circle.setAttribute("stroke-width", "2");
     circle.setAttribute("class", "drawing-handle");
@@ -2460,15 +2460,15 @@ function addDrawing(type, points, color = DRAWING_COLOR, persist = true) {
     const svg = getDrawingOverlaySvg();
     if (!svg) return null;
     const riskRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    riskRect.setAttribute("fill", "#ef444433");
-    riskRect.setAttribute("stroke", "#ef4444");
+    riskRect.setAttribute("fill", "#f8717133");
+    riskRect.setAttribute("stroke", "#f87171");
     riskRect.setAttribute("stroke-width", "1");
     svg.appendChild(riskRect);
     drawing.riskRectEl = riskRect;
 
     const rewardRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-    rewardRect.setAttribute("fill", "#22c55e33");
-    rewardRect.setAttribute("stroke", "#22c55e");
+    rewardRect.setAttribute("fill", "#34d39933");
+    rewardRect.setAttribute("stroke", "#34d399");
     rewardRect.setAttribute("stroke-width", "1");
     svg.appendChild(rewardRect);
     drawing.rewardRectEl = rewardRect;
@@ -3375,7 +3375,7 @@ function clearLiveChartAiOverlay() {
     }
 
     const direction = signal.includes("SELL") ? "SELL" : "BUY";
-    const entryColor = direction === "BUY" ? "#22c55e" : "#ef4444";
+    const entryColor = direction === "BUY" ? "#34d399" : "#f87171";
 
     addForwardStatusLine(
       Number(data.entry_price),
@@ -3386,7 +3386,7 @@ function clearLiveChartAiOverlay() {
     addForwardStatusLine(
       Number(data.stop_loss_price),
       `${name} • STOP LOSS`,
-      "#ef4444"
+      "#f87171"
     );
 
     addForwardStatusLine(
@@ -4040,7 +4040,7 @@ function clearLiveChartAiOverlay() {
 
     if (canvas && typeof Chart !== "undefined") {
       const isPositive = stats.totalPnl >= 0;
-      const lineColor = isPositive ? "#22c55e" : "#ef4444";
+      const lineColor = isPositive ? "#34d399" : "#f87171";
       const fillColor = isPositive ? "rgba(34,197,94,0.12)" : "rgba(239,68,68,0.12)";
 
       if (imPerfEquityChart) {
@@ -8181,15 +8181,15 @@ function clearLiveChartAiOverlay() {
       const svg = getImDrawingOverlaySvg();
       if (!svg) return null;
       const riskRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      riskRect.setAttribute("fill", "#ef444433");
-      riskRect.setAttribute("stroke", "#ef4444");
+      riskRect.setAttribute("fill", "#f8717133");
+      riskRect.setAttribute("stroke", "#f87171");
       riskRect.setAttribute("stroke-width", "1");
       svg.appendChild(riskRect);
       drawing.riskRectEl = riskRect;
 
       const rewardRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      rewardRect.setAttribute("fill", "#22c55e33");
-      rewardRect.setAttribute("stroke", "#22c55e");
+      rewardRect.setAttribute("fill", "#34d39933");
+      rewardRect.setAttribute("stroke", "#34d399");
       rewardRect.setAttribute("stroke-width", "1");
       svg.appendChild(rewardRect);
       drawing.rewardRectEl = rewardRect;
