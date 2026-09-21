@@ -13,6 +13,7 @@ from email.utils import parsedate_to_datetime
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from google import genai
+from google.genai import errors as genai_errors
 import requests
 
 app = Flask(__name__)
@@ -144,6 +145,26 @@ _stock_snapshot_cache = {}
 
 def now_utc():
     return datetime.now(timezone.utc).isoformat()
+
+
+def describe_gemini_error(error):
+    """Turns a raw Gemini SDK exception into one of a few honest, specific
+    reasons instead of one generic "temporarily unavailable" for everything
+    — so the frontend can tell the user what's actually going on (Google's
+    servers busy vs quota exhausted vs a real config problem) instead of
+    leaving them guessing. code/status come straight from genai_errors.
+    APIError (and its ServerError/ClientError subclasses); anything else
+    (network error, etc.) falls through to the generic message."""
+    code = getattr(error, "code", None)
+    status = str(getattr(error, "status", "") or "").upper()
+
+    if code == 503 or status == "UNAVAILABLE":
+        return "busy", "Gemini is busy right now (high demand on Google's side). Please try again in a few minutes."
+    if code == 429 or status == "RESOURCE_EXHAUSTED":
+        return "quota", "Gemini's usage quota/rate limit is exhausted right now. Please try again later."
+    if code in (401, 403) or status in ("PERMISSION_DENIED", "UNAUTHENTICATED"):
+        return "auth", "Gemini API key is invalid or not authorized — this needs to be fixed in the server configuration."
+    return "unknown", "AI analysis is temporarily unavailable. Please try again later."
 
 
 # ===================== Upstox live data + indicators =====================
@@ -2124,9 +2145,13 @@ Rules:
                 "disclaimer": "Educational technical-analysis summary only. Not financial advice.",
             }
         )
+    except genai_errors.APIError as error:
+        app.logger.exception("AI chart scanner request failed for %s", symbol)
+        reason, friendly_message = describe_gemini_error(error)
+        return jsonify({"ok": False, "error": friendly_message, "reason": reason}), 502
     except Exception:
         app.logger.exception("AI chart scanner request failed for %s", symbol)
-        return jsonify({"ok": False, "error": "AI analysis is temporarily unavailable. Please try again later."}), 502
+        return jsonify({"ok": False, "error": "AI analysis is temporarily unavailable. Please try again later.", "reason": "unknown"}), 502
 
 
 @app.post("/api/ai-coach")
@@ -2235,12 +2260,17 @@ Rules:
             }
         )
 
+    except genai_errors.APIError as error:
+        app.logger.exception("AI trade coach request failed")
+        reason, friendly_message = describe_gemini_error(error)
+        return jsonify({"ok": False, "error": friendly_message, "reason": reason}), 502
     except Exception:
         app.logger.exception("AI trade coach request failed")
 
         return jsonify(
             {
                 "ok": False,
+                "reason": "unknown",
                 "error": "AI coaching is temporarily unavailable. Please try again later.",
             }
         ), 502
@@ -2459,12 +2489,17 @@ Return only one JSON object and nothing else, in this exact shape:
                 "error": "Gemini returned an unexpected response. Please try again.",
             }
         ), 502
+    except genai_errors.APIError as error:
+        app.logger.exception("Hindi news translation failed")
+        reason, friendly_message = describe_gemini_error(error)
+        return jsonify({"ok": False, "error": friendly_message, "reason": reason}), 502
     except Exception:
         app.logger.exception("Hindi news translation failed")
 
         return jsonify(
             {
                 "ok": False,
+                "reason": "unknown",
                 "error": "Hindi translation is temporarily unavailable. Please try again later.",
             }
         ), 502
