@@ -14,6 +14,8 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from google import genai
 from google.genai import errors as genai_errors
+from groq import Groq
+import groq as groq_sdk
 import requests
 
 app = Flask(__name__)
@@ -22,6 +24,8 @@ CORS(app)
 APP_STARTED_AT = time.time()
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip()
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip()
 UPSTOX_ACCESS_TOKEN = os.environ.get("UPSTOX_ACCESS_TOKEN", "").strip()
 
 UPSTOX_MARKETS = {
@@ -147,24 +151,67 @@ def now_utc():
     return datetime.now(timezone.utc).isoformat()
 
 
-def describe_gemini_error(error):
-    """Turns a raw Gemini SDK exception into one of a few honest, specific
-    reasons instead of one generic "temporarily unavailable" for everything
-    — so the frontend can tell the user what's actually going on (Google's
-    servers busy vs quota exhausted vs a real config problem) instead of
-    leaving them guessing. code/status come straight from genai_errors.
-    APIError (and its ServerError/ClientError subclasses); anything else
-    (network error, etc.) falls through to the generic message."""
+def describe_ai_error(error):
+    """Classifies a Gemini OR Groq SDK exception into one of a few honest,
+    specific reasons instead of one generic "temporarily unavailable" for
+    everything — so the frontend can tell the user what's actually going on
+    (busy vs quota exhausted vs a real config problem) instead of leaving
+    them guessing. Gemini's genai_errors.APIError exposes .code (int) and
+    .status (str); Groq's APIStatusError exposes .status_code (int) —
+    both checked here since this runs after either provider's call fails."""
     code = getattr(error, "code", None)
+    if code is None:
+        code = getattr(error, "status_code", None)
     status = str(getattr(error, "status", "") or "").upper()
 
     if code == 503 or status == "UNAVAILABLE":
-        return "busy", "Gemini is busy right now (high demand on Google's side). Please try again in a few minutes."
+        return "busy", "The AI service is busy right now (high demand). Please try again in a few minutes."
     if code == 429 or status == "RESOURCE_EXHAUSTED":
-        return "quota", "Gemini's usage quota/rate limit is exhausted right now. Please try again later."
+        return "quota", "The AI service's usage quota/rate limit is exhausted right now. Please try again later."
     if code in (401, 403) or status in ("PERMISSION_DENIED", "UNAUTHENTICATED"):
-        return "auth", "Gemini API key is invalid or not authorized — this needs to be fixed in the server configuration."
+        return "auth", "An AI provider's API key is invalid or not authorized — this needs to be fixed in the server configuration."
     return "unknown", "AI analysis is temporarily unavailable. Please try again later."
+
+
+def generate_ai_text(prompt, json_mode=False):
+    """Tries Gemini first; if it fails for ANY reason (busy, quota, auth,
+    network), automatically falls back to Groq instead of surfacing an
+    error — both providers are already configured for this app specifically
+    so a transient outage on one doesn't have to be user-facing. Raises the
+    last error only if neither provider is configured or both calls fail,
+    so the caller's own except block can still classify/report it."""
+    last_error = None
+
+    if GEMINI_API_KEY:
+        try:
+            client = genai.Client(api_key=GEMINI_API_KEY)
+            response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
+            text = (response.text or "").strip()
+            if text:
+                return text, "GEMINI"
+            last_error = RuntimeError("Gemini returned an empty response.")
+        except Exception as error:
+            app.logger.warning("Gemini call failed, falling back to Groq: %s", error)
+            last_error = error
+
+    if GROQ_API_KEY:
+        try:
+            groq_client = Groq(api_key=GROQ_API_KEY)
+            kwargs = {"model": GROQ_MODEL, "messages": [{"role": "user", "content": prompt}]}
+            if json_mode:
+                kwargs["response_format"] = {"type": "json_object"}
+            completion = groq_client.chat.completions.create(**kwargs)
+            text = (completion.choices[0].message.content or "").strip()
+            if text:
+                return text, "GROQ"
+            last_error = RuntimeError("Groq returned an empty response.")
+        except Exception as error:
+            app.logger.warning("Groq fallback also failed: %s", error)
+            last_error = error
+
+    if last_error:
+        raise last_error
+    raise RuntimeError("Neither Gemini nor Groq is configured on the server.")
 
 
 # ===================== Upstox live data + indicators =====================
@@ -2076,8 +2123,8 @@ def ai_chart_scanner():
     if not symbol:
         return jsonify({"ok": False, "error": "Please provide a stock symbol."}), 400
 
-    if not GEMINI_API_KEY:
-        return jsonify({"ok": False, "error": "Gemini is not configured on the server."}), 503
+    if not GEMINI_API_KEY and not GROQ_API_KEY:
+        return jsonify({"ok": False, "error": "AI analysis is not configured on the server."}), 503
 
     if not UPSTOX_ACCESS_TOKEN:
         return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
@@ -2128,12 +2175,7 @@ Rules:
 """
 
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-        analysis_text = (response.text or "").strip()
-
-        if not analysis_text:
-            return jsonify({"ok": False, "error": "Gemini returned an empty analysis. Please try again."}), 502
+        analysis_text, provider = generate_ai_text(prompt)
 
         return jsonify(
             {
@@ -2142,12 +2184,13 @@ Rules:
                 "generated_at": now_utc(),
                 "indicators": snapshot,
                 "analysis": analysis_text,
+                "provider": provider,
                 "disclaimer": "Educational technical-analysis summary only. Not financial advice.",
             }
         )
-    except genai_errors.APIError as error:
+    except (genai_errors.APIError, groq_sdk.APIError) as error:
         app.logger.exception("AI chart scanner request failed for %s", symbol)
-        reason, friendly_message = describe_gemini_error(error)
+        reason, friendly_message = describe_ai_error(error)
         return jsonify({"ok": False, "error": friendly_message, "reason": reason}), 502
     except Exception:
         app.logger.exception("AI chart scanner request failed for %s", symbol)
@@ -2167,11 +2210,11 @@ def ai_trade_coach():
             }
         ), 400
 
-    if not GEMINI_API_KEY:
+    if not GEMINI_API_KEY and not GROQ_API_KEY:
         return jsonify(
             {
                 "ok": False,
-                "error": "Gemini is not configured on the server.",
+                "error": "AI coaching is not configured on the server.",
             }
         ), 503
 
@@ -2227,28 +2270,14 @@ Rules:
 """
 
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-        )
-
-        coaching_text = (response.text or "").strip()
-
-        if not coaching_text:
-            return jsonify(
-                {
-                    "ok": False,
-                    "error": "Gemini returned an empty coaching note. Please try again.",
-                }
-            ), 502
+        coaching_text, provider = generate_ai_text(prompt)
 
         return jsonify(
             {
                 "ok": True,
                 "generated_at": now_utc(),
                 "coaching": coaching_text,
+                "provider": provider,
                 "stats": {
                     "total_trades": len(trades),
                     "closed_trades": len(closed),
@@ -2260,9 +2289,9 @@ Rules:
             }
         )
 
-    except genai_errors.APIError as error:
+    except (genai_errors.APIError, groq_sdk.APIError) as error:
         app.logger.exception("AI trade coach request failed")
-        reason, friendly_message = describe_gemini_error(error)
+        reason, friendly_message = describe_ai_error(error)
         return jsonify({"ok": False, "error": friendly_message, "reason": reason}), 502
     except Exception:
         app.logger.exception("AI trade coach request failed")
@@ -2441,8 +2470,8 @@ def translate_news_to_hindi():
     if not headline:
         return jsonify({"ok": False, "error": "News headline is required for translation."}), 400
 
-    if not GEMINI_API_KEY:
-        return jsonify({"ok": False, "error": "Gemini is not configured on the server."}), 503
+    if not GEMINI_API_KEY and not GROQ_API_KEY:
+        return jsonify({"ok": False, "error": "AI translation is not configured on the server."}), 503
 
     prompt = f"""Translate this Indian stock-market news headline and publisher summary into simple, natural
 Hindi in Devanagari script. Preserve company names, numbers, tickers, index names (NIFTY, SENSEX, Bank
@@ -2458,9 +2487,8 @@ Return only one JSON object and nothing else, in this exact shape:
 """
 
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-        response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
-        result = parse_json_from_model(response.text)
+        response_text, provider = generate_ai_text(prompt, json_mode=True)
+        result = parse_json_from_model(response_text)
 
         headline_hi = str(result.get("headline_hi", "")).strip()
         summary_hi = str(result.get("summary_hi", "")).strip()
@@ -2469,7 +2497,7 @@ Return only one JSON object and nothing else, in this exact shape:
             return jsonify(
                 {
                     "ok": False,
-                    "error": "Gemini returned an empty Hindi translation. Please try again.",
+                    "error": "AI returned an empty Hindi translation. Please try again.",
                 }
             ), 502
 
@@ -2478,7 +2506,7 @@ Return only one JSON object and nothing else, in this exact shape:
                 "ok": True,
                 "headline_hi": headline_hi,
                 "summary_hi": summary_hi,
-                "provider": "GEMINI",
+                "provider": provider,
             }
         )
 
@@ -2486,12 +2514,12 @@ Return only one JSON object and nothing else, in this exact shape:
         return jsonify(
             {
                 "ok": False,
-                "error": "Gemini returned an unexpected response. Please try again.",
+                "error": "AI returned an unexpected response. Please try again.",
             }
         ), 502
-    except genai_errors.APIError as error:
+    except (genai_errors.APIError, groq_sdk.APIError) as error:
         app.logger.exception("Hindi news translation failed")
-        reason, friendly_message = describe_gemini_error(error)
+        reason, friendly_message = describe_ai_error(error)
         return jsonify({"ok": False, "error": friendly_message, "reason": reason}), 502
     except Exception:
         app.logger.exception("Hindi news translation failed")
