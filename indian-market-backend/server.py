@@ -14,6 +14,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from google import genai
 from google.genai import errors as genai_errors
+from google.genai import types as genai_types
 from groq import Groq
 import groq as groq_sdk
 import requests
@@ -173,6 +174,19 @@ def describe_ai_error(error):
     return "unknown", "AI analysis is temporarily unavailable. Please try again later."
 
 
+# By default the Gemini SDK retries a failing request up to 5 times with
+# exponential backoff (1s, 2s, 4s, 8s...) on exactly the status codes that
+# mean "busy"/"quota exhausted" (429/500/502/503/504) — so on a busy day the
+# SDK alone can spend 15-30+ seconds retrying before generate_ai_text below
+# ever gets a chance to fall back to Groq, which defeats the point of a fast
+# fallback. Cut Gemini's own retry budget to one quick extra attempt so a
+# real outage is detected in ~1-2 seconds instead.
+GEMINI_HTTP_OPTIONS = genai_types.HttpOptions(
+    timeout=15000,
+    retry_options=genai_types.HttpRetryOptions(attempts=2, initial_delay=0.5, max_delay=2),
+)
+
+
 def generate_ai_text(prompt, json_mode=False):
     """Tries Gemini first; if it fails for ANY reason (busy, quota, auth,
     network), automatically falls back to Groq instead of surfacing an
@@ -184,7 +198,7 @@ def generate_ai_text(prompt, json_mode=False):
 
     if GEMINI_API_KEY:
         try:
-            client = genai.Client(api_key=GEMINI_API_KEY)
+            client = genai.Client(api_key=GEMINI_API_KEY, http_options=GEMINI_HTTP_OPTIONS)
             response = client.models.generate_content(model=GEMINI_MODEL, contents=prompt)
             text = (response.text or "").strip()
             if text:
