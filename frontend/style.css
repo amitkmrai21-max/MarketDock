@@ -256,9 +256,9 @@ button:disabled {
   position: relative;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: linear-gradient(145deg, rgba(19, 38, 65, 0.94), rgba(9, 21, 37, 0.98));
-  box-shadow: var(--shadow);
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: none;
 }
 
 .tv-attribution {
@@ -269,18 +269,6 @@ button:disabled {
 
 .tv-attribution a {
   color: #60a5fa;
-}
-
-
-.card::before {
-  position: absolute;
-  top: 0;
-  right: 22px;
-  left: 22px;
-  height: 1px;
-  content: "";
-  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.55), transparent);
-  pointer-events: none;
 }
 
 .card {
@@ -2953,9 +2941,9 @@ body {
   height: calc(100vh - 44px);
   display: flex;
   flex-direction: column;
-  padding: 24px 16px;
+  padding: 20px 14px;
   border-right: 1px solid var(--border);
-  background: rgba(7, 17, 31, 0.92);
+  background: var(--bg);
 }
 
 #btcModeRoot .sidebar .nav {
@@ -2980,14 +2968,15 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
-  margin: 4px 0;
+  padding: 9px 10px;
+  margin: 1px 0;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 5px;
   color: var(--muted);
   background: transparent;
   cursor: pointer;
   text-align: left;
+  font-size: 13px;
   transition: 0.2s ease;
 }
 
@@ -4021,11 +4010,11 @@ body[data-accent="green"] .settings-choice.active {
   display: flex;
   align-items: center;
   gap: 28px;
-  height: 44px;
+  height: 36px;
   padding: 0 20px;
-  border-bottom: 1px solid rgba(69, 182, 255, 0.22);
-  background: linear-gradient(90deg, #081426, #0b1c33);
-  font-size: 13px;
+  border-bottom: 1px solid var(--im-border);
+  background: var(--im-bg);
+  font-size: 12px;
   overflow-x: auto;
 }
 
@@ -4666,17 +4655,17 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .im-ticker-dot {
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   margin-right: 5px;
   border-radius: 50%;
   background: var(--im-yellow);
-  box-shadow: 0 0 0 3px rgba(247, 201, 72, 0.18);
+  box-shadow: 0 0 0 3px rgba(240, 185, 11, 0.18);
 }
 
 .indian-market-mode .im-ticker-dot.im-ticker-live {
   background: var(--im-green);
-  box-shadow: 0 0 0 3px rgba(54, 207, 131, 0.18);
+  box-shadow: 0 0 0 3px rgba(0, 214, 143, 0.18);
 }
 
 .indian-market-mode .app-shell {
@@ -4691,9 +4680,9 @@ body[data-accent="green"] .settings-choice.active {
   height: calc(100vh - 44px);
   display: flex;
   flex-direction: column;
-  padding: 24px 16px;
+  padding: 20px 14px;
   border-right: 1px solid var(--im-border);
-  background: rgba(7, 17, 31, 0.92);
+  background: var(--im-bg);
 }
 
 .indian-market-mode .sidebar .nav {
@@ -4752,14 +4741,15 @@ body[data-accent="green"] .settings-choice.active {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
-  margin: 4px 0;
+  padding: 9px 10px;
+  margin: 1px 0;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 5px;
   color: var(--im-muted);
   background: transparent;
   cursor: pointer;
   text-align: left;
+  font-size: 13px;
   transition: 0.2s ease;
 }
 
@@ -4885,9 +4875,9 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .card {
   border: 1px solid var(--im-border);
-  border-radius: 14px;
-  background: linear-gradient(155deg, rgba(16, 33, 56, 0.92), rgba(10, 22, 38, 0.9));
-  box-shadow: var(--im-shadow);
+  border-radius: 6px;
+  background: var(--im-panel);
+  box-shadow: none;
 }
 
 .indian-market-mode .stat-card {
@@ -4898,13 +4888,7 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .stat-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 3px;
-  height: 100%;
-  background: linear-gradient(180deg, var(--im-blue), transparent);
+  display: none;
 }
 
 .indian-market-mode .stat-label {
