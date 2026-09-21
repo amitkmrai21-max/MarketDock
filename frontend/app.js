@@ -3790,6 +3790,7 @@ function clearLiveChartAiOverlay() {
   });
 
   const storageKey = "indianMarketPaperTrades";
+  const IM_TRADE_MARKET_LABELS = { nifty: "NIFTY 50", banknifty: "Bank Nifty", finnifty: "FINNIFTY", sensex: "Sensex" };
   const form = document.getElementById("im-paper-trade-form");
   const tradeTableBody = document.getElementById("im-trade-table-body");
   const emptyTrades = document.getElementById("im-empty-trades");
@@ -3814,6 +3815,10 @@ function clearLiveChartAiOverlay() {
     return div.innerHTML;
   }
 
+  function imTradeMarketLabel(indexValue) {
+    return IM_TRADE_MARKET_LABELS[indexValue] || indexValue;
+  }
+
   function renderTrades() {
     const trades = loadTrades();
 
@@ -3821,14 +3826,26 @@ function clearLiveChartAiOverlay() {
       tradeTableBody.innerHTML = trades
         .map((trade, index) => {
           const directionClass = trade.direction === "Buy" ? "positive" : "negative";
+          // Trades saved before this feature have no status/qty at all —
+          // treat them as plain research-log rows, same as before.
+          const status = trade.status || null;
+          const pnl = status === "closed" && Number.isFinite(trade.pnl) ? trade.pnl : null;
+          const pnlText = pnl === null ? "--" : `${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)}`;
+          const pnlClass = pnl === null ? "" : pnl >= 0 ? "positive" : "negative";
+          const stopDisplay = Number.isFinite(trade.currentStop) ? trade.currentStop : trade.stop;
+          const isTrailed = Number.isFinite(trade.trailingDistance) && trade.trailingDistance > 0 && trade.currentStop !== trade.stop;
 
           return `
             <tr>
-              <td>${escapeText(trade.index)}</td>
+              <td>${escapeText(imTradeMarketLabel(trade.index))}</td>
               <td class="${directionClass}">${escapeText(trade.direction)}</td>
+              <td>${escapeText(trade.orderType === "limit" ? "Limit" : "Market")}</td>
               <td>${Number(trade.entry).toFixed(2)}</td>
-              <td>${Number(trade.stop).toFixed(2)}</td>
+              <td>${trade.qty ? escapeText(String(trade.qty)) : "--"}</td>
+              <td>${Number(stopDisplay).toFixed(2)}${isTrailed ? " ↑" : ""}</td>
               <td>${Number(trade.target).toFixed(2)}</td>
+              <td>${status ? `<span class="im-trade-status im-trade-status-${status}">${escapeText(status)}</span>` : "--"}</td>
+              <td class="${pnlClass}">${pnlText}</td>
               <td>
                 <button
                   class="delete-trade-button"
@@ -3860,9 +3877,18 @@ function clearLiveChartAiOverlay() {
       const entry = Number(document.getElementById("im-trade-entry").value);
       const stop = Number(document.getElementById("im-trade-stop").value);
       const target = Number(document.getElementById("im-trade-target").value);
+      const qty = Number(document.getElementById("im-trade-qty").value);
+      const orderType = document.getElementById("im-trade-order-type").value;
+      const trailingInput = document.getElementById("im-trade-trailing").value.trim();
+      const trailingDistance = trailingInput ? Number(trailingInput) : null;
+      const direction = document.getElementById("im-trade-direction").value;
 
-      if (![entry, stop, target].every((value) => Number.isFinite(value) && value > 0)) {
-        alert("Please enter valid positive prices.");
+      if (![entry, stop, target, qty].every((value) => Number.isFinite(value) && value > 0)) {
+        alert("Please enter valid positive prices and quantity.");
+        return;
+      }
+      if (trailingDistance !== null && (!Number.isFinite(trailingDistance) || trailingDistance <= 0)) {
+        alert("Trailing SL distance must be a positive number, or left blank for a fixed stop.");
         return;
       }
 
@@ -3870,10 +3896,18 @@ function clearLiveChartAiOverlay() {
 
       trades.unshift({
         index: document.getElementById("im-trade-index").value,
-        direction: document.getElementById("im-trade-direction").value,
+        direction,
+        orderType,
         entry,
+        qty,
         stop,
-        target
+        currentStop: stop,
+        trailingDistance,
+        target,
+        status: orderType === "limit" ? "pending" : "open",
+        pnl: null,
+        exitPrice: null,
+        exitReason: null
       });
 
       saveTrades(trades);
@@ -3897,6 +3931,122 @@ function clearLiveChartAiOverlay() {
     });
   }
 
+  // Checked from the same 60-second live-refresh tick that already re-renders
+  // the dashboard for the 4 known indices (renderMarketEngine) — no new
+  // polling. Handles limit-order fills, trailing-stop updates, and
+  // stop/target exits, each firing a browser notification like the other
+  // alert types.
+  function checkImPaperTrades(marketKey, data) {
+    const price = Number(data.price);
+    if (!Number.isFinite(price)) return;
+
+    const trades = loadTrades();
+    let changed = false;
+    const notifications = [];
+
+    trades.forEach((trade) => {
+      if (trade.index !== marketKey || !trade.status) return;
+      if (trade.status === "closed") return;
+
+      const isBuy = trade.direction === "Buy";
+
+      if (trade.status === "pending") {
+        const filled = isBuy ? price <= trade.entry : price >= trade.entry;
+        if (filled) {
+          trade.status = "open";
+          changed = true;
+          notifications.push({
+            title: `${imTradeMarketLabel(marketKey)} Limit Order Filled`,
+            body: `${trade.direction} ${trade.qty} at ${trade.entry} filled — live price ${formatNumber(price)}.`,
+            tag: `im-paper-fill-${trade.entry}-${trade.qty}-${trade.stop}`
+          });
+        }
+        return;
+      }
+
+      if (Number.isFinite(trade.trailingDistance) && trade.trailingDistance > 0) {
+        if (isBuy) {
+          const candidateStop = price - trade.trailingDistance;
+          if (candidateStop > trade.currentStop) {
+            trade.currentStop = candidateStop;
+            changed = true;
+          }
+        } else {
+          const candidateStop = price + trade.trailingDistance;
+          if (candidateStop < trade.currentStop) {
+            trade.currentStop = candidateStop;
+            changed = true;
+          }
+        }
+      }
+
+      const trailed = Number.isFinite(trade.trailingDistance) && trade.trailingDistance > 0;
+      let exitReason = null;
+      if (isBuy && price <= trade.currentStop) exitReason = trailed && trade.currentStop > trade.stop ? "Trailing Stop" : "Stop-Loss";
+      else if (isBuy && price >= trade.target) exitReason = "Target";
+      else if (!isBuy && price >= trade.currentStop) exitReason = trailed && trade.currentStop < trade.stop ? "Trailing Stop" : "Stop-Loss";
+      else if (!isBuy && price <= trade.target) exitReason = "Target";
+
+      if (exitReason) {
+        trade.status = "closed";
+        trade.exitPrice = price;
+        trade.exitReason = exitReason;
+        trade.pnl = isBuy ? (price - trade.entry) * trade.qty : (trade.entry - price) * trade.qty;
+        changed = true;
+        notifications.push({
+          title: `${imTradeMarketLabel(marketKey)} Paper Trade Closed`,
+          body: `${trade.direction} ${trade.qty} closed at ${formatNumber(price)} (${exitReason}). P&L: ${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}.`,
+          tag: `im-paper-close-${trade.entry}-${trade.qty}-${trade.stop}`
+        });
+      }
+    });
+
+    if (changed) {
+      saveTrades(trades);
+      renderTrades();
+    }
+    notifications.forEach((n) => sendImBrowserAlert(n.title, n.body, n.tag));
+  }
+
+  function setupImPositionSizer() {
+    const btn = document.getElementById("im-sizer-calculate-btn");
+    const resultEl = document.getElementById("im-sizer-result");
+    if (!btn) return;
+
+    btn.addEventListener("click", () => {
+      const capital = Number(document.getElementById("im-sizer-capital").value);
+      const riskPct = Number(document.getElementById("im-sizer-risk-pct").value);
+      const entry = Number(document.getElementById("im-trade-entry").value);
+      const stop = Number(document.getElementById("im-trade-stop").value);
+
+      if (!Number.isFinite(capital) || capital <= 0 || !Number.isFinite(riskPct) || riskPct <= 0) {
+        if (resultEl) resultEl.textContent = "Enter a valid virtual capital amount and risk %.";
+        return;
+      }
+      if (!Number.isFinite(entry) || !Number.isFinite(stop) || entry === stop) {
+        if (resultEl) resultEl.textContent = "Enter Entry Price and Stop-Loss above first.";
+        return;
+      }
+
+      const riskAmount = capital * (riskPct / 100);
+      const perUnitRisk = Math.abs(entry - stop);
+      const qty = Math.floor(riskAmount / perUnitRisk);
+
+      if (qty < 1) {
+        if (resultEl) {
+          resultEl.textContent = `Risk amount (${formatNumber(riskAmount)}) is too small for this stop distance (${formatNumber(perUnitRisk)}/unit). Try a wider risk % or a tighter stop.`;
+        }
+        return;
+      }
+
+      document.getElementById("im-trade-qty").value = qty;
+      if (resultEl) {
+        resultEl.textContent = `Risking ${formatNumber(riskAmount)} (${riskPct}% of ${formatNumber(capital)}) at ${formatNumber(perUnitRisk)}/unit stop distance → Quantity ${qty}.`;
+      }
+    });
+  }
+
+  setupImPositionSizer();
   renderTrades();
 
   const API_BASE_URL = "https://indian-market-ai-api.onrender.com";
@@ -4122,6 +4272,7 @@ function clearLiveChartAiOverlay() {
     if (typeof checkImPriceAlerts === "function") checkImPriceAlerts(marketKey, data.price);
     if (typeof checkImSignalAlert === "function") checkImSignalAlert(marketKey, data.decision.label);
     if (typeof checkImConditionAlerts === "function") checkImConditionAlerts(marketKey, data);
+    if (typeof checkImPaperTrades === "function") checkImPaperTrades(marketKey, data);
   }
 
   function renderApiError(marketKey) {

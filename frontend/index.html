@@ -2882,8 +2882,10 @@
               <label>
                 Index
                 <select id="im-trade-index" required>
-                  <option value="NIFTY 50">NIFTY 50</option>
-                  <option value="Bank Nifty">Bank Nifty</option>
+                  <option value="nifty">NIFTY 50</option>
+                  <option value="banknifty">Bank Nifty</option>
+                  <option value="finnifty">FINNIFTY</option>
+                  <option value="sensex">Sensex</option>
                 </select>
               </label>
 
@@ -2892,6 +2894,14 @@
                 <select id="im-trade-direction" required>
                   <option value="Buy">Buy</option>
                   <option value="Sell">Sell</option>
+                </select>
+              </label>
+
+              <label>
+                Order Type
+                <select id="im-trade-order-type" required>
+                  <option value="market">Market (fills now)</option>
+                  <option value="limit">Limit (fills when price is reached)</option>
                 </select>
               </label>
 
@@ -2908,6 +2918,18 @@
               </label>
 
               <label>
+                Quantity
+                <input
+                  id="im-trade-qty"
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="Example: 50"
+                  required
+                />
+              </label>
+
+              <label>
                 Stop-Loss
                 <input
                   id="im-trade-stop"
@@ -2916,6 +2938,17 @@
                   step="0.05"
                   placeholder="Example: 24580"
                   required
+                />
+              </label>
+
+              <label>
+                Trailing SL Distance (optional)
+                <input
+                  id="im-trade-trailing"
+                  type="number"
+                  min="0"
+                  step="0.05"
+                  placeholder="e.g. 40 points, blank = fixed SL"
                 />
               </label>
 
@@ -2935,13 +2968,24 @@
                 Save Paper Trade
               </button>
             </form>
+
+            <div class="im-position-sizer">
+              <h3>Position Size Calculator</h3>
+              <p>Risk a fixed % of virtual capital; fills the Quantity field above.</p>
+              <div class="im-position-sizer-row">
+                <input id="im-sizer-capital" type="number" min="0" step="100" placeholder="Virtual capital (e.g. 100000)" />
+                <input id="im-sizer-risk-pct" type="number" min="0.1" step="0.1" placeholder="Risk % (e.g. 1)" />
+                <button class="chart-control-button" id="im-sizer-calculate-btn" type="button">Calculate Qty</button>
+              </div>
+              <p id="im-sizer-result" class="im-chart-status">Enter Entry + Stop above, then capital and risk %.</p>
+            </div>
           </article>
 
           <article class="card section-card">
             <div class="section-heading">
               <div>
                 <h2>Paper Trade Journal</h2>
-                <p>Research log; no broker order is created.</p>
+                <p>Live-tracked against the same 60-second technical refresh as the dashboard. No broker order is created.</p>
               </div>
               <span class="tag" id="im-journal-count">0 trades</span>
             </div>
@@ -2952,9 +2996,13 @@
                   <tr>
                     <th>Index</th>
                     <th>Side</th>
+                    <th>Type</th>
                     <th>Entry</th>
+                    <th>Qty</th>
                     <th>Stop</th>
                     <th>Target</th>
+                    <th>Status</th>
+                    <th>P&amp;L</th>
                     <th>Action</th>
                   </tr>
                 </thead>
