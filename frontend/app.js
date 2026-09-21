@@ -4604,14 +4604,18 @@ function clearLiveChartAiOverlay() {
       }, null);
     }
 
+    const maxPainStrike = Number.isFinite(Number(data.max_pain)) ? Number(data.max_pain) : null;
+
     body.innerHTML = rows
       .map((row) => {
         const strike = Number(row.strike);
         const isAtm = atmStrike !== null && strike === atmStrike;
+        const isMaxPain = maxPainStrike !== null && strike === maxPainStrike;
         const call = row.call || {};
         const put = row.put || {};
+        const rowClasses = [isAtm ? "im-options-atm" : "", isMaxPain ? "im-options-max-pain" : ""].filter(Boolean).join(" ");
         return `
-          <tr class="${isAtm ? "im-options-atm" : ""}">
+          <tr class="${rowClasses}">
             <td class="im-options-call-side">${formatOptionNumber(call.oi)}</td>
             <td class="im-options-call-side">${formatOptionNumber(call.volume)}</td>
             <td class="im-options-call-side">${formatOptionNumber(call.ltp)}</td>
@@ -4628,6 +4632,24 @@ function clearLiveChartAiOverlay() {
       meta.textContent = `${data.market} · Expiry ${data.expiry} · Spot ${Number.isFinite(spot) ? formatNumber(spot) : "--"}`;
     }
     if (status) status.textContent = "Live";
+
+    const pcrEl = document.getElementById("im-options-pcr");
+    const pcrBiasEl = document.getElementById("im-options-pcr-bias");
+    const maxPainEl = document.getElementById("im-options-max-pain");
+    const pcr = Number(data.pcr);
+    if (pcrEl) pcrEl.textContent = Number.isFinite(pcr) ? pcr.toFixed(2) : "--";
+    if (pcrBiasEl) {
+      if (!Number.isFinite(pcr)) {
+        pcrBiasEl.textContent = "--";
+      } else if (pcr > 1.2) {
+        pcrBiasEl.textContent = "More puts written — often read as bullish bias";
+      } else if (pcr < 0.8) {
+        pcrBiasEl.textContent = "More calls written — often read as bearish bias";
+      } else {
+        pcrBiasEl.textContent = "Balanced — no strong bias either way";
+      }
+    }
+    if (maxPainEl) maxPainEl.textContent = maxPainStrike !== null ? formatNumber(maxPainStrike) : "--";
   }
 
   async function loadOptionChain() {

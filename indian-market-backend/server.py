@@ -1769,6 +1769,36 @@ def option_expiries(market_key):
         ), 502
 
 
+def compute_max_pain(rows):
+    """Max Pain: the strike at which option WRITERS collectively pay out the
+    least if the underlying settles there at expiry (the strike most option
+    buyers would be worst off at). For each candidate settlement strike,
+    sums (in-the-money amount x OI) across every strike's calls and puts,
+    then picks the candidate with the smallest total payout. Pure math over
+    OI already in `rows` — no extra API calls."""
+    strikes = [row["strike"] for row in rows if row.get("strike") is not None]
+    if not strikes:
+        return None
+
+    best_strike = None
+    best_payout = None
+    for candidate in strikes:
+        payout = 0
+        for row in rows:
+            strike = row.get("strike")
+            if strike is None:
+                continue
+            if candidate > strike:
+                payout += (candidate - strike) * (row["call"].get("oi") or 0)
+            elif candidate < strike:
+                payout += (strike - candidate) * (row["put"].get("oi") or 0)
+        if best_payout is None or payout < best_payout:
+            best_payout = payout
+            best_strike = candidate
+
+    return best_strike
+
+
 @app.get("/api/options/chain/<market_key>")
 def option_chain(market_key):
     market_key = market_key.lower().strip()
@@ -1844,11 +1874,20 @@ def option_chain(market_key):
 
         rows.sort(key=lambda row: row["strike"] if row["strike"] is not None else 0)
 
+        total_call_oi = sum((row["call"].get("oi") or 0) for row in rows)
+        total_put_oi = sum((row["put"].get("oi") or 0) for row in rows)
+        pcr = round(total_put_oi / total_call_oi, 2) if total_call_oi else None
+        max_pain = compute_max_pain(rows)
+
         result = {
             "market": UPSTOX_OPTIONS_UNDERLYINGS[market_key]["name"],
             "expiry": expiry,
             "underlying_spot_price": underlying_spot,
             "rows": rows,
+            "total_call_oi": total_call_oi,
+            "total_put_oi": total_put_oi,
+            "pcr": pcr,
+            "max_pain": max_pain,
         }
         updated_at = now_utc()
         _option_chain_cache[cache_key] = {"data": result, "fetched_at": time.time(), "updated_at": updated_at}
