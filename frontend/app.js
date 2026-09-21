@@ -1780,7 +1780,7 @@ setInterval(loadRrg, 300000);
     const tabs = [...document.querySelectorAll(".app-tab[data-tab]")];
     const panels = [...document.querySelectorAll(".tab-panel[data-panel]")];
 
-    const menuButton = document.querySelector("#settingsMenuButton");
+    const menuButtons = [...document.querySelectorAll(".settings-menu-button")];
     const drawer = document.querySelector("#settingsDrawer");
     const closeButton = document.querySelector("#settingsCloseButton");
 
@@ -1868,12 +1868,12 @@ setInterval(loadRrg, 300000);
 
     function openSettings() {
       drawer?.classList.add("open");
-      menuButton?.setAttribute("aria-expanded", "true");
+      menuButtons.forEach((button) => button.setAttribute("aria-expanded", "true"));
     }
 
     function closeSettings() {
       drawer?.classList.remove("open");
-      menuButton?.setAttribute("aria-expanded", "false");
+      menuButtons.forEach((button) => button.setAttribute("aria-expanded", "false"));
     }
 
     applySettings(settings);
@@ -1885,7 +1885,7 @@ setInterval(loadRrg, 300000);
       });
     });
 
-    menuButton?.addEventListener("click", openSettings);
+    menuButtons.forEach((button) => button.addEventListener("click", openSettings));
     closeButton?.addEventListener("click", closeSettings);
 
     document.addEventListener("keydown", (event) => {
