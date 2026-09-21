@@ -6093,6 +6093,23 @@ body[data-accent="green"] .settings-choice.active {
   gap: 8px;
 }
 
+.indian-market-mode .im-stock-detail-price {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--im-text);
+}
+
+.indian-market-mode .im-stock-detail-chart-wrap {
+  margin: 14px 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--im-border);
+}
+
+.indian-market-mode #im-stock-detail-chart {
+  height: 380px;
+}
+
 .indian-market-mode .im-perf-chart-wrap {
   position: relative;
   margin-top: 6px;

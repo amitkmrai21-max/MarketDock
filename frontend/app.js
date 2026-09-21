@@ -3708,6 +3708,10 @@ function clearLiveChartAiOverlay() {
       title: "AI Chart Scanner",
       subtitle: "Pick any NSE stock for an instant AI-written technical summary. Educational only."
     },
+    "im-stock-detail": {
+      title: "Stock Detail",
+      subtitle: "Live chart, technicals, and recent news for any NSE stock in one place."
+    },
     "im-fo": {
       title: "F&O Watchlist",
       subtitle: "Live last-traded price for liquid, derivatives-eligible NSE stocks."
@@ -6718,6 +6722,313 @@ function clearLiveChartAiOverlay() {
   }
 
   setupImAiScannerSearch();
+
+  // ===================== Stock Detail (any NSE stock) =====================
+  // Chart + technicals + news for an arbitrary stock in one page. Reuses
+  // /api/index-candles (already symbol-agnostic via resolve_instrument_key),
+  // the AI Chart Scanner's indicator-grid styling, and jumps into the AI
+  // Chart Scanner itself for the AI write-up instead of duplicating that
+  // call here.
+
+  let imStockDetailSearchDebounce = null;
+  let imStockDetailSearchResults = [];
+  let imStockDetailSearchActiveIndex = -1;
+  let imStockDetailSymbol = null;
+  let imStockDetailTimeframe = "15m";
+  let imStockDetailChart = null;
+  let imStockDetailSeries = null;
+
+  function hideImStockDetailSearchResults() {
+    const el = document.getElementById("im-stock-detail-search-results");
+    if (el) {
+      el.hidden = true;
+      el.innerHTML = "";
+    }
+    imStockDetailSearchResults = [];
+    imStockDetailSearchActiveIndex = -1;
+  }
+
+  function updateImStockDetailActiveHighlight() {
+    const resultsEl = document.getElementById("im-stock-detail-search-results");
+    if (!resultsEl) return;
+    [...resultsEl.querySelectorAll(".im-watchlist-search-item")].forEach((el, i) => {
+      el.classList.toggle("active", i === imStockDetailSearchActiveIndex);
+    });
+  }
+
+  function renderImStockDetailSearchResults(results) {
+    imStockDetailSearchResults = results;
+    imStockDetailSearchActiveIndex = -1;
+    const el = document.getElementById("im-stock-detail-search-results");
+    if (!el) return;
+    if (!results.length) {
+      el.innerHTML = `<div class="im-watchlist-search-empty">No matching NSE stocks found.</div>`;
+      el.hidden = false;
+      return;
+    }
+    el.innerHTML = results
+      .map((s, i) => `
+        <div class="im-watchlist-search-item" data-search-index="${i}">
+          <strong>${escapeHtml(s.symbol)}</strong>
+          <span>${escapeHtml(s.name)}</span>
+        </div>
+      `)
+      .join("");
+    el.hidden = false;
+  }
+
+  async function runImStockDetailSearch(query) {
+    if (!query) {
+      hideImStockDetailSearchResults();
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=15`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Stock search failed.");
+      renderImStockDetailSearchResults(Array.isArray(result.data) ? result.data : []);
+    } catch (error) {
+      console.error("Stock detail search failed:", error);
+      hideImStockDetailSearchResults();
+    }
+  }
+
+  function renderStockDetailIndicators(snapshot) {
+    const grid = document.getElementById("im-stock-detail-indicators");
+    if (!grid) return;
+    const tiles = [
+      ["RSI (14)", snapshot.rsi_14],
+      ["VWAP", formatNumber(snapshot.vwap)],
+      ["MACD Hist", snapshot.macd_histogram],
+      ["EMA 9 / 21 / 50", `${formatNumber(snapshot.ema_9)} / ${formatNumber(snapshot.ema_21)} / ${formatNumber(snapshot.ema_50)}`],
+      ["Support", formatNumber(snapshot.support)],
+      ["Resistance", formatNumber(snapshot.resistance)],
+      ["Trend (5m/15m/1h)", `${snapshot.trend_5m || "--"} / ${snapshot.trend_15m || "--"} / ${snapshot.trend_1h || "--"}`],
+      ["ADX", snapshot.adx ? snapshot.adx.adx : "--"],
+      ["Supertrend", snapshot.supertrend ? snapshot.supertrend.trend : "--"],
+      ["Stochastic", snapshot.stochastic ? `${snapshot.stochastic.k} / ${snapshot.stochastic.d}` : "--"],
+      ["ATR (14)", snapshot.atr_14],
+      ["Volume vs Avg", snapshot.volume_ratio !== undefined ? `${snapshot.volume_ratio}x` : "--"]
+    ];
+    grid.innerHTML = tiles
+      .map(
+        ([label, value]) => `
+          <div class="im-ai-scanner-stat">
+            <span class="im-ai-scanner-stat-label">${escapeHtml(label)}</span>
+            <span class="im-ai-scanner-stat-value">${escapeHtml(String(value === undefined || value === null ? "--" : value))}</span>
+          </div>
+        `
+      )
+      .join("");
+  }
+
+  function ensureImStockDetailChart() {
+    const container = document.getElementById("im-stock-detail-chart");
+    if (!container || imStockDetailChart || !window.LightweightCharts) return;
+
+    imStockDetailChart = LightweightCharts.createChart(container, {
+      width: container.clientWidth,
+      height: 380,
+      layout: { background: { color: "#081728" }, textColor: "#93a9c3" },
+      grid: {
+        vertLines: { color: "rgba(29, 54, 85, 0.6)" },
+        horzLines: { color: "rgba(29, 54, 85, 0.6)" }
+      },
+      rightPriceScale: { borderColor: "rgba(69, 182, 255, 0.3)" },
+      timeScale: { borderColor: "rgba(69, 182, 255, 0.3)", timeVisible: true, secondsVisible: false },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
+    });
+
+    imStockDetailSeries = imStockDetailChart.addCandlestickSeries({
+      upColor: "#36cf83",
+      downColor: "#ff6f7d",
+      borderUpColor: "#36cf83",
+      borderDownColor: "#ff6f7d",
+      wickUpColor: "#7be3ad",
+      wickDownColor: "#ffa3ab"
+    });
+
+    new ResizeObserver(() => {
+      if (!imStockDetailChart || !container.clientWidth) return;
+      imStockDetailChart.applyOptions({ width: container.clientWidth });
+    }).observe(container);
+  }
+
+  async function loadImStockDetailCandles(symbol) {
+    ensureImStockDetailChart();
+    if (!imStockDetailSeries) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/index-candles?symbol=${encodeURIComponent(symbol)}&timeframe=${imStockDetailTimeframe}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok || !Array.isArray(result.candles)) throw new Error(result.error || "Candle data unavailable.");
+      if (symbol !== imStockDetailSymbol) return;
+
+      const points = result.candles
+        .map((candle) => ({
+          time: Math.floor(new Date(candle.time).getTime() / 1000),
+          open: Number(candle.open),
+          high: Number(candle.high),
+          low: Number(candle.low),
+          close: Number(candle.close)
+        }))
+        .filter((point) => Number.isFinite(point.time))
+        .sort((a, b) => a.time - b.time);
+
+      imStockDetailSeries.setData(points);
+      imStockDetailChart.timeScale().fitContent();
+    } catch (error) {
+      console.error("Stock detail candles failed:", error);
+    }
+  }
+
+  async function loadImStockDetailNews(symbol) {
+    const newsSection = document.getElementById("im-stock-detail-news");
+    const newsUpdated = document.getElementById("im-stock-detail-news-updated");
+    const newsList = document.getElementById("im-stock-detail-news-list");
+    if (!newsSection) return;
+
+    newsSection.hidden = false;
+    if (newsUpdated) newsUpdated.textContent = "Loading news...";
+    if (newsList) newsList.innerHTML = '<p class="empty-note">Loading news...</p>';
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stock-news/${encodeURIComponent(symbol)}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Stock news request failed.");
+      if (symbol !== imStockDetailSymbol) return;
+
+      if (newsUpdated) {
+        newsUpdated.textContent = `${result.count} headline${result.count === 1 ? "" : "s"} for ${result.company_name} · Updated ${new Date(result.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      }
+      if (newsList) {
+        newsList.innerHTML = result.items.length
+          ? result.items
+              .map(
+                (item) => `
+                  <div class="im-news-item">
+                    <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.headline)}</a>
+                    <p class="im-news-meta">${escapeHtml(item.source)} &middot; ${escapeHtml(item.published_time)}</p>
+                    <p class="im-news-summary">${escapeHtml(item.summary)}</p>
+                  </div>
+                `
+              )
+              .join("")
+          : '<p class="empty-note">No recent headlines found for this stock.</p>';
+      }
+    } catch (error) {
+      if (newsUpdated) newsUpdated.textContent = "News unavailable";
+      if (newsList) newsList.innerHTML = `<p class="empty-note">${escapeHtml(error.message || "Could not load news.")}</p>`;
+    }
+  }
+
+  async function loadImStockDetail(symbol) {
+    imStockDetailSymbol = symbol;
+    const statusEl = document.getElementById("im-stock-detail-status");
+    const resultEl = document.getElementById("im-stock-detail-result");
+    const symbolEl = document.getElementById("im-stock-detail-symbol");
+    const updatedEl = document.getElementById("im-stock-detail-updated");
+    const priceEl = document.getElementById("im-stock-detail-price");
+
+    if (statusEl) statusEl.textContent = `Loading ${symbol}…`;
+    if (resultEl) resultEl.hidden = true;
+    document.getElementById("im-stock-detail-news").hidden = true;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stock-technical/${encodeURIComponent(symbol)}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Stock technical data unavailable.");
+      if (symbol !== imStockDetailSymbol) return;
+
+      if (symbolEl) symbolEl.textContent = result.symbol;
+      if (priceEl) priceEl.textContent = formatNumber(result.indicators.price);
+      if (updatedEl) {
+        const generated = new Date(result.generated_at);
+        updatedEl.textContent = `Live snapshot · ${generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+      }
+      renderStockDetailIndicators(result.indicators || {});
+      if (resultEl) resultEl.hidden = false;
+      if (statusEl) statusEl.textContent = "";
+
+      loadImStockDetailCandles(symbol);
+      loadImStockDetailNews(symbol);
+    } catch (error) {
+      console.error("Stock detail load failed:", error);
+      if (statusEl) statusEl.textContent = friendlyAiErrorMessage(error.message);
+      if (resultEl) resultEl.hidden = true;
+    }
+  }
+
+  function setupImStockDetailSearch() {
+    const input = document.getElementById("im-stock-detail-search-input");
+    const resultsEl = document.getElementById("im-stock-detail-search-results");
+    if (!input || !resultsEl) return;
+
+    input.addEventListener("input", () => {
+      const query = input.value.trim();
+      if (imStockDetailSearchDebounce) window.clearTimeout(imStockDetailSearchDebounce);
+      imStockDetailSearchDebounce = window.setTimeout(() => runImStockDetailSearch(query), 250);
+    });
+
+    resultsEl.addEventListener("click", (event) => {
+      const item = event.target.closest(".im-watchlist-search-item");
+      if (!item) return;
+      const stock = imStockDetailSearchResults[Number(item.dataset.searchIndex)];
+      if (!stock) return;
+      input.value = stock.symbol;
+      hideImStockDetailSearchResults();
+      loadImStockDetail(stock.symbol);
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!input.contains(event.target) && !resultsEl.contains(event.target)) {
+        hideImStockDetailSearchResults();
+      }
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const active = imStockDetailSearchResults[imStockDetailSearchActiveIndex];
+        if (active) {
+          input.value = active.symbol;
+          hideImStockDetailSearchResults();
+          loadImStockDetail(active.symbol);
+        } else if (input.value.trim()) {
+          hideImStockDetailSearchResults();
+          loadImStockDetail(input.value.trim().toUpperCase());
+        }
+      } else if (event.key === "ArrowDown" && imStockDetailSearchResults.length) {
+        event.preventDefault();
+        imStockDetailSearchActiveIndex = Math.min(imStockDetailSearchActiveIndex + 1, imStockDetailSearchResults.length - 1);
+        updateImStockDetailActiveHighlight();
+      } else if (event.key === "ArrowUp" && imStockDetailSearchResults.length) {
+        event.preventDefault();
+        imStockDetailSearchActiveIndex = Math.max(imStockDetailSearchActiveIndex - 1, 0);
+        updateImStockDetailActiveHighlight();
+      }
+    });
+  }
+
+  setupImStockDetailSearch();
+
+  document.getElementById("im-stock-detail-timeframes")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-stock-timeframe]");
+    if (!button || !imStockDetailSymbol) return;
+    imStockDetailTimeframe = button.dataset.stockTimeframe;
+    [...document.getElementById("im-stock-detail-timeframes").querySelectorAll("[data-stock-timeframe]")].forEach((btn) => {
+      btn.classList.toggle("active", btn === button);
+    });
+    loadImStockDetailCandles(imStockDetailSymbol);
+  });
+
+  document.getElementById("im-stock-detail-ai-btn")?.addEventListener("click", () => {
+    if (!imStockDetailSymbol) return;
+    const symbol = imStockDetailSymbol;
+    showPage("im-ai-scanner");
+    const aiInput = document.getElementById("im-ai-scanner-search-input");
+    if (aiInput) aiInput.value = symbol;
+    runAiChartScan(symbol);
+  });
 
   let watchlistTimer = null;
 

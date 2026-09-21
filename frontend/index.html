@@ -1284,6 +1284,11 @@
           AI Chart Scanner
         </button>
 
+        <button class="nav-button" data-page="im-stock-detail" type="button">
+          <span class="nav-icon">&#128200;</span>
+          Stock Detail
+        </button>
+
         <p class="nav-label">Journal</p>
 
         <button class="nav-button" data-page="im-news" type="button">
@@ -2124,6 +2129,64 @@
 
             <p class="im-chart-status">Educational technical-analysis summary only. Not financial advice.</p>
           </div>
+        </article>
+      </section>
+
+      <section class="page" id="im-stock-detail">
+        <article class="card index-hero">
+          <div>
+            <p class="eyebrow">Any NSE Stock &middot; Chart, Technicals &amp; News</p>
+            <h2 class="index-title">Stock Detail</h2>
+            <p class="subtitle">
+              Search any NSE stock for its live chart, technical readout, and recent news headlines in one place. Educational only — not financial advice.
+            </p>
+          </div>
+        </article>
+
+        <article class="card section-card">
+          <div class="im-watchlist-search-wrap im-ai-scanner-search-wrap">
+            <input id="im-stock-detail-search-input" type="text" placeholder="Search a stock (e.g. RELIANCE, TCS)…" aria-label="Search stock for detail view" autocomplete="off" />
+            <div id="im-stock-detail-search-results" class="im-watchlist-search-results" hidden></div>
+          </div>
+
+          <p id="im-stock-detail-status" class="im-chart-status">Search a stock above to get started.</p>
+
+          <div id="im-stock-detail-result" hidden>
+            <div class="section-heading">
+              <div>
+                <h2 id="im-stock-detail-symbol">--</h2>
+                <p id="im-stock-detail-updated" class="im-chart-status">--</p>
+              </div>
+              <strong id="im-stock-detail-price" class="im-stock-detail-price">--</strong>
+            </div>
+
+            <div class="chart-control-group" id="im-stock-detail-timeframes">
+              <button class="chart-control-button" type="button" data-stock-timeframe="5m">5m</button>
+              <button class="chart-control-button active" type="button" data-stock-timeframe="15m">15m</button>
+              <button class="chart-control-button" type="button" data-stock-timeframe="1h">1h</button>
+              <button class="chart-control-button" type="button" data-stock-timeframe="1d">1D</button>
+            </div>
+
+            <div class="im-stock-detail-chart-wrap">
+              <div id="im-stock-detail-chart"></div>
+            </div>
+
+            <div class="im-ai-scanner-indicator-grid" id="im-stock-detail-indicators"></div>
+
+            <button class="primary-button" id="im-stock-detail-ai-btn" type="button">Get AI Analysis</button>
+          </div>
+
+          <div id="im-stock-detail-news" hidden>
+            <div class="section-heading">
+              <div>
+                <h2>Recent News</h2>
+                <p id="im-stock-detail-news-updated" class="im-chart-status">--</p>
+              </div>
+            </div>
+            <div id="im-stock-detail-news-list"></div>
+          </div>
+
+          <p class="im-chart-status">Educational data only. Not financial advice.</p>
         </article>
       </section>
 
