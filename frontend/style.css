@@ -2963,8 +2963,9 @@ body {
   justify-content: center;
   margin-left: 0;
   padding: 0;
-  font-size: 13px;
-  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  border-radius: 999px;
   border: 1px solid var(--border-strong, rgba(139, 92, 246, 0.4));
   background: linear-gradient(180deg, rgba(28, 23, 48, 0.94), rgba(18, 15, 27, 0.94));
   backdrop-filter: blur(10px);
