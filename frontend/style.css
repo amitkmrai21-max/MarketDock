@@ -2953,7 +2953,7 @@ body {
 
 .settings-menu-button.top-settings-button {
   position: fixed;
-  top: 50px;
+  top: 54px;
   right: 46px;
   z-index: 60;
   width: 66px;
@@ -2979,7 +2979,7 @@ body {
 
 @media (max-width: 720px) {
   .settings-menu-button.top-settings-button {
-    top: 55px;
+    top: 72px;
     right: 17px;
   }
 }
