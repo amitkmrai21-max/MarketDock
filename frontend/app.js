@@ -3671,6 +3671,67 @@ function clearLiveChartAiOverlay() {
   setMode(savedMode);
 })();
 
+(function setupPullToRefresh() {
+  const indicator = document.getElementById("ptrIndicator");
+  if (!indicator || !("ontouchstart" in window)) return;
+
+  const THRESHOLD = 64;
+  const MAX_PULL = 96;
+  let startY = 0;
+  let pulling = false;
+  let currentPull = 0;
+
+  function setPull(distance) {
+    currentPull = distance;
+    const progress = Math.min(distance / THRESHOLD, 1);
+    indicator.style.transform = `translate(-50%, ${distance - 60}px) rotate(${progress * 360}deg)`;
+    indicator.style.opacity = String(progress);
+    indicator.classList.toggle("ptr-visible", distance > 4);
+  }
+
+  function reset() {
+    pulling = false;
+    currentPull = 0;
+    indicator.style.transition = "transform 0.25s ease, opacity 0.25s ease";
+    indicator.style.transform = "translate(-50%, -60px) rotate(0deg)";
+    indicator.style.opacity = "0";
+    indicator.classList.remove("ptr-visible", "ptr-spinning");
+    window.setTimeout(() => { indicator.style.transition = ""; }, 260);
+  }
+
+  document.addEventListener("touchstart", (event) => {
+    if (window.scrollY > 0 || event.touches.length !== 1) return;
+    startY = event.touches[0].clientY;
+    pulling = true;
+    indicator.style.transition = "";
+  }, { passive: true });
+
+  document.addEventListener("touchmove", (event) => {
+    if (!pulling) return;
+    const deltaY = event.touches[0].clientY - startY;
+    if (deltaY <= 0) { setPull(0); return; }
+    if (window.scrollY > 0) { pulling = false; setPull(0); return; }
+    setPull(Math.min(deltaY * 0.45, MAX_PULL));
+    if (deltaY > 10) event.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener("touchend", () => {
+    if (!pulling) return;
+    pulling = false;
+    if (currentPull >= THRESHOLD) {
+      indicator.classList.add("ptr-spinning", "ptr-visible");
+      indicator.style.transition = "transform 0.2s ease";
+      indicator.style.transform = "translate(-50%, 16px) rotate(0deg)";
+      indicator.style.opacity = "1";
+      window.setTimeout(() => window.location.reload(), 350);
+    } else {
+      reset();
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchcancel", reset, { passive: true });
+})();
+
 /* ===== Indian Market mode (namespaced, isolated from BTC site logic) ===== */
 (function IndianMarketModule() {
   const pageInfo = {

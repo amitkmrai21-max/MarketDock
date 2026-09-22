@@ -2927,6 +2927,47 @@ body {
   }
 }
 
+.ptr-indicator {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 70;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translate(-50%, -60px) rotate(0deg);
+  pointer-events: none;
+}
+
+.ptr-indicator.ptr-visible {
+  opacity: 1;
+}
+
+.ptr-indicator.ptr-spinning .ptr-spinner {
+  animation: ptr-spin 0.7s linear infinite;
+}
+
+.ptr-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(148, 163, 184, 0.35);
+  border-top-color: var(--amber, #f59e0b);
+}
+
+@keyframes ptr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 #btcModeRoot .app-shell {
   min-height: 100vh;
   display: grid;
