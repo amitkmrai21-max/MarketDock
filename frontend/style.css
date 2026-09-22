@@ -2998,6 +2998,7 @@ body {
 .nav-action-group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -3083,6 +3084,13 @@ body {
     margin-top: 6px;
     flex-basis: 100%;
     justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-action-btn {
+    min-width: 0;
+    flex: 1 1 calc(50% - 5px);
   }
 }
 
