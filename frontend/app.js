@@ -4718,9 +4718,45 @@ function clearLiveChartAiOverlay() {
     renderSparkline(`im-${marketKey}-hero-sparkline`, closes, isUp);
   }
 
+  const IM_BIAS_MARKET_KEYS = ["nifty", "banknifty", "finnifty", "sensex"];
+  const imLastDecisionLabel = {};
+
+  // Dashboard's "Market Bias" card: rolls up each index's own technical
+  // decision (the same weighted RSI/EMA/VWAP/Supertrend/etc. score behind
+  // that index's own "BUY SETUP"/"SELL SETUP"/"HOLD" call — not a separate
+  // AI judgment) into one bullish/bearish/neutral read across all 4.
+  function updateMarketBiasCard() {
+    const valueEl = document.getElementById("im-dash-market-bias-value");
+    const changeEl = document.getElementById("im-dash-market-bias-change");
+    if (!valueEl || !changeEl) return;
+
+    const labels = IM_BIAS_MARKET_KEYS.map((key) => imLastDecisionLabel[key]).filter(Boolean);
+    if (labels.length < IM_BIAS_MARKET_KEYS.length) return;
+
+    const bullish = labels.filter((label) => label.includes("BUY")).length;
+    const bearish = labels.filter((label) => label.includes("SELL")).length;
+    const neutral = labels.length - bullish - bearish;
+
+    let bias = "Neutral";
+    let cls = "neutral";
+    if (bullish > bearish) {
+      bias = "Bullish";
+      cls = "positive";
+    } else if (bearish > bullish) {
+      bias = "Bearish";
+      cls = "negative";
+    }
+
+    valueEl.textContent = bias;
+    changeEl.textContent = `${bullish} bullish · ${bearish} bearish · ${neutral} neutral`;
+    changeEl.className = `stat-change ${cls}`;
+  }
+
   function renderMarketEngine(marketKey, data) {
     imLastChangePercent[marketKey] = Number(data.change_percent);
     redrawImDashboardSparkline(marketKey);
+    imLastDecisionLabel[marketKey] = String(data.decision.label);
+    updateMarketBiasCard();
     const label = document.getElementById(`im-${marketKey}-decision-label`);
     const reason = document.getElementById(`im-${marketKey}-decision-reason`);
     const status = document.getElementById(`im-${marketKey}-api-status`);
