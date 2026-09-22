@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MarketDock</string>
+    <string name="title_activity_main">MarketDock</string>
+    <string name="package_name">com.marketdock.app</string>
+    <string name="custom_url_scheme">com.marketdock.app</string>
+</resources>

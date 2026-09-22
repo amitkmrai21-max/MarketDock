@@ -1,0 +1,14 @@
+{
+  "appId": "com.marketdock.app",
+  "appName": "MarketDock",
+  "webDir": "www",
+  "server": {
+    "url": "https://marketdock.onrender.com",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "backgroundColor": "#0c0a14"
+  },
+  "backgroundColor": "#0c0a14"
+}
