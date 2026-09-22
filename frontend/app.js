@@ -6730,9 +6730,14 @@ function clearLiveChartAiOverlay() {
   }
 
   async function runImAiScannerSearch(query) {
+    const resultsEl = document.getElementById("im-ai-scanner-search-results");
     if (!query) {
       hideImAiScannerSearchResults();
       return;
+    }
+    if (resultsEl) {
+      resultsEl.innerHTML = `<div class="im-watchlist-search-empty">Searching…</div>`;
+      resultsEl.hidden = false;
     }
     try {
       const response = await fetch(`${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=15`);
@@ -6741,7 +6746,12 @@ function clearLiveChartAiOverlay() {
       renderImAiScannerSearchResults(Array.isArray(result.data) ? result.data : []);
     } catch (error) {
       console.error("AI scanner stock search failed:", error);
-      hideImAiScannerSearchResults();
+      imAiScannerSearchResults = [];
+      imAiScannerSearchActiveIndex = -1;
+      if (resultsEl) {
+        resultsEl.innerHTML = `<div class="im-watchlist-search-empty">${escapeHtml(friendlyAiErrorMessage(error.message))}</div>`;
+        resultsEl.hidden = false;
+      }
     }
   }
 
@@ -6947,9 +6957,14 @@ function clearLiveChartAiOverlay() {
   }
 
   async function runImDashboardAiSearch(query) {
+    const resultsEl = document.getElementById("im-dashboard-ai-search-results");
     if (!query) {
       hideImDashboardAiSearchResults();
       return;
+    }
+    if (resultsEl) {
+      resultsEl.innerHTML = `<div class="im-watchlist-search-empty">Searching…</div>`;
+      resultsEl.hidden = false;
     }
     try {
       const response = await fetch(`${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=15`);
@@ -6958,7 +6973,12 @@ function clearLiveChartAiOverlay() {
       renderImDashboardAiSearchResults(Array.isArray(result.data) ? result.data : []);
     } catch (error) {
       console.error("AI dashboard stock search failed:", error);
-      hideImDashboardAiSearchResults();
+      imDashboardAiSearchResults = [];
+      imDashboardAiSearchActiveIndex = -1;
+      if (resultsEl) {
+        resultsEl.innerHTML = `<div class="im-watchlist-search-empty">${escapeHtml(friendlyAiErrorMessage(error.message))}</div>`;
+        resultsEl.hidden = false;
+      }
     }
   }
 
@@ -7134,9 +7154,14 @@ function clearLiveChartAiOverlay() {
   }
 
   async function runImStockDetailSearch(query) {
+    const resultsEl = document.getElementById("im-stock-detail-search-results");
     if (!query) {
       hideImStockDetailSearchResults();
       return;
+    }
+    if (resultsEl) {
+      resultsEl.innerHTML = `<div class="im-watchlist-search-empty">Searching…</div>`;
+      resultsEl.hidden = false;
     }
     try {
       const response = await fetch(`${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=15`);
@@ -7145,7 +7170,12 @@ function clearLiveChartAiOverlay() {
       renderImStockDetailSearchResults(Array.isArray(result.data) ? result.data : []);
     } catch (error) {
       console.error("Stock detail search failed:", error);
-      hideImStockDetailSearchResults();
+      imStockDetailSearchResults = [];
+      imStockDetailSearchActiveIndex = -1;
+      if (resultsEl) {
+        resultsEl.innerHTML = `<div class="im-watchlist-search-empty">${escapeHtml(friendlyAiErrorMessage(error.message))}</div>`;
+        resultsEl.hidden = false;
+      }
     }
   }
 
