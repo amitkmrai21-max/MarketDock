@@ -5102,6 +5102,7 @@ body[data-accent="green"] .settings-choice.active {
   cursor: pointer;
   text-align: left;
   font-size: 12px;
+  font-weight: 600;
   transition: 0.2s ease;
 }
 
