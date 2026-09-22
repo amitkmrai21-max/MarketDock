@@ -4383,11 +4383,18 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-mover-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   padding: 18px;
+}
+
+.indian-market-mode .im-mover-card > *:not(canvas) {
+  position: relative;
+  z-index: 1;
 }
 
 .indian-market-mode .im-mover-index-label {
@@ -5579,12 +5586,19 @@ body[data-accent="green"] .settings-choice.active {
   line-height: 1.6;
 }
 .indian-market-mode .index-hero {
+  position: relative;
+  overflow: hidden;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 14px;
   align-items: center;
   padding: 16px;
   margin-bottom: 14px;
+}
+
+.indian-market-mode .index-hero > div {
+  position: relative;
+  z-index: 1;
 }
 
 .indian-market-mode .index-title {
