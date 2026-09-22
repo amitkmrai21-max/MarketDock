@@ -4295,10 +4295,21 @@ body[data-accent="green"] .settings-choice.active {
   font-size: 12px;
 }
 
+.indian-market-mode .im-section-label {
+  margin: 22px 0 12px;
+  color: var(--im-text);
+  font-size: 15px;
+  font-weight: 800;
+}
+
 .indian-market-mode .im-mover-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.indian-market-mode .im-ai-review-card {
+  margin-top: 26px;
 }
 
 .indian-market-mode .im-mover-card {
