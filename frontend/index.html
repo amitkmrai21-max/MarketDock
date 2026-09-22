@@ -3138,99 +3138,169 @@
       </button>
     </div>
 
-    <div class="settings-group" id="accountLoggedOutGroup">
-      <label>Account</label>
-      <p class="settings-help">One account works for both Indian Market and BTC mode.</p>
-
-      <div class="settings-name-row">
-        <input id="accountEmailInput" type="email" placeholder="Email" autocomplete="email" />
-      </div>
-      <div class="settings-name-row">
-        <input id="accountPasswordInput" type="password" placeholder="Password" autocomplete="current-password" />
-      </div>
-
-      <div class="settings-account-actions">
-        <button id="accountLoginBtn" class="account-primary-btn" type="button">Log In</button>
-        <button id="accountSignupBtn" type="button">Sign Up</button>
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        </span>
+        <div>
+          <h3>Account</h3>
+          <p class="settings-section-desc">One login for both Indian Market and BTC mode</p>
+        </div>
       </div>
 
-      <p id="accountAuthStatus" class="settings-help" role="status"></p>
-    </div>
+      <div class="settings-group settings-group--plain" id="accountLoggedOutGroup">
+        <div class="settings-name-row">
+          <input id="accountEmailInput" type="email" placeholder="Email" autocomplete="email" />
+        </div>
+        <div class="settings-password-field">
+          <input id="accountPasswordInput" type="password" placeholder="Password" autocomplete="current-password" />
+          <button id="accountPasswordToggle" class="password-toggle-btn" type="button" aria-label="Show password" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+          </button>
+        </div>
 
-    <div class="settings-group" id="accountLoggedInGroup" hidden>
-      <label>Account</label>
-      <p class="settings-help">Logged in as <strong id="accountEmailDisplay">--</strong>. Same account on both Indian Market and BTC mode.</p>
-      <button id="accountLogoutBtn" class="reset-settings-btn" type="button">Log Out</button>
-    </div>
+        <div class="settings-account-actions">
+          <button id="accountLoginBtn" class="account-primary-btn" type="button">Log In</button>
+          <button id="accountSignupBtn" type="button">Sign Up</button>
+        </div>
 
-    <div class="settings-group">
-      <label for="userNameInput">Your name</label>
-
-      <div class="settings-name-row">
-        <input id="userNameInput" type="text" placeholder="Your name" autocomplete="name" />
-        <button id="saveUserNameBtn" type="button">Save</button>
+        <p id="accountAuthStatus" class="settings-help" role="status"></p>
       </div>
 
-      <p class="settings-help">Your name is saved only in this browser.</p>
-    </div>
-
-    <div class="settings-group">
-      <label>Theme</label>
-
-      <div class="settings-option-grid">
-        <button class="settings-choice theme-choice" type="button" data-theme-choice="dark">Dark</button>
-        <button class="settings-choice theme-choice" type="button" data-theme-choice="light">Light</button>
-        <button class="settings-choice theme-choice" type="button" data-theme-choice="midnight">Midnight</button>
+      <div class="settings-group settings-group--plain" id="accountLoggedInGroup" hidden>
+        <div class="account-identity">
+          <span class="account-avatar" id="accountAvatar">--</span>
+          <div>
+            <p class="account-identity-email" id="accountEmailDisplay">--</p>
+            <p class="settings-help">Same account on both Indian Market and BTC mode.</p>
+          </div>
+        </div>
+        <button id="accountLogoutBtn" class="reset-settings-btn" type="button">Log Out</button>
       </div>
-    </div>
+    </section>
 
-    <div class="settings-group">
-      <label>Accent color</label>
-
-      <div class="settings-option-grid">
-        <button class="settings-choice accent-choice" type="button" data-accent-choice="blue">Blue</button>
-        <button class="settings-choice accent-choice" type="button" data-accent-choice="purple">Purple</button>
-        <button class="settings-choice accent-choice" type="button" data-accent-choice="gold">Gold</button>
-        <button class="settings-choice accent-choice" type="button" data-accent-choice="green">Green</button>
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+        </span>
+        <div>
+          <h3>Profile</h3>
+        </div>
       </div>
-    </div>
 
-    <div class="settings-group">
-      <label>Text size</label>
+      <div class="settings-group settings-group--plain">
+        <label for="userNameInput">Your name</label>
 
-      <div class="settings-option-grid">
-        <button class="settings-choice text-size-choice" type="button" data-text-size-choice="compact">Compact</button>
-        <button class="settings-choice text-size-choice" type="button" data-text-size-choice="normal">Normal</button>
-        <button class="settings-choice text-size-choice" type="button" data-text-size-choice="large">Large</button>
+        <div class="settings-name-row">
+          <input id="userNameInput" type="text" placeholder="Your name" autocomplete="name" />
+          <button id="saveUserNameBtn" type="button">Save</button>
+        </div>
+
+        <p class="settings-help">Your name is saved only in this browser.</p>
       </div>
-    </div>
+    </section>
 
-    <div class="settings-group settings-preferences-note">
-      <h3>Preferences</h3>
-      <p>Theme, accent, text size and your last opened tab are saved on this device.</p>
-    </div>
-
-    <div class="settings-group">
-      <label for="userGeminiKeyInput">Your own Gemini API key (optional)</label>
-      <p class="settings-help">If you add your own key, Gemini AI Analysis runs on your quota instead of the site's shared one. Get a free key at Google AI Studio. Saved only in this browser.</p>
-      <div class="settings-name-row">
-        <input id="userGeminiKeyInput" type="password" placeholder="Paste your Gemini API key" autocomplete="off" />
-        <button id="saveGeminiKeyBtn" type="button">Save</button>
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+        </span>
+        <div>
+          <h3>Appearance</h3>
+        </div>
       </div>
-      <p id="geminiKeyStatus" class="settings-help"></p>
-    </div>
 
-    <div class="settings-group">
-      <label for="userGroqKeyInput">Your own Groq API key (optional)</label>
-      <p class="settings-help">If you add your own key, Groq requests run on your quota (and skip the shared cooldown). Get a free key at console.groq.com. Saved only in this browser.</p>
-      <div class="settings-name-row">
-        <input id="userGroqKeyInput" type="password" placeholder="Paste your Groq API key" autocomplete="off" />
-        <button id="saveGroqKeyBtn" type="button">Save</button>
+      <div class="settings-group settings-group--plain">
+        <label>Theme</label>
+
+        <div class="settings-option-grid">
+          <button class="settings-choice theme-choice" type="button" data-theme-choice="dark">
+            <svg class="settings-choice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            <span>Dark</span>
+          </button>
+          <button class="settings-choice theme-choice" type="button" data-theme-choice="light">
+            <svg class="settings-choice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <span>Light</span>
+          </button>
+          <button class="settings-choice theme-choice" type="button" data-theme-choice="midnight">
+            <svg class="settings-choice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <span>Midnight</span>
+          </button>
+        </div>
       </div>
-      <p id="groqKeyStatus" class="settings-help"></p>
-    </div>
 
-    <button id="resetSettingsBtn" class="reset-settings-btn" type="button">Reset Settings</button>
+      <div class="settings-group settings-group--plain">
+        <label>Accent color</label>
+
+        <div class="settings-option-grid">
+          <button class="settings-choice accent-choice" type="button" data-accent-choice="blue"><span class="accent-swatch"></span><span>Blue</span></button>
+          <button class="settings-choice accent-choice" type="button" data-accent-choice="purple"><span class="accent-swatch"></span><span>Purple</span></button>
+          <button class="settings-choice accent-choice" type="button" data-accent-choice="gold"><span class="accent-swatch"></span><span>Gold</span></button>
+          <button class="settings-choice accent-choice" type="button" data-accent-choice="green"><span class="accent-swatch"></span><span>Green</span></button>
+        </div>
+      </div>
+
+      <div class="settings-group settings-group--plain">
+        <label>Text size</label>
+
+        <div class="settings-option-grid">
+          <button class="settings-choice text-size-choice" type="button" data-text-size-choice="compact">Compact</button>
+          <button class="settings-choice text-size-choice" type="button" data-text-size-choice="normal">Normal</button>
+          <button class="settings-choice text-size-choice" type="button" data-text-size-choice="large">Large</button>
+        </div>
+      </div>
+
+      <div class="settings-group settings-group--plain settings-preferences-note">
+        <p>Theme, accent, text size and your last opened tab are saved on this device.</p>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
+        </span>
+        <div>
+          <h3>AI API keys</h3>
+          <p class="settings-section-desc">Optional — use your own quota</p>
+        </div>
+      </div>
+
+      <div class="settings-group settings-group--plain">
+        <label for="userGeminiKeyInput">Gemini API key</label>
+        <p class="settings-help">If you add your own key, Gemini AI Analysis runs on your quota instead of the site's shared one. Get a free key at Google AI Studio. Saved only in this browser.</p>
+        <div class="settings-name-row">
+          <input id="userGeminiKeyInput" type="password" placeholder="Paste your Gemini API key" autocomplete="off" />
+          <button id="saveGeminiKeyBtn" type="button">Save</button>
+        </div>
+        <p id="geminiKeyStatus" class="settings-help"></p>
+      </div>
+
+      <div class="settings-group settings-group--plain">
+        <label for="userGroqKeyInput">Groq API key</label>
+        <p class="settings-help">If you add your own key, Groq requests run on your quota (and skip the shared cooldown). Get a free key at console.groq.com. Saved only in this browser.</p>
+        <div class="settings-name-row">
+          <input id="userGroqKeyInput" type="password" placeholder="Paste your Groq API key" autocomplete="off" />
+          <button id="saveGroqKeyBtn" type="button">Save</button>
+        </div>
+        <p id="groqKeyStatus" class="settings-help"></p>
+      </div>
+    </section>
+
+    <section class="settings-section settings-section--danger">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </span>
+        <div>
+          <h3>Danger zone</h3>
+        </div>
+      </div>
+
+      <button id="resetSettingsBtn" class="reset-settings-btn" type="button">Reset Settings</button>
+    </section>
   </aside>
 
   <script src="/frontend/app.js"></script>

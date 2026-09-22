@@ -2180,7 +2180,22 @@ setInterval(loadRrg, 300000);
     const logoutBtn = document.getElementById("accountLogoutBtn");
     const statusEl = document.getElementById("accountAuthStatus");
     const emailDisplay = document.getElementById("accountEmailDisplay");
+    const avatarEl = document.getElementById("accountAvatar");
+    const passwordToggleBtn = document.getElementById("accountPasswordToggle");
     if (!loggedOutGroup || !loggedInGroup || !emailInput || !passwordInput || !loginBtn || !signupBtn || !logoutBtn) return;
+
+    const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+    const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+
+    if (passwordToggleBtn) {
+      passwordToggleBtn.addEventListener("click", () => {
+        const showing = passwordInput.type === "text";
+        passwordInput.type = showing ? "password" : "text";
+        passwordToggleBtn.innerHTML = showing ? EYE_ICON : EYE_OFF_ICON;
+        passwordToggleBtn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+        passwordToggleBtn.setAttribute("aria-pressed", showing ? "false" : "true");
+      });
+    }
 
     function setStatus(message, isError) {
       if (!statusEl) return;
@@ -2201,7 +2216,9 @@ setInterval(loadRrg, 300000);
     function showLoggedIn(session) {
       loggedOutGroup.hidden = true;
       loggedInGroup.hidden = false;
-      if (emailDisplay) emailDisplay.textContent = session?.user?.email || "--";
+      const email = session?.user?.email || "--";
+      if (emailDisplay) emailDisplay.textContent = email;
+      if (avatarEl) avatarEl.textContent = email.charAt(0) || "?";
     }
 
     function showLoggedOut() {
