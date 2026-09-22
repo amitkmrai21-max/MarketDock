@@ -1,4 +1,4 @@
-const CACHE_NAME = "marketdock-shell-v2";
+const CACHE_NAME = "marketdock-shell-v3";
 const APP_SHELL = [
   "/frontend/index.html",
   "/frontend/style.css",
@@ -20,24 +20,23 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Stale-while-revalidate, and only for the static app shell above. Live
-// market data, AI endpoints, and anything cross-origin fall straight
-// through to the network untouched (we never want a cached price/technical
-// response) — the fetch handler simply returns early for those.
+// Network-first, and only for the static app shell above. Live market
+// data, AI endpoints, and anything cross-origin fall straight through to
+// the network untouched (we never want a cached price/technical response)
+// — the fetch handler simply returns early for those. Network-first (not
+// stale-while-revalidate) so a fresh deploy shows up on the very next
+// load instead of one load behind; the cache only kicks in when offline.
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   const isAppShellAsset = url.origin === self.location.origin && APP_SHELL.includes(url.pathname);
   if (!isAppShellAsset) return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const networkFetch = fetch(event.request)
-        .then((response) => {
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
-          return response;
-        })
-        .catch(() => cached);
-      return cached || networkFetch;
-    })
+    fetch(event.request)
+      .then((response) => {
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
