@@ -237,6 +237,7 @@ let activeTimeframe = "1D";
 let activeRrgTimeframe = "1d";
 let currentBtcPriceUsd = null;
 let currentBtcPriceInr = null;
+let currentBtcChangePercent = null;
 let aiRefreshInProgress = false;
 let technicalRefreshInProgress = false;
 
@@ -298,7 +299,7 @@ function changePillHtml(value, { arrow = true, decimals = 2 } = {}) {
 // polyline + fill with no interactivity, and not depending on Chart.js
 // having finished loading from its CDN keeps this working even if that
 // script is slow, blocked, or fails on a given network.
-function renderSparkline(canvasId, values) {
+function renderSparkline(canvasId, values, forceIsUp) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
   const points = Array.isArray(values) ? values.filter((value) => Number.isFinite(value)) : [];
@@ -315,7 +316,12 @@ function renderSparkline(canvasId, values) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
 
-  const isUp = points[points.length - 1] >= points[0];
+  // Color by the day's actual change (same sign as the % pill next to it)
+  // when known, rather than this window's own first-vs-last point — the
+  // sparkline can legitimately drift down through the day (e.g. a gap-up
+  // open that fades) while still finishing green versus yesterday's close,
+  // and a chart that disagrees with the pill beside it reads as broken.
+  const isUp = typeof forceIsUp === "boolean" ? forceIsUp : points[points.length - 1] >= points[0];
   const lineColor = isUp ? "#34d399" : "#f87171";
   const fillColor = isUp ? "rgba(52, 211, 153, 0.25)" : "rgba(248, 113, 113, 0.25)";
 
@@ -1456,7 +1462,7 @@ function setupAlerts() {
 
   renderAlertSettings();
 }
-function updatePrice(data) { const btc = data?.bitcoin, price = Number(btc?.usd), change = Number(btc?.usd_24h_change || 0); if (!Number.isFinite(price)) throw new Error("Live BTC price was not received."); currentBtcPriceUsd = price; currentBtcPriceInr = price * USD_INR_RATE; setText("btcPrice", formatUsd(price)); const changeBox = getElement("btcChange"); if (changeBox) { changeBox.innerHTML = changePillHtml(change); } setText("marketUpdatedAt", `Live price updated: ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`);  renderPaperTrading(); checkPriceAlerts(price); }
+function updatePrice(data) { const btc = data?.bitcoin, price = Number(btc?.usd), change = Number(btc?.usd_24h_change || 0); if (!Number.isFinite(price)) throw new Error("Live BTC price was not received."); currentBtcPriceUsd = price; currentBtcPriceInr = price * USD_INR_RATE; currentBtcChangePercent = change; setText("btcPrice", formatUsd(price)); const changeBox = getElement("btcChange"); if (changeBox) { changeBox.innerHTML = changePillHtml(change); } setText("marketUpdatedAt", `Live price updated: ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`);  renderPaperTrading(); checkPriceAlerts(price); }
   
 
 function getNewsImpactClass(impact) {
@@ -1777,7 +1783,8 @@ async function loadBtcSparkline() {
     if (!response.ok) return;
     const chart = await response.json();
     const prices = Array.isArray(chart.prices) ? chart.prices.slice(-96).map((p) => p[1]) : [];
-    renderSparkline("btcPriceSparkline", prices);
+    const forceIsUp = Number.isFinite(currentBtcChangePercent) ? currentBtcChangePercent >= 0 : undefined;
+    renderSparkline("btcPriceSparkline", prices, forceIsUp);
   } catch (error) {
     console.error("BTC sparkline failed:", error);
   }
@@ -4662,7 +4669,19 @@ function clearLiveChartAiOverlay() {
       .join("");
   }
 
+  const imLastChangePercent = {};
+  const imLastSparklineCloses = {};
+
+  function redrawImDashboardSparkline(marketKey) {
+    const closes = imLastSparklineCloses[marketKey];
+    const change = imLastChangePercent[marketKey];
+    if (!closes || !Number.isFinite(change)) return;
+    renderSparkline(`im-dash-${marketKey}-sparkline`, closes, change >= 0);
+  }
+
   function renderMarketEngine(marketKey, data) {
+    imLastChangePercent[marketKey] = Number(data.change_percent);
+    redrawImDashboardSparkline(marketKey);
     const label = document.getElementById(`im-${marketKey}-decision-label`);
     const reason = document.getElementById(`im-${marketKey}-decision-reason`);
     const status = document.getElementById(`im-${marketKey}-api-status`);
@@ -5516,14 +5535,12 @@ function clearLiveChartAiOverlay() {
       const result = await response.json();
       if (!response.ok || !result.ok || !Array.isArray(result.candles)) return;
       // The candles endpoint returns weeks of history (for the full Live
-      // Chart page), not just today — a sparkline needs only the most
-      // recent session's worth, both so the up/down color matches today's
-      // change_percent shown right next to it, and so it doesn't try to
-      // cram weeks of noise into a ~200px-wide line (~26 candles ≈ one
-      // NSE trading day at 15m).
+      // Chart page), not just today — a sparkline only needs the most
+      // recent session's worth, so it doesn't try to cram weeks of noise
+      // into a ~200px-wide line (~26 candles ≈ one NSE trading day at 15m).
       const recent = result.candles.slice(-26);
-      const closes = recent.map((candle) => Number(candle.close));
-      renderSparkline(`im-dash-${marketKey}-sparkline`, closes);
+      imLastSparklineCloses[marketKey] = recent.map((candle) => Number(candle.close));
+      redrawImDashboardSparkline(marketKey);
     } catch (error) {
       console.error(`Dashboard sparkline failed for ${marketKey}:`, error);
     }
