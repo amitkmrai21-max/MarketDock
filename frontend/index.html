@@ -49,6 +49,16 @@
     <span class="mode-slider-thumb"></span>
   </button>
 
+  <button
+    id="topSettingsMenuButton"
+    class="settings-menu-button top-settings-button"
+    type="button"
+    aria-label="Open settings"
+    aria-controls="settingsDrawer"
+  >
+    ☰
+  </button>
+
   <div id="aiErrorToast" class="ai-error-toast" role="status" aria-live="polite">
     <span class="ai-error-toast-icon">&#9888;</span>
     <span class="ai-error-toast-text" id="aiErrorToastText"></span>
@@ -113,15 +123,6 @@
             <button id="groqRetryBtn" class="retry-ai-btn" type="button" hidden>Try Again</button>
           </div>
         </div>
-        <button
-          id="settingsMenuButton"
-          class="settings-menu-button"
-          type="button"
-          aria-label="Open settings"
-          aria-controls="settingsDrawer"
-        >
-          ☰
-        </button>
       </div>
 
   <main class="dashboard">
@@ -1342,15 +1343,6 @@
           </p>
           <p class="tv-attribution">Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a>.</p>
         </div>
-        <button
-          id="imSettingsMenuButton"
-          class="settings-menu-button"
-          type="button"
-          aria-label="Open settings"
-          aria-controls="settingsDrawer"
-        >
-          ☰
-        </button>
       </header>
 
       <section class="page active" id="im-dashboard">

@@ -134,7 +134,7 @@ function updateApiKeyGate(provider, justSaved = false) {
 
 document.addEventListener("click", (event) => {
   if (event.target.closest && event.target.closest("[data-open-settings]")) {
-    document.getElementById("settingsMenuButton")?.click();
+    document.getElementById("topSettingsMenuButton")?.click();
   }
 });
 let liveChartTimeframe = "15m";
