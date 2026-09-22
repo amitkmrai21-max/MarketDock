@@ -4805,7 +4805,10 @@ function clearLiveChartAiOverlay() {
 
     if (!Array.isArray(rows) || !rows.length) {
       body.innerHTML = `<tr><td colspan="5">No symbols in this watchlist yet. Add one above.</td></tr>`;
-      if (status) status.textContent = "Empty";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Empty";
+      }
       return;
     }
 
@@ -4828,7 +4831,7 @@ function clearLiveChartAiOverlay() {
       })
       .join("");
 
-    if (status) status.textContent = "Live";
+    if (status) status.hidden = true;
   }
 
   async function fetchWatchlist() {
@@ -4837,7 +4840,10 @@ function clearLiveChartAiOverlay() {
 
     if (!watchlist.symbols.length) {
       renderWatchlist([]);
-      if (status) status.textContent = "Empty";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Empty";
+      }
       return;
     }
 
@@ -4850,7 +4856,10 @@ function clearLiveChartAiOverlay() {
       renderWatchlist(result.data);
     } catch (error) {
       console.error("Watchlist fetch failed:", error);
-      if (status) status.textContent = "Unavailable";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Unavailable";
+      }
       const body = document.getElementById("im-watchlist-body");
       if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load watchlist.")}</td></tr>`;
     }
@@ -5081,7 +5090,10 @@ function clearLiveChartAiOverlay() {
 
     if (!Array.isArray(rows) || !rows.length) {
       body.innerHTML = `<tr><td colspan="2">No F&amp;O watchlist data available right now.</td></tr>`;
-      if (status) status.textContent = "Unavailable";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Unavailable";
+      }
       return;
     }
 
@@ -5096,7 +5108,7 @@ function clearLiveChartAiOverlay() {
       )
       .join("");
 
-    if (status) status.textContent = "Live";
+    if (status) status.hidden = true;
   }
 
   async function fetchFoWatchlist() {
@@ -5110,7 +5122,10 @@ function clearLiveChartAiOverlay() {
       renderFoWatchlist(result.data);
     } catch (error) {
       console.error("F&O watchlist fetch failed:", error);
-      if (status) status.textContent = "Unavailable";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Unavailable";
+      }
     }
   }
 
@@ -5119,7 +5134,7 @@ function clearLiveChartAiOverlay() {
   function startFoWatchlistPolling() {
     if (foWatchlistTimer) return;
     fetchFoWatchlist();
-    foWatchlistTimer = window.setInterval(fetchFoWatchlist, 20000);
+    foWatchlistTimer = window.setInterval(fetchFoWatchlist, 5000);
   }
 
   function stopFoWatchlistPolling() {
@@ -5150,7 +5165,10 @@ function clearLiveChartAiOverlay() {
     const rows = Array.isArray(data.rows) ? data.rows : [];
     if (!rows.length) {
       body.innerHTML = `<tr><td colspan="7">No option chain data available for this expiry.</td></tr>`;
-      if (status) status.textContent = "Unavailable";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Unavailable";
+      }
       return;
     }
 
@@ -5192,7 +5210,7 @@ function clearLiveChartAiOverlay() {
     if (meta) {
       meta.textContent = `${data.market} · Expiry ${data.expiry} · Spot ${Number.isFinite(spot) ? formatNumber(spot) : "--"}`;
     }
-    if (status) status.textContent = "Live";
+    if (status) status.hidden = true;
 
     const pcrEl = document.getElementById("im-options-pcr");
     const pcrBiasEl = document.getElementById("im-options-pcr-bias");
@@ -5228,7 +5246,10 @@ function clearLiveChartAiOverlay() {
       renderOptionChain(result.data);
     } catch (error) {
       console.error("Option chain fetch failed:", error);
-      if (status) status.textContent = "Unavailable";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Unavailable";
+      }
       const body = document.getElementById("im-options-body");
       if (body) body.innerHTML = `<tr><td colspan="7">${escapeHtml(error.message || "Could not load the option chain.")}</td></tr>`;
     }
@@ -5241,7 +5262,10 @@ function clearLiveChartAiOverlay() {
     if (!select) return;
 
     if (meta) meta.textContent = "Loading expiries...";
-    if (status) status.textContent = "Loading...";
+    if (status) {
+      status.hidden = false;
+      status.textContent = "Loading...";
+    }
     select.innerHTML = "";
 
     try {
@@ -5258,7 +5282,10 @@ function clearLiveChartAiOverlay() {
     } catch (error) {
       console.error("Option expiries fetch failed:", error);
       if (meta) meta.textContent = error.message || "Could not load option expiries.";
-      if (status) status.textContent = "Unavailable";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Unavailable";
+      }
       const body = document.getElementById("im-options-body");
       if (body) body.innerHTML = `<tr><td colspan="7">${escapeHtml(error.message || "Could not load option expiries.")}</td></tr>`;
     }
@@ -5267,7 +5294,7 @@ function clearLiveChartAiOverlay() {
   function startOptionsChainPolling() {
     if (optionsChainTimer) return;
     loadOptionExpiries();
-    optionsChainTimer = window.setInterval(loadOptionChain, 20000);
+    optionsChainTimer = window.setInterval(loadOptionChain, 5000);
   }
 
   function stopOptionsChainPolling() {
@@ -5305,7 +5332,10 @@ function clearLiveChartAiOverlay() {
 
     if (!Array.isArray(rows) || !rows.length) {
       body.innerHTML = `<tr><td colspan="4">No commodity data available right now.</td></tr>`;
-      if (status) status.textContent = "Unavailable";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Unavailable";
+      }
       return;
     }
 
@@ -5326,7 +5356,7 @@ function clearLiveChartAiOverlay() {
       })
       .join("");
 
-    if (status) status.textContent = "Live";
+    if (status) status.hidden = true;
   }
 
   async function fetchCommodities() {
@@ -5340,7 +5370,10 @@ function clearLiveChartAiOverlay() {
       renderCommodities(result.data);
     } catch (error) {
       console.error("Commodities fetch failed:", error);
-      if (status) status.textContent = "Unavailable";
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Unavailable";
+      }
       const body = document.getElementById("im-commodities-body");
       if (body) body.innerHTML = `<tr><td colspan="4">${escapeHtml(error.message || "Could not load commodity prices.")}</td></tr>`;
     }
@@ -5351,7 +5384,7 @@ function clearLiveChartAiOverlay() {
   function startCommoditiesPolling() {
     if (commoditiesTimer) return;
     fetchCommodities();
-    commoditiesTimer = window.setInterval(fetchCommodities, 20000);
+    commoditiesTimer = window.setInterval(fetchCommodities, 5000);
   }
 
   function stopCommoditiesPolling() {
@@ -7430,7 +7463,7 @@ function clearLiveChartAiOverlay() {
   function startWatchlistPolling() {
     if (watchlistTimer) return;
     fetchWatchlist();
-    watchlistTimer = window.setInterval(fetchWatchlist, 20000);
+    watchlistTimer = window.setInterval(fetchWatchlist, 5000);
   }
 
   function stopWatchlistPolling() {
