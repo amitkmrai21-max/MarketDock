@@ -5598,10 +5598,11 @@ body[data-accent="green"] .settings-choice.active {
     height: auto;
     padding: 10px 14px;
     border-right: 0;
-    border-top: 1px solid var(--im-border);
+    border-top: 1px solid rgba(139, 92, 246, 0.35);
     border-bottom: 0;
-    background: var(--im-bg);
-    box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.35);
+    background: linear-gradient(180deg, rgba(28, 23, 48, 0.96), rgba(14, 11, 22, 0.98));
+    backdrop-filter: blur(14px);
+    box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.4);
   }
 
 .indian-market-mode .brand {
@@ -5624,6 +5625,18 @@ body[data-accent="green"] .settings-choice.active {
     width: auto;
     min-width: max-content;
     margin: 0;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+
+.indian-market-mode .nav-button.active {
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.45);
+  }
+
+.indian-market-mode .nav-button.active .nav-icon {
+    color: #ffffff;
   }
 
 .indian-market-mode .content {
