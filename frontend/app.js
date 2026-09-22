@@ -4721,10 +4721,11 @@ function clearLiveChartAiOverlay() {
   const IM_BIAS_MARKET_KEYS = ["nifty", "banknifty", "finnifty", "sensex"];
   const imLastDecisionLabel = {};
 
-  // Dashboard's "Market Bias" card: rolls up each index's own technical
+  // Dashboard's "Technical Bias" card: rolls up each index's own technical
   // decision (the same weighted RSI/EMA/VWAP/Supertrend/etc. score behind
   // that index's own "BUY SETUP"/"SELL SETUP"/"HOLD" call — not a separate
-  // AI judgment) into one bullish/bearish/neutral read across all 4.
+  // AI judgment, and not the same thing as today's price change_percent)
+  // into one bullish/bearish/neutral read across all 4.
   function updateMarketBiasCard() {
     const valueEl = document.getElementById("im-dash-market-bias-value");
     const changeEl = document.getElementById("im-dash-market-bias-change");
@@ -4748,7 +4749,13 @@ function clearLiveChartAiOverlay() {
     }
 
     valueEl.textContent = bias;
-    changeEl.textContent = `${bullish} bullish · ${bearish} bearish · ${neutral} neutral`;
+    // "buy/sell/hold setups", not "bullish/bearish" — this counts technical
+    // setups (RSI/EMA/Supertrend etc.), which can and does disagree with
+    // today's price move shown in the % pills above (e.g. an index can be
+    // up today while its setup still reads SELL, if it's running into
+    // resistance or an overbought reading) — different question, on
+    // purpose, not a contradiction.
+    changeEl.textContent = `${bullish} buy · ${bearish} sell · ${neutral} hold setups`;
     changeEl.className = `stat-change ${cls}`;
   }
 
