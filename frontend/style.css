@@ -5303,7 +5303,7 @@ body[data-accent="green"] .settings-choice.active {
    radius/border/shadow, tabular-mono numbers. Scoped to #im-dashboard so
    every other page keeps the normal rounded-card look. */
 #im-dashboard .stats-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
   border: 1px solid var(--im-border);
   border-radius: 10px;
@@ -5391,6 +5391,13 @@ body[data-accent="green"] .settings-choice.active {
     border-right: none;
   }
 
+  /* 5 cards in a 3-column grid leaves the last row with only 2 — span the
+     last card (Market Bias) across the remaining columns instead of
+     leaving an empty, still-bordered cell next to it. */
+  #im-dashboard .stats-grid .stat-card:last-child {
+    grid-column: span 2;
+  }
+
   #im-dashboard .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -5411,6 +5418,14 @@ body[data-accent="green"] .settings-choice.active {
   }
 
   #im-dashboard .stats-grid .stat-card:nth-child(even) {
+    border-right: none;
+  }
+
+  /* 5 cards in a 2-column grid leaves the last row with just 1 — span the
+     last card (Market Bias) across both columns instead of leaving an
+     empty, still-bordered cell next to it. */
+  #im-dashboard .stats-grid .stat-card:last-child {
+    grid-column: span 2;
     border-right: none;
   }
 }
