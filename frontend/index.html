@@ -137,6 +137,7 @@
 
         <div class="metrics">
           <div class="metric-box">
+            <canvas id="btcPriceSparkline" class="price-sparkline"></canvas>
             <span>BTC Price</span>
             <strong id="btcPrice">$--</strong>
           </div>
@@ -1353,27 +1354,31 @@
       <section class="page active" id="im-dashboard">
         <div class="stats-grid">
           <article class="card stat-card">
+            <canvas id="im-dash-nifty-sparkline" class="price-sparkline"></canvas>
             <div class="stat-label">NIFTY 50</div>
             <div class="stat-value" id="im-dash-nifty-price">24,680.55</div>
-            <div class="stat-change positive" id="im-dash-nifty-change">Loading…</div>
+            <div class="stat-change" id="im-dash-nifty-change">Loading…</div>
           </article>
 
           <article class="card stat-card">
+            <canvas id="im-dash-banknifty-sparkline" class="price-sparkline"></canvas>
             <div class="stat-label">Bank Nifty</div>
             <div class="stat-value" id="im-dash-banknifty-price">55,112.40</div>
-            <div class="stat-change positive" id="im-dash-banknifty-change">Loading…</div>
+            <div class="stat-change" id="im-dash-banknifty-change">Loading…</div>
           </article>
 
           <article class="card stat-card">
+            <canvas id="im-dash-finnifty-sparkline" class="price-sparkline"></canvas>
             <div class="stat-label">FINNIFTY</div>
             <div class="stat-value" id="im-dash-finnifty-price">25,076.65</div>
-            <div class="stat-change positive" id="im-dash-finnifty-change">Loading…</div>
+            <div class="stat-change" id="im-dash-finnifty-change">Loading…</div>
           </article>
 
           <article class="card stat-card">
+            <canvas id="im-dash-sensex-sparkline" class="price-sparkline"></canvas>
             <div class="stat-label">SENSEX</div>
             <div class="stat-value" id="im-dash-sensex-price">74,003.82</div>
-            <div class="stat-change positive" id="im-dash-sensex-change">Loading…</div>
+            <div class="stat-change" id="im-dash-sensex-change">Loading…</div>
           </article>
 
           <article class="card stat-card">

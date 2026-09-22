@@ -281,6 +281,59 @@ function formatPercent(value, suffix = "%") { const number = Number(value); retu
 function formatSignedScore(value) { const number = Number(value); return Number.isFinite(number) ? `${number > 0 ? "+" : ""}${number.toFixed(2)}` : "--"; }
 function toNumber(value) { const number = Number(value); return Number.isFinite(number) ? number : null; }
 
+// Solid colored "pill" badge for a % change value — used everywhere a price
+// change is shown, in both BTC and Indian Market mode, instead of plain
+// colored text.
+function changePillHtml(value, { arrow = true, decimals = 2 } = {}) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return `<span class="change-pill change-pill-neutral">--</span>`;
+  const isUp = number >= 0;
+  const glyph = arrow ? (isUp ? "▲ " : "▼ ") : "";
+  return `<span class="change-pill ${isUp ? "change-pill-up" : "change-pill-down"}">${glyph}${isUp ? "+" : ""}${number.toFixed(decimals)}%</span>`;
+}
+
+// Small trend-line "sparkline" drawn behind a price card, in place of a flat
+// number — same visual pattern for both BTC and Indian Market price cards.
+const __sparklineCharts = {};
+function renderSparkline(canvasId, values) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || typeof Chart === "undefined") return;
+  const points = Array.isArray(values) ? values.filter((value) => Number.isFinite(value)) : [];
+  if (points.length < 2) return;
+
+  if (__sparklineCharts[canvasId]) __sparklineCharts[canvasId].destroy();
+
+  const isUp = points[points.length - 1] >= points[0];
+  const lineColor = isUp ? "#34d399" : "#f87171";
+  const fillColor = isUp ? "rgba(52, 211, 153, 0.25)" : "rgba(248, 113, 113, 0.25)";
+
+  __sparklineCharts[canvasId] = new Chart(canvas.getContext("2d"), {
+    type: "line",
+    data: {
+      labels: points.map((_, index) => index),
+      datasets: [{
+        data: points,
+        borderColor: lineColor,
+        backgroundColor: fillColor,
+        borderWidth: 1.5,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 0,
+        pointHoverRadius: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      layout: { padding: 0 },
+      interaction: { intersect: false },
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: { x: { display: false }, y: { display: false } }
+    }
+  });
+}
+
 function getSignalColor(signal) {
   if (signal === "BUY") return "#34d399";
   if (signal === "SELL") return "#f87171";
@@ -1391,7 +1444,7 @@ function setupAlerts() {
 
   renderAlertSettings();
 }
-function updatePrice(data) { const btc = data?.bitcoin, price = Number(btc?.usd), change = Number(btc?.usd_24h_change || 0); if (!Number.isFinite(price)) throw new Error("Live BTC price was not received."); currentBtcPriceUsd = price; currentBtcPriceInr = price * USD_INR_RATE; setText("btcPrice", formatUsd(price)); const changeBox = getElement("btcChange"); if (changeBox) { changeBox.textContent = `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`; changeBox.style.color = change >= 0 ? "#34d399" : "#f87171"; } setText("marketUpdatedAt", `Live price updated: ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`);  renderPaperTrading(); checkPriceAlerts(price); }
+function updatePrice(data) { const btc = data?.bitcoin, price = Number(btc?.usd), change = Number(btc?.usd_24h_change || 0); if (!Number.isFinite(price)) throw new Error("Live BTC price was not received."); currentBtcPriceUsd = price; currentBtcPriceInr = price * USD_INR_RATE; setText("btcPrice", formatUsd(price)); const changeBox = getElement("btcChange"); if (changeBox) { changeBox.innerHTML = changePillHtml(change); } setText("marketUpdatedAt", `Live price updated: ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`);  renderPaperTrading(); checkPriceAlerts(price); }
   
 
 function getNewsImpactClass(impact) {
@@ -1702,6 +1755,21 @@ function renderGeminiNews(aiData = null) {
 
 async function loadPrice(force = false) { const response = await fetch(force ? "/api/btc/price?force_refresh=true" : "/api/btc/price", { cache: "no-store" }); if (!response.ok) throw new Error("Price API could not be loaded."); updatePrice(await response.json()); }
 async function loadChart() { const selected = timeframeSettings[activeTimeframe], response = await fetch(`/api/btc/chart?days=${selected.days}&interval=${selected.interval}`, { cache: "no-store" }); if (!response.ok) throw new Error("Chart API could not be loaded."); const chart = await response.json(), prices = Array.isArray(chart.prices) ? chart.prices : []; if (!prices.length) throw new Error("No chart data was received."); const step = Math.max(1, Math.ceil(prices.length / selected.maxPoints)), points = prices.filter((_, index) => index % step === 0 || index === prices.length - 1); renderChart(points.map((p) => new Date(p[0]).toLocaleString("en-IN", selected.dateOptions)), points.map((p) => p[1]), selected.label); }
+
+async function loadBtcSparkline() {
+  // The canvas has zero size while #btcModeRoot is hidden, which would size
+  // Chart.js's render buffer wrong — skip until this mode is actually shown.
+  if (document.getElementById("btcModeRoot")?.hidden) return;
+  try {
+    const response = await fetch(`/api/btc/chart?days=1&interval=15m`, { cache: "no-store" });
+    if (!response.ok) return;
+    const chart = await response.json();
+    const prices = Array.isArray(chart.prices) ? chart.prices.map((p) => p[1]) : [];
+    renderSparkline("btcPriceSparkline", prices);
+  } catch (error) {
+    console.error("BTC sparkline failed:", error);
+  }
+}
 async function loadAiAnalysis() {
   if (aiRefreshInProgress) return;
 
@@ -1819,6 +1887,7 @@ refreshAllData();
 
 setInterval(loadPrice, 30000);
 setInterval(loadChart, 60000);
+setInterval(loadBtcSparkline, 60000);
 
 setInterval(() => {
   if (typeof window.isAiPlanLocked === "function" && window.isAiPlanLocked()) return;
@@ -3723,6 +3792,11 @@ function clearLiveChartAiOverlay() {
       if (isIndian) window.IndianMarketMode.start();
       else window.IndianMarketMode.stop();
     }
+    // Both modes' price sparkline canvases have zero size while their root
+    // is hidden, so Chart.js can't size them correctly if drawn before that
+    // mode is ever shown — (re)draw whichever one just became visible.
+    if (isIndian && typeof window.loadImDashboardSparklines === "function") window.loadImDashboardSparklines();
+    if (!isIndian && typeof loadBtcSparkline === "function") loadBtcSparkline();
   }
 
   slider.addEventListener("click", () => {
@@ -4484,7 +4558,7 @@ function clearLiveChartAiOverlay() {
 
     const metrics = [
       ["Price", formatNumber(data.price)],
-      ["Change", `${data.change_percent >= 0 ? "+" : ""}${data.change_percent}%`],
+      ["Change", changePillHtml(data.change_percent), true],
       ["Open", formatNumber(data.open)],
       ["High", formatNumber(data.high)],
       ["Low", formatNumber(data.low)],
@@ -4502,10 +4576,10 @@ function clearLiveChartAiOverlay() {
 
     grid.innerHTML = metrics
       .map(
-        ([label, value]) => `
+        ([label, value, isHtml]) => `
           <div class="technical-item">
             <span>${escapeHtml(label)}</span>
-            <strong>${escapeHtml(value)}</strong>
+            <strong>${isHtml ? value : escapeHtml(value)}</strong>
           </div>
         `
       )
@@ -4610,16 +4684,13 @@ function clearLiveChartAiOverlay() {
     }
 
     const isLiveData = data.data_source === "live";
-    const changeArrow = data.change_percent >= 0 ? "\u25B2" : "\u25BC";
-    const changeClass = data.change_percent >= 0 ? "positive" : "negative";
-    const changeText = `${changeArrow} ${data.change_percent >= 0 ? "+" : ""}${data.change_percent}% ${isLiveData ? "" : "\u00B7 Demo"}`.trim();
 
     const tickerPrice = document.getElementById(`im-ticker-${marketKey}-price`);
     const tickerChange = document.getElementById(`im-ticker-${marketKey}-change`);
     if (tickerPrice) tickerPrice.textContent = formatNumber(data.price);
     if (tickerChange) {
-      tickerChange.textContent = `${changeArrow} ${data.change_percent >= 0 ? "+" : ""}${data.change_percent}%`;
-      tickerChange.className = `im-ticker-change ${changeClass}`;
+      tickerChange.className = "im-ticker-change";
+      tickerChange.innerHTML = changePillHtml(data.change_percent);
     }
     const tickerDot = document.getElementById("im-ticker-dot");
     const tickerStatusText = document.getElementById("im-ticker-status-text");
@@ -4656,8 +4727,8 @@ function clearLiveChartAiOverlay() {
     const dashChange = document.getElementById(`im-dash-${marketKey}-change`);
     if (dashPrice) dashPrice.textContent = formatNumber(data.price);
     if (dashChange) {
-      dashChange.textContent = changeText;
-      dashChange.className = `stat-change ${changeClass}`;
+      dashChange.className = "stat-change";
+      dashChange.innerHTML = changePillHtml(data.change_percent) + (isLiveData ? "" : ` <span class="im-demo-suffix">&middot; Demo</span>`);
     }
 
     const heroPrice = document.getElementById(`im-${marketKey}-hero-price`);
@@ -4665,8 +4736,8 @@ function clearLiveChartAiOverlay() {
     const heroEyebrow = document.getElementById(`im-${marketKey}-eyebrow`);
     if (heroPrice) heroPrice.textContent = formatNumber(data.price);
     if (heroChange) {
-      heroChange.textContent = `${changeArrow} ${data.change_percent >= 0 ? "+" : ""}${data.change_percent}%`;
-      heroChange.className = changeClass;
+      heroChange.className = "";
+      heroChange.innerHTML = changePillHtml(data.change_percent);
     }
     if (heroEyebrow) heroEyebrow.textContent = `NSE Index \u00B7 ${isLiveData ? "Live data" : "Demo values"}`;
 
@@ -4814,16 +4885,11 @@ function clearLiveChartAiOverlay() {
 
     body.innerHTML = rows
       .map((row) => {
-        const changePercent = Number(row.change_percent);
-        const hasChange = Number.isFinite(changePercent);
-        const arrow = hasChange ? (changePercent >= 0 ? "▲" : "▼") : "";
-        const changeClass = hasChange ? (changePercent >= 0 ? "positive" : "negative") : "";
-        const changeText = hasChange ? `${arrow} ${changePercent >= 0 ? "+" : ""}${changePercent}%` : "--";
         return `
           <tr>
             <td>${escapeHtml(row.symbol)}</td>
             <td>${formatNumber(row.last_price)}</td>
-            <td class="${changeClass}">${changeText}</td>
+            <td>${changePillHtml(row.change_percent)}</td>
             <td>${renderAiScoreBadge(row.ai_score, row.ai_label)}</td>
             <td><button class="delete-trade-button" type="button" data-remove-symbol="${escapeHtml(row.symbol)}">Remove</button></td>
           </tr>
@@ -5341,16 +5407,12 @@ function clearLiveChartAiOverlay() {
 
     body.innerHTML = rows
       .map((row) => {
-        const changePercent = Number(row.change_percent);
-        const hasChange = Number.isFinite(changePercent);
-        const changeClass = hasChange ? (changePercent >= 0 ? "positive" : "negative") : "";
-        const changeText = hasChange ? `${changePercent >= 0 ? "+" : ""}${changePercent}%` : "--";
         return `
           <tr>
             <td>${escapeHtml(row.name)}</td>
             <td>${escapeHtml(row.trading_symbol)} &middot; ${escapeHtml(row.expiry)}</td>
             <td>${formatNumber(row.last_price)}</td>
-            <td class="${changeClass}">${changeText}</td>
+            <td>${changePillHtml(row.change_percent, { arrow: false })}</td>
           </tr>
         `;
       })
@@ -5407,14 +5469,10 @@ function clearLiveChartAiOverlay() {
       return;
     }
 
-    const changePercent = mover.change_percent;
-    const isPositive = changePercent >= 0;
-    const arrow = isPositive ? "\u25B2" : "\u25BC";
-
     nameEl.textContent = mover.symbol;
     priceEl.textContent = formatNumber(mover.last_price);
-    changeEl.textContent = `${arrow} ${isPositive ? "+" : ""}${changePercent}%`;
-    changeEl.className = `im-mover-change ${isPositive ? "positive" : "negative"}`;
+    changeEl.className = "im-mover-change";
+    changeEl.innerHTML = changePillHtml(mover.change_percent);
   }
 
   async function fetchTopMover(indexKey) {
@@ -5439,6 +5497,29 @@ function clearLiveChartAiOverlay() {
   }
 
   fetchAllTopMovers();
+
+  async function loadImDashboardSparkline(marketKey) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/live/candles/${marketKey}?timeframe=15m`);
+      const result = await response.json();
+      if (!response.ok || !result.ok || !Array.isArray(result.candles)) return;
+      const closes = result.candles.map((candle) => Number(candle.close));
+      renderSparkline(`im-dash-${marketKey}-sparkline`, closes);
+    } catch (error) {
+      console.error(`Dashboard sparkline failed for ${marketKey}:`, error);
+    }
+  }
+
+  function loadImDashboardSparklines() {
+    // The canvases have zero size while #indianModeRoot is hidden, which
+    // would size Chart.js's render buffer wrong — skip until shown.
+    if (document.getElementById("indianModeRoot")?.hidden) return;
+    ["nifty", "banknifty", "finnifty", "sensex"].forEach(loadImDashboardSparkline);
+  }
+
+  loadImDashboardSparklines();
+  setInterval(loadImDashboardSparklines, 60000);
+  window.loadImDashboardSparklines = loadImDashboardSparklines;
 
   // ===================== RRG (Relative Rotation Graph) =====================
 
@@ -5736,16 +5817,15 @@ function clearLiveChartAiOverlay() {
         const quote = imRrgQuotesMap[symbol];
         const price = quote ? formatNumber(quote.last_price) : "--";
         const change = quote && quote.change_percent !== null && quote.change_percent !== undefined
-          ? `${quote.change_percent >= 0 ? "+" : ""}${quote.change_percent}%`
-          : "--";
-        const changeClass = quote && quote.change_percent >= 0 ? "positive" : "negative";
+          ? changePillHtml(quote.change_percent, { arrow: false })
+          : `<span class="change-pill change-pill-neutral">--</span>`;
         const checked = imRrgSelectedSymbols.has(symbol) ? "checked" : "";
         return `
           <div class="im-rrg-symbol-row" data-symbol="${escapeHtml(symbol)}">
             <input type="checkbox" class="im-rrg-symbol-check" data-symbol="${escapeHtml(symbol)}" ${checked} />
             <span class="im-rrg-symbol-row-name">${escapeHtml(symbol)}</span>
             <span class="im-rrg-symbol-row-price">${price}</span>
-            <span class="im-rrg-symbol-row-change ${changeClass}">${change}</span>
+            <span class="im-rrg-symbol-row-change">${change}</span>
           </div>
         `;
       })
@@ -5894,8 +5974,8 @@ function clearLiveChartAiOverlay() {
             const changeEl = document.getElementById(`im-rrg-change-${q.symbol}`);
             if (priceEl) priceEl.textContent = formatNumber(q.last_price);
             if (changeEl && q.change_percent !== null && q.change_percent !== undefined) {
-              changeEl.textContent = `${q.change_percent >= 0 ? "+" : ""}${q.change_percent}%`;
-              changeEl.className = `im-rrg-symbol-row-change ${q.change_percent >= 0 ? "positive" : "negative"}`;
+              changeEl.className = "im-rrg-symbol-row-change";
+              changeEl.innerHTML = changePillHtml(q.change_percent, { arrow: false });
             }
           });
           // Any symbol in this chunk that couldn't be resolved/quoted —
@@ -5927,15 +6007,14 @@ function clearLiveChartAiOverlay() {
         const quote = imRrgQuotesMap[symbol];
         const price = quote ? formatNumber(quote.last_price) : "--";
         const change = quote && quote.change_percent !== null && quote.change_percent !== undefined
-          ? `${quote.change_percent >= 0 ? "+" : ""}${quote.change_percent}%`
-          : "--";
-        const changeClass = quote && quote.change_percent >= 0 ? "positive" : "negative";
+          ? changePillHtml(quote.change_percent, { arrow: false })
+          : `<span class="change-pill change-pill-neutral">--</span>`;
         return `
           <div class="im-rrg-symbol-row" data-symbol="${escapeHtml(symbol)}">
             <input type="checkbox" class="im-rrg-symbol-check" data-symbol="${escapeHtml(symbol)}" checked />
             <span class="im-rrg-symbol-row-name">${escapeHtml(symbol)}</span>
             <span class="im-rrg-symbol-row-price">${price}</span>
-            <span class="im-rrg-symbol-row-change ${changeClass}">${change}</span>
+            <span class="im-rrg-symbol-row-change">${change}</span>
           </div>
         `;
       })
@@ -6553,15 +6632,13 @@ function clearLiveChartAiOverlay() {
     }
     body.innerHTML = rows
       .map((r, i) => {
-        const changeClass = r.change_percent >= 0 ? "positive" : "negative";
-        const changeLabel = `${r.change_percent >= 0 ? "+" : ""}${r.change_percent.toFixed(2)}%`;
         return `
           <tr>
             <td>${i + 1}</td>
             <td>${escapeHtml(r.symbol)}</td>
             <td>${escapeHtml(r.name || "")}</td>
             <td>${formatNumber(r.last_price)}</td>
-            <td class="${changeClass}">${changeLabel}</td>
+            <td>${changePillHtml(r.change_percent)}</td>
           </tr>
         `;
       })
