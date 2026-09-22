@@ -1393,18 +1393,25 @@
           <article class="card section-card">
             <div class="section-heading">
               <div>
-                <h2>Market Trend Workspace</h2>
-                <p>Chart integration will be added after the dashboard structure is ready.</p>
+                <h2>AI Market Review</h2>
+                <p id="im-dashboard-ai-status">Not run yet — click "Run AI Analysis".</p>
               </div>
-              <span class="tag">Demo chart</span>
+              <span class="tag" id="im-dashboard-ai-provider-badge" hidden></span>
             </div>
 
-            <div class="chart-placeholder">
-              <div class="chart-note">
-                This placeholder represents the future NIFTY 50 / Bank Nifty technical chart area.
-                Next phases will add selected timeframe, trend indicators, and research notes.
+            <div class="chart-controls">
+              <div class="chart-control-group">
+                <span class="chart-control-label">Index</span>
+                <button class="chart-control-button active" type="button" data-im-dashboard-ai-market="nifty">NIFTY 50</button>
+                <button class="chart-control-button" type="button" data-im-dashboard-ai-market="banknifty">Bank Nifty</button>
               </div>
-              <div class="line-chart"></div>
+            </div>
+
+            <button class="primary-button" id="im-dashboard-ai-run-btn" type="button">Run AI Analysis</button>
+
+            <div id="im-dashboard-ai-result" hidden>
+              <div id="im-dashboard-ai-analysis" class="gemini-review-body"></div>
+              <p class="provider-note">Educational technical-analysis summary only. Not financial advice.</p>
             </div>
           </article>
 
