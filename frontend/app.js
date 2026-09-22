@@ -3643,6 +3643,8 @@ function clearLiveChartAiOverlay() {
   const indianRoot = document.getElementById("indianModeRoot");
   const slider = document.getElementById("modeSliderToggle");
   const brandSubtitle = document.getElementById("brandSubtitle");
+  const statusBadge = document.getElementById("topMarketStatus");
+  const statusText = document.getElementById("topMarketStatusText");
   if (!btcRoot || !indianRoot || !slider) return;
 
   function setMode(mode) {
@@ -3654,6 +3656,11 @@ function clearLiveChartAiOverlay() {
       brandSubtitle.textContent = isIndian
         ? "NIFTY 50 and Bank Nifty research dashboard with paper-trading workflow"
         : "Live market analysis and Gemini/Groq AI signals";
+    }
+    if (statusBadge && statusText && !isIndian) {
+      statusBadge.classList.remove("status-closed");
+      statusBadge.classList.add("status-live");
+      statusText.textContent = "Live";
     }
     try { localStorage.setItem("btcAiSignalActiveMode", mode); } catch (error) { /* ignore */ }
     if (window.IndianMarketMode) {
@@ -4562,6 +4569,22 @@ function clearLiveChartAiOverlay() {
         tickerStatusText.textContent = "Live";
       } else {
         tickerStatusText.textContent = "Closed";
+      }
+    }
+
+    const topStatusBadge = document.getElementById("topMarketStatus");
+    const topStatusText = document.getElementById("topMarketStatusText");
+    if (topStatusBadge && topStatusText && !document.getElementById("indianModeRoot").hidden) {
+      const sessionStatus = data.session_status;
+      topStatusBadge.classList.remove("status-live", "status-closed");
+      if (!isLiveData) {
+        topStatusText.textContent = "Demo";
+      } else if (sessionStatus === "live") {
+        topStatusBadge.classList.add("status-live");
+        topStatusText.textContent = "Live";
+      } else {
+        topStatusBadge.classList.add("status-closed");
+        topStatusText.textContent = "Closed";
       }
     }
 
