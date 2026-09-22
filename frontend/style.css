@@ -5832,7 +5832,7 @@ body[data-accent="green"] .settings-choice.active {
     top: 25%;
     height: 50%;
     width: 1px;
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--border-strong);
   }
 
 .indian-market-mode .content {
