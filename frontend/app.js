@@ -299,11 +299,29 @@ function changePillHtml(value, { arrow = true, decimals = 2 } = {}) {
 // polyline + fill with no interactivity, and not depending on Chart.js
 // having finished loading from its CDN keeps this working even if that
 // script is slow, blocked, or fails on a given network.
+// A raw 15m-candle close series is mostly short-term noise for a single
+// liquid large-cap/index — plotted un-smoothed and stretched to fill the
+// card's full height, that noise reads as a meaningless zigzag instead of
+// a trend, so bullish and bearish cards end up looking about the same. A
+// short moving average keeps the real shape (still real data, not
+// fabricated) while making the actual direction the dominant visual signal.
+function smoothSeries(points, windowSize = 4) {
+  if (points.length <= windowSize) return points;
+  const smoothed = [];
+  for (let i = 0; i < points.length; i++) {
+    const start = Math.max(0, i - windowSize + 1);
+    const slice = points.slice(start, i + 1);
+    smoothed.push(slice.reduce((sum, value) => sum + value, 0) / slice.length);
+  }
+  return smoothed;
+}
+
 function renderSparkline(canvasId, values, forceIsUp) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
-  const points = Array.isArray(values) ? values.filter((value) => Number.isFinite(value)) : [];
-  if (points.length < 2) return;
+  const raw = Array.isArray(values) ? values.filter((value) => Number.isFinite(value)) : [];
+  if (raw.length < 2) return;
+  const points = smoothSeries(raw);
 
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
@@ -329,18 +347,22 @@ function renderSparkline(canvasId, values, forceIsUp) {
   const max = Math.max(...points);
   const range = max - min || 1;
   const stepX = width / (points.length - 1);
-  const topPad = 3;
+  const topPad = 4;
   const toY = (value) => topPad + (1 - (value - min) / range) * (height - topPad * 2);
 
+  const coords = points.map((value, index) => ({ x: index * stepX, y: toY(value) }));
+
   ctx.beginPath();
-  points.forEach((value, index) => {
-    const x = index * stepX;
-    const y = toY(value);
-    if (index === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
-  });
+  ctx.moveTo(coords[0].x, coords[0].y);
+  for (let i = 1; i < coords.length - 1; i++) {
+    const midX = (coords[i].x + coords[i + 1].x) / 2;
+    const midY = (coords[i].y + coords[i + 1].y) / 2;
+    ctx.quadraticCurveTo(coords[i].x, coords[i].y, midX, midY);
+  }
+  const last = coords[coords.length - 1];
+  ctx.lineTo(last.x, last.y);
   ctx.strokeStyle = lineColor;
-  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 1.75;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
   ctx.stroke();
