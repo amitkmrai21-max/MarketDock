@@ -3893,11 +3893,11 @@ body[data-accent="green"] .settings-choice.active {
   min-height: 480px;
   margin-top: 16px;
   overflow: hidden;
-  border: 1px solid rgba(139, 92, 246, 0.34);
+  border: 1px solid var(--border-strong, rgba(139, 92, 246, 0.34));
   border-radius: 14px;
   background:
     radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.08), transparent 26rem),
-    #0c0a14;
+    var(--surface, #0c0a14);
 }
 
 .live-candlestick-chart > div {
@@ -3957,7 +3957,7 @@ body[data-accent="green"] .settings-choice.active {
   padding: 6px;
   border: 1px solid var(--border-strong);
   border-radius: 10px;
-  background: rgba(15, 12, 22, 0.88);
+  background: var(--surface-elevated);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 
@@ -3969,7 +3969,7 @@ body[data-accent="green"] .settings-choice.active {
   height: 32px;
   border-radius: 7px;
   border: 1px solid var(--border-strong);
-  background: rgba(24, 17, 32, 0.6);
+  background: var(--surface-soft);
   color: var(--text);
   font-size: 0.95rem;
   line-height: 1;
@@ -6007,10 +6007,10 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .chart-control-button {
   padding: 8px 10px;
-  border: 1px solid rgba(139, 92, 246, 0.2);
+  border: 1px solid var(--im-border);
   border-radius: 8px;
   color: var(--im-muted);
-  background: rgba(26, 21, 42, 0.55);
+  background: var(--im-panel-2);
   cursor: pointer;
   font-size: 12px;
   font-weight: 800;
@@ -6616,9 +6616,9 @@ body[data-accent="green"] .settings-choice.active {
   gap: 18px;
   margin-bottom: 18px;
   padding: 14px;
-  border: 1px solid rgba(38, 33, 56, 0.85);
+  border: 1px solid var(--im-border);
   border-radius: 11px;
-  background: rgba(26, 21, 42, 0.42);
+  background: var(--im-panel-2);
 }
 
 .indian-market-mode .chart-price-label {
@@ -6645,9 +6645,9 @@ body[data-accent="green"] .settings-choice.active {
   min-height: 600px;
   margin-top: 16px;
   overflow: hidden;
-  border: 1px solid rgba(139, 92, 246, 0.28);
+  border: 1px solid var(--im-border);
   border-radius: 12px;
-  background: #0c0a14;
+  background: var(--im-panel);
 }
 
 .indian-market-mode .im-chart-status {
