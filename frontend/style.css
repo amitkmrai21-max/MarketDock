@@ -3510,14 +3510,160 @@ body {
 .settings-group > label {
   display: block;
   margin-bottom: 9px;
-  color: var(--text);
-  font-size: 0.92rem;
+  color: var(--muted);
+  font-size: 0.74rem;
   font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.settings-section {
+  margin: 0 0 18px;
+  padding: 16px 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.settings-section-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(139, 92, 246, 0.14);
+  color: var(--accent);
+}
+
+.settings-section-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.settings-section-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.settings-section-desc {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.settings-section .settings-group {
+  margin: 0 0 16px;
+}
+
+.settings-section .settings-group:last-child {
+  margin-bottom: 0;
+}
+
+.settings-section--danger {
+  border-color: rgba(239, 68, 68, 0.32);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.settings-section--danger .settings-section-icon {
+  background: rgba(239, 68, 68, 0.16);
+  color: #ef4444;
+}
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.account-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), rgba(255, 255, 255, 0.2));
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.05rem;
+  text-transform: uppercase;
+}
+
+.account-identity-email {
+  margin: 0 0 2px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.95rem;
+  word-break: break-all;
+}
+
+.settings-password-field {
+  position: relative;
+  margin-bottom: 9px;
+}
+
+.settings-password-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 42px 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-password-field input:focus {
+  border-color: var(--accent);
+}
+
+.password-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.password-toggle-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.password-toggle-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
 .settings-name-row {
   display: flex;
   gap: 9px;
+  margin-bottom: 9px;
+}
+
+.settings-group--plain .settings-name-row:last-child {
+  margin-bottom: 0;
 }
 
 .settings-name-row input {
@@ -3579,6 +3725,57 @@ body {
   border-color: var(--accent);
   background: rgba(139, 92, 246, 0.14);
   color: var(--text);
+}
+
+.theme-choice,
+.accent-choice {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding-left: 12px;
+}
+
+.settings-choice-icon {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+}
+
+.accent-swatch {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.accent-choice[data-accent-choice="blue"] .accent-swatch {
+  background: #3b82f6;
+}
+
+.accent-choice[data-accent-choice="purple"] .accent-swatch {
+  background: #a855f7;
+}
+
+.accent-choice[data-accent-choice="gold"] .accent-swatch {
+  background: #f59e0b;
+}
+
+.accent-choice[data-accent-choice="green"] .accent-swatch {
+  background: #22c55e;
+}
+
+.text-size-choice[data-text-size-choice="compact"] {
+  font-size: 0.78rem;
+}
+
+.text-size-choice[data-text-size-choice="normal"] {
+  font-size: 0.88rem;
+}
+
+.text-size-choice[data-text-size-choice="large"] {
+  font-size: 1.04rem;
 }
 
 .settings-preferences-note {
