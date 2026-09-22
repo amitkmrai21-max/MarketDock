@@ -51,7 +51,13 @@
    Indian Market mode wherever a change_percent value is shown, in place of
    plain colored text. */
 .change-pill {
-  display: inline-flex;
+  /* !important throughout: this pill gets nested inside all sorts of
+     existing "span"/"strong" typography resets (card labels, technical
+     metric values, etc.) across the app that otherwise stretch it full
+     width and mute its text color — it should always look like a pill,
+     regardless of where it's placed. */
+  display: inline-flex !important;
+  width: auto !important;
   align-items: center;
   gap: 3px;
   padding: 3px 9px;
@@ -60,7 +66,7 @@
   font-weight: 800;
   line-height: 1.4;
   white-space: nowrap;
-  color: #ffffff;
+  color: #ffffff !important;
 }
 
 .change-pill-up {
