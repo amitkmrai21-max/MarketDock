@@ -5585,15 +5585,22 @@ body[data-accent="green"] .settings-choice.active {
   }
 
 .indian-market-mode .app-shell {
-    display: block;
+    display: flex;
+    flex-direction: column;
+  }
+
+.indian-market-mode .content {
+    order: 1;
   }
 
 .indian-market-mode .sidebar {
+    order: 2;
     position: static;
     height: auto;
     padding: 14px;
     border-right: 0;
-    border-bottom: 1px solid var(--im-border);
+    border-top: 1px solid var(--im-border);
+    border-bottom: 0;
   }
 
 .indian-market-mode .brand {
