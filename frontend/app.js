@@ -6808,6 +6808,68 @@ function clearLiveChartAiOverlay() {
     }
   }
 
+  let imDashboardAiMarket = "nifty";
+
+  async function runImDashboardAiReview(marketKey) {
+    const statusEl = document.getElementById("im-dashboard-ai-status");
+    const providerBadge = document.getElementById("im-dashboard-ai-provider-badge");
+    const resultEl = document.getElementById("im-dashboard-ai-result");
+    const analysisEl = document.getElementById("im-dashboard-ai-analysis");
+    const runBtn = document.getElementById("im-dashboard-ai-run-btn");
+    const marketLabel = marketKey === "banknifty" ? "Bank Nifty" : "NIFTY 50";
+
+    if (statusEl) statusEl.textContent = `Analysing ${marketLabel}…`;
+    if (resultEl) resultEl.hidden = true;
+    if (providerBadge) providerBadge.hidden = true;
+    if (runBtn) runBtn.disabled = true;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ai-market-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ market: marketKey })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "AI market review failed.");
+
+      const generated = new Date(result.generated_at);
+      const stamp = generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+      if (statusEl) {
+        statusEl.textContent = result.data_source === "live"
+          ? `Live snapshot · ${stamp}`
+          : `Demo snapshot (live data unavailable) · ${stamp}`;
+      }
+      if (providerBadge) {
+        providerBadge.textContent = result.provider === "GROQ" ? "AI · Groq" : "AI · Gemini";
+        providerBadge.hidden = false;
+      }
+      if (analysisEl) renderGeminiReview(analysisEl, result.analysis);
+      if (resultEl) resultEl.hidden = false;
+    } catch (error) {
+      console.error("AI market review failed:", error);
+      if (statusEl) statusEl.textContent = friendlyAiErrorMessage(error.message);
+      if (resultEl) resultEl.hidden = true;
+      showAiErrorToast(error.message);
+    } finally {
+      if (runBtn) runBtn.disabled = false;
+    }
+  }
+
+  function setupImDashboardAiReview() {
+    const runBtn = document.getElementById("im-dashboard-ai-run-btn");
+    const marketButtons = [...document.querySelectorAll("[data-im-dashboard-ai-market]")];
+    if (!runBtn || !marketButtons.length) return;
+
+    marketButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        imDashboardAiMarket = button.dataset.imDashboardAiMarket;
+        marketButtons.forEach((item) => item.classList.toggle("active", item === button));
+      });
+    });
+
+    runBtn.addEventListener("click", () => runImDashboardAiReview(imDashboardAiMarket));
+  }
+
   function setupImAiScannerSearch() {
     const input = document.getElementById("im-ai-scanner-search-input");
     const resultsEl = document.getElementById("im-ai-scanner-search-results");
@@ -6860,6 +6922,7 @@ function clearLiveChartAiOverlay() {
   }
 
   setupImAiScannerSearch();
+  setupImDashboardAiReview();
 
   // ===================== Stock Detail (any NSE stock) =====================
   // Chart + technicals + news for an arbitrary stock in one page. Reuses

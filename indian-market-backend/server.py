@@ -2214,6 +2214,85 @@ Rules:
         return jsonify({"ok": False, "error": "AI analysis is temporarily unavailable. Please try again later.", "reason": "unknown"}), 502
 
 
+@app.post("/api/ai-market-review")
+def ai_market_review():
+    """Dashboard-level AI review for one of the fixed index markets (NIFTY 50
+    / Bank Nifty / etc.) — same Gemini/Groq Hinglish readout as the AI Chart
+    Scanner, just sourced from the index snapshot (with its demo-data
+    fallback) instead of an arbitrary stock lookup. Educational only."""
+    payload = request.get_json(silent=True) or {}
+    market_key = str(payload.get("market", "")).strip().lower()
+
+    if market_key not in UPSTOX_MARKETS:
+        return jsonify({"ok": False, "error": "Please provide a valid market (nifty or banknifty)."}), 400
+
+    if not GEMINI_API_KEY and not GROQ_API_KEY:
+        return jsonify({"ok": False, "error": "AI analysis is not configured on the server."}), 503
+
+    market_name = UPSTOX_MARKETS[market_key]["name"]
+    snapshot, is_live = get_market_snapshot_with_fallback(market_key)
+
+    def field(key, default="--"):
+        value = snapshot.get(key)
+        return default if value is None else value
+
+    indicators_text = f"""Price: {field('price')}
+Open: {field('open')} | High: {field('high')} | Low: {field('low')}
+RSI(14): {field('rsi_14')}
+EMA 9/21/50: {field('ema_9')} / {field('ema_21')} / {field('ema_50')}
+VWAP: {field('vwap')}
+MACD histogram: {field('macd_histogram')}
+ATR(14): {field('atr_14')}
+Support: {field('support')} | Resistance: {field('resistance')}
+Trend (5m/15m/1h): {field('trend_5m')} / {field('trend_15m')} / {field('trend_1h')}
+Volume vs 20-candle average: {field('volume_ratio')}x"""
+
+    prompt = f"""
+You are an educational technical-analysis explainer for a retail Indian-market research/paper-trading app.
+This is strictly educational, not financial advice, and must never instruct the user to place a real trade.
+
+Here are the current {'live' if is_live else 'demo (market data unavailable right now)'} technical readings for {market_name}, from 5-minute candles today:
+{indicators_text}
+
+Write a concise Hinglish summary with exactly these five headings:
+1. Trend
+2. Momentum
+3. Key Levels
+4. Setup
+5. Risk Note
+
+Rules:
+- Base your analysis only on the numbers given above. Do not invent news, fundamentals, or data not shown.
+- For "Setup", describe honestly what the data suggests (Breakout / Pullback / Range / No clear setup) — do not force a setup if the indicators are mixed.
+- Do not use imperative execution language ("buy now", "sell now", "enter here").
+- Keep the reply under 180 words.
+"""
+
+    try:
+        analysis_text, provider = generate_ai_text(prompt)
+
+        return jsonify(
+            {
+                "ok": True,
+                "market": market_key,
+                "market_name": market_name,
+                "generated_at": now_utc(),
+                "data_source": "live" if is_live else "demo_fallback",
+                "indicators": snapshot,
+                "analysis": analysis_text,
+                "provider": provider,
+                "disclaimer": "Educational technical-analysis summary only. Not financial advice.",
+            }
+        )
+    except (genai_errors.APIError, groq_sdk.APIError) as error:
+        app.logger.exception("AI market review request failed for %s", market_key)
+        reason, friendly_message = describe_ai_error(error)
+        return jsonify({"ok": False, "error": friendly_message, "reason": reason}), 502
+    except Exception:
+        app.logger.exception("AI market review request failed for %s", market_key)
+        return jsonify({"ok": False, "error": "AI analysis is temporarily unavailable. Please try again later.", "reason": "unknown"}), 502
+
+
 @app.get("/api/stock-technical/<symbol>")
 def stock_technical(symbol):
     """Same indicator set as the AI Chart Scanner, but plain JSON with no AI
