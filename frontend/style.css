@@ -89,10 +89,6 @@ button:disabled {
   gap: 10px;
 }
 
-body > header.topbar {
-  justify-content: flex-start;
-}
-
 .brand-logo {
   width: 46px;
   height: 46px;
@@ -1733,11 +1729,6 @@ canvas {
     padding: 17px;
   }
 
-  body > header.topbar {
-    flex-direction: row;
-    align-items: center;
-  }
-
   .topbar-actions {
     width: 100%;
     display: grid;
@@ -2876,7 +2867,10 @@ body {
 }
 
 .mode-slider {
-  flex-shrink: 0;
+  position: fixed;
+  top: 12px;
+  right: 46px;
+  z-index: 60;
   display: flex;
   align-items: center;
   width: 66px;
@@ -2940,6 +2934,13 @@ body {
 .mode-slider[data-mode="btc"] .mode-slider-label-right {
   color: #2b1400;
   transform: scale(1.05);
+}
+
+@media (max-width: 720px) {
+  .mode-slider {
+    top: 17px;
+    right: 17px;
+  }
 }
 
 .ptr-indicator {
