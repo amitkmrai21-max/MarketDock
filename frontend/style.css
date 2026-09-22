@@ -148,9 +148,9 @@ body > header.topbar {
 }
 
 .brand-logo {
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
   border: 1px solid rgba(139, 92, 246, 0.55);
   border-radius: 9px;
   object-fit: contain;
@@ -159,7 +159,7 @@ body > header.topbar {
 
 .brand h1 {
   margin: 0;
-  font-size: 19px;
+  font-size: 22px;
   line-height: 1.15;
 }
 
@@ -4414,7 +4414,7 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .im-mover-stock-name {
   margin-top: 8px;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -5151,7 +5151,7 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .eyebrow {
   margin: 0 0 8px;
   color: var(--im-blue);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.1px;
   text-transform: uppercase;
@@ -5159,13 +5159,14 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode h1 {
   margin: 0;
-  font-size: clamp(25px, 3vw, 36px);
+  font-size: clamp(21px, 2.6vw, 30px);
   line-height: 1.15;
 }
 
 .indian-market-mode .subtitle {
   margin: 9px 0 0;
   color: var(--im-muted);
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -5247,15 +5248,21 @@ body[data-accent="green"] .settings-choice.active {
 .indian-market-mode .stat-label {
   color: var(--im-muted);
   font-size: 13px;
+  font-weight: 700;
 }
 
 .indian-market-mode .stat-value {
   margin-top: 8px;
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.4px;
+}
+
+.indian-market-mode .stat-card .change-pill {
+  font-size: 11px;
+  padding: 2px 8px;
 }
 
 .indian-market-mode .stat-change {
