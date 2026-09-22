@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
 import requests
-from fastapi import Body, FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -24,6 +24,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Same project/publishable key the frontend uses (frontend/app.js) — safe to
+# hardcode, matches the client-side values. Only the service role key below
+# is a secret and must come from an environment variable.
+SUPABASE_URL = "https://qvgfxtjwgrtytjdjcebj.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_DRsCPkKaKRYPrQDFtqV0xQ_7QeP4kYh"
 
 BINANCE_BASE_URL = "https://data-api.binance.vision"
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
@@ -1762,6 +1768,58 @@ async def chart_analyser(file: UploadFile = File(...)):
     except Exception as error:
         print(f"Gemini chart analysis error: {error}")
         raise HTTPException(status_code=503, detail="Chart Gemini AI is temporarily unavailable. Please try again later.") from error
+
+
+@app.post("/api/account/delete")
+def delete_account(authorization: str = Header(None)):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Missing account session.")
+    access_token = authorization.split(" ", 1)[1].strip()
+
+    service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not service_role_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Account deletion is not configured on the server yet.",
+        )
+
+    try:
+        user_response = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={
+                "apikey": SUPABASE_ANON_KEY,
+                "Authorization": f"Bearer {access_token}",
+            },
+            timeout=10,
+        )
+        user_response.raise_for_status()
+        user_id = user_response.json().get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Could not verify account session.")
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(f"Supabase user lookup error: {error}")
+        raise HTTPException(status_code=401, detail="Could not verify account session.") from error
+
+    try:
+        delete_response = requests.delete(
+            f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            headers={
+                "apikey": service_role_key,
+                "Authorization": f"Bearer {service_role_key}",
+            },
+            timeout=10,
+        )
+        if delete_response.status_code not in (200, 204):
+            raise HTTPException(status_code=502, detail="Account deletion failed. Please try again.")
+    except HTTPException:
+        raise
+    except Exception as error:
+        print(f"Supabase account delete error: {error}")
+        raise HTTPException(status_code=502, detail="Account deletion failed. Please try again.") from error
+
+    return {"deleted": True}
 
 
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
