@@ -1733,10 +1733,6 @@ canvas {
     padding: 17px;
   }
 
-  body > header.topbar {
-    padding-bottom: 26px;
-  }
-
   .topbar-actions {
     width: 100%;
     display: grid;
@@ -2980,8 +2976,11 @@ body {
 
 @media (max-width: 720px) {
   .settings-menu-button.top-settings-button {
-    top: 72px;
-    right: 17px;
+    top: auto;
+    bottom: 14px;
+    right: 14px;
+    width: 38px;
+    height: 38px;
   }
 }
 
@@ -5619,6 +5618,7 @@ body[data-accent="green"] .settings-choice.active {
     gap: 7px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    padding-right: 52px;
   }
 
 .indian-market-mode .nav-button {
@@ -5637,6 +5637,20 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .nav-button.active .nav-icon {
     color: #ffffff;
+  }
+
+.indian-market-mode .sidebar .nav .nav-button:not(:first-child) {
+    position: relative;
+  }
+
+.indian-market-mode .sidebar .nav .nav-button:not(:first-child)::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 25%;
+    height: 50%;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.12);
   }
 
 .indian-market-mode .content {
