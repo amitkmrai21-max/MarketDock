@@ -618,6 +618,19 @@ def resample_candles(candles, group_size):
     return resampled
 
 
+def is_nse_market_hours():
+    """True only within NSE's regular equity session — 09:15 to 15:30 IST,
+    Monday to Friday. (Doesn't account for exchange holidays, which would
+    need a maintained holiday calendar; those still fall on a weekday so
+    this alone can't catch them.)"""
+    now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+    if now_ist.weekday() >= 5:  # Saturday=5, Sunday=6
+        return False
+    market_open = now_ist.replace(hour=9, minute=15, second=0, microsecond=0)
+    market_close = now_ist.replace(hour=15, minute=30, second=0, microsecond=0)
+    return market_open <= now_ist <= market_close
+
+
 def classify_trend(candles, fast_period=9, slow_period=21):
     """Bullish/bearish/neutral from EMA alignment on a candle series."""
     closes = [c["close"] for c in candles]
@@ -660,9 +673,7 @@ def build_technical_snapshot(name, candles_5m):
     candles_15m = resample_candles(candles_5m, 3)
     candles_1h = resample_candles(candles_5m, 12)
 
-    latest_candle_date = candles_5m[-1]["time"][:10]
-    today_ist = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date().isoformat()
-    session_status = "live" if latest_candle_date == today_ist else "closed"
+    session_status = "live" if is_nse_market_hours() else "closed"
 
     return {
         "name": name,
