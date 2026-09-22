@@ -6367,6 +6367,10 @@ body[data-accent="green"] .settings-choice.active {
   min-width: 220px;
 }
 
+.indian-market-mode .im-dashboard-ai-search-wrap {
+  margin-top: 14px;
+}
+
 .indian-market-mode .im-watchlist-search-wrap input {
   width: 100%;
   padding: 10px 12px;

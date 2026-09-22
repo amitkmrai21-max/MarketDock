@@ -6811,6 +6811,12 @@ function clearLiveChartAiOverlay() {
   }
 
   let imDashboardAiMarket = "nifty";
+  const IM_DASHBOARD_AI_MARKET_LABELS = {
+    nifty: "NIFTY 50",
+    banknifty: "Bank Nifty",
+    finnifty: "FINNIFTY",
+    sensex: "Sensex"
+  };
 
   async function runImDashboardAiReview(marketKey) {
     const statusEl = document.getElementById("im-dashboard-ai-status");
@@ -6818,7 +6824,7 @@ function clearLiveChartAiOverlay() {
     const resultEl = document.getElementById("im-dashboard-ai-result");
     const analysisEl = document.getElementById("im-dashboard-ai-analysis");
     const runBtn = document.getElementById("im-dashboard-ai-run-btn");
-    const marketLabel = marketKey === "banknifty" ? "Bank Nifty" : "NIFTY 50";
+    const marketLabel = IM_DASHBOARD_AI_MARKET_LABELS[marketKey] || marketKey;
 
     if (statusEl) statusEl.textContent = `Analysing ${marketLabel}…`;
     if (resultEl) resultEl.hidden = true;
@@ -6857,6 +6863,105 @@ function clearLiveChartAiOverlay() {
     }
   }
 
+  async function runImDashboardAiStockReview(symbol) {
+    const statusEl = document.getElementById("im-dashboard-ai-status");
+    const providerBadge = document.getElementById("im-dashboard-ai-provider-badge");
+    const resultEl = document.getElementById("im-dashboard-ai-result");
+    const analysisEl = document.getElementById("im-dashboard-ai-analysis");
+    const runBtn = document.getElementById("im-dashboard-ai-run-btn");
+
+    if (statusEl) statusEl.textContent = `Analysing ${symbol}…`;
+    if (resultEl) resultEl.hidden = true;
+    if (providerBadge) providerBadge.hidden = true;
+    if (runBtn) runBtn.disabled = true;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/ai-chart-scanner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbol })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "AI chart scan failed.");
+
+      const generated = new Date(result.generated_at);
+      const stamp = generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+      if (statusEl) statusEl.textContent = `${result.symbol} · Live snapshot · ${stamp}`;
+      if (providerBadge) {
+        providerBadge.textContent = result.provider === "GROQ" ? "AI · Groq" : "AI · Gemini";
+        providerBadge.hidden = false;
+      }
+      if (analysisEl) renderGeminiReview(analysisEl, result.analysis);
+      if (resultEl) resultEl.hidden = false;
+    } catch (error) {
+      console.error("AI dashboard stock scan failed:", error);
+      if (statusEl) statusEl.textContent = friendlyAiErrorMessage(error.message);
+      if (resultEl) resultEl.hidden = true;
+      showAiErrorToast(error.message);
+    } finally {
+      if (runBtn) runBtn.disabled = false;
+    }
+  }
+
+  let imDashboardAiSearchDebounce = null;
+  let imDashboardAiSearchResults = [];
+  let imDashboardAiSearchActiveIndex = -1;
+
+  function hideImDashboardAiSearchResults() {
+    const el = document.getElementById("im-dashboard-ai-search-results");
+    if (el) {
+      el.hidden = true;
+      el.innerHTML = "";
+    }
+    imDashboardAiSearchResults = [];
+    imDashboardAiSearchActiveIndex = -1;
+  }
+
+  function updateImDashboardAiSearchHighlight() {
+    const resultsEl = document.getElementById("im-dashboard-ai-search-results");
+    if (!resultsEl) return;
+    [...resultsEl.querySelectorAll(".im-watchlist-search-item")].forEach((el, i) => {
+      el.classList.toggle("active", i === imDashboardAiSearchActiveIndex);
+    });
+  }
+
+  function renderImDashboardAiSearchResults(results) {
+    imDashboardAiSearchResults = results;
+    imDashboardAiSearchActiveIndex = -1;
+    const el = document.getElementById("im-dashboard-ai-search-results");
+    if (!el) return;
+    if (!results.length) {
+      el.innerHTML = `<div class="im-watchlist-search-empty">No matching NSE stocks found.</div>`;
+      el.hidden = false;
+      return;
+    }
+    el.innerHTML = results
+      .map((s, i) => `
+        <div class="im-watchlist-search-item" data-search-index="${i}">
+          <strong>${escapeHtml(s.symbol)}</strong>
+          <span>${escapeHtml(s.name)}</span>
+        </div>
+      `)
+      .join("");
+    el.hidden = false;
+  }
+
+  async function runImDashboardAiSearch(query) {
+    if (!query) {
+      hideImDashboardAiSearchResults();
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=15`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Stock search failed.");
+      renderImDashboardAiSearchResults(Array.isArray(result.data) ? result.data : []);
+    } catch (error) {
+      console.error("AI dashboard stock search failed:", error);
+      hideImDashboardAiSearchResults();
+    }
+  }
+
   function setupImDashboardAiReview() {
     const runBtn = document.getElementById("im-dashboard-ai-run-btn");
     const marketButtons = [...document.querySelectorAll("[data-im-dashboard-ai-market]")];
@@ -6870,6 +6975,54 @@ function clearLiveChartAiOverlay() {
     });
 
     runBtn.addEventListener("click", () => runImDashboardAiReview(imDashboardAiMarket));
+
+    const input = document.getElementById("im-dashboard-ai-search-input");
+    const resultsEl = document.getElementById("im-dashboard-ai-search-results");
+    if (!input || !resultsEl) return;
+
+    input.addEventListener("input", () => {
+      const query = input.value.trim();
+      if (imDashboardAiSearchDebounce) window.clearTimeout(imDashboardAiSearchDebounce);
+      imDashboardAiSearchDebounce = window.setTimeout(() => runImDashboardAiSearch(query), 250);
+    });
+
+    resultsEl.addEventListener("click", (event) => {
+      const item = event.target.closest(".im-watchlist-search-item[data-search-index]");
+      if (!item) return;
+      const stock = imDashboardAiSearchResults[Number(item.dataset.searchIndex)];
+      if (!stock) return;
+      input.value = stock.symbol;
+      hideImDashboardAiSearchResults();
+      runImDashboardAiStockReview(stock.symbol);
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        const active = imDashboardAiSearchResults[imDashboardAiSearchActiveIndex];
+        if (active) {
+          input.value = active.symbol;
+          hideImDashboardAiSearchResults();
+          runImDashboardAiStockReview(active.symbol);
+        } else if (input.value.trim()) {
+          runImDashboardAiStockReview(input.value.trim().toUpperCase());
+        }
+      } else if (event.key === "Escape") {
+        hideImDashboardAiSearchResults();
+      } else if (event.key === "ArrowDown" && imDashboardAiSearchResults.length) {
+        event.preventDefault();
+        imDashboardAiSearchActiveIndex = Math.min(imDashboardAiSearchActiveIndex + 1, imDashboardAiSearchResults.length - 1);
+        updateImDashboardAiSearchHighlight();
+      } else if (event.key === "ArrowUp" && imDashboardAiSearchResults.length) {
+        event.preventDefault();
+        imDashboardAiSearchActiveIndex = Math.max(imDashboardAiSearchActiveIndex - 1, 0);
+        updateImDashboardAiSearchHighlight();
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".im-dashboard-ai-search-wrap")) hideImDashboardAiSearchResults();
+    });
   }
 
   function setupImAiScannerSearch() {
