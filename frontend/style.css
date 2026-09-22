@@ -4295,6 +4295,12 @@ body[data-accent="green"] .settings-choice.active {
   font-size: 12px;
 }
 
+.indian-market-mode .im-mover-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
 .indian-market-mode .im-mover-card {
   display: flex;
   flex-direction: column;
@@ -4308,6 +4314,14 @@ body[data-accent="green"] .settings-choice.active {
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.6px;
+}
+
+.indian-market-mode .im-mover-gainer .im-mover-index-label {
+  color: var(--im-green);
+}
+
+.indian-market-mode .im-mover-loser .im-mover-index-label {
+  color: var(--im-red);
 }
 
 .indian-market-mode .im-mover-stock-name {
@@ -5234,6 +5248,16 @@ body[data-accent="green"] .settings-choice.active {
   border-bottom: none;
 }
 
+#im-dashboard .market-list .im-mover-row {
+  gap: 12px;
+}
+
+#im-dashboard .market-list .im-mover-row .im-mover-card {
+  border-radius: 10px;
+  border: 1px solid var(--im-border);
+  border-bottom: 1px solid var(--im-border);
+}
+
 #im-dashboard .im-mover-card {
   align-items: flex-start;
   text-align: left;
@@ -5455,7 +5479,7 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .signal-title {
   margin: 0 0 8px;
-  color: #b9f5d1;
+  color: var(--im-green);
   font-size: 14px;
   font-weight: 800;
 }

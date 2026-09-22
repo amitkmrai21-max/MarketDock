@@ -5353,10 +5353,10 @@ function clearLiveChartAiOverlay() {
     }
   }
 
-  function renderTopMover(indexKey, mover) {
-    const nameEl = document.getElementById(`im-${indexKey}-mover-symbol`);
-    const priceEl = document.getElementById(`im-${indexKey}-mover-price`);
-    const changeEl = document.getElementById(`im-${indexKey}-mover-change`);
+  function renderTopMover(indexKey, kind, mover) {
+    const nameEl = document.getElementById(`im-${indexKey}-${kind}-symbol`);
+    const priceEl = document.getElementById(`im-${indexKey}-${kind}-price`);
+    const changeEl = document.getElementById(`im-${indexKey}-${kind}-change`);
     if (!nameEl || !priceEl || !changeEl) return;
 
     if (!mover) {
@@ -5383,10 +5383,12 @@ function clearLiveChartAiOverlay() {
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "Top mover request failed.");
       }
-      renderTopMover(indexKey, result.data.mover);
+      renderTopMover(indexKey, "gainer", result.data.gainer);
+      renderTopMover(indexKey, "loser", result.data.loser);
     } catch (error) {
       console.error(`Top mover fetch failed for ${indexKey}:`, error);
-      renderTopMover(indexKey, null);
+      renderTopMover(indexKey, "gainer", null);
+      renderTopMover(indexKey, "loser", null);
     }
   }
 

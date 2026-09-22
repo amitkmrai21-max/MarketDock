@@ -1214,8 +1214,15 @@ def top_mover(index_key):
         if not rated:
             return jsonify({"ok": False, "error": "No quote data available right now."}), 502
 
-        biggest_mover = max(rated, key=lambda q: abs(q["change_percent"]))
-        result = {"index": index_key, "mover": biggest_mover, "updated_at": now_utc()}
+        top_gainer = max(rated, key=lambda q: q["change_percent"])
+        top_loser = min(rated, key=lambda q: q["change_percent"])
+        result = {
+            "index": index_key,
+            "gainer": top_gainer,
+            "loser": top_loser,
+            "mover": top_gainer,  # kept for any older client still reading .mover
+            "updated_at": now_utc(),
+        }
         _top_mover_cache[index_key] = {"data": result, "fetched_at": time.time()}
         return jsonify({"ok": True, "data": result})
     except Exception as error:
