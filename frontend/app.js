@@ -2,6 +2,60 @@ let liveCandleChart = null;
 let liveCandleSeries = null;
 let liveCandleRawData = [];
 
+// ===================== Chart theming =====================
+// LightweightCharts renders to canvas, so its colors can't follow CSS
+// variables — they have to be passed as JS options at creation time, and
+// re-applied if the theme changes afterward. Every createChart() call
+// reads colors from here and registers itself so setupModeToggle's/the
+// settings drawer's theme switch can recolor any chart already on screen.
+const __themedCharts = [];
+
+function getChartThemeColors() {
+  const theme = document.body.dataset.theme || "dark";
+  if (theme === "light") {
+    return {
+      bg: "#ffffff",
+      text: "#4b5875",
+      grid: "rgba(219, 226, 238, 0.7)",
+      border: "rgba(124, 58, 237, 0.3)"
+    };
+  }
+  if (theme === "midnight") {
+    return {
+      bg: "#0d1330",
+      text: "#b9c3ea",
+      grid: "rgba(32, 41, 80, 0.7)",
+      border: "rgba(99, 102, 241, 0.34)"
+    };
+  }
+  return {
+    bg: "#0c0a14",
+    text: "#c4b5fd",
+    grid: "rgba(38, 33, 56, 0.72)",
+    border: "rgba(139, 92, 246, 0.34)"
+  };
+}
+
+function registerThemedChart(chart) {
+  __themedCharts.push(chart);
+  return chart;
+}
+
+function applyChartTheme() {
+  const colors = getChartThemeColors();
+  __themedCharts.forEach((chart) => {
+    try {
+      chart.applyOptions({
+        layout: { background: { color: colors.bg }, textColor: colors.text },
+        grid: { vertLines: { color: colors.grid }, horzLines: { color: colors.grid } },
+        rightPriceScale: { borderColor: colors.border },
+        timeScale: { borderColor: colors.border }
+      });
+    } catch (error) { /* chart may have been removed */ }
+  });
+}
+window.applyChartTheme = applyChartTheme;
+
 // ===================== Shared AI-error toast =====================
 // One small dismissible notification, used by every Gemini/Groq-backed
 // feature on either mode, so a busy/quota/auth failure is always surfaced
@@ -1835,6 +1889,7 @@ setInterval(loadRrg, 300000);
       document.body.dataset.theme = theme;
       document.body.dataset.accent = accent;
       document.body.dataset.textSize = textSize;
+      if (typeof applyChartTheme === "function") applyChartTheme();
 
       if (nameInput) {
         nameInput.value = name;
@@ -2911,29 +2966,30 @@ function createLiveCandlestickChart() {
 
   if (liveCandleChart) return true;
 
-  liveCandleChart = LightweightCharts.createChart(container, {
+  const btcChartColors = getChartThemeColors();
+  liveCandleChart = registerThemedChart(LightweightCharts.createChart(container, {
     width: container.clientWidth,
     height: 520,
     layout: {
-      background: { color: "#0c0a14" },
-      textColor: "#c4b5fd"
+      background: { color: btcChartColors.bg },
+      textColor: btcChartColors.text
     },
     grid: {
-      vertLines: { color: "rgba(38, 33, 56, 0.72)" },
-      horzLines: { color: "rgba(38, 33, 56, 0.72)" }
+      vertLines: { color: btcChartColors.grid },
+      horzLines: { color: btcChartColors.grid }
     },
     rightPriceScale: {
-      borderColor: "rgba(139, 92, 246, 0.34)"
+      borderColor: btcChartColors.border
     },
     timeScale: {
-      borderColor: "rgba(139, 92, 246, 0.34)",
+      borderColor: btcChartColors.border,
       timeVisible: true,
       secondsVisible: false
     },
     crosshair: {
       mode: LightweightCharts.CrosshairMode.Normal
     }
-  });
+  }));
 
  liveCandleSeries = liveCandleChart.addCandlestickSeries({
   upColor: "#34d399",
@@ -6908,18 +6964,19 @@ function clearLiveChartAiOverlay() {
     const container = document.getElementById("im-stock-detail-chart");
     if (!container || imStockDetailChart || !window.LightweightCharts) return;
 
-    imStockDetailChart = LightweightCharts.createChart(container, {
+    const stockDetailColors = getChartThemeColors();
+    imStockDetailChart = registerThemedChart(LightweightCharts.createChart(container, {
       width: container.clientWidth,
       height: 380,
-      layout: { background: { color: "#0c0a14" }, textColor: "#c4b5fd" },
+      layout: { background: { color: stockDetailColors.bg }, textColor: stockDetailColors.text },
       grid: {
-        vertLines: { color: "rgba(38, 33, 56, 0.6)" },
-        horzLines: { color: "rgba(38, 33, 56, 0.6)" }
+        vertLines: { color: stockDetailColors.grid },
+        horzLines: { color: stockDetailColors.grid }
       },
-      rightPriceScale: { borderColor: "rgba(139, 92, 246, 0.3)" },
-      timeScale: { borderColor: "rgba(139, 92, 246, 0.3)", timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: stockDetailColors.border },
+      timeScale: { borderColor: stockDetailColors.border, timeVisible: true, secondsVisible: false },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal }
-    });
+    }));
 
     imStockDetailSeries = imStockDetailChart.addCandlestickSeries({
       upColor: "#34d399",
@@ -7841,29 +7898,30 @@ function clearLiveChartAiOverlay() {
     const container = document.getElementById("im-lightweight-chart");
     if (!container || imLiveChart || !window.LightweightCharts) return;
 
-    imLiveChart = LightweightCharts.createChart(container, {
+    const liveChartColors = getChartThemeColors();
+    imLiveChart = registerThemedChart(LightweightCharts.createChart(container, {
       width: container.clientWidth,
       height: 600,
       layout: {
-        background: { color: "#0c0a14" },
-        textColor: "#c4b5fd"
+        background: { color: liveChartColors.bg },
+        textColor: liveChartColors.text
       },
       grid: {
-        vertLines: { color: "rgba(38, 33, 56, 0.6)" },
-        horzLines: { color: "rgba(38, 33, 56, 0.6)" }
+        vertLines: { color: liveChartColors.grid },
+        horzLines: { color: liveChartColors.grid }
       },
       rightPriceScale: {
-        borderColor: "rgba(139, 92, 246, 0.3)"
+        borderColor: liveChartColors.border
       },
       timeScale: {
-        borderColor: "rgba(139, 92, 246, 0.3)",
+        borderColor: liveChartColors.border,
         timeVisible: true,
         secondsVisible: false
       },
       crosshair: {
         mode: LightweightCharts.CrosshairMode.Normal
       }
-    });
+    }));
 
     imLiveSeries = imLiveChart.addCandlestickSeries({
       upColor: "#34d399",
