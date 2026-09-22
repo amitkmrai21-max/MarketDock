@@ -3617,6 +3617,34 @@ body {
   background: rgba(239, 68, 68, 0.18);
 }
 
+.settings-account-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 9px;
+}
+
+.settings-account-actions button {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.settings-account-actions .account-primary-btn {
+  border-color: transparent;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+#accountAuthStatus:empty {
+  display: none;
+}
+
 body[data-theme="light"] {
   --bg: #f5f7fb;
   --surface: #ffffff;
