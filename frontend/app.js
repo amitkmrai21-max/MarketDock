@@ -3815,6 +3815,7 @@ function clearLiveChartAiOverlay() {
     // is hidden, so Chart.js can't size them correctly if drawn before that
     // mode is ever shown — (re)draw whichever one just became visible.
     if (isIndian && typeof window.loadImDashboardSparklines === "function") window.loadImDashboardSparklines();
+    if (isIndian && typeof window.redrawMoverSparklines === "function") window.redrawMoverSparklines();
     if (!isIndian && typeof loadBtcSparkline === "function") loadBtcSparkline();
   }
 
@@ -4034,6 +4035,17 @@ function clearLiveChartAiOverlay() {
 
     if (pageId === "im-dashboard" && typeof fetchAllTopMovers === "function") {
       fetchAllTopMovers();
+    }
+
+    if (pageId === "im-dashboard" && typeof redrawMoverSparklines === "function") {
+      redrawMoverSparklines();
+    }
+
+    if (["im-nifty", "im-banknifty", "im-finnifty", "im-sensex"].includes(pageId) && typeof redrawImDashboardSparkline === "function") {
+      // That index's hero-card sparkline canvas was zero-size (and so never
+      // drawn) while this page was hidden — redraw now from the data
+      // already cached, rather than re-fetching.
+      redrawImDashboardSparkline(pageId.replace("im-", ""));
     }
 
     if (pageId === "im-rrg") {
@@ -4676,7 +4688,12 @@ function clearLiveChartAiOverlay() {
     const closes = imLastSparklineCloses[marketKey];
     const change = imLastChangePercent[marketKey];
     if (!closes || !Number.isFinite(change)) return;
-    renderSparkline(`im-dash-${marketKey}-sparkline`, closes, change >= 0);
+    const isUp = change >= 0;
+    // Same cached candles feed both the dashboard stat card and that
+    // index's own research-page hero — whichever is currently visible (the
+    // other's canvas just silently no-ops at zero size while hidden).
+    renderSparkline(`im-dash-${marketKey}-sparkline`, closes, isUp);
+    renderSparkline(`im-${marketKey}-hero-sparkline`, closes, isUp);
   }
 
   function renderMarketEngine(marketKey, data) {
@@ -5504,6 +5521,33 @@ function clearLiveChartAiOverlay() {
     priceEl.textContent = formatNumber(mover.last_price);
     changeEl.className = "im-mover-change";
     changeEl.innerHTML = changePillHtml(mover.change_percent);
+
+    loadMoverSparkline(indexKey, kind, mover.symbol, Number(mover.change_percent) >= 0);
+  }
+
+  const imLastMoverSparkline = {};
+
+  function redrawMoverSparklines() {
+    Object.keys(imLastMoverSparkline).forEach((slotKey) => {
+      const { closes, isUp } = imLastMoverSparkline[slotKey];
+      renderSparkline(`im-${slotKey}-sparkline`, closes, isUp);
+    });
+  }
+
+  async function loadMoverSparkline(indexKey, kind, symbol, isUp) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/index-candles?symbol=${encodeURIComponent(symbol)}&timeframe=15m`);
+      const result = await response.json();
+      if (!response.ok || !result.ok || !Array.isArray(result.candles)) return;
+      const closes = result.candles.slice(-26).map((candle) => Number(candle.close));
+      // Cached so the card can be redrawn (e.g. once #im-dashboard is
+      // actually visible) without re-fetching — its canvas is zero-size,
+      // and silently skipped, until this page is the one on screen.
+      imLastMoverSparkline[`${indexKey}-${kind}`] = { closes, isUp };
+      renderSparkline(`im-${indexKey}-${kind}-sparkline`, closes, isUp);
+    } catch (error) {
+      console.error(`Mover sparkline failed for ${symbol}:`, error);
+    }
   }
 
   async function fetchTopMover(indexKey) {
@@ -5556,6 +5600,7 @@ function clearLiveChartAiOverlay() {
   loadImDashboardSparklines();
   setInterval(loadImDashboardSparklines, 60000);
   window.loadImDashboardSparklines = loadImDashboardSparklines;
+  window.redrawMoverSparklines = redrawMoverSparklines;
 
   // ===================== RRG (Relative Rotation Graph) =====================
 
