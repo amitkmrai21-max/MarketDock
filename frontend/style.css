@@ -4899,6 +4899,7 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .topbar {
+  position: static;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -5631,12 +5632,13 @@ body[data-accent="green"] .settings-choice.active {
   }
 
 .indian-market-mode .nav-button.active {
-    background: linear-gradient(135deg, #7c3aed, #a78bfa);
-    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.45);
+    color: #24123f;
+    background: linear-gradient(135deg, #8b5cf6, #c4b5fd);
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.35);
   }
 
 .indian-market-mode .nav-button.active .nav-icon {
-    color: #ffffff;
+    color: #24123f;
   }
 
 .indian-market-mode .sidebar .nav .nav-button:not(:first-child) {
