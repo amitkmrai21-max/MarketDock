@@ -3641,15 +3641,15 @@ function clearLiveChartAiOverlay() {
 (function setupModeToggle() {
   const btcRoot = document.getElementById("btcModeRoot");
   const indianRoot = document.getElementById("indianModeRoot");
-  const toggleButtons = [document.getElementById("modeToggleIndian"), document.getElementById("modeToggleBtc")].filter(Boolean);
+  const slider = document.getElementById("modeSliderToggle");
   const brandSubtitle = document.getElementById("brandSubtitle");
-  if (!btcRoot || !indianRoot || !toggleButtons.length) return;
+  if (!btcRoot || !indianRoot || !slider) return;
 
   function setMode(mode) {
     const isIndian = mode === "indian";
     btcRoot.hidden = isIndian;
     indianRoot.hidden = !isIndian;
-    toggleButtons.forEach((button) => button.classList.toggle("active", button.dataset.mode === mode));
+    slider.dataset.mode = mode;
     if (brandSubtitle) {
       brandSubtitle.textContent = isIndian
         ? "NIFTY 50 and Bank Nifty research dashboard with paper-trading workflow"
@@ -3662,8 +3662,8 @@ function clearLiveChartAiOverlay() {
     }
   }
 
-  toggleButtons.forEach((button) => {
-    button.addEventListener("click", () => setMode(button.dataset.mode));
+  slider.addEventListener("click", () => {
+    setMode(slider.dataset.mode === "indian" ? "btc" : "indian");
   });
 
   let savedMode = "indian";
