@@ -2873,15 +2873,25 @@ body {
   z-index: 60;
   display: flex;
   align-items: center;
-  width: 84px;
-  height: 40px;
+  width: 90px;
+  height: 42px;
   padding: 4px;
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  border: 1px solid var(--border-strong, rgba(139, 92, 246, 0.4));
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(6px);
+  background: linear-gradient(180deg, rgba(28, 23, 48, 0.94), rgba(18, 15, 27, 0.94));
+  backdrop-filter: blur(10px);
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.15s ease;
+}
+
+.mode-slider:hover {
+  border-color: rgba(167, 139, 250, 0.6);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.mode-slider:active {
+  transform: scale(0.97);
 }
 
 .mode-slider-label {
@@ -2889,35 +2899,41 @@ body {
   z-index: 2;
   flex: 1;
   text-align: center;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
-  color: #94a3b8;
-  transition: color 0.25s ease;
+  letter-spacing: 0.2px;
+  color: var(--muted, #8b83a8);
+  transform: scale(0.94);
+  transition: color 0.3s ease, transform 0.3s ease;
 }
 
 .mode-slider-thumb {
   position: absolute;
   top: 4px;
   left: 4px;
-  width: 36px;
-  height: 32px;
+  width: 40px;
+  height: 34px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #1d4ed8, #22c55e);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
-  transition: transform 0.25s ease, background 0.25s ease;
+  background: linear-gradient(135deg, #7c3aed, #a78bfa);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.3s ease, box-shadow 0.3s ease;
+  will-change: transform;
 }
 
 .mode-slider[data-mode="btc"] .mode-slider-thumb {
-  transform: translateX(40px);
+  transform: translateX(42px);
   background: linear-gradient(135deg, #f7931a, #ffb84d);
+  box-shadow: 0 4px 12px rgba(247, 147, 26, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .mode-slider[data-mode="indian"] .mode-slider-label-left {
-  color: #0b1220;
+  color: #ffffff;
+  transform: scale(1.05);
 }
 
 .mode-slider[data-mode="btc"] .mode-slider-label-right {
-  color: #0b1220;
+  color: #2b1400;
+  transform: scale(1.05);
 }
 
 @media (max-width: 640px) {
