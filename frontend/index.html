@@ -3177,6 +3177,26 @@
           </div>
         </div>
         <button id="accountLogoutBtn" class="reset-settings-btn" type="button">Log Out</button>
+
+        <div class="settings-subsection">
+          <label for="accountNewPasswordInput">Change password</label>
+          <div class="settings-password-field">
+            <input id="accountNewPasswordInput" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password" />
+            <button id="accountNewPasswordToggle" class="password-toggle-btn" type="button" aria-label="Show password" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+          <div class="settings-account-actions">
+            <button id="accountChangePasswordBtn" class="account-primary-btn" type="button">Update Password</button>
+          </div>
+          <p id="accountChangePasswordStatus" class="settings-help" role="status"></p>
+        </div>
+
+        <div class="settings-subsection">
+          <p class="settings-help">Deleting your account permanently removes your MarketDock login. This can't be undone.</p>
+          <button id="accountDeleteBtn" class="reset-settings-btn" type="button">Delete Account</button>
+          <p id="accountDeleteStatus" class="settings-help" role="status"></p>
+        </div>
       </div>
     </section>
 
@@ -3199,6 +3219,29 @@
         </div>
 
         <p class="settings-help">Your name is saved only in this browser.</p>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"></path></svg>
+        </span>
+        <div>
+          <h3>General</h3>
+        </div>
+      </div>
+
+      <div class="settings-group settings-group--plain">
+        <label>Default startup mode</label>
+
+        <div class="settings-option-grid">
+          <button class="settings-choice startup-mode-choice" type="button" data-startup-mode-choice="remember">Remember last</button>
+          <button class="settings-choice startup-mode-choice" type="button" data-startup-mode-choice="indian">Indian Market</button>
+          <button class="settings-choice startup-mode-choice" type="button" data-startup-mode-choice="btc">BTC</button>
+        </div>
+
+        <p class="settings-help">Choose what opens first when you launch MarketDock.</p>
       </div>
     </section>
 
@@ -3260,6 +3303,37 @@
     <section class="settings-section">
       <div class="settings-section-header">
         <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        </span>
+        <div>
+          <h3>Alerts &amp; notifications</h3>
+          <p class="settings-section-desc">Applies to both Indian Market and BTC alerts</p>
+        </div>
+      </div>
+
+      <div class="settings-group settings-group--plain">
+        <span id="settingsNotificationBadge" class="notification-permission-badge settings-notification-badge">Notifications: Checking...</span>
+        <div class="settings-account-actions">
+          <button id="settingsEnableNotificationsBtn" class="account-primary-btn" type="button">Enable Browser Alerts</button>
+          <button id="settingsTestNotificationBtn" type="button">Test Alert</button>
+        </div>
+        <p id="settingsNotificationStatus" class="settings-help" role="status"></p>
+      </div>
+
+      <div class="settings-group settings-group--plain">
+        <label class="settings-toggle-row" for="settingsSoundAlertToggle">
+          <input id="settingsSoundAlertToggle" type="checkbox" />
+          <span>
+            <strong>Sound on alert</strong>
+            <small>Plays a short beep when a price or signal alert fires, even if this tab isn't focused.</small>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
         </span>
         <div>
@@ -3299,7 +3373,14 @@
         </div>
       </div>
 
+      <p class="settings-help">Reset Settings clears theme/accent/name preferences only. Clear My Data removes your trading history below.</p>
+
       <button id="resetSettingsBtn" class="reset-settings-btn" type="button">Reset Settings</button>
+
+      <div class="settings-subsection">
+        <button id="clearMyDataBtn" class="reset-settings-btn" type="button">Clear My Data</button>
+        <p class="settings-help">Removes paper trades, watchlists, chart drawings, alerts, and backtest history saved on this device.</p>
+      </div>
     </section>
   </aside>
 

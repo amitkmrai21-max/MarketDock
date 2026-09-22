@@ -1119,9 +1119,51 @@ function updateNotificationUi(message = "") {
   }
 }
 
+const SOUND_ALERT_STORAGE_KEY = "marketDockSoundAlertsEnabled";
+
+function isSoundAlertsEnabled() {
+  try {
+    return localStorage.getItem(SOUND_ALERT_STORAGE_KEY) === "1";
+  } catch (error) {
+    return false;
+  }
+}
+
+function setSoundAlertsEnabled(enabled) {
+  try {
+    localStorage.setItem(SOUND_ALERT_STORAGE_KEY, enabled ? "1" : "0");
+  } catch (error) {
+    // Ignore — the toggle just won't persist across reloads.
+  }
+}
+
+function playAlertBeep() {
+  if (!isSoundAlertsEnabled()) return;
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.4);
+    oscillator.onended = () => ctx.close();
+  } catch (error) {
+    console.error("Alert sound could not be played:", error);
+  }
+}
+
 function sendBrowserAlert(title, body, options = {}) {
   const runtime = getAlertRuntime();
   const message = `${title}: ${body}`;
+  playAlertBeep();
 
   runtime.lastAlertMessage = message;
   runtime.lastAlertAt = Date.now();
@@ -2130,6 +2172,124 @@ setInterval(loadRrg, 300000);
       });
     });
 
+    const STARTUP_MODE_KEY = "marketDockStartupModePref";
+    const startupModeButtons = [...document.querySelectorAll("[data-startup-mode-choice]")];
+    let startupModePref = "remember";
+    try { startupModePref = localStorage.getItem(STARTUP_MODE_KEY) || "remember"; } catch (error) { /* ignore */ }
+    updateChoiceState(startupModeButtons, startupModePref, "startupModeChoice");
+
+    startupModeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const choice = button.dataset.startupModeChoice || "remember";
+        try { localStorage.setItem(STARTUP_MODE_KEY, choice); } catch (error) { /* ignore */ }
+        updateChoiceState(startupModeButtons, choice, "startupModeChoice");
+        if (choice !== "remember" && typeof window.marketDockSetAppMode === "function") {
+          window.marketDockSetAppMode(choice);
+        }
+      });
+    });
+
+    const settingsNotifBadge = document.querySelector("#settingsNotificationBadge");
+    const settingsNotifStatus = document.querySelector("#settingsNotificationStatus");
+    const settingsEnableNotifBtn = document.querySelector("#settingsEnableNotificationsBtn");
+    const settingsTestNotifBtn = document.querySelector("#settingsTestNotificationBtn");
+    const soundAlertToggle = document.querySelector("#settingsSoundAlertToggle");
+
+    function updateSettingsNotificationUi(message) {
+      if (!settingsNotifBadge && !settingsNotifStatus && !settingsEnableNotifBtn && !settingsTestNotifBtn) return;
+      const permission = typeof getNotificationPermission === "function" ? getNotificationPermission() : "unsupported";
+      const labels = {
+        granted: "Notifications: Enabled",
+        denied: "Notifications: Blocked",
+        default: "Notifications: Permission needed",
+        unsupported: "Notifications: Unsupported"
+      };
+      if (settingsNotifBadge) {
+        settingsNotifBadge.textContent = labels[permission] || labels.default;
+        settingsNotifBadge.className = `notification-permission-badge settings-notification-badge notif-${permission}`;
+      }
+      if (settingsEnableNotifBtn) {
+        settingsEnableNotifBtn.hidden = permission === "granted" || permission === "unsupported";
+        settingsEnableNotifBtn.disabled = permission === "denied";
+      }
+      if (settingsTestNotifBtn) {
+        settingsTestNotifBtn.disabled = permission !== "granted";
+      }
+      if (settingsNotifStatus) {
+        if (message) {
+          settingsNotifStatus.textContent = message;
+        } else if (permission === "granted") {
+          settingsNotifStatus.textContent = "Browser alerts are enabled while this dashboard is open.";
+        } else if (permission === "denied") {
+          settingsNotifStatus.textContent = "Notifications are blocked in browser settings. Allow notifications for this site, then reload.";
+        } else if (permission === "unsupported") {
+          settingsNotifStatus.textContent = "This browser does not support desktop/browser notifications.";
+        } else {
+          settingsNotifStatus.textContent = "Enable browser alerts to receive price and signal notifications.";
+        }
+      }
+    }
+
+    settingsEnableNotifBtn?.addEventListener("click", async () => {
+      if (typeof requestBrowserNotifications === "function") {
+        await requestBrowserNotifications();
+      }
+      updateSettingsNotificationUi();
+    });
+
+    settingsTestNotifBtn?.addEventListener("click", () => {
+      if (typeof sendBrowserAlert === "function") {
+        sendBrowserAlert(
+          "MarketDock Test Alert",
+          "Browser alerts are working. This is a test notification.",
+          { tag: "marketdock-settings-test" }
+        );
+      }
+      updateSettingsNotificationUi();
+    });
+
+    if (soundAlertToggle) {
+      soundAlertToggle.checked = typeof isSoundAlertsEnabled === "function" && isSoundAlertsEnabled();
+      soundAlertToggle.addEventListener("change", () => {
+        if (typeof setSoundAlertsEnabled === "function") setSoundAlertsEnabled(soundAlertToggle.checked);
+      });
+    }
+
+    updateSettingsNotificationUi();
+
+    const clearDataButton = document.querySelector("#clearMyDataBtn");
+    const CLEAR_DATA_KEYS = [
+      "btcChartDrawingsV1",
+      "btcAiSignalPaperPortfolioV2",
+      "btcAiSignalPaperPortfolioV1",
+      "btcAiSignalLatestNewsV1",
+      "btcAiSignalNewsTranslationsV1",
+      "btcAiSignalAlertSettingsV1",
+      "btcAiSignalAlertRuntimeV1",
+      "btcAiSignalLastSignalV1",
+      "btcAiSignalCustomLayoutV1",
+      "btcAiSignalPlanLockV1",
+      "imWatchlistsV2",
+      "imAlertSettingsV1",
+      "imAlertRuntimeV1",
+      "imPriceAlertsV1",
+      "imConditionAlertsV1",
+      "imChartDrawingsV1",
+      "imBacktestResultsV1",
+      "indianMarketPaperTrades"
+    ];
+
+    clearDataButton?.addEventListener("click", () => {
+      const confirmed = window.confirm(
+        "This clears your paper trades, watchlists, chart drawings, alerts and backtest history on this device. Your account login and appearance preferences are not affected. Continue?"
+      );
+      if (!confirmed) return;
+      CLEAR_DATA_KEYS.forEach((key) => {
+        try { localStorage.removeItem(key); } catch (error) { /* ignore */ }
+      });
+      window.location.reload();
+    });
+
     resetSettingsButton?.addEventListener("click", () => {
       try {
         localStorage.removeItem(STORAGE_KEY);
@@ -2182,20 +2342,30 @@ setInterval(loadRrg, 300000);
     const emailDisplay = document.getElementById("accountEmailDisplay");
     const avatarEl = document.getElementById("accountAvatar");
     const passwordToggleBtn = document.getElementById("accountPasswordToggle");
+    const newPasswordInput = document.getElementById("accountNewPasswordInput");
+    const newPasswordToggleBtn = document.getElementById("accountNewPasswordToggle");
+    const changePasswordBtn = document.getElementById("accountChangePasswordBtn");
+    const changePasswordStatusEl = document.getElementById("accountChangePasswordStatus");
+    const deleteBtn = document.getElementById("accountDeleteBtn");
+    const deleteStatusEl = document.getElementById("accountDeleteStatus");
     if (!loggedOutGroup || !loggedInGroup || !emailInput || !passwordInput || !loginBtn || !signupBtn || !logoutBtn) return;
 
     const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
     const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
 
-    if (passwordToggleBtn) {
-      passwordToggleBtn.addEventListener("click", () => {
-        const showing = passwordInput.type === "text";
-        passwordInput.type = showing ? "password" : "text";
-        passwordToggleBtn.innerHTML = showing ? EYE_ICON : EYE_OFF_ICON;
-        passwordToggleBtn.setAttribute("aria-label", showing ? "Show password" : "Hide password");
-        passwordToggleBtn.setAttribute("aria-pressed", showing ? "false" : "true");
+    function wirePasswordToggle(input, button) {
+      if (!input || !button) return;
+      button.addEventListener("click", () => {
+        const showing = input.type === "text";
+        input.type = showing ? "password" : "text";
+        button.innerHTML = showing ? EYE_ICON : EYE_OFF_ICON;
+        button.setAttribute("aria-label", showing ? "Show password" : "Hide password");
+        button.setAttribute("aria-pressed", showing ? "false" : "true");
       });
     }
+
+    wirePasswordToggle(passwordInput, passwordToggleBtn);
+    wirePasswordToggle(newPasswordInput, newPasswordToggleBtn);
 
     function setStatus(message, isError) {
       if (!statusEl) return;
@@ -2290,6 +2460,66 @@ setInterval(loadRrg, 300000);
         console.error("Sign out failed:", error);
       } finally {
         logoutBtn.disabled = false;
+      }
+    });
+
+    function setChangePasswordStatus(message, isError) {
+      if (!changePasswordStatusEl) return;
+      changePasswordStatusEl.textContent = message || "";
+      changePasswordStatusEl.style.color = isError ? "#ef4444" : "";
+    }
+
+    changePasswordBtn?.addEventListener("click", async () => {
+      const newPassword = newPasswordInput?.value || "";
+      if (newPassword.length < 6) {
+        setChangePasswordStatus("New password must be at least 6 characters.", true);
+        return;
+      }
+      changePasswordBtn.disabled = true;
+      setChangePasswordStatus("Updating password...", false);
+      try {
+        const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+        if (error) throw error;
+        if (newPasswordInput) newPasswordInput.value = "";
+        setChangePasswordStatus("Password updated.", false);
+      } catch (error) {
+        setChangePasswordStatus(friendlyAuthError(error), true);
+      } finally {
+        changePasswordBtn.disabled = false;
+      }
+    });
+
+    function setDeleteStatus(message, isError) {
+      if (!deleteStatusEl) return;
+      deleteStatusEl.textContent = message || "";
+      deleteStatusEl.style.color = isError ? "#ef4444" : "";
+    }
+
+    deleteBtn?.addEventListener("click", async () => {
+      const confirmed = window.confirm(
+        "Delete your MarketDock account? This permanently removes your login and can't be undone."
+      );
+      if (!confirmed) return;
+
+      deleteBtn.disabled = true;
+      setDeleteStatus("Deleting account...", false);
+      try {
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+        if (!accessToken) throw new Error("No active session.");
+
+        const response = await fetch("/api/account/delete", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.detail || "Account deletion failed.");
+        }
+        await supabaseClient.auth.signOut();
+      } catch (error) {
+        setDeleteStatus(error.message || "Account deletion failed. Please try again.", true);
+        deleteBtn.disabled = false;
       }
     });
 
@@ -4001,9 +4231,16 @@ function clearLiveChartAiOverlay() {
     setMode(slider.dataset.mode === "indian" ? "btc" : "indian");
   });
 
+  window.marketDockSetAppMode = setMode;
+
   let savedMode = "indian";
   try { savedMode = localStorage.getItem("btcAiSignalActiveMode") || "indian"; } catch (error) { /* ignore */ }
-  setMode(savedMode);
+
+  let startupPref = "remember";
+  try { startupPref = localStorage.getItem("marketDockStartupModePref") || "remember"; } catch (error) { /* ignore */ }
+
+  const initialMode = startupPref === "indian" || startupPref === "btc" ? startupPref : savedMode;
+  setMode(initialMode);
 })();
 
 (function setupPullToRefresh() {
@@ -8073,6 +8310,7 @@ function clearLiveChartAiOverlay() {
   function sendImBrowserAlert(title, body, tag) {
     const runtime = getImAlertRuntime();
     const message = `${title}: ${body}`;
+    playAlertBeep();
     runtime.lastAlertMessage = message;
     runtime.lastAlertAt = Date.now();
     saveImAlertRuntime(runtime);
