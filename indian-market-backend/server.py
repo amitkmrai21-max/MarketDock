@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import gzip
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
@@ -2979,6 +2980,21 @@ def all_stocks():
 
     return jsonify({"ok": True, "count": len(universe), "data": universe})
 
+
+def _warm_nse_equity_universe():
+    # Downloading and parsing Upstox's full instrument master (several MB
+    # gzipped) is the slow part of every stock-search/heatmap/F&O request
+    # that hits a cold cache. Kick it off in the background as soon as the
+    # process starts (including under gunicorn, since this runs at import
+    # time) so a Render free-tier cold start doesn't stack that download on
+    # top of the instance already waking up.
+    try:
+        get_nse_equity_universe()
+    except Exception as error:
+        app.logger.warning("Instrument master warmup failed: %s", error)
+
+
+threading.Thread(target=_warm_nse_equity_universe, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
