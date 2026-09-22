@@ -38,6 +38,15 @@
   box-sizing: border-box;
 }
 
+/* Some later rules set `display` unconditionally on elements that can also
+   carry the `hidden` attribute (e.g. .setup-badge inside a mobile media
+   query), which otherwise wins over the browser's default [hidden] display:
+   none since both have equal specificity. This keeps `hidden` authoritative
+   everywhere. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   min-width: 320px;
   min-height: 100vh;
