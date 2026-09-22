@@ -28,6 +28,7 @@
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
 <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -3135,6 +3136,31 @@
       <button id="settingsCloseButton" class="settings-close" type="button" aria-label="Close settings">
         ×
       </button>
+    </div>
+
+    <div class="settings-group" id="accountLoggedOutGroup">
+      <label>Account</label>
+      <p class="settings-help">One account works for both Indian Market and BTC mode.</p>
+
+      <div class="settings-name-row">
+        <input id="accountEmailInput" type="email" placeholder="Email" autocomplete="email" />
+      </div>
+      <div class="settings-name-row">
+        <input id="accountPasswordInput" type="password" placeholder="Password" autocomplete="current-password" />
+      </div>
+
+      <div class="settings-account-actions">
+        <button id="accountLoginBtn" class="account-primary-btn" type="button">Log In</button>
+        <button id="accountSignupBtn" type="button">Sign Up</button>
+      </div>
+
+      <p id="accountAuthStatus" class="settings-help" role="status"></p>
+    </div>
+
+    <div class="settings-group" id="accountLoggedInGroup" hidden>
+      <label>Account</label>
+      <p class="settings-help">Logged in as <strong id="accountEmailDisplay">--</strong>. Same account on both Indian Market and BTC mode.</p>
+      <button id="accountLogoutBtn" class="reset-settings-btn" type="button">Log Out</button>
     </div>
 
     <div class="settings-group">

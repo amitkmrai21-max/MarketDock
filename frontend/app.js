@@ -2155,6 +2155,145 @@ setInterval(loadRrg, 300000);
     initDashboard();
   }
 })();
+
+/* ===== Account (Supabase) — one login shared by both Indian Market and
+   BTC mode, since they're the same page/session. ===== */
+(() => {
+  const SUPABASE_URL = "https://qvgfxtjwgrtytjdjcebj.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DRsCPkKaKRYPrQDFtqV0xQ_7QeP4kYh";
+
+  if (typeof window.supabase === "undefined") {
+    console.error("Supabase client library did not load — account features are unavailable.");
+    return;
+  }
+
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  window.marketDockSupabase = supabaseClient;
+
+  function initAccount() {
+    const loggedOutGroup = document.getElementById("accountLoggedOutGroup");
+    const loggedInGroup = document.getElementById("accountLoggedInGroup");
+    const emailInput = document.getElementById("accountEmailInput");
+    const passwordInput = document.getElementById("accountPasswordInput");
+    const loginBtn = document.getElementById("accountLoginBtn");
+    const signupBtn = document.getElementById("accountSignupBtn");
+    const logoutBtn = document.getElementById("accountLogoutBtn");
+    const statusEl = document.getElementById("accountAuthStatus");
+    const emailDisplay = document.getElementById("accountEmailDisplay");
+    if (!loggedOutGroup || !loggedInGroup || !emailInput || !passwordInput || !loginBtn || !signupBtn || !logoutBtn) return;
+
+    function setStatus(message, isError) {
+      if (!statusEl) return;
+      statusEl.textContent = message || "";
+      statusEl.style.color = isError ? "#ef4444" : "";
+    }
+
+    function friendlyAuthError(error) {
+      const message = String(error?.message || "");
+      if (/already registered|already exists/i.test(message)) return "That email already has an account — try logging in instead.";
+      if (/invalid login credentials/i.test(message)) return "Wrong email or password.";
+      if (/password.*at least|password.*characters/i.test(message)) return "Password must be at least 6 characters.";
+      if (/email.*invalid/i.test(message)) return "That doesn't look like a valid email.";
+      if (/failed to fetch|network/i.test(message)) return "Could not reach the account server. Check your connection and try again.";
+      return message || "Something went wrong. Please try again.";
+    }
+
+    function showLoggedIn(session) {
+      loggedOutGroup.hidden = true;
+      loggedInGroup.hidden = false;
+      if (emailDisplay) emailDisplay.textContent = session?.user?.email || "--";
+    }
+
+    function showLoggedOut() {
+      loggedOutGroup.hidden = false;
+      loggedInGroup.hidden = true;
+      setStatus("", false);
+    }
+
+    async function setButtonsBusy(busy) {
+      loginBtn.disabled = busy;
+      signupBtn.disabled = busy;
+    }
+
+    loginBtn.addEventListener("click", async () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      if (!email || !password) {
+        setStatus("Enter your email and password.", true);
+        return;
+      }
+      setStatus("Logging in...", false);
+      await setButtonsBusy(true);
+      try {
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        passwordInput.value = "";
+        setStatus("", false);
+      } catch (error) {
+        setStatus(friendlyAuthError(error), true);
+      } finally {
+        await setButtonsBusy(false);
+      }
+    });
+
+    signupBtn.addEventListener("click", async () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+      if (!email || !password) {
+        setStatus("Enter your email and password.", true);
+        return;
+      }
+      if (password.length < 6) {
+        setStatus("Password must be at least 6 characters.", true);
+        return;
+      }
+      setStatus("Creating your account...", false);
+      await setButtonsBusy(true);
+      try {
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) throw error;
+        passwordInput.value = "";
+        if (data?.session) {
+          setStatus("", false);
+        } else {
+          setStatus("Account created — check your email to confirm it, then log in.", false);
+        }
+      } catch (error) {
+        setStatus(friendlyAuthError(error), true);
+      } finally {
+        await setButtonsBusy(false);
+      }
+    });
+
+    logoutBtn.addEventListener("click", async () => {
+      logoutBtn.disabled = true;
+      try {
+        await supabaseClient.auth.signOut();
+      } catch (error) {
+        console.error("Sign out failed:", error);
+      } finally {
+        logoutBtn.disabled = false;
+      }
+    });
+
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      if (session) showLoggedIn(session);
+      else showLoggedOut();
+    });
+
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (data?.session) showLoggedIn(data.session);
+      else showLoggedOut();
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initAccount);
+  } else {
+    initAccount();
+  }
+})();
+
 function formatLiveCandlePrice(value) {
   const number = Number(value);
   return Number.isFinite(number)
