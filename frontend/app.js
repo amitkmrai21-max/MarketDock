@@ -3880,6 +3880,8 @@ function clearLiveChartAiOverlay() {
   const pageTitle = document.getElementById("im-page-title");
   const pageSubtitle = document.getElementById("im-page-subtitle");
 
+  const LAST_PAGE_STORAGE_KEY = "indianMarketLastPage";
+
   function showPage(pageId) {
     navButtons.forEach((button) => {
       button.classList.toggle("active", button.dataset.page === pageId);
@@ -3888,6 +3890,12 @@ function clearLiveChartAiOverlay() {
     pages.forEach((page) => {
       page.classList.toggle("active", page.id === pageId);
     });
+
+    try {
+      localStorage.setItem(LAST_PAGE_STORAGE_KEY, pageId);
+    } catch {
+      // Ignore — private browsing / storage quota, non-critical.
+    }
 
     const info = pageInfo[pageId];
 
@@ -9600,5 +9608,16 @@ function clearLiveChartAiOverlay() {
   const indianRootEl = document.getElementById("indianModeRoot");
   if (indianRootEl && !indianRootEl.hidden) {
     window.IndianMarketMode.start();
+  }
+
+  // Restore whichever page was open before a reload — otherwise every
+  // refresh silently drops the user back on the dashboard.
+  try {
+    const lastPage = localStorage.getItem(LAST_PAGE_STORAGE_KEY);
+    if (lastPage && lastPage !== "im-dashboard" && [...pages].some((page) => page.id === lastPage)) {
+      showPage(lastPage);
+    }
+  } catch {
+    // Ignore — private browsing / storage quota, non-critical.
   }
 })();
