@@ -294,44 +294,56 @@ function changePillHtml(value, { arrow = true, decimals = 2 } = {}) {
 
 // Small trend-line "sparkline" drawn behind a price card, in place of a flat
 // number — same visual pattern for both BTC and Indian Market price cards.
-const __sparklineCharts = {};
+// Drawn with the raw Canvas 2D API rather than Chart.js: it's a simple
+// polyline + fill with no interactivity, and not depending on Chart.js
+// having finished loading from its CDN keeps this working even if that
+// script is slow, blocked, or fails on a given network.
 function renderSparkline(canvasId, values) {
   const canvas = document.getElementById(canvasId);
-  if (!canvas || typeof Chart === "undefined") return;
+  if (!canvas) return;
   const points = Array.isArray(values) ? values.filter((value) => Number.isFinite(value)) : [];
   if (points.length < 2) return;
 
-  if (__sparklineCharts[canvasId]) __sparklineCharts[canvasId].destroy();
+  const width = canvas.clientWidth;
+  const height = canvas.clientHeight;
+  if (!width || !height) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
 
   const isUp = points[points.length - 1] >= points[0];
   const lineColor = isUp ? "#34d399" : "#f87171";
   const fillColor = isUp ? "rgba(52, 211, 153, 0.25)" : "rgba(248, 113, 113, 0.25)";
 
-  __sparklineCharts[canvasId] = new Chart(canvas.getContext("2d"), {
-    type: "line",
-    data: {
-      labels: points.map((_, index) => index),
-      datasets: [{
-        data: points,
-        borderColor: lineColor,
-        backgroundColor: fillColor,
-        borderWidth: 1.5,
-        fill: true,
-        tension: 0.35,
-        pointRadius: 0,
-        pointHoverRadius: 0
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      layout: { padding: 0 },
-      interaction: { intersect: false },
-      plugins: { legend: { display: false }, tooltip: { enabled: false } },
-      scales: { x: { display: false }, y: { display: false } }
-    }
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const stepX = width / (points.length - 1);
+  const topPad = 3;
+  const toY = (value) => topPad + (1 - (value - min) / range) * (height - topPad * 2);
+
+  ctx.beginPath();
+  points.forEach((value, index) => {
+    const x = index * stepX;
+    const y = toY(value);
+    if (index === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
   });
+  ctx.strokeStyle = lineColor;
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  ctx.lineTo(width, height);
+  ctx.lineTo(0, height);
+  ctx.closePath();
+  ctx.fillStyle = fillColor;
+  ctx.fill();
 }
 
 function getSignalColor(signal) {
