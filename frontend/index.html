@@ -1446,10 +1446,17 @@
               <span class="chart-control-label">Index</span>
               <button class="chart-control-button active" type="button" data-im-dashboard-ai-market="nifty">NIFTY 50</button>
               <button class="chart-control-button" type="button" data-im-dashboard-ai-market="banknifty">Bank Nifty</button>
+              <button class="chart-control-button" type="button" data-im-dashboard-ai-market="finnifty">FINNIFTY</button>
+              <button class="chart-control-button" type="button" data-im-dashboard-ai-market="sensex">Sensex</button>
             </div>
           </div>
 
           <button class="primary-button" id="im-dashboard-ai-run-btn" type="button">Run AI Analysis</button>
+
+          <div class="im-watchlist-search-wrap im-dashboard-ai-search-wrap">
+            <input id="im-dashboard-ai-search-input" type="text" placeholder="Or search any of 5,000+ NSE stocks by name or symbol…" aria-label="Search stock to analyze" autocomplete="off" />
+            <div id="im-dashboard-ai-search-results" class="im-watchlist-search-results" hidden></div>
+          </div>
 
           <div id="im-dashboard-ai-result" hidden>
             <div id="im-dashboard-ai-analysis" class="gemini-review-body"></div>
