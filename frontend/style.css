@@ -70,15 +70,18 @@
 }
 
 .change-pill-up {
-  /* A lighter green than the theme's --green (used for borders/text
-     elsewhere) — deliberately not tied to that variable so it stays this
-     shade in every theme, since this badge's white text is what needs to
-     read clearly against it, not the surrounding UI. */
-  background: #4ade80;
+  /* Light green background with dark green text (not the theme's --green,
+     used for borders/text elsewhere) — deliberately not tied to that
+     variable so it stays this shade in every theme. White text stopped
+     being readable once the background got this light, hence the switch
+     to dark text instead of just lightening further. */
+  background: #86efac;
+  color: #14532d !important;
 }
 
 .change-pill-down {
-  background: var(--red, #f87171);
+  background: #fca5a5;
+  color: #7f1d1d !important;
 }
 
 .change-pill-neutral {
