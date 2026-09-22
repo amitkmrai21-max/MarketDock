@@ -6037,10 +6037,13 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .chart-control-label {
-  margin-right: 2px;
+  flex-basis: 100%;
+  margin: 0 0 8px;
   color: var(--im-muted);
   font-size: 12px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .indian-market-mode .chart-control-button {
