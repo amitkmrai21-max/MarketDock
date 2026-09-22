@@ -2907,6 +2907,10 @@ body {
   transition: color 0.3s ease, transform 0.3s ease;
 }
 
+.mode-slider-label-right {
+  font-size: 15px;
+}
+
 .mode-slider-thumb {
   position: absolute;
   top: 3px;
