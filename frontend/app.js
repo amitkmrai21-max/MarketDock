@@ -1776,7 +1776,7 @@ async function loadBtcSparkline() {
     const response = await fetch(`/api/btc/chart?days=1&interval=15m`, { cache: "no-store" });
     if (!response.ok) return;
     const chart = await response.json();
-    const prices = Array.isArray(chart.prices) ? chart.prices.map((p) => p[1]) : [];
+    const prices = Array.isArray(chart.prices) ? chart.prices.slice(-96).map((p) => p[1]) : [];
     renderSparkline("btcPriceSparkline", prices);
   } catch (error) {
     console.error("BTC sparkline failed:", error);
@@ -5515,7 +5515,14 @@ function clearLiveChartAiOverlay() {
       const response = await fetch(`${API_BASE_URL}/api/live/candles/${marketKey}?timeframe=15m`);
       const result = await response.json();
       if (!response.ok || !result.ok || !Array.isArray(result.candles)) return;
-      const closes = result.candles.map((candle) => Number(candle.close));
+      // The candles endpoint returns weeks of history (for the full Live
+      // Chart page), not just today — a sparkline needs only the most
+      // recent session's worth, both so the up/down color matches today's
+      // change_percent shown right next to it, and so it doesn't try to
+      // cram weeks of noise into a ~200px-wide line (~26 candles ≈ one
+      // NSE trading day at 15m).
+      const recent = result.candles.slice(-26);
+      const closes = recent.map((candle) => Number(candle.close));
       renderSparkline(`im-dash-${marketKey}-sparkline`, closes);
     } catch (error) {
       console.error(`Dashboard sparkline failed for ${marketKey}:`, error);
