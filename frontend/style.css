@@ -70,7 +70,11 @@
 }
 
 .change-pill-up {
-  background: var(--green, #34d399);
+  /* A lighter green than the theme's --green (used for borders/text
+     elsewhere) — deliberately not tied to that variable so it stays this
+     shade in every theme, since this badge's white text is what needs to
+     read clearly against it, not the surrounding UI. */
+  background: #4ade80;
 }
 
 .change-pill-down {
