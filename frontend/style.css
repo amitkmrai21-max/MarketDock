@@ -5585,22 +5585,23 @@ body[data-accent="green"] .settings-choice.active {
   }
 
 .indian-market-mode .app-shell {
-    display: flex;
-    flex-direction: column;
-  }
-
-.indian-market-mode .content {
-    order: 1;
+    display: block;
   }
 
 .indian-market-mode .sidebar {
-    order: 2;
-    position: static;
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 55;
     height: auto;
-    padding: 14px;
+    padding: 10px 14px;
     border-right: 0;
     border-top: 1px solid var(--im-border);
     border-bottom: 0;
+    background: var(--im-bg);
+    box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.35);
   }
 
 .indian-market-mode .brand {
@@ -5626,7 +5627,7 @@ body[data-accent="green"] .settings-choice.active {
   }
 
 .indian-market-mode .content {
-    padding: 18px 14px 28px;
+    padding: 18px 14px 84px;
   }
 
 .indian-market-mode .topbar,
