@@ -242,6 +242,29 @@ CHART_HISTORY_DAYS = {
 }
 
 
+def _upstox_get(url, headers, timeout):
+    """requests.get with a short retry on Upstox rate-limiting (429) or a
+    transient 502/503/504 — without this, firing several markets' candle
+    requests at once (e.g. the dashboard loading NIFTY/Bank Nifty/FinNifty/
+    Sensex in parallel) reliably has only the first one or two succeed and
+    the rest get rate-limited and fail outright, even though a short pause
+    and a single retry would have gone through fine."""
+    last_response = None
+    for attempt in range(3):
+        response = requests.get(url, headers=headers, timeout=timeout)
+        if response.status_code not in (429, 502, 503, 504):
+            return response
+        last_response = response
+        if attempt < 2:
+            retry_after = response.headers.get("Retry-After")
+            try:
+                delay = float(retry_after) if retry_after else None
+            except ValueError:
+                delay = None
+            time.sleep(delay if delay is not None else 0.6 * (attempt + 1))
+    return last_response
+
+
 def fetch_upstox_candles(instrument_key, unit, interval, chart_history_days=None):
     """Fetches a multi-day candle history (for proper chart depth/scroll) plus
     today's intraday candles, merged into one chronological series. Falls
@@ -305,7 +328,7 @@ def _fetch_upstox_history_window(instrument_key, unit, interval, days_back):
         "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}",
     }
 
-    response = requests.get(url, headers=headers, timeout=25)
+    response = _upstox_get(url, headers, timeout=25)
     if not response.ok:
         raise RuntimeError(f"Live historical data request failed: status={response.status_code}")
 
@@ -323,7 +346,7 @@ def _fetch_upstox_intraday(instrument_key, unit, interval):
         "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}",
     }
 
-    response = requests.get(url, headers=headers, timeout=20)
+    response = _upstox_get(url, headers, timeout=20)
     if not response.ok:
         raise RuntimeError(f"Live candle request failed: status={response.status_code}")
 
@@ -348,7 +371,7 @@ def _fetch_upstox_last_trading_day(instrument_key, unit, interval):
         "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}",
     }
 
-    response = requests.get(url, headers=headers, timeout=20)
+    response = _upstox_get(url, headers, timeout=20)
     if not response.ok:
         raise RuntimeError(f"Live historical candle request failed: status={response.status_code}")
 
