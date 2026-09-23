@@ -242,12 +242,12 @@ def generate_ai_text(prompt, json_mode=False):
 # ===================== Upstox live data + indicators =====================
 
 CHART_HISTORY_DAYS = {
-    "1m": 3,
-    "3m": 7,
-    "5m": 20,
-    "15m": 40,
-    "30m": 60,
-    "1h": 90,
+    "1m": 120,
+    "3m": 120,
+    "5m": 120,
+    "15m": 120,
+    "30m": 120,
+    "1h": 120,
     "2h": 150,
     "4h": 250,
     "1d": 500,
