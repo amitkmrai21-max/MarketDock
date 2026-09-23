@@ -327,28 +327,51 @@ def fetch_upstox_candles(instrument_key, unit, interval, chart_history_days=None
 
 
 def _fetch_upstox_history_window(instrument_key, unit, interval, days_back):
+    """Upstox enforces a maximum lookback window per candle unit/interval
+    that isn't documented cleanly enough to hardcode confidently — a
+    too-large request comes back as a 400, not a partial result, so asking
+    for e.g. 120 days of 1-minute candles can fail outright and silently
+    leave the caller with only today's intraday candles. Ask for the
+    requested window first, then retry with a smaller one on a 400 until it
+    succeeds or gives up, so this adapts to whatever Upstox's real limit is
+    for this specific unit/interval instead of guessing one number for
+    everything."""
     from datetime import timedelta
 
     encoded_instrument_key = quote(instrument_key, safe="")
-    to_date = datetime.now(timezone.utc).date()
-    from_date = to_date - timedelta(days=days_back)
-    url = (
-        f"https://api.upstox.com/v3/historical-candle/{encoded_instrument_key}/{unit}/{interval}"
-        f"/{to_date.isoformat()}/{from_date.isoformat()}"
-    )
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
         "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}",
     }
 
-    response = _upstox_get(url, headers, timeout=25)
-    if not response.ok:
-        raise RuntimeError(f"Live historical data request failed: status={response.status_code}")
+    attempt_days = days_back
+    last_error = None
+    while attempt_days >= 3:
+        to_date = datetime.now(timezone.utc).date()
+        from_date = to_date - timedelta(days=attempt_days)
+        url = (
+            f"https://api.upstox.com/v3/historical-candle/{encoded_instrument_key}/{unit}/{interval}"
+            f"/{to_date.isoformat()}/{from_date.isoformat()}"
+        )
 
-    payload = response.json()
-    raw_candles = (payload.get("data") or {}).get("candles") or []
-    return _parse_upstox_candles(raw_candles)
+        response = _upstox_get(url, headers, timeout=25)
+        if response.ok:
+            payload = response.json()
+            raw_candles = (payload.get("data") or {}).get("candles") or []
+            return _parse_upstox_candles(raw_candles)
+
+        last_error = RuntimeError(f"Live historical data request failed: status={response.status_code}")
+        if response.status_code != 400:
+            raise last_error
+
+        app.logger.info(
+            "Upstox rejected a %s-day %s/%s history request (400) — retrying with a shorter window.",
+            attempt_days, unit, interval,
+        )
+        attempt_days //= 2
+
+    raise last_error or RuntimeError("Live historical data request failed.")
 
 
 def _fetch_upstox_intraday(instrument_key, unit, interval):
