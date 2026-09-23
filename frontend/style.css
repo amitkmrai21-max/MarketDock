@@ -3088,7 +3088,6 @@ body {
   gap: 6px;
   padding: 5px 12px;
   border-radius: 999px;
-  border: 1px solid var(--border-strong, rgba(139, 92, 246, 0.4));
   background: linear-gradient(180deg, var(--chrome-grad-1), var(--chrome-grad-2));
   backdrop-filter: blur(10px);
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.32);
