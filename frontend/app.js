@@ -8861,14 +8861,18 @@ function clearLiveChartAiOverlay() {
   let chartRefreshTimer = null;
   let latestLiveCandleData = null;
   let imChartFullscreenActive = false;
+  let imChartFullscreenHistoryPushed = false;
 
   const IM_CHART_EXPAND_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
   const IM_CHART_COLLAPSE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M21 15h-3a2 2 0 0 0-2 2v3M3 15h3a2 2 0 0 1 2 2v3"/></svg>';
 
-  function setImChartFullscreen(active) {
+  // Pushes a history entry while fullscreen is active so the Android hardware/gesture
+  // back button closes the fullscreen chart instead of leaving the page or exiting the
+  // app (this SPA otherwise has no history entries for a WebView back-press to consume).
+  function setImChartFullscreen(active, { fromPopState = false } = {}) {
     const container = document.getElementById("im-lightweight-chart");
     const btn = document.getElementById("im-chart-fullscreen-btn");
-    if (!container) return;
+    if (!container || active === imChartFullscreenActive) return;
 
     imChartFullscreenActive = active;
     container.classList.toggle("im-chart-fullscreen-active", active);
@@ -8878,6 +8882,16 @@ function clearLiveChartAiOverlay() {
       btn.title = active ? "Exit fullscreen" : "Fullscreen";
       btn.setAttribute("aria-label", btn.title);
       btn.innerHTML = active ? IM_CHART_COLLAPSE_ICON : IM_CHART_EXPAND_ICON;
+    }
+
+    if (active && !fromPopState) {
+      history.pushState({ imChartFullscreen: true }, "");
+      imChartFullscreenHistoryPushed = true;
+    } else if (!active && !fromPopState && imChartFullscreenHistoryPushed) {
+      imChartFullscreenHistoryPushed = false;
+      history.back();
+    } else if (!active) {
+      imChartFullscreenHistoryPushed = false;
     }
 
     requestAnimationFrame(() => {
@@ -8900,6 +8914,12 @@ function clearLiveChartAiOverlay() {
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && imChartFullscreenActive) {
         setImChartFullscreen(false);
+      }
+    });
+
+    window.addEventListener("popstate", () => {
+      if (imChartFullscreenActive) {
+        setImChartFullscreen(false, { fromPopState: true });
       }
     });
   }
