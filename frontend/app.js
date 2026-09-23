@@ -5310,6 +5310,25 @@ function clearLiveChartAiOverlay() {
     if (status) {
       status.textContent = "Refresh will retry automatically in 60 seconds.";
     }
+
+    // The dashboard price/change and hero price/change only get set on a
+    // successful load (renderMarketEngine below) — without this, a failed
+    // request leaves them stuck on their static "Loading…" placeholder
+    // forever instead of ever reflecting that the request actually failed.
+    const dashChange = document.getElementById(`im-dash-${marketKey}-change`);
+    if (dashChange) {
+      dashChange.className = "stat-change";
+      dashChange.textContent = "Unavailable — retrying…";
+    }
+
+    const heroChange = document.getElementById(`im-${marketKey}-hero-change`);
+    if (heroChange) {
+      heroChange.className = "";
+      heroChange.textContent = "Unavailable — retrying…";
+    }
+
+    const heroEyebrow = document.getElementById(`im-${marketKey}-eyebrow`);
+    if (heroEyebrow) heroEyebrow.textContent = "NSE Index · Retrying…";
   }
 
   async function loadMarketEngine(marketKey) {
