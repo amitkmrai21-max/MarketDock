@@ -7055,11 +7055,15 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-options-table .im-options-call-side {
-  color: #7be3ad;
+  /* var(--im-green)/(--im-red) instead of a fixed pale hex — those are
+     already tuned per theme (darker/more saturated in Light theme) for
+     exactly this plain-text-on-page-background case, unlike the fixed pale
+     shade here which was unreadable once the page background went light. */
+  color: var(--im-green);
 }
 
 .indian-market-mode .im-options-table .im-options-put-side {
-  color: #ffa3ab;
+  color: var(--im-red);
 }
 
 .indian-market-mode .live-chart-layout {
