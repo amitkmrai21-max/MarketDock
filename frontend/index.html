@@ -1129,17 +1129,17 @@
     <div class="paper-metrics">
       <div class="paper-metric">
         <span>Virtual Cash</span>
-        <strong id="paperCash">₹--</strong>
+        <strong id="paperCash" class="privacy-sensitive">₹--</strong>
       </div>
 
       <div class="paper-metric">
         <span>Long BTC Holding</span>
-        <strong id="paperBtcHolding">0.000000 BTC</strong>
+        <strong id="paperBtcHolding" class="privacy-sensitive">0.000000 BTC</strong>
       </div>
 
       <div class="paper-metric">
         <span>Short BTC Holding</span>
-        <strong id="paperShortBtcHolding">0.000000 BTC</strong>
+        <strong id="paperShortBtcHolding" class="privacy-sensitive">0.000000 BTC</strong>
       </div>
 
       <div class="paper-metric">
@@ -1159,12 +1159,12 @@
 
       <div class="paper-metric">
         <span>Portfolio Value</span>
-        <strong id="paperPortfolioValue">₹--</strong>
+        <strong id="paperPortfolioValue" class="privacy-sensitive">₹--</strong>
       </div>
 
       <div class="paper-metric">
         <span>Profit / Loss</span>
-        <strong id="paperPnl">₹--</strong>
+        <strong id="paperPnl" class="privacy-sensitive">₹--</strong>
       </div>
     </div>
 
@@ -1189,7 +1189,7 @@
 
     <div class="paper-history-wrap">
       <h3>Virtual Trade History</h3>
-      <div id="paperTradeHistory" class="paper-history">No virtual trades yet.</div>
+      <div id="paperTradeHistory" class="paper-history privacy-sensitive">No virtual trades yet.</div>
     </div>
   </section>
 </section>
@@ -3079,29 +3079,29 @@
               </div>
               <div class="im-options-summary-card">
                 <span class="im-options-summary-label">Total P&amp;L</span>
-                <strong id="im-perf-total-pnl">--</strong>
+                <strong id="im-perf-total-pnl" class="privacy-sensitive">--</strong>
               </div>
               <div class="im-options-summary-card">
                 <span class="im-options-summary-label">Profit Factor</span>
-                <strong id="im-perf-profit-factor">--</strong>
+                <strong id="im-perf-profit-factor" class="privacy-sensitive">--</strong>
               </div>
               <div class="im-options-summary-card">
                 <span class="im-options-summary-label">Avg Win / Avg Loss</span>
-                <strong id="im-perf-avg-win-loss">--</strong>
+                <strong id="im-perf-avg-win-loss" class="privacy-sensitive">--</strong>
               </div>
               <div class="im-options-summary-card">
                 <span class="im-options-summary-label">Max Drawdown</span>
-                <strong id="im-perf-max-drawdown">--</strong>
+                <strong id="im-perf-max-drawdown" class="privacy-sensitive">--</strong>
               </div>
               <div class="im-options-summary-card">
                 <span class="im-options-summary-label">Sharpe Ratio</span>
-                <strong id="im-perf-sharpe">--</strong>
+                <strong id="im-perf-sharpe" class="privacy-sensitive">--</strong>
                 <span class="im-options-summary-note">Per-trade P&amp;L basis, not annualized</span>
               </div>
             </div>
 
             <div class="im-perf-chart-wrap">
-              <canvas id="im-perf-equity-chart" height="220"></canvas>
+              <canvas id="im-perf-equity-chart" height="220" class="privacy-sensitive"></canvas>
               <p class="im-chart-status" id="im-perf-empty-note">No closed trades yet — stats and the equity curve will appear once trades are marked closed.</p>
             </div>
           </article>
@@ -3250,6 +3250,16 @@
 
         <p class="settings-help">Choose what opens first when you launch MarketDock.</p>
       </div>
+
+      <div class="settings-group settings-group--plain">
+        <label class="settings-toggle-row" for="privacyModeToggle">
+          <input id="privacyModeToggle" type="checkbox" />
+          <span>
+            <strong>Privacy mode</strong>
+            <small>Blurs paper-trading balances and P&amp;L so they aren't readable over your shoulder or in a screen share.</small>
+          </span>
+        </label>
+      </div>
     </section>
 
     <section class="settings-section">
@@ -3367,6 +3377,41 @@
           <button id="saveGroqKeyBtn" type="button">Save</button>
         </div>
         <p id="groqKeyStatus" class="settings-help"></p>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </span>
+        <div>
+          <h3>Help &amp; Support</h3>
+        </div>
+      </div>
+
+      <div class="settings-group settings-group--plain">
+        <div class="settings-account-actions">
+          <a href="https://github.com/amitkmrai21-max/MarketDock/issues" target="_blank" rel="noopener">Report an Issue</a>
+          <a href="mailto:amitkmrai21@gmail.com?subject=MarketDock%20Feedback">Send Feedback</a>
+        </div>
+        <p class="settings-help">Found a bug or have a feature idea? Report it on GitHub or send feedback by email.</p>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        </span>
+        <div>
+          <h3>About</h3>
+        </div>
+      </div>
+
+      <div class="settings-group settings-group--plain">
+        <p class="settings-help">MarketDock v1.0.0 — NIFTY 50, Bank Nifty and BTC research dashboard with an AI-assisted, paper-trading-only workflow. Research and education only — not financial advice, and no real-money trading.</p>
+        <p class="settings-help">Built with Chart.js, Lightweight Charts &amp; the TradingView widget, Hammer.js, Supabase, Google Gemini and Groq AI, Binance and Upstox market data.</p>
       </div>
     </section>
 

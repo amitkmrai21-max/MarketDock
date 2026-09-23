@@ -2206,6 +2206,20 @@ setInterval(loadRrg, 300000);
       });
     });
 
+    const PRIVACY_MODE_KEY = "marketDockPrivacyMode";
+    const privacyModeToggle = document.querySelector("#privacyModeToggle");
+    if (privacyModeToggle) {
+      let privacyModeOn = false;
+      try { privacyModeOn = localStorage.getItem(PRIVACY_MODE_KEY) === "1"; } catch (error) { /* ignore */ }
+      privacyModeToggle.checked = privacyModeOn;
+      document.body.dataset.privacyMode = privacyModeOn ? "on" : "off";
+
+      privacyModeToggle.addEventListener("change", () => {
+        document.body.dataset.privacyMode = privacyModeToggle.checked ? "on" : "off";
+        try { localStorage.setItem(PRIVACY_MODE_KEY, privacyModeToggle.checked ? "1" : "0"); } catch (error) { /* ignore */ }
+      });
+    }
+
     const settingsNotifBadge = document.querySelector("#settingsNotificationBadge");
     const settingsNotifStatus = document.querySelector("#settingsNotificationStatus");
     const settingsEnableNotifBtn = document.querySelector("#settingsEnableNotificationsBtn");
@@ -4579,7 +4593,7 @@ function clearLiveChartAiOverlay() {
               <td>${Number(stopDisplay).toFixed(2)}${isTrailed ? " ↑" : ""}</td>
               <td>${Number(trade.target).toFixed(2)}</td>
               <td>${status ? `<span class="im-trade-status im-trade-status-${status}">${escapeText(status)}</span>` : "--"}</td>
-              <td class="${pnlClass}">${pnlText}</td>
+              <td class="${pnlClass} privacy-sensitive">${pnlText}</td>
               <td>
                 <button
                   class="delete-trade-button"
