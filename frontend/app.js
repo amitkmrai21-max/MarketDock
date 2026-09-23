@@ -4398,6 +4398,10 @@ function clearLiveChartAiOverlay() {
       title: "Live Market Chart",
       subtitle: "Custom chart workspace for NIFTY 50 and Bank Nifty."
     },
+    "im-tradingview-chart": {
+      title: "TradingView Chart",
+      subtitle: "The real TradingView widget — full indicator/drawing-tool library and symbol search."
+    },
     "im-rrg": {
       title: "Stock Rotation (RRG)",
       subtitle: "Relative strength and momentum rotation versus NIFTY 50."
@@ -4421,6 +4425,48 @@ function clearLiveChartAiOverlay() {
   const pageSubtitle = document.getElementById("im-page-subtitle");
 
   const LAST_PAGE_STORAGE_KEY = "indianMarketLastPage";
+  let imTradingViewChartLoaded = false;
+
+  function loadImTradingViewChart(symbol) {
+    const container = document.getElementById("im-tradingview-widget-container");
+    if (!container) return;
+
+    container.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
+
+    const script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
+    script.async = true;
+    script.text = JSON.stringify({
+      width: "100%",
+      height: 700,
+      symbol,
+      interval: "15",
+      timezone: "Asia/Kolkata",
+      theme: "dark",
+      style: "1",
+      locale: "en",
+      withdateranges: true,
+      hide_side_toolbar: false,
+      allow_symbol_change: true,
+      details: true,
+      studies: ["STD;SMA", "STD;RSI"],
+      support_host: "https://www.tradingview.com"
+    });
+    container.appendChild(script);
+  }
+
+  function setupImTradingViewChart() {
+    const buttons = document.querySelectorAll("[data-tv-market]");
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        buttons.forEach((item) => item.classList.toggle("active", item === btn));
+        loadImTradingViewChart(btn.dataset.tvMarket);
+      });
+    });
+  }
+
+  setupImTradingViewChart();
 
   function showPage(pageId) {
     navButtons.forEach((button) => {
@@ -4447,6 +4493,11 @@ function clearLiveChartAiOverlay() {
     if (info && pageTitle && pageSubtitle) {
       pageTitle.textContent = info.title;
       pageSubtitle.textContent = info.subtitle;
+    }
+
+    if (pageId === "im-tradingview-chart" && !imTradingViewChartLoaded) {
+      imTradingViewChartLoaded = true;
+      loadImTradingViewChart("NSE:NIFTY");
     }
 
     if (pageId === "im-live-chart") {

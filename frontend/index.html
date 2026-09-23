@@ -1306,6 +1306,11 @@
           Live Chart
         </button>
 
+        <button class="nav-button" data-page="im-tradingview-chart" type="button">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6.5 15l3-4 2.5 2.5L16.5 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          TradingView Chart
+        </button>
+
         <p class="nav-label">Journal</p>
 
         <button class="nav-button" data-page="im-news" type="button">
@@ -2817,6 +2822,31 @@
             </article>
           </div>
         </div>
+      </section>
+
+      <section class="page" id="im-tradingview-chart">
+        <article class="card section-card">
+          <div class="section-heading">
+            <div>
+              <h2>TradingView Chart</h2>
+              <p>The real TradingView chart widget — 100+ built-in indicators, 80+ drawing tools, full symbol search. Separate from this app's own Engine/Gemini/Groq signals and the custom Live Chart tab.</p>
+            </div>
+          </div>
+
+          <div class="chart-controls">
+            <div class="chart-control-group">
+              <button class="chart-control-button active" type="button" data-tv-market="NSE:NIFTY">NIFTY 50</button>
+              <button class="chart-control-button" type="button" data-tv-market="NSE:BANKNIFTY">Bank Nifty</button>
+              <button class="chart-control-button" type="button" data-tv-market="NSE:CNXFINANCE">FinNifty</button>
+              <button class="chart-control-button" type="button" data-tv-market="BSE:SENSEX">Sensex</button>
+            </div>
+          </div>
+
+          <div id="im-tradingview-widget-container" class="tradingview-widget-container" style="width:100%">
+            <div class="tradingview-widget-container__widget"></div>
+          </div>
+          <p class="im-chart-status">If a symbol looks wrong, use the widget's own symbol search (top-left of the chart) to pick the exact contract — index-symbol mappings can vary.</p>
+        </article>
       </section>
 
 <section class="page" id="im-rrg">
