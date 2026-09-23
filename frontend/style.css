@@ -246,17 +246,17 @@ body > header.topbar {
 .retry-ai-btn {
   margin-top: 4px;
   padding: 4px 12px;
-  border: 1px solid rgba(248, 113, 113, 0.55);
+  border: 1px solid transparent;
   border-radius: 7px;
-  background: rgba(239, 68, 68, 0.16);
-  color: #fca5a5;
+  background: #fca5a5;
+  color: #7f1d1d;
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
 }
 
 .retry-ai-btn:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: #f87171;
 }
 
 .ai-btn-wrap {
@@ -292,9 +292,9 @@ body > header.topbar {
 }
 
 .retry-ai-btn.quota-finished-message {
-  border-color: rgba(239, 68, 68, 0.8);
-  background: rgba(239, 68, 68, 0.28);
-  color: #f87171;
+  border-color: transparent;
+  background: #f87171;
+  color: #ffffff;
 }
 
 .api-key-prompt .key-prompt-link {
@@ -756,21 +756,24 @@ canvas {
 }
 
 .risk-low {
+  /* Solid pastel background + dark text (same treatment as .change-pill)
+     instead of pale text on a semi-transparent dark tint, which washed out
+     to near-invisible once the page background itself is light. */
   border-color: #4ade80;
-  color: #bbf7d0;
-  background: rgba(22, 101, 52, 0.32);
+  color: #14532d;
+  background: #86efac;
 }
 
 .risk-medium {
   border-color: #facc15;
-  color: #fef3c7;
-  background: rgba(161, 98, 7, 0.32);
+  color: #78350f;
+  background: #fde68a;
 }
 
 .risk-high {
   border-color: #f87171;
-  color: #fecaca;
-  background: rgba(153, 27, 27, 0.32);
+  color: #7f1d1d;
+  background: #fca5a5;
 }
 
 .ai-analysis-card {
@@ -983,10 +986,10 @@ canvas {
   display: inline-flex;
   flex: 0 1 auto;
   justify-content: center;
-  border: 1px solid rgba(251, 191, 36, 0.4);
+  border: 1px solid transparent;
   border-radius: 999px;
-  color: #fde68a;
-  background: rgba(120, 53, 15, 0.22);
+  color: #78350f;
+  background: #fde68a;
   overflow-wrap: anywhere;
   font-size: 0.67rem;
   font-weight: 800;
@@ -1118,27 +1121,27 @@ canvas {
 }
 
 .health-live {
-  border-color: rgba(74, 222, 128, 0.8);
-  color: #bbf7d0;
-  background: rgba(20, 83, 45, 0.42);
+  border-color: transparent;
+  color: #14532d;
+  background: #86efac;
 }
 
 .health-cached {
-  border-color: rgba(167, 139, 250, 0.78);
-  color: #dbeafe;
-  background: rgba(109, 40, 217, 0.34);
+  border-color: transparent;
+  color: #3730a3;
+  background: #c7d2fe;
 }
 
 .health-delayed {
-  border-color: rgba(250, 204, 21, 0.8);
-  color: #fef3c7;
-  background: rgba(146, 64, 14, 0.35);
+  border-color: transparent;
+  color: #78350f;
+  background: #fde68a;
 }
 
 .health-error {
-  border-color: rgba(248, 113, 113, 0.8);
-  color: #fecaca;
-  background: rgba(153, 27, 27, 0.38);
+  border-color: transparent;
+  color: #7f1d1d;
+  background: #fca5a5;
 }
 
 .retry-technical-btn {
@@ -1438,10 +1441,10 @@ canvas {
 
 .plan-badge {
   padding: 7px 10px;
-  border: 1px solid rgba(251, 191, 36, 0.42);
+  border: 1px solid transparent;
   border-radius: 999px;
-  color: #fde68a;
-  background: rgba(120, 53, 15, 0.23);
+  color: #78350f;
+  background: #fde68a;
   font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1964,21 +1967,21 @@ canvas {
 }
 
 .swing-bearish {
-  border-color: rgba(248, 113, 113, 0.85);
-  color: #fecaca;
-  background: rgba(153, 27, 27, 0.42);
+  border-color: transparent;
+  color: #7f1d1d;
+  background: #fca5a5;
 }
 
 .swing-bullish {
-  border-color: rgba(74, 222, 128, 0.82);
-  color: #bbf7d0;
-  background: rgba(20, 83, 45, 0.44);
+  border-color: transparent;
+  color: #14532d;
+  background: #86efac;
 }
 
 .swing-neutral {
-  border-color: rgba(250, 204, 21, 0.78);
-  color: #fef3c7;
-  background: rgba(146, 64, 14, 0.38);
+  border-color: transparent;
+  color: #78350f;
+  background: #fde68a;
 }
 
 .swing-structure-grid {
@@ -2141,28 +2144,28 @@ canvas {
 }
 
 .setup-state-ready {
-  border-color: rgba(74, 222, 128, 0.82);
-  color: #bbf7d0;
-  background: rgba(20, 83, 45, 0.44);
+  border-color: transparent;
+  color: #14532d;
+  background: #86efac;
 }
 
 .setup-state-wait-for-trigger,
 .setup-state-wait-low-quality {
-  border-color: rgba(250, 204, 21, 0.82);
-  color: #fef3c7;
-  background: rgba(146, 64, 14, 0.38);
+  border-color: transparent;
+  color: #78350f;
+  background: #fde68a;
 }
 
 .setup-state-avoid {
-  border-color: rgba(248, 113, 113, 0.85);
-  color: #fecaca;
-  background: rgba(153, 27, 27, 0.42);
+  border-color: transparent;
+  color: #7f1d1d;
+  background: #fca5a5;
 }
 
 .setup-state-loading {
-  border-color: rgba(167, 139, 250, 0.66);
-  color: #dbeafe;
-  background: rgba(109, 40, 217, 0.32);
+  border-color: transparent;
+  color: #3730a3;
+  background: #c7d2fe;
 }
 
 .setup-quality-overview {
@@ -2300,21 +2303,21 @@ canvas {
 }
 
 .setup-check-pass .setup-check-state {
-  border-color: rgba(74, 222, 128, 0.72);
-  color: #bbf7d0;
-  background: rgba(20, 83, 45, 0.5);
+  border-color: transparent;
+  color: #14532d;
+  background: #86efac;
 }
 
 .setup-check-wait .setup-check-state {
-  border-color: rgba(250, 204, 21, 0.72);
-  color: #fef3c7;
-  background: rgba(146, 64, 14, 0.48);
+  border-color: transparent;
+  color: #78350f;
+  background: #fde68a;
 }
 
 .setup-check-fail .setup-check-state {
-  border-color: rgba(248, 113, 113, 0.72);
-  color: #fecaca;
-  background: rgba(153, 27, 27, 0.5);
+  border-color: transparent;
+  color: #7f1d1d;
+  background: #fca5a5;
 }
 
 .setup-check-item p {
@@ -2392,21 +2395,21 @@ canvas {
 }
 
 .news-impact-bullish {
-  border-color: rgba(74, 222, 128, 0.8);
-  color: #bbf7d0;
-  background: rgba(20, 83, 45, 0.46);
+  border-color: transparent;
+  color: #14532d;
+  background: #86efac;
 }
 
 .news-impact-bearish {
-  border-color: rgba(248, 113, 113, 0.82);
-  color: #fecaca;
-  background: rgba(153, 27, 27, 0.46);
+  border-color: transparent;
+  color: #7f1d1d;
+  background: #fca5a5;
 }
 
 .news-impact-neutral {
-  border-color: rgba(250, 204, 21, 0.76);
-  color: #fef3c7;
-  background: rgba(146, 64, 14, 0.4);
+  border-color: transparent;
+  color: #78350f;
+  background: #fde68a;
 }
 
 .gemini-news-intro {
@@ -2707,27 +2710,27 @@ canvas {
 }
 
 .notification-granted {
-  color: #bbf7d0;
-  border-color: rgba(34, 197, 94, 0.7);
-  background: rgba(34, 197, 94, 0.12);
+  color: #14532d;
+  border-color: transparent;
+  background: #86efac;
 }
 
 .notification-denied {
-  color: #fecaca;
-  border-color: rgba(239, 68, 68, 0.7);
-  background: rgba(239, 68, 68, 0.12);
+  color: #7f1d1d;
+  border-color: transparent;
+  background: #fca5a5;
 }
 
 .notification-default {
-  color: #fde68a;
-  border-color: rgba(250, 204, 21, 0.7);
-  background: rgba(250, 204, 21, 0.1);
+  color: #78350f;
+  border-color: transparent;
+  background: #fde68a;
 }
 
 .notification-unsupported {
-  color: #cbd5e1;
-  border-color: #262138;
-  background: rgba(71, 85, 105, 0.18);
+  color: var(--muted);
+  border-color: var(--border);
+  background: rgba(148, 163, 184, 0.15);
 }
 
 .alert-controls {
@@ -4167,21 +4170,21 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .live-live {
-  border-color: rgba(74, 222, 128, 0.8);
-  color: #bbf7d0;
-  background: rgba(20, 83, 45, 0.42);
+  border-color: transparent;
+  color: #14532d;
+  background: #86efac;
 }
 
 .live-connecting {
-  border-color: rgba(250, 204, 21, 0.75);
-  color: #fef3c7;
-  background: rgba(146, 64, 14, 0.34);
+  border-color: transparent;
+  color: #78350f;
+  background: #fde68a;
 }
 
 .live-error {
-  border-color: rgba(248, 113, 113, 0.8);
-  color: #fecaca;
-  background: rgba(153, 27, 27, 0.4);
+  border-color: transparent;
+  color: #7f1d1d;
+  background: #fca5a5;
 }
 
 .live-chart-toolbar {
@@ -6051,13 +6054,13 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-trade-status-pending {
-  color: #ecd690;
-  background: rgba(247, 201, 72, 0.15);
+  color: #78350f;
+  background: #fde68a;
 }
 
 .indian-market-mode .im-trade-status-open {
-  color: #a78bfa;
-  background: rgba(139, 92, 246, 0.15);
+  color: #4c1d95;
+  background: #ddd6fe;
 }
 
 .indian-market-mode .im-trade-status-closed {
@@ -6889,28 +6892,32 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .im-ai-score-strong-bullish {
-  color: #7be3ad;
-  background: rgba(54, 207, 131, 0.16);
+  /* Solid pastel background + dark text, same treatment as .change-pill and
+     .confirmation-state — stays readable in Light theme (the previous
+     pale-text-on-low-opacity-tint version washed out on a light
+     background, and bullish/neutral/bearish all looked nearly identical). */
+  color: #14532d;
+  background: #4ade80;
 }
 
 .indian-market-mode .im-ai-score-bullish {
-  color: #a7e9c4;
-  background: rgba(54, 207, 131, 0.1);
+  color: #14532d;
+  background: #86efac;
 }
 
 .indian-market-mode .im-ai-score-neutral {
-  color: #fde68a;
-  background: rgba(250, 204, 21, 0.1);
+  color: #78350f;
+  background: #fde68a;
 }
 
 .indian-market-mode .im-ai-score-bearish {
-  color: #ffb4bc;
-  background: rgba(255, 111, 125, 0.1);
+  color: #7f1d1d;
+  background: #fca5a5;
 }
 
 .indian-market-mode .im-ai-score-strong-bearish {
-  color: #ffa3ab;
-  background: rgba(255, 111, 125, 0.16);
+  color: #7f1d1d;
+  background: #f87171;
 }
 
 .indian-market-mode #im-options-expiry {
