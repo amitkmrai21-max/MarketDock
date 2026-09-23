@@ -9005,9 +9005,26 @@ function clearLiveChartAiOverlay() {
   let imDrawingMode = "cursor";
   let imDrawingColor = "#38bdf8";
   let imUserDrawings = [];
-  let imDrawingPendingPoint = null;
+  let imDrawingPendingPoints = [];
   let imDrawingRepositionFrame = null;
   let imLiveCandleRawData = [];
+  let imBrushDrawing = false;
+
+  const IM_DRAW_TOOL_POINT_COUNTS = {
+    trend: 2,
+    rectangle: 2,
+    measure: 2,
+    fibonacci: 2,
+    position: 2,
+    "volume-profile": 2,
+    ray: 2,
+    extended: 2,
+    circle: 2,
+    arrow: 2,
+    "price-range": 2,
+    "date-range": 2,
+    channel: 3
+  };
 
   const IM_BACKTEST_STORAGE_KEY = "imBacktestResultsV1";
   let imReplayActive = false;
@@ -9029,7 +9046,7 @@ function clearLiveChartAiOverlay() {
 
   function setImDrawingMode(mode) {
     imDrawingMode = mode;
-    imDrawingPendingPoint = null;
+    imDrawingPendingPoints = [];
     document.querySelectorAll(".im-drawing-tool-btn[data-im-draw-tool]").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.imDrawTool === mode);
     });
@@ -9042,14 +9059,23 @@ function clearLiveChartAiOverlay() {
       measure: "Click the start point, then the end point to measure price, %, bars and time.",
       fibonacci: "Click the swing high, then the swing low (or reverse) to draw retracement levels.",
       position: "Click the entry price, then the stop-loss price (target auto-calculates at 2:1 reward:risk).",
-      "volume-profile": "Click the start of the range, then the end, to show traded volume by price."
+      "volume-profile": "Click the start of the range, then the end, to show traded volume by price.",
+      ray: "Click the anchor point, then a second point — the ray extends forward through it.",
+      extended: "Click two points — the line extends infinitely in both directions.",
+      channel: "Click the start and end of the base line, then a third point to set the channel width.",
+      circle: "Click one corner, then the opposite corner, to fit a circle/ellipse.",
+      arrow: "Click the start point, then the point the arrow should point to.",
+      text: "Click the chart, then type your note.",
+      "price-range": "Click the first price level, then the second, to measure the price range.",
+      "date-range": "Click the first point, then the second, to measure the time range.",
+      brush: "Press and drag on the chart to draw freehand."
     };
     setImDrawingToolHint(hints[mode] || "");
   }
 
   function saveImDrawings() {
     try {
-      const serializable = imUserDrawings.map(({ id, type, color, price, time, t1, p1, t2, p2 }) => ({ id, type, color, price, time, t1, p1, t2, p2 }));
+      const serializable = imUserDrawings.map(({ id, type, color, price, time, t1, p1, t2, p2, t3, p3, label, points }) => ({ id, type, color, price, time, t1, p1, t2, p2, t3, p3, label, points }));
       localStorage.setItem(IM_DRAWING_STORAGE_KEY, JSON.stringify(serializable));
     } catch (error) {
       console.error(error);
@@ -9061,9 +9087,14 @@ function clearLiveChartAiOverlay() {
     imDrawingRepositionFrame = window.requestAnimationFrame(imDrawingRepositionLoop);
   }
 
+  const IM_OVERLAY_REPOSITION_TYPES = new Set([
+    "vertical", "rectangle", "trend", "measure", "fibonacci", "position", "volume-profile",
+    "ray", "extended", "channel", "circle", "arrow", "text", "price-range", "date-range", "brush"
+  ]);
+
   function imDrawingRepositionLoop() {
     repositionImDrawingOverlays();
-    const hasOverlayDrawings = imUserDrawings.some((d) => d.type === "vertical" || d.type === "rectangle" || d.type === "trend" || d.type === "measure" || d.type === "fibonacci" || d.type === "position" || d.type === "volume-profile");
+    const hasOverlayDrawings = imUserDrawings.some((d) => IM_OVERLAY_REPOSITION_TYPES.has(d.type));
     imDrawingRepositionFrame = hasOverlayDrawings ? window.requestAnimationFrame(imDrawingRepositionLoop) : null;
   }
 
@@ -9099,6 +9130,7 @@ function clearLiveChartAiOverlay() {
     if (!imLiveChart || !imLiveSeries) return;
     const container = document.getElementById("im-lightweight-chart");
     const height = container ? container.clientHeight : 600;
+    const width = container ? container.clientWidth : 0;
 
     imUserDrawings.forEach((drawing) => {
       if (drawing.type === "fibonacci") {
@@ -9286,6 +9318,180 @@ function clearLiveChartAiOverlay() {
         drawing.labelEl.setAttribute("x", leftX + 4);
         drawing.labelEl.setAttribute("y", topY - 8 < 12 ? topY + 14 : topY - 8);
         drawing.labelEl.textContent = `Volume Profile  •  POC ${formatNumber(lowestPrice + pocIndex * binSize + binSize / 2)}`;
+      } else if (drawing.type === "ray" && drawing.el) {
+        const timeScale = imLiveChart.timeScale();
+        const x1 = timeScale.timeToCoordinate(drawing.t1);
+        const x2 = timeScale.timeToCoordinate(drawing.t2);
+        const y1 = imLiveSeries.priceToCoordinate(drawing.p1);
+        const y2 = imLiveSeries.priceToCoordinate(drawing.p2);
+        if (x1 === null || x2 === null || y1 === null || y2 === null || x1 === x2) {
+          drawing.el.setAttribute("opacity", "0");
+          return;
+        }
+        drawing.el.setAttribute("opacity", "1");
+        const slope = (y2 - y1) / (x2 - x1);
+        const goingRight = x2 >= x1;
+        const edgeX = goingRight ? width : 0;
+        const edgeY = y1 + slope * (edgeX - x1);
+        drawing.el.setAttribute("x1", x1);
+        drawing.el.setAttribute("y1", y1);
+        drawing.el.setAttribute("x2", edgeX);
+        drawing.el.setAttribute("y2", edgeY);
+      } else if (drawing.type === "extended" && drawing.el) {
+        const timeScale = imLiveChart.timeScale();
+        const x1 = timeScale.timeToCoordinate(drawing.t1);
+        const x2 = timeScale.timeToCoordinate(drawing.t2);
+        const y1 = imLiveSeries.priceToCoordinate(drawing.p1);
+        const y2 = imLiveSeries.priceToCoordinate(drawing.p2);
+        if (x1 === null || x2 === null || y1 === null || y2 === null || x1 === x2) {
+          drawing.el.setAttribute("opacity", "0");
+          return;
+        }
+        drawing.el.setAttribute("opacity", "1");
+        const slope = (y2 - y1) / (x2 - x1);
+        const yAtLeft = y1 + slope * (0 - x1);
+        const yAtRight = y1 + slope * (width - x1);
+        drawing.el.setAttribute("x1", 0);
+        drawing.el.setAttribute("y1", yAtLeft);
+        drawing.el.setAttribute("x2", width);
+        drawing.el.setAttribute("y2", yAtRight);
+      } else if (drawing.type === "channel" && drawing.baseEl) {
+        const timeScale = imLiveChart.timeScale();
+        const x1 = timeScale.timeToCoordinate(drawing.t1);
+        const x2 = timeScale.timeToCoordinate(drawing.t2);
+        const y1 = imLiveSeries.priceToCoordinate(drawing.p1);
+        const y2 = imLiveSeries.priceToCoordinate(drawing.p2);
+        const y1Offset = imLiveSeries.priceToCoordinate(drawing.p1 + drawing.offsetPrice);
+        const y2Offset = imLiveSeries.priceToCoordinate(drawing.p2 + drawing.offsetPrice);
+        if (x1 === null || x2 === null || y1 === null || y2 === null || y1Offset === null || y2Offset === null) {
+          drawing.baseEl.setAttribute("opacity", "0");
+          drawing.offsetEl.setAttribute("opacity", "0");
+          drawing.fillEl.setAttribute("opacity", "0");
+          return;
+        }
+        drawing.baseEl.setAttribute("opacity", "1");
+        drawing.baseEl.setAttribute("x1", x1);
+        drawing.baseEl.setAttribute("y1", y1);
+        drawing.baseEl.setAttribute("x2", x2);
+        drawing.baseEl.setAttribute("y2", y2);
+        drawing.offsetEl.setAttribute("opacity", "1");
+        drawing.offsetEl.setAttribute("x1", x1);
+        drawing.offsetEl.setAttribute("y1", y1Offset);
+        drawing.offsetEl.setAttribute("x2", x2);
+        drawing.offsetEl.setAttribute("y2", y2Offset);
+        drawing.fillEl.setAttribute("opacity", "1");
+        drawing.fillEl.setAttribute("points", `${x1},${y1} ${x2},${y2} ${x2},${y2Offset} ${x1},${y1Offset}`);
+      } else if (drawing.type === "circle" && drawing.el) {
+        const timeScale = imLiveChart.timeScale();
+        const x1 = timeScale.timeToCoordinate(drawing.t1);
+        const x2 = timeScale.timeToCoordinate(drawing.t2);
+        const y1 = imLiveSeries.priceToCoordinate(drawing.p1);
+        const y2 = imLiveSeries.priceToCoordinate(drawing.p2);
+        if (x1 === null || x2 === null || y1 === null || y2 === null) {
+          drawing.el.setAttribute("opacity", "0");
+          return;
+        }
+        drawing.el.setAttribute("opacity", "1");
+        drawing.el.setAttribute("cx", (x1 + x2) / 2);
+        drawing.el.setAttribute("cy", (y1 + y2) / 2);
+        drawing.el.setAttribute("rx", Math.max(1, Math.abs(x2 - x1) / 2));
+        drawing.el.setAttribute("ry", Math.max(1, Math.abs(y2 - y1) / 2));
+      } else if (drawing.type === "arrow" && drawing.el) {
+        const timeScale = imLiveChart.timeScale();
+        const x1 = timeScale.timeToCoordinate(drawing.t1);
+        const x2 = timeScale.timeToCoordinate(drawing.t2);
+        const y1 = imLiveSeries.priceToCoordinate(drawing.p1);
+        const y2 = imLiveSeries.priceToCoordinate(drawing.p2);
+        if (x1 === null || x2 === null || y1 === null || y2 === null) {
+          drawing.el.setAttribute("opacity", "0");
+          return;
+        }
+        drawing.el.setAttribute("opacity", "1");
+        drawing.el.setAttribute("x1", x1);
+        drawing.el.setAttribute("y1", y1);
+        drawing.el.setAttribute("x2", x2);
+        drawing.el.setAttribute("y2", y2);
+      } else if (drawing.type === "text" && drawing.textEl) {
+        const x = imLiveChart.timeScale().timeToCoordinate(drawing.time);
+        const y = imLiveSeries.priceToCoordinate(drawing.price);
+        if (x === null || y === null) {
+          drawing.textEl.setAttribute("opacity", "0");
+          if (drawing.bgEl) drawing.bgEl.setAttribute("opacity", "0");
+          return;
+        }
+        drawing.textEl.setAttribute("opacity", "1");
+        drawing.textEl.setAttribute("x", x + 6);
+        drawing.textEl.setAttribute("y", y);
+        if (drawing.bgEl) {
+          drawing.bgEl.setAttribute("opacity", "1");
+          const textWidth = drawing.label.length * 6.4 + 10;
+          drawing.bgEl.setAttribute("x", x + 1);
+          drawing.bgEl.setAttribute("y", y - 12);
+          drawing.bgEl.setAttribute("width", textWidth);
+          drawing.bgEl.setAttribute("height", 17);
+        }
+      } else if (drawing.type === "price-range" && drawing.el) {
+        const timeScale = imLiveChart.timeScale();
+        const x1 = timeScale.timeToCoordinate(drawing.t1);
+        const x2 = timeScale.timeToCoordinate(drawing.t2);
+        const y1 = imLiveSeries.priceToCoordinate(drawing.p1);
+        const y2 = imLiveSeries.priceToCoordinate(drawing.p2);
+        if (x1 === null || x2 === null || y1 === null || y2 === null) {
+          drawing.el.setAttribute("opacity", "0");
+          if (drawing.textEl) drawing.textEl.setAttribute("opacity", "0");
+          return;
+        }
+        drawing.el.setAttribute("opacity", "1");
+        drawing.el.setAttribute("x", Math.min(x1, x2));
+        drawing.el.setAttribute("y", Math.min(y1, y2));
+        drawing.el.setAttribute("width", Math.max(1, Math.abs(x2 - x1)));
+        drawing.el.setAttribute("height", Math.max(1, Math.abs(y2 - y1)));
+        if (drawing.textEl) {
+          const priceDiff = drawing.p2 - drawing.p1;
+          const percent = drawing.p1 !== 0 ? (priceDiff / Math.abs(drawing.p1)) * 100 : 0;
+          const sign = priceDiff >= 0 ? "+" : "";
+          drawing.textEl.setAttribute("opacity", "1");
+          drawing.textEl.setAttribute("x", Math.min(x1, x2) + 6);
+          drawing.textEl.setAttribute("y", Math.min(y1, y2) - 8 < 12 ? Math.min(y1, y2) + 16 : Math.min(y1, y2) - 8);
+          drawing.textEl.textContent = `${sign}${formatNumber(priceDiff)} (${sign}${percent.toFixed(2)}%)`;
+        }
+      } else if (drawing.type === "date-range" && drawing.el) {
+        const timeScale = imLiveChart.timeScale();
+        const x1 = timeScale.timeToCoordinate(drawing.t1);
+        const x2 = timeScale.timeToCoordinate(drawing.t2);
+        if (x1 === null || x2 === null) {
+          drawing.el.setAttribute("opacity", "0");
+          if (drawing.textEl) drawing.textEl.setAttribute("opacity", "0");
+          return;
+        }
+        drawing.el.setAttribute("opacity", "1");
+        drawing.el.setAttribute("x", Math.min(x1, x2));
+        drawing.el.setAttribute("y", 0);
+        drawing.el.setAttribute("width", Math.max(1, Math.abs(x2 - x1)));
+        drawing.el.setAttribute("height", height);
+        if (drawing.textEl) {
+          const bars = Math.round(Math.abs(drawing.t2 - drawing.t1) / getImDrawingIntervalSeconds());
+          const duration = formatImMeasureDuration(drawing.t2 - drawing.t1);
+          drawing.textEl.setAttribute("opacity", "1");
+          drawing.textEl.setAttribute("x", Math.min(x1, x2) + 6);
+          drawing.textEl.setAttribute("y", 16);
+          drawing.textEl.textContent = `${bars} bars — ${duration}`;
+        }
+      } else if (drawing.type === "brush" && drawing.el && Array.isArray(drawing.points)) {
+        const timeScale = imLiveChart.timeScale();
+        const coords = drawing.points
+          .map((pt) => {
+            const x = timeScale.timeToCoordinate(pt.t);
+            const y = imLiveSeries.priceToCoordinate(pt.p);
+            return x === null || y === null ? null : `${x},${y}`;
+          })
+          .filter(Boolean);
+        if (!coords.length) {
+          drawing.el.setAttribute("opacity", "0");
+          return;
+        }
+        drawing.el.setAttribute("opacity", "1");
+        drawing.el.setAttribute("points", coords.join(" "));
       }
     });
   }
@@ -9429,6 +9635,145 @@ function clearLiveChartAiOverlay() {
       labelEl.setAttribute("font-weight", "700");
       svg.appendChild(labelEl);
       drawing.labelEl = labelEl;
+    } else if (type === "ray" || type === "extended") {
+      if (points.t1 === points.t2) return null;
+      const svg = getImDrawingOverlaySvg();
+      if (!svg) return null;
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      el.setAttribute("stroke", color);
+      el.setAttribute("stroke-width", "1.5");
+      svg.appendChild(el);
+      drawing.el = el;
+    } else if (type === "channel") {
+      if (points.t1 === points.t2) return null;
+      const svg = getImDrawingOverlaySvg();
+      if (!svg) return null;
+      const baseSlopePrice = points.p1 + (points.p2 - points.p1) * ((points.t3 - points.t1) / (points.t2 - points.t1));
+      drawing.offsetPrice = points.p3 - baseSlopePrice;
+
+      const fillEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      fillEl.setAttribute("fill", `${color}22`);
+      svg.appendChild(fillEl);
+      drawing.fillEl = fillEl;
+
+      const baseEl = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      baseEl.setAttribute("stroke", color);
+      baseEl.setAttribute("stroke-width", "1.5");
+      svg.appendChild(baseEl);
+      drawing.baseEl = baseEl;
+
+      const offsetEl = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      offsetEl.setAttribute("stroke", color);
+      offsetEl.setAttribute("stroke-width", "1.5");
+      svg.appendChild(offsetEl);
+      drawing.offsetEl = offsetEl;
+    } else if (type === "circle") {
+      if (points.t1 === points.t2) return null;
+      const svg = getImDrawingOverlaySvg();
+      if (!svg) return null;
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+      el.setAttribute("fill", `${color}26`);
+      el.setAttribute("stroke", color);
+      el.setAttribute("stroke-width", "1.5");
+      svg.appendChild(el);
+      drawing.el = el;
+    } else if (type === "arrow") {
+      if (points.t1 === points.t2 && points.p1 === points.p2) return null;
+      const svg = getImDrawingOverlaySvg();
+      if (!svg) return null;
+      let defs = svg.querySelector("defs");
+      if (!defs) {
+        defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+        svg.insertBefore(defs, svg.firstChild);
+      }
+      const markerId = `im-arrowhead-${id}`;
+      const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+      marker.setAttribute("id", markerId);
+      marker.setAttribute("markerWidth", "8");
+      marker.setAttribute("markerHeight", "8");
+      marker.setAttribute("refX", "6");
+      marker.setAttribute("refY", "4");
+      marker.setAttribute("orient", "auto-start-reverse");
+      const markerPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      markerPath.setAttribute("d", "M0,0 L8,4 L0,8 Z");
+      markerPath.setAttribute("fill", color);
+      marker.appendChild(markerPath);
+      defs.appendChild(marker);
+      drawing.markerEl = marker;
+
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      el.setAttribute("stroke", color);
+      el.setAttribute("stroke-width", "2");
+      el.setAttribute("marker-end", `url(#${markerId})`);
+      svg.appendChild(el);
+      drawing.el = el;
+    } else if (type === "text") {
+      const label = String(points.label || "").trim();
+      if (!label) return null;
+      const svg = getImDrawingOverlaySvg();
+      if (!svg) return null;
+      drawing.label = label;
+
+      const bgEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      bgEl.setAttribute("fill", "#0c0a14cc");
+      bgEl.setAttribute("rx", "3");
+      svg.appendChild(bgEl);
+      drawing.bgEl = bgEl;
+
+      const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      textEl.setAttribute("fill", color);
+      textEl.setAttribute("font-size", "12");
+      textEl.setAttribute("font-weight", "700");
+      textEl.textContent = label;
+      svg.appendChild(textEl);
+      drawing.textEl = textEl;
+    } else if (type === "price-range") {
+      if (points.t1 === points.t2) return null;
+      const svg = getImDrawingOverlaySvg();
+      if (!svg) return null;
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      el.setAttribute("fill", `${color}26`);
+      el.setAttribute("stroke", color);
+      el.setAttribute("stroke-width", "1.5");
+      el.setAttribute("stroke-dasharray", "4,3");
+      svg.appendChild(el);
+      drawing.el = el;
+      const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      textEl.setAttribute("fill", "#f8fafc");
+      textEl.setAttribute("font-size", "12");
+      textEl.setAttribute("font-weight", "700");
+      svg.appendChild(textEl);
+      drawing.textEl = textEl;
+    } else if (type === "date-range") {
+      if (points.t1 === points.t2) return null;
+      const svg = getImDrawingOverlaySvg();
+      if (!svg) return null;
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      el.setAttribute("fill", `${color}18`);
+      el.setAttribute("stroke", color);
+      el.setAttribute("stroke-width", "1.5");
+      el.setAttribute("stroke-dasharray", "4,3");
+      svg.appendChild(el);
+      drawing.el = el;
+      const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      textEl.setAttribute("fill", "#f8fafc");
+      textEl.setAttribute("font-size", "12");
+      textEl.setAttribute("font-weight", "700");
+      svg.appendChild(textEl);
+      drawing.textEl = textEl;
+    } else if (type === "brush") {
+      if (!Array.isArray(points.points) || points.points.length < 2) return null;
+      const svg = getImDrawingOverlaySvg();
+      if (!svg) return null;
+      drawing.points = points.points;
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      el.setAttribute("fill", "none");
+      el.setAttribute("stroke", color);
+      el.setAttribute("stroke-width", "2");
+      el.setAttribute("stroke-linecap", "round");
+      el.setAttribute("stroke-linejoin", "round");
+      svg.appendChild(el);
+      drawing.el = el;
     }
 
     imUserDrawings.push(drawing);
@@ -9451,6 +9796,11 @@ function clearLiveChartAiOverlay() {
     if (drawing.labelEl) drawing.labelEl.remove();
     if (drawing.boundsEl) drawing.boundsEl.remove();
     if (Array.isArray(drawing.barEls)) drawing.barEls.forEach((bar) => bar.remove());
+    if (drawing.baseEl) drawing.baseEl.remove();
+    if (drawing.offsetEl) drawing.offsetEl.remove();
+    if (drawing.fillEl) drawing.fillEl.remove();
+    if (drawing.markerEl) drawing.markerEl.remove();
+    if (drawing.bgEl) drawing.bgEl.remove();
   }
 
   function clearAllImDrawings() {
@@ -9491,16 +9841,124 @@ function clearLiveChartAiOverlay() {
       return;
     }
 
-    if (!imDrawingPendingPoint) {
-      imDrawingPendingPoint = { time: param.time, price };
-      setImDrawingToolHint("Click the second point to finish.");
+    if (imDrawingMode === "text") {
+      const label = window.prompt("Note text:");
+      if (label && label.trim()) {
+        imAddDrawing("text", { time: param.time, price, label: label.trim() }, imDrawingColor);
+      }
+      setImDrawingMode("cursor");
       return;
     }
 
-    const points = { t1: imDrawingPendingPoint.time, p1: imDrawingPendingPoint.price, t2: param.time, p2: price };
+    const pointCount = IM_DRAW_TOOL_POINT_COUNTS[imDrawingMode] || 2;
+    imDrawingPendingPoints.push({ time: param.time, price });
+
+    if (imDrawingPendingPoints.length < pointCount) {
+      const remaining = pointCount - imDrawingPendingPoints.length;
+      setImDrawingToolHint(`Click ${remaining} more point${remaining > 1 ? "s" : ""} to finish.`);
+      return;
+    }
+
+    const points = {};
+    imDrawingPendingPoints.forEach((pt, index) => {
+      points[`t${index + 1}`] = pt.time;
+      points[`p${index + 1}`] = pt.price;
+    });
     imAddDrawing(imDrawingMode, points, imDrawingColor);
-    imDrawingPendingPoint = null;
+    imDrawingPendingPoints = [];
     setImDrawingMode("cursor");
+  }
+
+  let imBrushPreviewEl = null;
+  let imBrushPoints = null;
+
+  function coordinateToTimePrice(container, clientX, clientY) {
+    if (!imLiveChart || !imLiveSeries) return null;
+    const rect = container.getBoundingClientRect();
+    const time = imLiveChart.timeScale().coordinateToTime(clientX - rect.left);
+    const price = imLiveSeries.coordinateToPrice(clientY - rect.top);
+    if (time === null || price === null) return null;
+    return { t: time, p: price };
+  }
+
+  function renderImBrushPreview() {
+    if (!imBrushPoints || imBrushPoints.length < 2) return;
+    const svg = getImDrawingOverlaySvg();
+    if (!svg) return;
+    if (!imBrushPreviewEl) {
+      imBrushPreviewEl = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      imBrushPreviewEl.setAttribute("fill", "none");
+      imBrushPreviewEl.setAttribute("stroke", imDrawingColor);
+      imBrushPreviewEl.setAttribute("stroke-width", "2");
+      imBrushPreviewEl.setAttribute("stroke-linecap", "round");
+      imBrushPreviewEl.setAttribute("stroke-linejoin", "round");
+      svg.appendChild(imBrushPreviewEl);
+    }
+    const timeScale = imLiveChart.timeScale();
+    const coords = imBrushPoints
+      .map((pt) => {
+        const x = timeScale.timeToCoordinate(pt.t);
+        const y = imLiveSeries.priceToCoordinate(pt.p);
+        return x === null || y === null ? null : `${x},${y}`;
+      })
+      .filter(Boolean);
+    imBrushPreviewEl.setAttribute("points", coords.join(" "));
+  }
+
+  function clearImBrushPreview() {
+    if (imBrushPreviewEl) {
+      imBrushPreviewEl.remove();
+      imBrushPreviewEl = null;
+    }
+  }
+
+  function setupImBrushDrawing(container) {
+    const isOnToolbarChrome = (event) =>
+      event.target.closest(".drawing-toolbar, .im-chart-fullscreen-btn, .drawing-tool-hint");
+
+    container.addEventListener("pointerdown", (event) => {
+      if (imDrawingMode !== "brush" || isOnToolbarChrome(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const point = coordinateToTimePrice(container, event.clientX, event.clientY);
+      if (!point) return;
+      imBrushPoints = [point];
+      imBrushDrawing = true;
+      try { container.setPointerCapture(event.pointerId); } catch (error) { /* not critical */ }
+    }, true);
+
+    container.addEventListener("pointermove", (event) => {
+      if (!imBrushDrawing || !imBrushPoints) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const point = coordinateToTimePrice(container, event.clientX, event.clientY);
+      if (!point) return;
+      imBrushPoints.push(point);
+      renderImBrushPreview();
+    }, true);
+
+    function finishBrush(event) {
+      if (!imBrushDrawing) return;
+      imBrushDrawing = false;
+      if (event) {
+        try { container.releasePointerCapture(event.pointerId); } catch (error) { /* not critical */ }
+      }
+      clearImBrushPreview();
+      if (imBrushPoints && imBrushPoints.length >= 2) {
+        imAddDrawing("brush", { points: imBrushPoints }, imDrawingColor);
+      }
+      imBrushPoints = null;
+      setImDrawingMode("cursor");
+    }
+
+    container.addEventListener("pointerup", (event) => {
+      if (imDrawingMode !== "brush" || isOnToolbarChrome(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      finishBrush(event);
+    }, true);
+
+    container.addEventListener("pointercancel", () => finishBrush(null), true);
   }
 
   function setupImDrawingTools() {
@@ -9518,6 +9976,9 @@ function clearLiveChartAiOverlay() {
 
     const clearBtn = document.getElementById("im-clear-drawings-btn");
     if (clearBtn) clearBtn.addEventListener("click", clearAllImDrawings);
+
+    const chartContainer = document.getElementById("im-lightweight-chart");
+    if (chartContainer) setupImBrushDrawing(chartContainer);
   }
 
   // ===================== Indian Market chart replay & backtesting =====================
