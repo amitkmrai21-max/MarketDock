@@ -5756,24 +5756,46 @@ function clearLiveChartAiOverlay() {
     }
 
     const maxPainStrike = Number.isFinite(Number(data.max_pain)) ? Number(data.max_pain) : null;
+    const atmIndex = atmStrike !== null ? rows.findIndex((row) => Number(row.strike) === atmStrike) : -1;
+    // In-the-money shading: strikes below spot are ITM for calls (rows above
+    // the ATM row, since strikes are listed ascending), strikes above spot
+    // are ITM for puts (rows below). The tint is strongest right next to the
+    // ATM row and fades toward neutral over this many rows, since that
+    // boundary is the actionable part of the chain — deep ITM/deep OTM
+    // strikes recede rather than staying as visually loud as the ATM area.
+    const ITM_FADE_ROWS = 8;
 
     body.innerHTML = rows
-      .map((row) => {
+      .map((row, index) => {
         const strike = Number(row.strike);
         const isAtm = atmStrike !== null && strike === atmStrike;
         const isMaxPain = maxPainStrike !== null && strike === maxPainStrike;
         const call = row.call || {};
         const put = row.put || {};
         const rowClasses = [isAtm ? "im-options-atm" : "", isMaxPain ? "im-options-max-pain" : ""].filter(Boolean).join(" ");
+
+        let callStyle = "";
+        let putStyle = "";
+        if (atmIndex >= 0 && Number.isFinite(strike) && atmStrike !== null) {
+          const distance = Math.abs(index - atmIndex);
+          const intensity = Math.max(0, 1 - distance / ITM_FADE_ROWS);
+          const alpha = (0.03 + intensity * 0.15).toFixed(3);
+          if (strike < atmStrike) {
+            callStyle = ` style="background: rgba(34, 197, 94, ${alpha});"`;
+          } else if (strike > atmStrike) {
+            putStyle = ` style="background: rgba(239, 68, 68, ${alpha});"`;
+          }
+        }
+
         return `
           <tr class="${rowClasses}">
-            <td class="im-options-call-side">${formatOptionNumber(call.oi)}</td>
-            <td class="im-options-call-side">${formatOptionNumber(call.volume)}</td>
-            <td class="im-options-call-side">${formatOptionNumber(call.ltp)}</td>
+            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.oi)}</td>
+            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.volume)}</td>
+            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.ltp)}</td>
             <td class="im-options-strike">${formatOptionNumber(row.strike)}</td>
-            <td class="im-options-put-side">${formatOptionNumber(put.ltp)}</td>
-            <td class="im-options-put-side">${formatOptionNumber(put.volume)}</td>
-            <td class="im-options-put-side">${formatOptionNumber(put.oi)}</td>
+            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.ltp)}</td>
+            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.volume)}</td>
+            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.oi)}</td>
           </tr>
         `;
       })
