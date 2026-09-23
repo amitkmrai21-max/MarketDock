@@ -2054,11 +2054,11 @@ def gemini_chart_review():
             }
         ), 400
 
-    if not GEMINI_API_KEY:
+    if not GEMINI_API_KEY and not GROQ_API_KEY:
         return jsonify(
             {
                 "ok": False,
-                "error": "Gemini is not configured on the server.",
+                "error": "AI analysis is not configured on the server.",
             }
         ), 503
 
@@ -2106,22 +2106,7 @@ Rules:
 """
 
     try:
-        client = genai.Client(api_key=GEMINI_API_KEY)
-
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt,
-        )
-
-        review_text = (response.text or "").strip()
-
-        if not review_text:
-            return jsonify(
-                {
-                    "ok": False,
-                    "error": "Gemini returned an empty review. Please try again.",
-                }
-            ), 502
+        review_text, provider = generate_ai_text(prompt)
 
         return jsonify(
             {
@@ -2131,17 +2116,22 @@ Rules:
                 "generated_at": now_utc(),
                 "valid_for_seconds": 300,
                 "review": review_text,
+                "provider": provider,
                 "disclaimer": "Research and paper-trading only. Not financial advice and not a live-market recommendation.",
             }
         )
 
+    except (genai_errors.APIError, groq_sdk.APIError) as error:
+        app.logger.exception("Chart AI review request failed")
+        reason, friendly_message = describe_ai_error(error)
+        return jsonify({"ok": False, "error": friendly_message, "reason": reason}), 502
     except Exception:
-        app.logger.exception("Gemini review request failed")
-
+        app.logger.exception("Chart AI review request failed")
         return jsonify(
             {
                 "ok": False,
-                "error": "Gemini review is temporarily unavailable. Please try again later.",
+                "error": "AI review is temporarily unavailable. Please try again later.",
+                "reason": "unknown",
             }
         ), 502
 
