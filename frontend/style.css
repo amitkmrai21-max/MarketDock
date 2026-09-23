@@ -47,6 +47,16 @@
   display: none !important;
 }
 
+/* Privacy mode: blurs paper-trading balances/P&L so they aren't readable
+   over someone's shoulder or in a screen share. A CSS filter rather than
+   swapping text content, so it works on every value automatically as it
+   updates, without every render function needing to know about it. */
+body[data-privacy-mode="on"] .privacy-sensitive {
+  filter: blur(7px);
+  user-select: none;
+  transition: filter 0.15s ease;
+}
+
 /* Solid colored "pill" badge for a price % change — used in both BTC and
    Indian Market mode wherever a change_percent value is shown, in place of
    plain colored text. */
@@ -3895,8 +3905,13 @@ body {
   margin-top: 9px;
 }
 
-.settings-account-actions button {
+.settings-account-actions button,
+.settings-account-actions a {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--surface);
@@ -3904,6 +3919,8 @@ body {
   padding: 10px 14px;
   font: inherit;
   font-weight: 700;
+  text-decoration: none;
+  text-align: center;
   cursor: pointer;
 }
 
