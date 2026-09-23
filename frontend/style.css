@@ -4407,6 +4407,51 @@ body[data-accent="green"] .settings-choice.active {
   pointer-events: auto;
 }
 
+.im-chart-fullscreen-btn {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-elevated);
+  color: var(--text);
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.im-chart-fullscreen-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.im-chart-fullscreen-btn:hover {
+  border-color: var(--blue);
+}
+
+.im-lightweight-chart.im-chart-fullscreen-active {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  margin: 0 !important;
+  z-index: 999;
+  border-radius: 0;
+}
+
+body.im-chart-fullscreen-open {
+  overflow: hidden;
+}
+
 .drawing-color-picker::-webkit-color-swatch-wrapper {
   padding: 2px;
 }

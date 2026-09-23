@@ -8860,6 +8860,49 @@ function clearLiveChartAiOverlay() {
   const LIVE_CANDLE_API_BASE = "https://indian-market-ai-api.onrender.com";
   let chartRefreshTimer = null;
   let latestLiveCandleData = null;
+  let imChartFullscreenActive = false;
+
+  const IM_CHART_EXPAND_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
+  const IM_CHART_COLLAPSE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M21 15h-3a2 2 0 0 0-2 2v3M3 15h3a2 2 0 0 1 2 2v3"/></svg>';
+
+  function setImChartFullscreen(active) {
+    const container = document.getElementById("im-lightweight-chart");
+    const btn = document.getElementById("im-chart-fullscreen-btn");
+    if (!container) return;
+
+    imChartFullscreenActive = active;
+    container.classList.toggle("im-chart-fullscreen-active", active);
+    document.body.classList.toggle("im-chart-fullscreen-open", active);
+
+    if (btn) {
+      btn.title = active ? "Exit fullscreen" : "Fullscreen";
+      btn.setAttribute("aria-label", btn.title);
+      btn.innerHTML = active ? IM_CHART_COLLAPSE_ICON : IM_CHART_EXPAND_ICON;
+    }
+
+    requestAnimationFrame(() => {
+      if (!imLiveChart || !container.clientWidth) return;
+      imLiveChart.applyOptions({
+        width: container.clientWidth,
+        height: active ? container.clientHeight : 600
+      });
+      scheduleImDrawingReposition();
+    });
+  }
+
+  function setupImChartFullscreenToggle() {
+    const btn = document.getElementById("im-chart-fullscreen-btn");
+    if (!btn || btn.dataset.wired) return;
+    btn.dataset.wired = "true";
+
+    btn.addEventListener("click", () => setImChartFullscreen(!imChartFullscreenActive));
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && imChartFullscreenActive) {
+        setImChartFullscreen(false);
+      }
+    });
+  }
 
   function formatChartTime(value) {
     const date = new Date(value);
@@ -8917,13 +8960,18 @@ function clearLiveChartAiOverlay() {
 
     new ResizeObserver(() => {
       if (!imLiveChart || !container.clientWidth) return;
-      imLiveChart.applyOptions({ width: container.clientWidth });
+      const resizeOptions = { width: container.clientWidth };
+      if (imChartFullscreenActive) {
+        resizeOptions.height = container.clientHeight;
+      }
+      imLiveChart.applyOptions(resizeOptions);
       scheduleImDrawingReposition();
     }).observe(container);
 
     setupImDrawingTools();
     loadSavedImDrawings();
     setupImReplayControls();
+    setupImChartFullscreenToggle();
   }
 
   // ===================== Indian Market drawing tools =====================
@@ -10115,6 +10163,8 @@ function clearLiveChartAiOverlay() {
       updateChartPage();
     });
   });
+
+  setupImChartFullscreenToggle();
 
   function renderGeminiReview(container, reviewText) {
     const lines = String(reviewText || "")
