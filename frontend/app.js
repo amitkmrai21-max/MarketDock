@@ -1981,6 +1981,7 @@ setInterval(loadRrg, 300000);
 /* ===== Dashboard tabs and settings ===== */
 (() => {
   const STORAGE_KEY = "btcAiSignalDashboardPreferences";
+  const ACTIVE_TAB_SESSION_KEY = "btcAiSignalActiveTabSession";
 
   function initDashboard() {
     const tabs = [...document.querySelectorAll(".app-tab[data-tab]")];
@@ -2011,8 +2012,7 @@ setInterval(loadRrg, 300000);
         name: nameInput?.value.trim() || "",
         theme: document.body.dataset.theme || "dark",
         accent: document.body.dataset.accent || "blue",
-        textSize: document.body.dataset.textSize || "normal",
-        activeTab: document.querySelector(".app-tab.active")?.dataset.tab || "dashboard"
+        textSize: document.body.dataset.textSize || "normal"
       };
     }
 
@@ -2068,6 +2068,16 @@ setInterval(loadRrg, 300000);
         panel.hidden = !active;
       });
 
+      try {
+        // sessionStorage (not the localStorage-backed settings bundle):
+        // survives an in-app reload so that doesn't silently bounce the
+        // user back to the dashboard, but clears once the app is fully
+        // closed, so a fresh launch always starts on the dashboard.
+        sessionStorage.setItem(ACTIVE_TAB_SESSION_KEY, targetTab);
+      } catch (error) {
+        // Ignore — private browsing / storage quota, non-critical.
+      }
+
       if (shouldSave) {
         saveSettings();
       }
@@ -2084,7 +2094,14 @@ setInterval(loadRrg, 300000);
     }
 
     applySettings(settings);
-    showTab(settings.activeTab || "dashboard", false);
+
+    let initialTab = "dashboard";
+    try {
+      initialTab = sessionStorage.getItem(ACTIVE_TAB_SESSION_KEY) || "dashboard";
+    } catch (error) {
+      // Ignore — private browsing / storage quota, non-critical.
+    }
+    showTab(initialTab, false);
 
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => {
@@ -4401,7 +4418,12 @@ function clearLiveChartAiOverlay() {
     });
 
     try {
-      localStorage.setItem(LAST_PAGE_STORAGE_KEY, pageId);
+      // sessionStorage (not localStorage): survives an in-app reload (pull-
+      // to-refresh, "Reset Settings", etc.) so that doesn't silently bounce
+      // the user back to the dashboard, but clears once the app is fully
+      // closed, so a fresh launch always starts on the dashboard instead of
+      // wherever the user happened to leave off last time.
+      sessionStorage.setItem(LAST_PAGE_STORAGE_KEY, pageId);
     } catch {
       // Ignore — private browsing / storage quota, non-critical.
     }
@@ -10284,9 +10306,11 @@ function clearLiveChartAiOverlay() {
   }
 
   // Restore whichever page was open before a reload — otherwise every
-  // refresh silently drops the user back on the dashboard.
+  // refresh silently drops the user back on the dashboard. Only within the
+  // same session, though (see sessionStorage note in showPage above) — a
+  // fresh app launch should still start on the dashboard.
   try {
-    const lastPage = localStorage.getItem(LAST_PAGE_STORAGE_KEY);
+    const lastPage = sessionStorage.getItem(LAST_PAGE_STORAGE_KEY);
     if (lastPage && lastPage !== "im-dashboard" && [...pages].some((page) => page.id === lastPage)) {
       showPage(lastPage);
     }
