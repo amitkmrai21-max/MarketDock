@@ -50,10 +50,17 @@ UPSTOX_MARKETS = {
 }
 
 UPSTOX_TIMEFRAMES = {
+    "1m": ("minutes", 1),
+    "3m": ("minutes", 3),
     "5m": ("minutes", 5),
     "15m": ("minutes", 15),
+    "30m": ("minutes", 30),
     "1h": ("hours", 1),
+    "2h": ("hours", 2),
+    "4h": ("hours", 4),
     "1d": ("days", 1),
+    "1w": ("weeks", 1),
+    "1mo": ("months", 1),
 }
 DEMO_MARKETS = {
     "nifty": {
@@ -235,10 +242,17 @@ def generate_ai_text(prompt, json_mode=False):
 # ===================== Upstox live data + indicators =====================
 
 CHART_HISTORY_DAYS = {
+    "1m": 3,
+    "3m": 7,
     "5m": 20,
     "15m": 40,
+    "30m": 60,
     "1h": 90,
+    "2h": 150,
+    "4h": 250,
     "1d": 500,
+    "1w": 1500,
+    "1mo": 3650,
 }
 
 
@@ -1787,7 +1801,7 @@ def live_candles(market_key):
         return jsonify(
             {
                 "ok": False,
-                "error": "Unsupported timeframe. Use: 5m, 15m, 1h, or 1d.",
+                "error": "Unsupported timeframe. Use: " + ", ".join(UPSTOX_TIMEFRAMES.keys()) + ".",
             }
         ), 400
 
@@ -2067,13 +2081,11 @@ def gemini_chart_review():
             }
         ), 400
 
-    allowed_timeframes = {"5m", "15m", "1h", "1d"}
-
-    if timeframe not in allowed_timeframes:
+    if timeframe not in UPSTOX_TIMEFRAMES:
         return jsonify(
             {
                 "ok": False,
-                "error": "Unsupported timeframe. Use: 5m, 15m, 1h, or 1d.",
+                "error": "Unsupported timeframe. Use: " + ", ".join(UPSTOX_TIMEFRAMES.keys()) + ".",
             }
         ), 400
 
