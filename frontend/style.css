@@ -4412,6 +4412,68 @@ body[data-accent="green"] .settings-choice.active {
   pointer-events: auto;
 }
 
+.im-stock-trade-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--im-border);
+  border-radius: 10px;
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--im-muted);
+  font-size: 13px;
+}
+
+.im-stock-trade-banner strong {
+  color: var(--text);
+}
+
+.im-stock-trade-banner button {
+  margin-left: auto;
+  padding: 5px 10px;
+  border: 1px solid var(--im-border);
+  border-radius: 7px;
+  background: var(--im-panel);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.im-watchlist-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.im-watchlist-action-btn {
+  padding: 5px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.im-watchlist-buy-btn {
+  border-color: #34d399;
+  color: #34d399;
+}
+
+.im-watchlist-sell-btn {
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.im-watchlist-chart-btn {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+
 .im-chart-fullscreen-btn {
   position: absolute;
   right: 10px;
