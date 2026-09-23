@@ -9830,9 +9830,14 @@ function clearLiveChartAiOverlay() {
   }
 
   function renderLiveChartCandles(candles) {
+    const legend = document.querySelector(".indian-market-mode .chart-legend");
+
     if (!imLiveSeries || !Array.isArray(candles) || !candles.length) {
+      if (legend) legend.style.display = "none";
       return;
     }
+
+    if (legend) legend.style.display = "";
 
     const chartPoints = candles
       .map((candle) => ({
@@ -9867,6 +9872,7 @@ function clearLiveChartAiOverlay() {
     const requestedTimeframe = selectedChartTimeframe;
     const status = document.getElementById("im-chart-data-status");
     const subtitle = document.getElementById("im-chart-market-subtitle");
+    const chartStatusText = document.getElementById("im-chart-status");
 
     if (status) {
       status.textContent = "Loading live candles...";
@@ -9890,6 +9896,19 @@ function clearLiveChartAiOverlay() {
         return;
       }
 
+      if (!result.candles.length) {
+        renderLiveChartCandles([]);
+
+        if (chartStatusText) {
+          chartStatusText.textContent =
+            "No live candles available right now — market may be closed or data hasn't started for today. Retrying every 60 seconds.";
+        }
+        if (status) {
+          status.textContent = "No data yet";
+        }
+        return;
+      }
+
       latestLiveCandleData = result;
       renderLiveChartCandles(result.candles);
       const chartDecision = document.getElementById("im-chart-decision");
@@ -9909,6 +9928,10 @@ function clearLiveChartAiOverlay() {
         status.textContent = "Live candle feed";
       }
 
+      if (chartStatusText) {
+        chartStatusText.textContent = `Live candle feed — last candle ${formatChartTime(latest.time)}.`;
+      }
+
       if (subtitle && latest) {
         subtitle.textContent = `Live market-data candles - Last candle: ${formatChartTime(
           latest.time
@@ -9919,6 +9942,14 @@ function clearLiveChartAiOverlay() {
 
       if (status) {
         status.textContent = `Live error: ${error.message}`;
+      }
+
+      if (!latestLiveCandleData) {
+        renderLiveChartCandles([]);
+
+        if (chartStatusText) {
+          chartStatusText.textContent = `Live candles unavailable: ${error.message}. Retrying every 60 seconds.`;
+        }
       }
 
       if (subtitle) {
