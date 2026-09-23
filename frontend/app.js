@@ -4425,13 +4425,16 @@ function clearLiveChartAiOverlay() {
   const pageSubtitle = document.getElementById("im-page-subtitle");
 
   const LAST_PAGE_STORAGE_KEY = "indianMarketLastPage";
-  let imTradingViewChartLoaded = false;
+  let imTvChartReturnPage = "im-watchlist";
 
-  function loadImTradingViewChart(symbol) {
+  function loadImTradingViewChart(symbol, label) {
     const container = document.getElementById("im-tradingview-widget-container");
     if (!container) return;
 
     container.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
+
+    const titleEl = document.getElementById("im-tv-chart-title");
+    if (titleEl) titleEl.textContent = label ? `TradingView Chart — ${label}` : "TradingView Chart";
 
     const script = document.createElement("script");
     script.type = "text/javascript";
@@ -4456,14 +4459,17 @@ function clearLiveChartAiOverlay() {
     container.appendChild(script);
   }
 
+  function openImTradingViewChartFor(symbol, label, returnPage) {
+    imTvChartReturnPage = returnPage || "im-watchlist";
+    loadImTradingViewChart(symbol, label);
+    showPage("im-tradingview-chart");
+  }
+
   function setupImTradingViewChart() {
-    const buttons = document.querySelectorAll("[data-tv-market]");
-    buttons.forEach((btn) => {
-      btn.addEventListener("click", () => {
-        buttons.forEach((item) => item.classList.toggle("active", item === btn));
-        loadImTradingViewChart(btn.dataset.tvMarket);
-      });
-    });
+    const backBtn = document.getElementById("im-tv-chart-back-btn");
+    if (backBtn) {
+      backBtn.addEventListener("click", () => showPage(imTvChartReturnPage));
+    }
   }
 
   setupImTradingViewChart();
@@ -4493,11 +4499,6 @@ function clearLiveChartAiOverlay() {
     if (info && pageTitle && pageSubtitle) {
       pageTitle.textContent = info.title;
       pageSubtitle.textContent = info.subtitle;
-    }
-
-    if (pageId === "im-tradingview-chart" && !imTradingViewChartLoaded) {
-      imTradingViewChartLoaded = true;
-      loadImTradingViewChart("NSE:NIFTY");
     }
 
     if (pageId === "im-live-chart") {
@@ -4595,6 +4596,42 @@ function clearLiveChartAiOverlay() {
   const emptyTrades = document.getElementById("im-empty-trades");
   const tradeCount = document.getElementById("im-trade-count");
   const journalCount = document.getElementById("im-journal-count");
+
+  let imPendingStockTrade = null;
+
+  function setImPendingStockTrade(symbol, direction, price) {
+    imPendingStockTrade = { symbol };
+    showPage("im-paper-trading");
+
+    const banner = document.getElementById("im-stock-trade-banner");
+    const bannerSymbol = document.getElementById("im-stock-trade-symbol");
+    const indexLabel = document.getElementById("im-trade-index-label");
+    const directionSelect = document.getElementById("im-trade-direction");
+    const entryInput = document.getElementById("im-trade-entry");
+
+    if (banner) banner.hidden = false;
+    if (bannerSymbol) bannerSymbol.textContent = symbol;
+    if (indexLabel) indexLabel.style.display = "none";
+    if (directionSelect) directionSelect.value = direction;
+    if (entryInput) {
+      const numericPrice = Number(price);
+      if (Number.isFinite(numericPrice) && numericPrice > 0) entryInput.value = numericPrice;
+      entryInput.focus();
+    }
+  }
+
+  function clearImPendingStockTrade() {
+    imPendingStockTrade = null;
+    const banner = document.getElementById("im-stock-trade-banner");
+    const indexLabel = document.getElementById("im-trade-index-label");
+    if (banner) banner.hidden = true;
+    if (indexLabel) indexLabel.style.display = "";
+  }
+
+  const stockTradeClearBtn = document.getElementById("im-stock-trade-clear-btn");
+  if (stockTradeClearBtn) {
+    stockTradeClearBtn.addEventListener("click", clearImPendingStockTrade);
+  }
 
   function loadTrades() {
     try {
@@ -4850,7 +4887,7 @@ function clearLiveChartAiOverlay() {
       const trades = loadTrades();
 
       trades.unshift({
-        index: document.getElementById("im-trade-index").value,
+        index: imPendingStockTrade ? imPendingStockTrade.symbol : document.getElementById("im-trade-index").value,
         direction,
         orderType,
         entry,
@@ -4867,6 +4904,7 @@ function clearLiveChartAiOverlay() {
 
       saveTrades(trades);
       form.reset();
+      clearImPendingStockTrade();
       renderTrades();
     });
   }
@@ -5497,13 +5535,21 @@ function clearLiveChartAiOverlay() {
 
     body.innerHTML = rows
       .map((row) => {
+        const symbol = escapeHtml(row.symbol);
         return `
           <tr>
-            <td>${escapeHtml(row.symbol)}</td>
+            <td>${symbol}</td>
             <td>${formatNumber(row.last_price)}</td>
             <td>${changePillHtml(row.change_percent)}</td>
             <td>${renderAiScoreBadge(row.ai_score, row.ai_label)}</td>
-            <td><button class="delete-trade-button" type="button" data-remove-symbol="${escapeHtml(row.symbol)}">Remove</button></td>
+            <td>
+              <div class="im-watchlist-row-actions">
+                <button class="im-watchlist-action-btn im-watchlist-buy-btn" type="button" data-buy-symbol="${symbol}" data-price="${row.last_price ?? ""}">Buy</button>
+                <button class="im-watchlist-action-btn im-watchlist-sell-btn" type="button" data-sell-symbol="${symbol}" data-price="${row.last_price ?? ""}">Sell</button>
+                <button class="im-watchlist-action-btn im-watchlist-chart-btn" type="button" data-view-chart-symbol="${symbol}">View Chart</button>
+                <button class="delete-trade-button" type="button" data-remove-symbol="${symbol}">Remove</button>
+              </div>
+            </td>
           </tr>
         `;
       })
@@ -5532,6 +5578,14 @@ function clearLiveChartAiOverlay() {
         throw new Error(result.error || "Watchlist request failed.");
       }
       renderWatchlist(result.data);
+
+      if (typeof checkImPaperTrades === "function" && Array.isArray(result.data)) {
+        result.data.forEach((row) => {
+          if (row && row.symbol && Number.isFinite(Number(row.last_price))) {
+            checkImPaperTrades(row.symbol, { price: row.last_price });
+          }
+        });
+      }
     } catch (error) {
       console.error("Watchlist fetch failed:", error);
       if (status) {
@@ -5733,14 +5787,35 @@ function clearLiveChartAiOverlay() {
     if (bodyEl) {
       bodyEl.addEventListener("click", (event) => {
         const removeBtn = event.target.closest("[data-remove-symbol]");
-        if (!removeBtn) return;
-        const lists = getImWatchlists();
-        const active = getActiveImWatchlist();
-        const target = lists.find((w) => w.id === active.id);
-        if (target) {
-          target.symbols = target.symbols.filter((s) => s !== removeBtn.dataset.removeSymbol);
-          saveImWatchlists(lists);
-          fetchWatchlist();
+        if (removeBtn) {
+          const lists = getImWatchlists();
+          const active = getActiveImWatchlist();
+          const target = lists.find((w) => w.id === active.id);
+          if (target) {
+            target.symbols = target.symbols.filter((s) => s !== removeBtn.dataset.removeSymbol);
+            saveImWatchlists(lists);
+            fetchWatchlist();
+          }
+          return;
+        }
+
+        const chartBtn = event.target.closest("[data-view-chart-symbol]");
+        if (chartBtn) {
+          const symbol = chartBtn.dataset.viewChartSymbol;
+          openImTradingViewChartFor(`NSE:${symbol}`, symbol, "im-watchlist");
+          return;
+        }
+
+        const buyBtn = event.target.closest("[data-buy-symbol]");
+        if (buyBtn) {
+          setImPendingStockTrade(buyBtn.dataset.buySymbol, "Buy", buyBtn.dataset.price);
+          return;
+        }
+
+        const sellBtn = event.target.closest("[data-sell-symbol]");
+        if (sellBtn) {
+          setImPendingStockTrade(sellBtn.dataset.sellSymbol, "Sell", sellBtn.dataset.price);
+          return;
         }
       });
     }
