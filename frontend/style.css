@@ -5476,22 +5476,25 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .market-status {
+  /* Solid pastel background + dark text (same treatment as .change-pill and
+     .confirmation-state) so this stays readable in Light theme instead of
+     the previous pale-text-on-low-opacity-tint, which washed out on a
+     light background. */
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: max-content;
   padding: 10px 13px;
-  border: 1px solid rgba(54, 207, 131, 0.24);
+  border: 1px solid transparent;
   border-radius: 999px;
-  color: #a9f0c8;
-  background: rgba(54, 207, 131, 0.08);
+  color: #14532d;
+  background: #86efac;
   font-size: 13px;
 }
 
 .indian-market-mode .market-status.market-status-demo {
-  border-color: rgba(247, 201, 72, 0.32);
-  color: #f7de8a;
-  background: rgba(247, 201, 72, 0.1);
+  color: #78350f;
+  background: #fde68a;
 }
 
 .indian-market-mode .market-status.market-status-live .status-dot {
@@ -6131,11 +6134,13 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .delete-trade-button {
+  /* Solid pastel background + dark text, same treatment as .change-pill and
+     .confirmation-state — stays readable in Light theme. */
   padding: 7px 10px;
-  border: 1px solid rgba(255, 111, 125, 0.35);
+  border: 1px solid transparent;
   border-radius: 8px;
-  color: #ffc0c7;
-  background: rgba(255, 111, 125, 0.1);
+  color: #7f1d1d;
+  background: #fca5a5;
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
@@ -6143,7 +6148,7 @@ body[data-accent="green"] .settings-choice.active {
 
 .indian-market-mode .delete-trade-button:hover {
   color: #ffffff;
-  background: rgba(255, 111, 125, 0.22);
+  background: #ef4444;
 }
 
 .indian-market-mode .empty-note {
@@ -6382,18 +6387,22 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .indian-market-mode .state-bullish {
-  color: #bdf7d5;
-  background: rgba(54, 207, 131, 0.13);
+  /* Solid pastel background + dark text, same treatment as .change-pill-up
+     — deliberately not theme-linked so it stays readable in Light theme too
+     (the previous pale-text-on-low-opacity-tint version was unreadable on a
+     light background). */
+  background: #86efac;
+  color: #14532d;
 }
 
 .indian-market-mode .state-bearish {
-  color: #ffc0c7;
-  background: rgba(255, 111, 125, 0.13);
+  background: #fca5a5;
+  color: #7f1d1d;
 }
 
 .indian-market-mode .state-neutral {
-  color: #f7de8a;
-  background: rgba(247, 201, 72, 0.13);
+  background: #fde68a;
+  color: #78350f;
 }
 
 .indian-market-mode .trade-plan-list {
