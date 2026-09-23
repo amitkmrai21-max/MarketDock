@@ -10089,8 +10089,8 @@ function clearLiveChartAiOverlay() {
       const text = document.getElementById("im-chart-ai-text");
 
       chartAiButton.disabled = true;
-      chartAiButton.textContent = "Generating Gemini review...";
-      if (title) title.textContent = "Gemini review in progress";
+      chartAiButton.textContent = "Generating AI review...";
+      if (title) title.textContent = "AI review in progress";
       if (text) {
         text.textContent =
           "Sending the selected index, timeframe, and technical research snapshot securely to the backend...";
@@ -10117,7 +10117,8 @@ function clearLiveChartAiOverlay() {
           throw new Error(result.error || "Gemini review request failed.");
         }
 
-        if (title) title.textContent = `Gemini review - ${result.market} - ${result.timeframe}`;
+        const providerLabel = result.provider === "GROQ" ? "Groq" : "Gemini";
+        if (title) title.textContent = `${providerLabel} review - ${result.market} - ${result.timeframe}`;
         if (text) renderGeminiReview(text, result.review);
 
         const validUntil = new Date(
@@ -10132,13 +10133,13 @@ function clearLiveChartAiOverlay() {
           }
         )}`;
       } catch (error) {
-        if (title) title.textContent = "Gemini review unavailable";
+        if (title) title.textContent = "AI review unavailable";
         if (text) {
           text.textContent =
             error.message ||
-            "Could not generate the Gemini review. Please wait a moment and try again.";
+            "Could not generate the AI review (tried both Gemini and Groq). Please wait a moment and try again.";
         }
-        chartAiButton.textContent = "Retry Gemini AI Review";
+        chartAiButton.textContent = "Retry AI Review";
       } finally {
         chartAiButton.disabled = false;
       }
