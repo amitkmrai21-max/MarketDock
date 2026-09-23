@@ -2653,6 +2653,33 @@
                 <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="volume-profile" title="Fixed Range Volume Profile">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="5" x2="12" y2="5"/><line x1="3" y1="9.3" x2="18" y2="9.3"/><line x1="3" y1="13.6" x2="21" y2="13.6"/><line x1="3" y1="17.9" x2="15" y2="17.9"/></svg>
                 </button>
+                <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="ray" title="Ray (extends forward from the first point)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="4.5" cy="19.5" r="1.6" fill="currentColor" stroke="none"/><line x1="4.5" y1="19.5" x2="21" y2="4.5"/></svg>
+                </button>
+                <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="extended" title="Extended Line (infinite both directions)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="1,4"><line x1="2" y1="21" x2="4" y2="18.5"/><line x1="6" y1="16" x2="20" y2="4"/><line x1="21.5" y1="2.5" x2="22" y2="2"/></svg>
+                </button>
+                <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="channel" title="Parallel Channel (2 points for the base line, then 1 for width)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="20" x2="15" y2="4"/><line x1="9" y1="20" x2="21" y2="4"/></svg>
+                </button>
+                <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="circle" title="Circle / Ellipse">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="6.5"/></svg>
+                </button>
+                <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="arrow" title="Arrow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="18" y2="6"/><path d="M11 6h7v7"/></svg>
+                </button>
+                <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="text" title="Text Note">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M12 6v14"/></svg>
+                </button>
+                <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="price-range" title="Price Range (measure a vertical price range)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="4" x2="16" y2="4"/><line x1="8" y1="20" x2="16" y2="20"/></svg>
+                </button>
+                <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="date-range" title="Date Range (measure a horizontal time range)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="8" x2="4" y2="16"/><line x1="20" y1="8" x2="20" y2="16"/></svg>
+                </button>
+                <button class="im-drawing-tool-btn drawing-tool-btn" type="button" data-im-draw-tool="brush" title="Brush (freehand drawing)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c2-5 3.5 5 5.5 0s3-9 5-4 3 6.5 5 2.5"/></svg>
+                </button>
                 <input id="im-drawing-color-picker" class="drawing-color-picker" type="color" value="#38bdf8" title="Drawing color" aria-label="Drawing color" />
                 <button id="im-clear-drawings-btn" class="drawing-tool-btn drawing-clear-btn" type="button" title="Clear all drawings">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4.5a1 1 0 011-1h4a1 1 0 011 1V7m2 0-.8 12.4a1.5 1.5 0 01-1.5 1.4H8.3a1.5 1.5 0 01-1.5-1.4L6 7"/></svg>
