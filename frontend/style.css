@@ -4842,6 +4842,12 @@ body.im-chart-fullscreen-open {
   padding: 3px 10px;
   border: 1px solid var(--border-strong, rgba(139, 92, 246, 0.4));
   border-radius: 999px;
+  /* Same "chrome pill" treatment as the IN/BTC toggle (border color +
+     this background) — both are theme variables, so this stays in sync
+     across Dark/Light/Midnight instead of washing out against the
+     ticker bar's own (much plainer) background in some of them. */
+  background: linear-gradient(180deg, var(--chrome-grad-1), var(--chrome-grad-2));
+  backdrop-filter: blur(10px);
 }
 
 .indian-market-mode .im-section-label {
