@@ -4466,13 +4466,17 @@ function clearLiveChartAiOverlay() {
   function openImTradingViewChartFor(symbol, label, returnPage) {
     imTvChartReturnPage = returnPage || "im-watchlist";
     loadImTradingViewChart(symbol, label);
+    pushImDrilldown(imTvChartReturnPage);
     showPage("im-tradingview-chart");
   }
 
   function setupImTradingViewChart() {
     const backBtn = document.getElementById("im-tv-chart-back-btn");
     if (backBtn) {
-      backBtn.addEventListener("click", () => showPage(imTvChartReturnPage));
+      backBtn.addEventListener("click", () => {
+        consumeImDrilldown();
+        showPage(imTvChartReturnPage);
+      });
     }
   }
 
@@ -4587,21 +4591,40 @@ function clearLiveChartAiOverlay() {
     }
   }
 
-  // The Dashboard tiles push a history entry when opening an index's detail
-  // page (see below) so the Android/WebView back button has something to
-  // consume and returns to the Dashboard instead of falling through to the
-  // WebView's default behavior and closing the app. If the user instead
-  // leaves that detail page some other way (a sidebar/bottom-nav tap), the
-  // pushed entry needs consuming here too, or a later back-press would land
-  // on a stale, disconnected history state.
-  let imDashboardDrilldownPushed = false;
+  // Any "drill into a page from a click" flow (a Dashboard tile, a
+  // Watchlist row's View Chart/Buy/Sell, ...) is just an in-SPA page switch
+  // with no browser history entry of its own, so the Android/WebView back
+  // button would otherwise have nothing to consume and falls through to
+  // closing the app instead of returning to where the user came from.
+  // pushImDrilldown/consumeImDrilldown are the shared pair every such flow
+  // should use: push when opening (recording which page to return to),
+  // consume when leaving some other way (a nav tap, an explicit back/close
+  // button) so a later back-press doesn't land on a stale history entry.
+  let imDrilldownReturnPage = null;
+
+  function pushImDrilldown(returnPage) {
+    history.pushState({ imDrilldown: true }, "");
+    imDrilldownReturnPage = returnPage;
+  }
+
+  function consumeImDrilldown() {
+    if (imDrilldownReturnPage !== null) {
+      imDrilldownReturnPage = null;
+      history.back();
+    }
+  }
+
+  window.addEventListener("popstate", () => {
+    if (imDrilldownReturnPage !== null) {
+      const returnPage = imDrilldownReturnPage;
+      imDrilldownReturnPage = null;
+      showPage(returnPage);
+    }
+  });
 
   navButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      if (imDashboardDrilldownPushed) {
-        imDashboardDrilldownPushed = false;
-        history.back();
-      }
+      consumeImDrilldown();
       showPage(button.dataset.page);
     });
   });
@@ -4610,8 +4633,7 @@ function clearLiveChartAiOverlay() {
   // index's full page the same way the matching sidebar nav button used to.
   root.querySelectorAll(".stat-card-link[data-page]").forEach((card) => {
     const openDetail = () => {
-      history.pushState({ imDashboardDrilldown: true }, "");
-      imDashboardDrilldownPushed = true;
+      pushImDrilldown("im-dashboard");
       showPage(card.dataset.page);
     };
     card.addEventListener("click", openDetail);
@@ -4621,13 +4643,6 @@ function clearLiveChartAiOverlay() {
         openDetail();
       }
     });
-  });
-
-  window.addEventListener("popstate", () => {
-    if (imDashboardDrilldownPushed) {
-      imDashboardDrilldownPushed = false;
-      showPage("im-dashboard");
-    }
   });
 
   const storageKey = "indianMarketPaperTrades";
@@ -4642,6 +4657,7 @@ function clearLiveChartAiOverlay() {
 
   function setImPendingStockTrade(symbol, direction, price) {
     imPendingStockTrade = { symbol };
+    pushImDrilldown("im-watchlist");
     showPage("im-paper-trading");
 
     const banner = document.getElementById("im-stock-trade-banner");
@@ -8339,6 +8355,7 @@ function clearLiveChartAiOverlay() {
   document.getElementById("im-stock-detail-ai-btn")?.addEventListener("click", () => {
     if (!imStockDetailSymbol) return;
     const symbol = imStockDetailSymbol;
+    pushImDrilldown("im-stock-detail");
     showPage("im-ai-scanner");
     const aiInput = document.getElementById("im-ai-scanner-search-input");
     if (aiInput) aiInput.value = symbol;
