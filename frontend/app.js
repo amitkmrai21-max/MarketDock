@@ -4587,22 +4587,47 @@ function clearLiveChartAiOverlay() {
     }
   }
 
+  // The Dashboard tiles push a history entry when opening an index's detail
+  // page (see below) so the Android/WebView back button has something to
+  // consume and returns to the Dashboard instead of falling through to the
+  // WebView's default behavior and closing the app. If the user instead
+  // leaves that detail page some other way (a sidebar/bottom-nav tap), the
+  // pushed entry needs consuming here too, or a later back-press would land
+  // on a stale, disconnected history state.
+  let imDashboardDrilldownPushed = false;
+
   navButtons.forEach((button) => {
     button.addEventListener("click", () => {
+      if (imDashboardDrilldownPushed) {
+        imDashboardDrilldownPushed = false;
+        history.back();
+      }
       showPage(button.dataset.page);
     });
   });
 
   // Dashboard's own NIFTY 50/Bank Nifty/FinNifty/Sensex tiles jump to that
-  // index's full page the same way the matching sidebar nav button does.
+  // index's full page the same way the matching sidebar nav button used to.
   root.querySelectorAll(".stat-card-link[data-page]").forEach((card) => {
-    card.addEventListener("click", () => showPage(card.dataset.page));
+    const openDetail = () => {
+      history.pushState({ imDashboardDrilldown: true }, "");
+      imDashboardDrilldownPushed = true;
+      showPage(card.dataset.page);
+    };
+    card.addEventListener("click", openDetail);
     card.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        showPage(card.dataset.page);
+        openDetail();
       }
     });
+  });
+
+  window.addEventListener("popstate", () => {
+    if (imDashboardDrilldownPushed) {
+      imDashboardDrilldownPushed = false;
+      showPage("im-dashboard");
+    }
   });
 
   const storageKey = "indianMarketPaperTrades";
