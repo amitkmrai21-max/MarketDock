@@ -4839,6 +4839,9 @@ body.im-chart-fullscreen-open {
   color: var(--im-muted);
   font-size: 13px;
   font-weight: 700;
+  padding: 3px 10px;
+  border: 1px solid var(--im-border);
+  border-radius: 999px;
 }
 
 .indian-market-mode .im-section-label {
