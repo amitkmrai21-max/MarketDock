@@ -4878,6 +4878,18 @@ body.im-chart-fullscreen-open {
 .indian-market-mode .im-mover-change.positive { color: var(--im-green); }
 .indian-market-mode .im-mover-change.negative { color: var(--im-red); }
 
+.indian-market-mode .im-mover-note {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--im-muted);
+}
+
+.indian-market-mode .im-mover-note:empty {
+  display: none;
+}
+
 .indian-market-mode .im-rrg-controls {
   display: flex;
   align-items: center;

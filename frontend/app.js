@@ -6169,12 +6169,14 @@ function clearLiveChartAiOverlay() {
     const nameEl = document.getElementById(`im-${indexKey}-${kind}-symbol`);
     const priceEl = document.getElementById(`im-${indexKey}-${kind}-price`);
     const changeEl = document.getElementById(`im-${indexKey}-${kind}-change`);
+    const noteEl = document.getElementById(`im-${indexKey}-${kind}-note`);
     if (!nameEl || !priceEl || !changeEl) return;
 
     if (!mover) {
       nameEl.textContent = "Unavailable";
       priceEl.textContent = "--";
       changeEl.textContent = "--";
+      if (noteEl) noteEl.textContent = "";
       return;
     }
 
@@ -6182,6 +6184,21 @@ function clearLiveChartAiOverlay() {
     priceEl.textContent = formatNumber(mover.last_price);
     changeEl.className = "im-mover-change";
     changeEl.innerHTML = changePillHtml(mover.change_percent);
+
+    // The "gainer"/"loser" slot is always the best/worst performer in the
+    // basket, even when the whole basket moved the same direction (e.g. a
+    // red day where every constituent is down) — flag that case so a
+    // negative "Top Gainer" doesn't read as a mislabeled loser.
+    if (noteEl) {
+      const changePercent = Number(mover.change_percent);
+      if (kind === "gainer" && changePercent < 0) {
+        noteEl.textContent = "No real gainers today — smallest decline shown";
+      } else if (kind === "loser" && changePercent > 0) {
+        noteEl.textContent = "No real losers today — smallest gain shown";
+      } else {
+        noteEl.textContent = "";
+      }
+    }
 
     loadMoverSparkline(indexKey, kind, mover.symbol, Number(mover.change_percent) >= 0);
   }
