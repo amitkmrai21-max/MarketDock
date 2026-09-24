@@ -4593,6 +4593,18 @@ function clearLiveChartAiOverlay() {
     });
   });
 
+  // Dashboard's own NIFTY 50/Bank Nifty/FinNifty/Sensex tiles jump to that
+  // index's full page the same way the matching sidebar nav button does.
+  root.querySelectorAll(".stat-card-link[data-page]").forEach((card) => {
+    card.addEventListener("click", () => showPage(card.dataset.page));
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        showPage(card.dataset.page);
+      }
+    });
+  });
+
   const storageKey = "indianMarketPaperTrades";
   const IM_TRADE_MARKET_LABELS = { nifty: "NIFTY 50", banknifty: "Bank Nifty", finnifty: "FINNIFTY", sensex: "Sensex" };
   const form = document.getElementById("im-paper-trade-form");
