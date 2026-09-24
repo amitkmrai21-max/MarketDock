@@ -6196,9 +6196,9 @@ function clearLiveChartAiOverlay() {
       // wrapping to three.
       const inApp = document.documentElement.classList.contains("capacitor-app");
       if (kind === "gainer" && changePercent < 0) {
-        noteEl.textContent = inApp ? "No real gainers — smallest decline" : "No real gainers today — smallest decline shown";
+        noteEl.textContent = inApp ? "→ No true gainer" : "No real gainers today — smallest decline shown";
       } else if (kind === "loser" && changePercent > 0) {
-        noteEl.textContent = inApp ? "No real losers — smallest gain" : "No real losers today — smallest gain shown";
+        noteEl.textContent = inApp ? "→ No true loser" : "No real losers today — smallest gain shown";
       } else {
         noteEl.textContent = "";
       }
