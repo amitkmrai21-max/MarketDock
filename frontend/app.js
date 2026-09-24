@@ -5316,13 +5316,16 @@ function clearLiveChartAiOverlay() {
 
     const isLiveData = data.data_source === "live";
 
-    const tickerPrice = document.getElementById(`im-ticker-${marketKey}-price`);
-    const tickerChange = document.getElementById(`im-ticker-${marketKey}-change`);
-    if (tickerPrice) tickerPrice.textContent = formatNumber(data.price);
-    if (tickerChange) {
-      tickerChange.className = "im-ticker-change";
-      tickerChange.innerHTML = changePillHtml(data.change_percent);
-    }
+    // The ticker bar's content is duplicated (once visible, once
+    // aria-hidden) so its CSS scroll animation can loop seamlessly —
+    // update every copy via data-ticker-field, not a single id.
+    document.querySelectorAll(`[data-ticker-field="${marketKey}-price"]`).forEach((el) => {
+      el.textContent = formatNumber(data.price);
+    });
+    document.querySelectorAll(`[data-ticker-field="${marketKey}-change"]`).forEach((el) => {
+      el.className = "im-ticker-change";
+      el.innerHTML = changePillHtml(data.change_percent);
+    });
     const tickerDot = document.getElementById("im-ticker-dot");
     const tickerStatusText = document.getElementById("im-ticker-status-text");
     if (tickerDot && tickerStatusText) {

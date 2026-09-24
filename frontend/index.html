@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=20260924f">
+  <link rel="stylesheet" href="/frontend/style.css?v=20260924g">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1211,25 +1211,52 @@
  <div id="indianModeRoot">
 <div class="indian-market-mode">
   <div class="im-ticker-bar" id="im-ticker-bar">
-    <div class="im-ticker-item">
-      <span class="im-ticker-label">NIFTY 50</span>
-      <span class="im-ticker-value" id="im-ticker-nifty-price">--</span>
-      <span class="im-ticker-change" id="im-ticker-nifty-change">--</span>
-    </div>
-    <div class="im-ticker-item">
-      <span class="im-ticker-label">BANK NIFTY</span>
-      <span class="im-ticker-value" id="im-ticker-banknifty-price">--</span>
-      <span class="im-ticker-change" id="im-ticker-banknifty-change">--</span>
-    </div>
-    <div class="im-ticker-item">
-      <span class="im-ticker-label">FINNIFTY</span>
-      <span class="im-ticker-value" id="im-ticker-finnifty-price">--</span>
-      <span class="im-ticker-change" id="im-ticker-finnifty-change">--</span>
-    </div>
-    <div class="im-ticker-item">
-      <span class="im-ticker-label">SENSEX</span>
-      <span class="im-ticker-value" id="im-ticker-sensex-price">--</span>
-      <span class="im-ticker-change" id="im-ticker-sensex-change">--</span>
+    <div class="im-ticker-scroll">
+      <div class="im-ticker-track" id="im-ticker-track">
+        <div class="im-ticker-item">
+          <span class="im-ticker-label">NIFTY 50</span>
+          <span class="im-ticker-value" data-ticker-field="nifty-price">--</span>
+          <span class="im-ticker-change" data-ticker-field="nifty-change">--</span>
+        </div>
+        <div class="im-ticker-item">
+          <span class="im-ticker-label">BANK NIFTY</span>
+          <span class="im-ticker-value" data-ticker-field="banknifty-price">--</span>
+          <span class="im-ticker-change" data-ticker-field="banknifty-change">--</span>
+        </div>
+        <div class="im-ticker-item">
+          <span class="im-ticker-label">FINNIFTY</span>
+          <span class="im-ticker-value" data-ticker-field="finnifty-price">--</span>
+          <span class="im-ticker-change" data-ticker-field="finnifty-change">--</span>
+        </div>
+        <div class="im-ticker-item">
+          <span class="im-ticker-label">SENSEX</span>
+          <span class="im-ticker-value" data-ticker-field="sensex-price">--</span>
+          <span class="im-ticker-change" data-ticker-field="sensex-change">--</span>
+        </div>
+        <!-- Duplicate set, hidden from assistive tech: makes the scrolling
+             track loop seamlessly (translates exactly -50% of its own
+             width, landing back on an identical copy of the start). -->
+        <div class="im-ticker-item" aria-hidden="true">
+          <span class="im-ticker-label">NIFTY 50</span>
+          <span class="im-ticker-value" data-ticker-field="nifty-price">--</span>
+          <span class="im-ticker-change" data-ticker-field="nifty-change">--</span>
+        </div>
+        <div class="im-ticker-item" aria-hidden="true">
+          <span class="im-ticker-label">BANK NIFTY</span>
+          <span class="im-ticker-value" data-ticker-field="banknifty-price">--</span>
+          <span class="im-ticker-change" data-ticker-field="banknifty-change">--</span>
+        </div>
+        <div class="im-ticker-item" aria-hidden="true">
+          <span class="im-ticker-label">FINNIFTY</span>
+          <span class="im-ticker-value" data-ticker-field="finnifty-price">--</span>
+          <span class="im-ticker-change" data-ticker-field="finnifty-change">--</span>
+        </div>
+        <div class="im-ticker-item" aria-hidden="true">
+          <span class="im-ticker-label">SENSEX</span>
+          <span class="im-ticker-value" data-ticker-field="sensex-price">--</span>
+          <span class="im-ticker-change" data-ticker-field="sensex-change">--</span>
+        </div>
+      </div>
     </div>
     <div class="im-ticker-item im-ticker-status">
       <span class="im-ticker-dot" id="im-ticker-dot"></span>
@@ -3521,7 +3548,7 @@
     </section>
   </aside>
 
-  <script src="/frontend/app.js?v=20260924c"></script>
+  <script src="/frontend/app.js?v=20260924d"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
