@@ -4763,7 +4763,7 @@ body.im-chart-fullscreen-open {
   align-items: center;
   gap: 16px;
   height: 30px;
-  padding: 0 16px;
+  padding: 0 6px 0 16px;
   border-bottom: 1px solid var(--im-border);
   background: var(--im-bg);
   font-size: 11px;
@@ -4840,7 +4840,7 @@ body.im-chart-fullscreen-open {
   font-size: 13px;
   font-weight: 700;
   padding: 3px 10px;
-  border: 1px solid var(--im-border);
+  border: 1px solid var(--border-strong, rgba(139, 92, 246, 0.4));
   border-radius: 999px;
 }
 
