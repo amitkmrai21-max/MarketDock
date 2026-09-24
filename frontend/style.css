@@ -5759,6 +5759,21 @@ body.im-chart-fullscreen-open {
   display: none;
 }
 
+.indian-market-mode .stat-card-link {
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.indian-market-mode .stat-card-link:hover,
+.indian-market-mode .stat-card-link:focus-visible {
+  border-color: var(--im-blue);
+  transform: translateY(-1px);
+}
+
+.indian-market-mode .stat-card-link:active {
+  transform: translateY(0);
+}
+
 .indian-market-mode .stat-label,
 .indian-market-mode .stat-value,
 .indian-market-mode .stat-change {
@@ -5812,31 +5827,22 @@ body.im-chart-fullscreen-open {
   gap: 18px;
 }
 
-/* Dashboard page only: dense, adjoining "terminal panel" layout instead of
-   gapped floating cards -- thin dividers between panels, no per-card
-   radius/border/shadow, tabular-mono numbers. Scoped to #im-dashboard so
-   every other page keeps the normal rounded-card look. */
+/* Dashboard page only: dense "terminal panel" layout -- tabular-mono
+   numbers, tight gap between panels. Each panel keeps its own visible
+   border/radius (not a shared divider) so the 5 cards read as distinct,
+   clickable tiles rather than one fused strip. */
 #im-dashboard .stats-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0;
-  border: 1px solid var(--im-border);
-  border-radius: 10px;
-  overflow: hidden;
+  gap: 8px;
   margin-bottom: 14px;
 }
 
 #im-dashboard .stats-grid .stat-card {
-  border-radius: 0;
-  border-right: 1px solid var(--im-border);
-  border-bottom: 1px solid var(--im-border);
+  border-radius: 10px;
+  border: 1px solid var(--im-border);
   background: var(--im-panel);
   min-height: 0;
   padding: 14px 16px;
-}
-
-#im-dashboard .stats-grid .stat-card:last-child {
-  border-right: none;
-  border-bottom: none;
 }
 
 #im-dashboard .stat-value {
@@ -5901,10 +5907,6 @@ body.im-chart-fullscreen-open {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  #im-dashboard .stats-grid .stat-card:nth-child(3) {
-    border-right: none;
-  }
-
   /* 5 cards in a 3-column grid leaves the last row with only 2 — span the
      last card (Market Bias) across the remaining columns instead of
      leaving an empty, still-bordered cell next to it. */
@@ -5927,20 +5929,11 @@ body.im-chart-fullscreen-open {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  #im-dashboard .stats-grid .stat-card:nth-child(odd) {
-    border-right: 1px solid var(--im-border);
-  }
-
-  #im-dashboard .stats-grid .stat-card:nth-child(even) {
-    border-right: none;
-  }
-
   /* 5 cards in a 2-column grid leaves the last row with just 1 — span the
      last card (Market Bias) across both columns instead of leaving an
      empty, still-bordered cell next to it. */
   #im-dashboard .stats-grid .stat-card:last-child {
     grid-column: span 2;
-    border-right: none;
   }
 }
 
