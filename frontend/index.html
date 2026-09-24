@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=20260924l">
+  <link rel="stylesheet" href="/frontend/style.css?v=20260924m">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -2048,20 +2048,21 @@
           <p id="im-watchlist-ai-note" class="im-chart-status">Momentum score: a formula-based read (0-100) from today's live % change, not an AI/LLM judgment. Not financial advice. Up to 100 stocks per watchlist, up to 10 watchlists.</p>
 
           <div class="table-wrap">
-            <table>
+            <table class="im-watchlist-table">
               <thead>
                 <tr>
+                  <th class="im-watchlist-drag-col"></th>
                   <th>Symbol</th>
                   <th>Last Price</th>
                   <th>Change</th>
                   <th>Momentum Score</th>
-                  <th>Action</th>
                 </tr>
               </thead>
               <tbody id="im-watchlist-body">
                 <tr><td colspan="5">Loading watchlist…</td></tr>
               </tbody>
             </table>
+            <p class="im-chart-status">Tap a stock for Buy/Sell/Chart. Press and hold to remove it. Drag the &#8942; handle to reorder.</p>
           </div>
         </article>
       </section>
@@ -3221,10 +3222,35 @@
       </section>
     </main>
   </div>
+
+  <div class="im-watchlist-sheet-backdrop" id="im-watchlist-sheet-backdrop" hidden></div>
+
+  <div class="im-action-sheet" id="im-watchlist-action-sheet" hidden>
+    <div class="im-action-sheet-handle"></div>
+    <div class="im-action-sheet-header">
+      <span class="im-action-sheet-symbol" id="im-action-sheet-symbol">&mdash;</span>
+      <span class="im-action-sheet-price" id="im-action-sheet-price">&mdash;</span>
+    </div>
+    <div class="im-action-sheet-buttons">
+      <button class="im-action-sheet-btn im-action-sheet-buy" type="button" id="im-action-sheet-buy-btn">Buy</button>
+      <button class="im-action-sheet-btn im-action-sheet-sell" type="button" id="im-action-sheet-sell-btn">Sell</button>
+      <button class="im-action-sheet-btn im-action-sheet-chart" type="button" id="im-action-sheet-chart-btn">View Chart</button>
+    </div>
+    <button class="im-action-sheet-cancel" type="button" id="im-action-sheet-cancel-btn">Cancel</button>
+  </div>
+
+  <div class="im-action-sheet im-delete-sheet" id="im-watchlist-delete-sheet" hidden>
+    <div class="im-action-sheet-handle"></div>
+    <p class="im-delete-sheet-text">Remove <strong id="im-delete-sheet-symbol">&mdash;</strong> from this watchlist?</p>
+    <div class="im-action-sheet-buttons">
+      <button class="im-action-sheet-btn im-action-sheet-delete" type="button" id="im-delete-sheet-confirm-btn">Remove</button>
+    </div>
+    <button class="im-action-sheet-cancel" type="button" id="im-delete-sheet-cancel-btn">Cancel</button>
+  </div>
 </div>
 
   </div>
-          
+
     <aside id="settingsDrawer" class="settings-drawer" aria-label="Dashboard preferences">
     <div class="settings-drawer-header">
       <div>
@@ -3528,7 +3554,7 @@
     </section>
   </aside>
 
-  <script src="/frontend/app.js?v=20260924i"></script>
+  <script src="/frontend/app.js?v=20260924j"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

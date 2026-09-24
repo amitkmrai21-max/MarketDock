@@ -5600,6 +5600,10 @@ function clearLiveChartAiOverlay() {
     const body = document.getElementById("im-watchlist-body");
     const status = document.getElementById("im-watchlist-status");
     if (!body) return;
+    // A row currently being dragged to reorder would get destroyed by a
+    // re-render mid-drag (the 5-second poll calls this too) — skip this
+    // refresh and let the next poll pick up fresh prices once it's done.
+    if (imWatchlistDragPointerId !== null) return;
 
     if (!Array.isArray(rows) || !rows.length) {
       body.innerHTML = `<tr><td colspan="5">No symbols in this watchlist yet. Add one above.</td></tr>`;
@@ -5614,19 +5618,12 @@ function clearLiveChartAiOverlay() {
       .map((row) => {
         const symbol = escapeHtml(row.symbol);
         return `
-          <tr>
+          <tr class="im-watchlist-row" data-symbol="${symbol}" data-price="${row.last_price ?? ""}">
+            <td class="im-watchlist-drag-col"><span class="im-watchlist-drag-handle" title="Drag to reorder">&#8942;&#8942;</span></td>
             <td>${symbol}</td>
             <td>${formatNumber(row.last_price)}</td>
             <td>${changePillHtml(row.change_percent)}</td>
             <td>${renderAiScoreBadge(row.ai_score, row.ai_label)}</td>
-            <td>
-              <div class="im-watchlist-row-actions">
-                <button class="im-watchlist-action-btn im-watchlist-buy-btn" type="button" data-buy-symbol="${symbol}" data-price="${row.last_price ?? ""}">Buy</button>
-                <button class="im-watchlist-action-btn im-watchlist-sell-btn" type="button" data-sell-symbol="${symbol}" data-price="${row.last_price ?? ""}">Sell</button>
-                <button class="im-watchlist-action-btn im-watchlist-chart-btn" type="button" data-view-chart-symbol="${symbol}">View Chart</button>
-                <button class="delete-trade-button" type="button" data-remove-symbol="${symbol}">Remove</button>
-              </div>
-            </td>
           </tr>
         `;
       })
@@ -5860,45 +5857,206 @@ function clearLiveChartAiOverlay() {
       });
     }
 
-    const bodyEl = document.getElementById("im-watchlist-body");
-    if (bodyEl) {
-      bodyEl.addEventListener("click", (event) => {
-        const removeBtn = event.target.closest("[data-remove-symbol]");
-        if (removeBtn) {
-          const lists = getImWatchlists();
-          const active = getActiveImWatchlist();
-          const target = lists.find((w) => w.id === active.id);
-          if (target) {
-            target.symbols = target.symbols.filter((s) => s !== removeBtn.dataset.removeSymbol);
-            saveImWatchlists(lists);
-            fetchWatchlist();
-          }
-          return;
-        }
-
-        const chartBtn = event.target.closest("[data-view-chart-symbol]");
-        if (chartBtn) {
-          const symbol = chartBtn.dataset.viewChartSymbol;
-          openImTradingViewChartFor(`NSE:${symbol}`, symbol, "im-watchlist");
-          return;
-        }
-
-        const buyBtn = event.target.closest("[data-buy-symbol]");
-        if (buyBtn) {
-          setImPendingStockTrade(buyBtn.dataset.buySymbol, "Buy", buyBtn.dataset.price);
-          return;
-        }
-
-        const sellBtn = event.target.closest("[data-sell-symbol]");
-        if (sellBtn) {
-          setImPendingStockTrade(sellBtn.dataset.sellSymbol, "Sell", sellBtn.dataset.price);
-          return;
-        }
-      });
-    }
-
+    setupImWatchlistRowInteractions();
     renderImWatchlistTabs();
   }
+
+  // Zerodha-style row interactions: tap a row for a Buy/Sell/View Chart
+  // sheet, press-and-hold for a delete confirm, drag the handle to
+  // reorder. All delegated on the tbody (not per-row) so it survives the
+  // 5-second poll re-rendering the rows out from under it.
+  let imWatchlistDragPointerId = null;
+  let imWatchlistPressTimer = null;
+  let imWatchlistPressStart = null;
+  let imWatchlistLongPressFired = false;
+  let imWatchlistPressMoved = false;
+  const IM_LONG_PRESS_MS = 500;
+  const IM_PRESS_MOVE_CANCEL_PX = 10;
+
+  function clearImWatchlistPressTimer() {
+    if (imWatchlistPressTimer) {
+      window.clearTimeout(imWatchlistPressTimer);
+      imWatchlistPressTimer = null;
+    }
+  }
+
+  function persistImWatchlistRowOrder(bodyEl) {
+    const symbols = Array.from(bodyEl.querySelectorAll(".im-watchlist-row")).map((row) => row.dataset.symbol);
+    const lists = getImWatchlists();
+    const active = getActiveImWatchlist();
+    const target = lists.find((w) => w.id === active.id);
+    if (target) {
+      target.symbols = symbols;
+      saveImWatchlists(lists);
+    }
+  }
+
+  function setupImWatchlistRowInteractions() {
+    const bodyEl = document.getElementById("im-watchlist-body");
+    if (!bodyEl || bodyEl.dataset.wired) return;
+    bodyEl.dataset.wired = "true";
+
+    bodyEl.addEventListener("pointerdown", (event) => {
+      const handle = event.target.closest(".im-watchlist-drag-handle");
+      const row = event.target.closest(".im-watchlist-row");
+      if (!row) return;
+
+      if (handle) {
+        event.preventDefault();
+        imWatchlistDragPointerId = event.pointerId;
+        row.classList.add("im-watchlist-row-dragging");
+        try { handle.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+        return;
+      }
+
+      imWatchlistLongPressFired = false;
+      imWatchlistPressMoved = false;
+      imWatchlistPressStart = { x: event.clientX, y: event.clientY };
+      clearImWatchlistPressTimer();
+      imWatchlistPressTimer = window.setTimeout(() => {
+        imWatchlistLongPressFired = true;
+        imWatchlistPressTimer = null;
+        if (navigator.vibrate) navigator.vibrate(15);
+        openImWatchlistDeleteSheet(row.dataset.symbol);
+      }, IM_LONG_PRESS_MS);
+    });
+
+    bodyEl.addEventListener("pointermove", (event) => {
+      if (imWatchlistDragPointerId !== null && event.pointerId === imWatchlistDragPointerId) {
+        const draggingRow = bodyEl.querySelector(".im-watchlist-row-dragging");
+        if (!draggingRow) return;
+        const rows = Array.from(bodyEl.querySelectorAll(".im-watchlist-row"));
+        const overRow = rows.find((row) => {
+          if (row === draggingRow) return false;
+          const rect = row.getBoundingClientRect();
+          return event.clientY >= rect.top && event.clientY <= rect.bottom;
+        });
+        if (overRow) {
+          const draggingIsAbove = draggingRow.getBoundingClientRect().top < overRow.getBoundingClientRect().top;
+          if (draggingIsAbove) overRow.after(draggingRow);
+          else overRow.before(draggingRow);
+        }
+        return;
+      }
+
+      if (imWatchlistPressStart) {
+        const dx = Math.abs(event.clientX - imWatchlistPressStart.x);
+        const dy = Math.abs(event.clientY - imWatchlistPressStart.y);
+        if (dx > IM_PRESS_MOVE_CANCEL_PX || dy > IM_PRESS_MOVE_CANCEL_PX) {
+          imWatchlistPressMoved = true;
+          clearImWatchlistPressTimer();
+        }
+      }
+    });
+
+    function endImWatchlistDrag(event) {
+      if (imWatchlistDragPointerId === null || event.pointerId !== imWatchlistDragPointerId) return false;
+      const draggingRow = bodyEl.querySelector(".im-watchlist-row-dragging");
+      if (draggingRow) draggingRow.classList.remove("im-watchlist-row-dragging");
+      imWatchlistDragPointerId = null;
+      persistImWatchlistRowOrder(bodyEl);
+      return true;
+    }
+
+    bodyEl.addEventListener("pointerup", (event) => {
+      if (endImWatchlistDrag(event)) return;
+
+      const wasLongPress = imWatchlistLongPressFired;
+      const wasMoved = imWatchlistPressMoved;
+      clearImWatchlistPressTimer();
+      imWatchlistLongPressFired = false;
+      imWatchlistPressMoved = false;
+      // A long-press already opened the delete sheet on its own; a drag/
+      // scroll gesture (finger moved past the threshold) is neither a tap
+      // nor a long-press, so it shouldn't open anything either.
+      if (wasLongPress || wasMoved) return;
+
+      const row = event.target.closest(".im-watchlist-row");
+      if (!row || event.target.closest(".im-watchlist-drag-handle")) return;
+      openImWatchlistActionSheet(row.dataset.symbol, row.dataset.price);
+    });
+
+    bodyEl.addEventListener("pointercancel", (event) => {
+      if (endImWatchlistDrag(event)) return;
+      clearImWatchlistPressTimer();
+      imWatchlistLongPressFired = false;
+      imWatchlistPressMoved = false;
+    });
+
+    bodyEl.addEventListener("pointerleave", () => {
+      clearImWatchlistPressTimer();
+    });
+  }
+
+  function closeImWatchlistSheets() {
+    const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
+    const actionSheet = document.getElementById("im-watchlist-action-sheet");
+    const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
+    if (backdrop) backdrop.hidden = true;
+    if (actionSheet) actionSheet.hidden = true;
+    if (deleteSheet) deleteSheet.hidden = true;
+  }
+
+  function openImWatchlistActionSheet(symbol, price) {
+    const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
+    const sheet = document.getElementById("im-watchlist-action-sheet");
+    if (!backdrop || !sheet) return;
+
+    document.getElementById("im-action-sheet-symbol").textContent = symbol;
+    document.getElementById("im-action-sheet-price").textContent = Number.isFinite(Number(price)) ? formatNumber(Number(price)) : "--";
+
+    const buyBtn = document.getElementById("im-action-sheet-buy-btn");
+    const sellBtn = document.getElementById("im-action-sheet-sell-btn");
+    const chartBtn = document.getElementById("im-action-sheet-chart-btn");
+
+    buyBtn.onclick = () => {
+      closeImWatchlistSheets();
+      setImPendingStockTrade(symbol, "Buy", price);
+    };
+    sellBtn.onclick = () => {
+      closeImWatchlistSheets();
+      setImPendingStockTrade(symbol, "Sell", price);
+    };
+    chartBtn.onclick = () => {
+      closeImWatchlistSheets();
+      openImTradingViewChartFor(`NSE:${symbol}`, symbol, "im-watchlist");
+    };
+
+    backdrop.hidden = false;
+    sheet.hidden = false;
+  }
+
+  function openImWatchlistDeleteSheet(symbol) {
+    const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
+    const sheet = document.getElementById("im-watchlist-delete-sheet");
+    if (!backdrop || !sheet) return;
+
+    document.getElementById("im-delete-sheet-symbol").textContent = symbol;
+
+    document.getElementById("im-delete-sheet-confirm-btn").onclick = () => {
+      const lists = getImWatchlists();
+      const active = getActiveImWatchlist();
+      const target = lists.find((w) => w.id === active.id);
+      if (target) {
+        target.symbols = target.symbols.filter((s) => s !== symbol);
+        saveImWatchlists(lists);
+        fetchWatchlist();
+      }
+      closeImWatchlistSheets();
+    };
+
+    backdrop.hidden = false;
+    sheet.hidden = false;
+  }
+
+  (function setupImWatchlistSheetDismiss() {
+    const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
+    const cancelBtn = document.getElementById("im-action-sheet-cancel-btn");
+    const deleteCancelBtn = document.getElementById("im-delete-sheet-cancel-btn");
+    if (backdrop) backdrop.addEventListener("click", closeImWatchlistSheets);
+    if (cancelBtn) cancelBtn.addEventListener("click", closeImWatchlistSheets);
+    if (deleteCancelBtn) deleteCancelBtn.addEventListener("click", closeImWatchlistSheets);
+  })();
 
   setupImWatchlistControls();
 

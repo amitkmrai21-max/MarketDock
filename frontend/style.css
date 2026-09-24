@@ -4448,37 +4448,160 @@ body[data-accent="green"] .settings-choice.active {
   cursor: pointer;
 }
 
-.im-watchlist-row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+/* Zerodha-style watchlist row: tap the row for a Buy/Sell/View Chart
+   sheet, press-and-hold for a delete confirm, drag the handle to
+   reorder — no more always-visible per-row buttons. */
+.im-watchlist-row {
+  cursor: pointer;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.im-watchlist-action-btn {
-  padding: 5px 9px;
-  border-radius: 7px;
-  border: 1px solid var(--im-border);
+.im-watchlist-row.im-watchlist-row-dragging {
+  opacity: 0.6;
+  background: var(--im-panel-2);
+}
+
+.im-watchlist-drag-col {
+  width: 28px;
+}
+
+.im-watchlist-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 28px;
+  color: var(--im-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+}
+
+.im-watchlist-row-dragging .im-watchlist-drag-handle {
+  cursor: grabbing;
+}
+
+.im-watchlist-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(5, 8, 20, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+.im-action-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 91;
+  padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+  border-top-left-radius: 18px;
+  border-top-right-radius: 18px;
   background: var(--im-panel);
-  color: var(--text);
-  font-size: 11.5px;
+  border: 1px solid var(--im-border);
+  border-bottom: none;
+  box-shadow: 0 -14px 32px rgba(0, 0, 0, 0.4);
+  animation: im-action-sheet-up 0.18s ease-out;
+}
+
+@keyframes im-action-sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.im-action-sheet-handle {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 14px;
+  border-radius: 999px;
+  background: var(--im-border);
+}
+
+.im-action-sheet-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.im-action-sheet-symbol {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--im-text);
+}
+
+.im-action-sheet-price {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--im-muted);
+}
+
+.im-action-sheet-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.im-delete-sheet .im-action-sheet-buttons {
+  grid-template-columns: 1fr;
+}
+
+.im-action-sheet-btn {
+  padding: 13px 8px;
+  border-radius: 11px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-text);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.im-action-sheet-buy {
+  border-color: var(--im-green);
+  color: var(--im-green);
+}
+
+.im-action-sheet-sell {
+  border-color: var(--im-red);
+  color: var(--im-red);
+}
+
+.im-action-sheet-chart {
+  border-color: var(--im-blue);
+  color: var(--im-blue);
+}
+
+.im-action-sheet-delete {
+  border-color: var(--im-red);
+  background: var(--im-red);
+  color: #fff;
+}
+
+.im-action-sheet-cancel {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 11px;
+  border: none;
+  background: none;
+  color: var(--im-muted);
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  white-space: nowrap;
 }
 
-.im-watchlist-buy-btn {
-  border-color: #34d399;
-  color: #34d399;
-}
-
-.im-watchlist-sell-btn {
-  border-color: #f87171;
-  color: #f87171;
-}
-
-.im-watchlist-chart-btn {
-  border-color: var(--blue);
-  color: var(--blue);
+.im-delete-sheet-text {
+  margin: 0 0 14px;
+  color: var(--im-text);
+  font-size: 14px;
+  text-align: center;
 }
 
 .im-chart-fullscreen-btn {
