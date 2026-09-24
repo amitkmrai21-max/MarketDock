@@ -4894,7 +4894,7 @@ body.im-chart-fullscreen-open {
    layout) — shrink this note there only, since it wraps to 3 lines on a
    phone-width app window in a way it doesn't in a normal mobile browser. */
 .capacitor-app .indian-market-mode .im-mover-note {
-  font-size: 6px;
+  font-size: 9px;
   color: var(--im-red);
   opacity: 0.7;
 }
