@@ -4895,8 +4895,15 @@ body.im-chart-fullscreen-open {
    phone-width app window in a way it doesn't in a normal mobile browser. */
 .capacitor-app .indian-market-mode .im-mover-note {
   font-size: 9px;
-  color: var(--im-red);
   opacity: 0.7;
+}
+
+.capacitor-app .indian-market-mode .im-mover-note.im-mover-note-negative {
+  color: var(--im-red);
+}
+
+.capacitor-app .indian-market-mode .im-mover-note.im-mover-note-positive {
+  color: var(--im-green);
 }
 
 .indian-market-mode .im-rrg-controls {
