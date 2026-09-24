@@ -3122,6 +3122,13 @@ body {
   color: #f87171;
 }
 
+/* Indian mode shows its live status inside the scrolling ticker bar
+   instead (far right, next to Sensex) — this header badge would just
+   duplicate it there. */
+body.mode-indian-live-status .market-status-badge {
+  display: none;
+}
+
 @media (max-width: 720px) {
   .market-status-badge {
     top: 58px;
@@ -4830,7 +4837,8 @@ body.im-chart-fullscreen-open {
   margin-left: auto;
   flex-shrink: 0;
   color: var(--im-muted);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .indian-market-mode .im-section-label {
@@ -6374,7 +6382,7 @@ body.im-chart-fullscreen-open {
   }
 
 .indian-market-mode .im-ticker-status {
-    display: none;
+    font-size: 12px;
   }
 
 .indian-market-mode .app-shell {

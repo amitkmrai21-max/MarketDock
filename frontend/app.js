@@ -4235,6 +4235,10 @@ function clearLiveChartAiOverlay() {
     btcRoot.hidden = isIndian;
     indianRoot.hidden = !isIndian;
     slider.dataset.mode = mode;
+    // Indian mode has its own live-status pill built into the scrolling
+    // ticker bar, so the header's separate badge (still used by BTC mode,
+    // which has no ticker bar) would be a redundant second "Live" here.
+    document.body.classList.toggle("mode-indian-live-status", isIndian);
     if (brandSubtitle) {
       brandSubtitle.textContent = isIndian
         ? "NIFTY 50 and Bank Nifty research dashboard with paper-trading workflow"
