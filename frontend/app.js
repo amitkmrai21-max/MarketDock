@@ -6195,10 +6195,13 @@ function clearLiveChartAiOverlay() {
       // shorter wording that actually fits in two lines there instead of
       // wrapping to three.
       const inApp = document.documentElement.classList.contains("capacitor-app");
+      noteEl.classList.remove("im-mover-note-negative", "im-mover-note-positive");
       if (kind === "gainer" && changePercent < 0) {
         noteEl.textContent = inApp ? "→ No true gainer" : "No real gainers today — smallest decline shown";
+        noteEl.classList.add("im-mover-note-negative");
       } else if (kind === "loser" && changePercent > 0) {
         noteEl.textContent = inApp ? "→ No true loser" : "No real losers today — smallest gain shown";
+        noteEl.classList.add("im-mover-note-positive");
       } else {
         noteEl.textContent = "";
       }
