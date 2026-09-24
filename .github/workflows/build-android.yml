@@ -19,13 +19,11 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Build debug APK
         working-directory: mobile-app/android
         run: |
           chmod +x gradlew
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses > /dev/null || true
           ./gradlew assembleDebug
 
       - name: Upload APK
