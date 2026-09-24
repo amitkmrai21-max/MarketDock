@@ -6191,10 +6191,14 @@ function clearLiveChartAiOverlay() {
     // negative "Top Gainer" doesn't read as a mislabeled loser.
     if (noteEl) {
       const changePercent = Number(mover.change_percent);
+      // The app's card is narrower than the website's, so it gets a
+      // shorter wording that actually fits in two lines there instead of
+      // wrapping to three.
+      const inApp = document.documentElement.classList.contains("capacitor-app");
       if (kind === "gainer" && changePercent < 0) {
-        noteEl.textContent = "No real gainers today — smallest decline shown";
+        noteEl.textContent = inApp ? "No real gainers — smallest decline" : "No real gainers today — smallest decline shown";
       } else if (kind === "loser" && changePercent > 0) {
-        noteEl.textContent = "No real losers today — smallest gain shown";
+        noteEl.textContent = inApp ? "No real losers — smallest gain" : "No real losers today — smallest gain shown";
       } else {
         noteEl.textContent = "";
       }
