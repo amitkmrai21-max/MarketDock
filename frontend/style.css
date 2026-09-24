@@ -4894,16 +4894,20 @@ body.im-chart-fullscreen-open {
    layout) — shrink this note there only, since it wraps to 3 lines on a
    phone-width app window in a way it doesn't in a normal mobile browser. */
 .capacitor-app .indian-market-mode .im-mover-note {
-  font-size: 11px;
-  opacity: 0.7;
+  font-size: 13px;
+  opacity: 0.9;
 }
 
 .capacitor-app .indian-market-mode .im-mover-note.im-mover-note-negative {
-  color: var(--im-red);
+  /* The gainer card's background tints red here (a decline), so red text
+     would blend into it — use amber instead so it stays readable. */
+  color: var(--im-yellow);
 }
 
 .capacitor-app .indian-market-mode .im-mover-note.im-mover-note-positive {
-  color: var(--im-green);
+  /* Same reasoning, mirrored: the loser card's background tints green
+     here (a gain), so green text would blend in — use blue instead. */
+  color: var(--im-blue);
 }
 
 .indian-market-mode .im-rrg-controls {
