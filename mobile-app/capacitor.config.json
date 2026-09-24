@@ -3,7 +3,7 @@
   "appName": "MarketDock",
   "webDir": "www",
   "server": {
-    "url": "https://marketdock.onrender.com",
+    "url": "https://marketdock.in",
     "cleartext": false,
     "androidScheme": "https"
   },
