@@ -5083,7 +5083,7 @@ function clearLiveChartAiOverlay() {
   setupImPositionSizer();
   renderTrades();
 
-  const API_BASE_URL = "https://indian-market-ai-api.onrender.com";
+  const API_BASE_URL = "https://api.marketdock.in";
 
   function formatNumber(value) {
     if (value === null || value === undefined) {
@@ -8312,7 +8312,7 @@ function clearLiveChartAiOverlay() {
     if (listEl) listEl.innerHTML = '<p class="empty-note">Loading market news...</p>';
 
     try {
-      const response = await fetch("https://indian-market-ai-api.onrender.com/api/market-news");
+      const response = await fetch("https://api.marketdock.in/api/market-news");
       const result = await response.json();
 
       if (!response.ok || !result.ok || !Array.isArray(result.items)) {
@@ -8377,7 +8377,7 @@ function clearLiveChartAiOverlay() {
     button.textContent = "अनुवाद हो रहा है...";
 
     try {
-      const response = await fetch("https://indian-market-ai-api.onrender.com/api/news/translate", {
+      const response = await fetch("https://api.marketdock.in/api/news/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ headline: item.headline, summary: item.summary, source: item.source })
@@ -8983,7 +8983,7 @@ function clearLiveChartAiOverlay() {
     return candles;
   }
 
-  const LIVE_CANDLE_API_BASE = "https://indian-market-ai-api.onrender.com";
+  const LIVE_CANDLE_API_BASE = "https://api.marketdock.in";
   let chartRefreshTimer = null;
   let latestLiveCandleData = null;
   let imChartFullscreenActive = false;
@@ -10615,7 +10615,7 @@ function clearLiveChartAiOverlay() {
     }
   }
 
-  const MARKET_API_BASE = "https://indian-market-ai-api.onrender.com";
+  const MARKET_API_BASE = "https://api.marketdock.in";
 
   function formatPriceRange(from, to) {
     if (from === null || from === undefined || to === null || to === undefined) {
@@ -10867,7 +10867,7 @@ function clearLiveChartAiOverlay() {
 
       try {
         const response = await fetch(
-          "https://indian-market-ai-api.onrender.com/api/gemini/review",
+          "https://api.marketdock.in/api/gemini/review",
           {
             method: "POST",
             headers: {
@@ -10971,7 +10971,7 @@ function clearLiveChartAiOverlay() {
       if (text) text.textContent = `Sending ${trades.length} logged trade${trades.length === 1 ? "" : "s"} securely to the backend...`;
 
       try {
-        const response = await fetch("https://indian-market-ai-api.onrender.com/api/ai-coach", {
+        const response = await fetch("https://api.marketdock.in/api/ai-coach", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ trades })
