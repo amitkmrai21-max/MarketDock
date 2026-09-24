@@ -4890,6 +4890,13 @@ body.im-chart-fullscreen-open {
   display: none;
 }
 
+/* The Android app wraps this same page in a native WebView (no separate
+   layout) — shrink this note there only, since it wraps to 3 lines on a
+   phone-width app window in a way it doesn't in a normal mobile browser. */
+.capacitor-app .indian-market-mode .im-mover-note {
+  font-size: 8px;
+}
+
 .indian-market-mode .im-rrg-controls {
   display: flex;
   align-items: center;
