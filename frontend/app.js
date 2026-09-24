@@ -4592,35 +4592,23 @@ function clearLiveChartAiOverlay() {
   }
 
   // Any "drill into a page from a click" flow (a Dashboard tile, a
-  // Watchlist row's View Chart/Buy/Sell, ...) is just an in-SPA page switch
-  // with no browser history entry of its own, so the Android/WebView back
-  // button would otherwise have nothing to consume and falls through to
-  // closing the app instead of returning to where the user came from.
-  // pushImDrilldown/consumeImDrilldown are the shared pair every such flow
-  // should use: push when opening (recording which page to return to),
-  // consume when leaving some other way (a nav tap, an explicit back/close
-  // button) so a later back-press doesn't land on a stale history entry.
+  // Watchlist row's View Chart/Buy/Sell, ...) is just an in-SPA page switch,
+  // so the app has no browser-history entry to associate with "go back to
+  // where I came from" — pushImDrilldown/consumeImDrilldown track that
+  // return page directly instead. The Android hardware back button is
+  // wired to this via the Capacitor App plugin below (not window.popstate:
+  // relying on the WebView's own history stack to notice a pushState call
+  // proved unreliable in the app specifically, so this drives it straight
+  // off our own state instead).
   let imDrilldownReturnPage = null;
 
   function pushImDrilldown(returnPage) {
-    history.pushState({ imDrilldown: true }, "");
     imDrilldownReturnPage = returnPage;
   }
 
   function consumeImDrilldown() {
-    if (imDrilldownReturnPage !== null) {
-      imDrilldownReturnPage = null;
-      history.back();
-    }
+    imDrilldownReturnPage = null;
   }
-
-  window.addEventListener("popstate", () => {
-    if (imDrilldownReturnPage !== null) {
-      const returnPage = imDrilldownReturnPage;
-      imDrilldownReturnPage = null;
-      showPage(returnPage);
-    }
-  });
 
   navButtons.forEach((button) => {
     button.addEventListener("click", () => {
@@ -4628,6 +4616,35 @@ function clearLiveChartAiOverlay() {
       showPage(button.dataset.page);
     });
   });
+
+  // Native Android back button: if a drill-down is open, close it back to
+  // its return page and stop there (never exits the app for that press).
+  // Otherwise fall back to Capacitor's own documented default — go back in
+  // the WebView if it can, else exit the app — since this listener fully
+  // replaces Capacitor's built-in handling once registered.
+  const capacitorApp = window.Capacitor?.Plugins?.App;
+  if (capacitorApp?.addListener) {
+    capacitorApp.addListener("backButton", ({ canGoBack }) => {
+      // Fullscreen Live Chart is a modal-like overlay on top of whatever
+      // page opened it — close that first, same as Escape already does,
+      // before considering a page drill-down or exiting.
+      if (imChartFullscreenActive) {
+        setImChartFullscreen(false);
+        return;
+      }
+      if (imDrilldownReturnPage !== null) {
+        const returnPage = imDrilldownReturnPage;
+        imDrilldownReturnPage = null;
+        showPage(returnPage);
+        return;
+      }
+      if (canGoBack) {
+        window.history.back();
+      } else {
+        capacitorApp.exitApp();
+      }
+    });
+  }
 
   // Dashboard's own NIFTY 50/Bank Nifty/FinNifty/Sensex tiles jump to that
   // index's full page the same way the matching sidebar nav button used to.
@@ -9072,15 +9089,14 @@ function clearLiveChartAiOverlay() {
   let chartRefreshTimer = null;
   let latestLiveCandleData = null;
   let imChartFullscreenActive = false;
-  let imChartFullscreenHistoryPushed = false;
 
   const IM_CHART_EXPAND_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>';
   const IM_CHART_COLLAPSE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v3a2 2 0 0 1-2 2H4M15 3v3a2 2 0 0 0 2 2h3M21 15h-3a2 2 0 0 0-2 2v3M3 15h3a2 2 0 0 1 2 2v3"/></svg>';
 
-  // Pushes a history entry while fullscreen is active so the Android hardware/gesture
-  // back button closes the fullscreen chart instead of leaving the page or exiting the
-  // app (this SPA otherwise has no history entries for a WebView back-press to consume).
-  function setImChartFullscreen(active, { fromPopState = false } = {}) {
+  // The Android hardware back button closes fullscreen instead of leaving
+  // the page or exiting the app, via the shared Capacitor App "backButton"
+  // listener set up earlier in this module.
+  function setImChartFullscreen(active) {
     const container = document.getElementById("im-lightweight-chart");
     const btn = document.getElementById("im-chart-fullscreen-btn");
     if (!container || active === imChartFullscreenActive) return;
@@ -9093,16 +9109,6 @@ function clearLiveChartAiOverlay() {
       btn.title = active ? "Exit fullscreen" : "Fullscreen";
       btn.setAttribute("aria-label", btn.title);
       btn.innerHTML = active ? IM_CHART_COLLAPSE_ICON : IM_CHART_EXPAND_ICON;
-    }
-
-    if (active && !fromPopState) {
-      history.pushState({ imChartFullscreen: true }, "");
-      imChartFullscreenHistoryPushed = true;
-    } else if (!active && !fromPopState && imChartFullscreenHistoryPushed) {
-      imChartFullscreenHistoryPushed = false;
-      history.back();
-    } else if (!active) {
-      imChartFullscreenHistoryPushed = false;
     }
 
     requestAnimationFrame(() => {
@@ -9125,12 +9131,6 @@ function clearLiveChartAiOverlay() {
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && imChartFullscreenActive) {
         setImChartFullscreen(false);
-      }
-    });
-
-    window.addEventListener("popstate", () => {
-      if (imChartFullscreenActive) {
-        setImChartFullscreen(false, { fromPopState: true });
       }
     });
   }
