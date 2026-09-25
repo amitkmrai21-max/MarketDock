@@ -8683,87 +8683,131 @@ body.im-chart-fullscreen-open {
 }
 
 /* Market Depth Table */
+/* Market Depth Table (Mockup 2 Pro-Terminal Clean Horizontal Bars) */
 .im-terminal-depth-table {
   width: 100%;
 }
 
 .im-terminal-depth-head {
   display: grid;
-  grid-template-columns: 1.8fr 1fr 1.2fr 1.8fr 1fr 1.2fr;
-  font-size: 10px;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  font-size: 11px;
   font-weight: 700;
   color: #64748b;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #1a2336;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.im-td-col {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.im-td-head-side {
+  display: grid;
+  grid-template-columns: 46px 1fr 78px;
+  align-items: center;
+  gap: 6px;
 }
-.td-bid-head { color: #38bdf8; text-align: left; }
-.td-offer-head { color: #fb7185; text-align: left; padding-left: 6px; }
-.td-orders-head, .td-qty-head { text-align: right; }
+
+.im-td-head-bid {
+  color: #94a3b8;
+}
+
+.im-td-head-ask {
+  color: #94a3b8;
+  grid-template-columns: 78px 1fr 46px;
+}
+
+.text-right {
+  text-align: right;
+}
 
 .im-terminal-depth-row {
   display: grid;
-  grid-template-columns: 1.8fr 1fr 1.2fr 1.8fr 1fr 1.2fr;
-  position: relative;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 11px;
-  padding: 5px 0;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 6px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  align-items: center;
 }
 
-.im-depth-bar {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.22;
-}
-.im-depth-bid-bar {
-  left: 0;
-  background: #0284c7;
-}
-.im-depth-offer-bar {
-  right: 0;
-  background: #e11d48;
+.im-td-row-side {
+  display: grid;
+  grid-template-columns: 46px 1fr 78px;
+  align-items: center;
+  gap: 6px;
 }
 
-.im-td-bid-price { text-align: left; color: #38bdf8; font-weight: 700; position: relative; z-index: 1; }
-.im-td-orders { text-align: right; color: #94a3b8; position: relative; z-index: 1; }
-.im-td-qty { text-align: right; color: #cbd5e1; font-weight: 600; position: relative; z-index: 1; }
-.im-td-offer-price { text-align: left; padding-left: 6px; color: #fb7185; font-weight: 700; position: relative; z-index: 1; }
+.im-td-side-ask {
+  grid-template-columns: 78px 1fr 46px;
+}
+
+.im-td-order-num {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.im-td-bar-container {
+  height: 10px;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.im-td-pill-bar {
+  height: 6px;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.im-td-bid-pill {
+  background: #00d4b2;
+  box-shadow: 0 0 10px rgba(0, 212, 178, 0.35);
+}
+
+.im-td-ask-pill {
+  background: #f43f5e;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.35);
+}
+
+.im-td-price {
+  font-weight: 700;
+  font-size: 11.5px;
+}
+
+.im-td-bid-price {
+  color: #00d4b2;
+  text-align: right;
+}
+
+.im-td-ask-price {
+  color: #f43f5e;
+  text-align: left;
+}
 
 .im-terminal-depth-total {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid #1a2336;
+  gap: 14px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+}
+
+.im-td-total-side {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #64748b;
   font-size: 11px;
 }
 
-.im-td-total-half {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 4px;
-}
-.td-bid-tot {
-  color: #38bdf8;
-  border-right: 1px solid #1a2336;
-  padding-right: 10px;
-}
-.td-offer-tot {
-  color: #fb7185;
-  padding-left: 10px;
+.im-td-total-side strong {
+  color: #f1f5f9;
+  font-size: 12px;
 }
 
-/* Range Blocks */
 .im-range-block {
   margin-bottom: 6px;
 }
