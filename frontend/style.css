@@ -7085,9 +7085,26 @@ body.im-chart-fullscreen-open {
 
 .indian-market-mode .im-watchlist-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   margin-bottom: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding: 2px 2px 6px 2px;
+}
+
+.indian-market-mode .im-watchlist-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.indian-market-mode .im-watchlist-tab,
+.indian-market-mode .im-watchlist-tab-new {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .indian-market-mode .im-watchlist-tab {
