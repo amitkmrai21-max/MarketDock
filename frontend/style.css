@@ -4459,8 +4459,10 @@ body[data-accent="green"] .settings-choice.active {
 }
 
 .im-watchlist-row.im-watchlist-row-dragging {
-  opacity: 0.6;
+  position: relative;
+  z-index: 5;
   background: var(--im-panel-2);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
 }
 
 .im-watchlist-drag-col {
