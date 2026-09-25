@@ -4489,7 +4489,7 @@ body[data-accent="green"] .settings-choice.active {
 .im-watchlist-sheet-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 9998;
   background: rgba(5, 8, 20, 0.55);
   backdrop-filter: blur(2px);
 }
@@ -4499,7 +4499,7 @@ body[data-accent="green"] .settings-choice.active {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 91;
+  z-index: 9999;
   padding: 10px 18px calc(18px + env(safe-area-inset-bottom, 0px));
   border-top-left-radius: 18px;
   border-top-right-radius: 18px;
@@ -8365,3 +8365,5 @@ body.im-chart-fullscreen-open {
   font-size: 13px;
   color: #f1f5f9;
 }
+
+.im-watchlist-row { cursor: pointer; user-select: none; }
