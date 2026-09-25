@@ -6373,17 +6373,21 @@ function clearLiveChartAiOverlay() {
       if (endImWatchlistDrag(event)) return;
 
       const wasLongPress = imWatchlistLongPressFired;
-      const wasMoved = imWatchlistPressMoved;
       clearImWatchlistPressTimer();
       imWatchlistLongPressFired = false;
       imWatchlistPressMoved = false;
-      // A long-press already opened the delete sheet on its own; a drag/
-      // scroll gesture (finger moved past the threshold) is neither a tap
-      // nor a long-press, so it shouldn't open anything either.
-      if (wasLongPress || wasMoved) return;
+      if (wasLongPress) return;
 
       const row = event.target.closest(".im-watchlist-row");
       if (!row || event.target.closest(".im-watchlist-drag-handle")) return;
+      openImWatchlistActionSheet(row.dataset.symbol, row.dataset.price);
+    });
+
+    // Explicit click listener so both desktop clicks and mobile taps reliably open the sheet
+    bodyEl.addEventListener("click", (event) => {
+      if (event.target.closest(".im-watchlist-drag-handle")) return;
+      const row = event.target.closest(".im-watchlist-row");
+      if (!row) return;
       openImWatchlistActionSheet(row.dataset.symbol, row.dataset.price);
     });
 
@@ -6418,6 +6422,7 @@ function clearLiveChartAiOverlay() {
     if (deleteSheet) deleteSheet.hidden = true;
   }
 
+  window.openImWatchlistActionSheet = openImWatchlistActionSheet;
   function openImWatchlistActionSheet(symbol, price) {
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const sheet = document.getElementById("im-watchlist-action-sheet");
