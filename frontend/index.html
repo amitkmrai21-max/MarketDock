@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260925v10">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260925v11">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -3303,6 +3303,7 @@
             <span>INTRADAY TREND</span>
           </div>
           <div class="im-terminal-tf-group" id="im-terminal-tf-buttons">
+            <button class="im-tf-btn" type="button" data-tf="1H">1H</button>
             <button class="im-tf-btn active" type="button" data-tf="1D">1D</button>
             <button class="im-tf-btn" type="button" data-tf="1W">1W</button>
             <button class="im-tf-btn" type="button" data-tf="1M">1M</button>
@@ -3758,7 +3759,7 @@
     </section>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260925v10"></script>
+  <script src="/frontend/app.js?v=v20260925v11"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
