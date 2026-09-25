@@ -5868,9 +5868,11 @@ function clearLiveChartAiOverlay() {
   let imWatchlistDragPointerId = null;
   let imWatchlistDragPointerOffsetY = 0;
   let imWatchlistDragLatestClientY = 0;
-  let imWatchlistDragFrameQueued = false;
+  let imWatchlistDragRafId = null;
   let imWatchlistDragLastSwapAt = 0;
   const IM_ROW_SWAP_COOLDOWN_MS = 220;
+  const IM_DRAG_SCROLL_EDGE = 90;
+  const IM_DRAG_SCROLL_MAX_SPEED = 16;
   let imWatchlistPressTimer = null;
   let imWatchlistPressStart = null;
   let imWatchlistLongPressFired = false;
@@ -5912,6 +5914,39 @@ function clearLiveChartAiOverlay() {
     void row.offsetHeight;
     row.style.transition = IM_ROW_SWAP_TRANSITION;
     row.style.transform = "translateY(0px)";
+    const clearRowStyles = () => {
+      row.style.transition = "";
+      row.style.transform = "";
+    };
+    row.addEventListener("transitionend", clearRowStyles, { once: true });
+    // A fast run of swaps can leave a row already sitting at
+    // translateY(0) when the next swap re-triggers this on it, in which
+    // case there's nothing left to animate and transitionend never fires
+    // — the timeout guarantees the inline styles still get cleared.
+    window.setTimeout(clearRowStyles, 250);
+  }
+
+  // Nudges the page toward the finger whenever a drag gets close to the
+  // top/bottom edge of the viewport, since the watchlist has no inner
+  // scroll container of its own — the whole window scrolls. Called every
+  // animation frame while dragging (not just on pointermove), so it keeps
+  // scrolling even if the finger is held still right at the edge.
+  function autoScrollImWatchlistIfNeeded(pointerClientY) {
+    const viewportHeight = window.innerHeight;
+    let delta = 0;
+    if (pointerClientY < IM_DRAG_SCROLL_EDGE) {
+      const strength = (IM_DRAG_SCROLL_EDGE - pointerClientY) / IM_DRAG_SCROLL_EDGE;
+      delta = -Math.ceil(strength * IM_DRAG_SCROLL_MAX_SPEED);
+    } else if (pointerClientY > viewportHeight - IM_DRAG_SCROLL_EDGE) {
+      const strength = (pointerClientY - (viewportHeight - IM_DRAG_SCROLL_EDGE)) / IM_DRAG_SCROLL_EDGE;
+      delta = Math.ceil(strength * IM_DRAG_SCROLL_MAX_SPEED);
+    }
+    if (!delta) return;
+    const maxScroll = document.documentElement.scrollHeight - viewportHeight;
+    const current = window.scrollY;
+    if ((delta < 0 && current > 0) || (delta > 0 && current < maxScroll)) {
+      window.scrollBy(0, delta);
+    }
   }
 
   function updateImWatchlistDragPosition(bodyEl, draggingRow, pointerClientY) {
@@ -5945,6 +5980,16 @@ function clearLiveChartAiOverlay() {
       // however the browser happens to lay out its new DOM spot.
       animateImWatchlistRowFrom(overRow, overRowTopBefore);
       imWatchlistDragLastSwapAt = Date.now();
+      // Reparenting the dragging row (via .after()/.before() above) makes
+      // the browser silently drop its pointer capture, since the captured
+      // handle is a descendant that just moved. Re-acquiring it right away
+      // keeps drag events routing to this row even once the finger moves
+      // outside its bounds, and — since the capture target is unchanged —
+      // does not itself fire a spurious lostpointercapture in between.
+      const draggingHandle = draggingRow.querySelector(".im-watchlist-drag-handle");
+      if (draggingHandle && imWatchlistDragPointerId !== null) {
+        try { draggingHandle.setPointerCapture(imWatchlistDragPointerId); } catch { /* ignore */ }
+      }
     }
 
     // Keep the dragged row tracking the finger smoothly regardless of how
@@ -5971,6 +6016,36 @@ function clearLiveChartAiOverlay() {
     if (!bodyEl || bodyEl.dataset.wired) return;
     bodyEl.dataset.wired = "true";
 
+    // Runs every animation frame for the life of a drag — not just when
+    // the pointer actually moves — so holding the finger still right at
+    // the screen edge keeps auto-scrolling and the row keeps tracking the
+    // (now-moving) natural position underneath it instead of getting
+    // stuck.
+    function imWatchlistDragLoopTick() {
+      if (imWatchlistDragPointerId === null) {
+        imWatchlistDragRafId = null;
+        return;
+      }
+      const draggingRow = bodyEl.querySelector(".im-watchlist-row-dragging");
+      if (draggingRow) {
+        autoScrollImWatchlistIfNeeded(imWatchlistDragLatestClientY);
+        updateImWatchlistDragPosition(bodyEl, draggingRow, imWatchlistDragLatestClientY);
+      }
+      imWatchlistDragRafId = requestAnimationFrame(imWatchlistDragLoopTick);
+    }
+
+    function startImWatchlistDragLoop() {
+      if (imWatchlistDragRafId !== null) return;
+      imWatchlistDragRafId = requestAnimationFrame(imWatchlistDragLoopTick);
+    }
+
+    function stopImWatchlistDragLoop() {
+      if (imWatchlistDragRafId !== null) {
+        cancelAnimationFrame(imWatchlistDragRafId);
+        imWatchlistDragRafId = null;
+      }
+    }
+
     bodyEl.addEventListener("pointerdown", (event) => {
       const handle = event.target.closest(".im-watchlist-drag-handle");
       const row = event.target.closest(".im-watchlist-row");
@@ -5980,11 +6055,13 @@ function clearLiveChartAiOverlay() {
         event.preventDefault();
         imWatchlistDragPointerId = event.pointerId;
         imWatchlistDragPointerOffsetY = event.clientY - row.getBoundingClientRect().top;
+        imWatchlistDragLatestClientY = event.clientY;
         imWatchlistDragLastSwapAt = 0;
         row.classList.add("im-watchlist-row-dragging");
         row.style.transition = "none";
         row.style.transform = "translateY(0px)";
         try { handle.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+        startImWatchlistDragLoop();
         return;
       }
 
@@ -6002,22 +6079,9 @@ function clearLiveChartAiOverlay() {
 
     bodyEl.addEventListener("pointermove", (event) => {
       if (imWatchlistDragPointerId !== null && event.pointerId === imWatchlistDragPointerId) {
-        const draggingRow = bodyEl.querySelector(".im-watchlist-row-dragging");
-        if (!draggingRow) return;
-
-        // Touch/pointer events can fire much faster than the display can
-        // paint — batch to one update per animation frame instead of doing
-        // this (layout-reading) work on every single event, which is both
-        // more performant and avoids querying a row's position mid-way
-        // through a previous frame's still-in-flight CSS transition.
+        // The rAF loop above reads this on every frame, so all a move
+        // event needs to do is record the latest finger position.
         imWatchlistDragLatestClientY = event.clientY;
-        if (imWatchlistDragFrameQueued) return;
-        imWatchlistDragFrameQueued = true;
-        requestAnimationFrame(() => {
-          imWatchlistDragFrameQueued = false;
-          if (imWatchlistDragPointerId === null) return;
-          updateImWatchlistDragPosition(bodyEl, draggingRow, imWatchlistDragLatestClientY);
-        });
         return;
       }
 
@@ -6032,21 +6096,23 @@ function clearLiveChartAiOverlay() {
     });
 
     function endImWatchlistDrag(event) {
-      if (imWatchlistDragPointerId === null || event.pointerId !== imWatchlistDragPointerId) return false;
+      if (imWatchlistDragPointerId === null || (event && event.pointerId !== imWatchlistDragPointerId)) return false;
+      stopImWatchlistDragLoop();
       const draggingRow = bodyEl.querySelector(".im-watchlist-row-dragging");
       if (draggingRow) {
         // Settle into its final slot with the same easing the displaced
         // rows slide with, instead of snapping straight to translateY(0).
         draggingRow.style.transition = IM_ROW_SWAP_TRANSITION;
         draggingRow.style.transform = "translateY(0px)";
-        draggingRow.addEventListener(
-          "transitionend",
-          () => {
-            draggingRow.style.transition = "";
-            draggingRow.style.transform = "";
-          },
-          { once: true }
-        );
+        const clearDragRowStyles = () => {
+          draggingRow.style.transition = "";
+          draggingRow.style.transform = "";
+        };
+        draggingRow.addEventListener("transitionend", clearDragRowStyles, { once: true });
+        // transitionend never fires if the row happened to already be at
+        // translateY(0) when dropped (no visible move left to animate),
+        // so a timeout backstops it to guarantee the inline styles clear.
+        window.setTimeout(clearDragRowStyles, 250);
         draggingRow.classList.remove("im-watchlist-row-dragging");
       }
       imWatchlistDragPointerId = null;
@@ -6077,6 +6143,16 @@ function clearLiveChartAiOverlay() {
       clearImWatchlistPressTimer();
       imWatchlistLongPressFired = false;
       imWatchlistPressMoved = false;
+    });
+
+    // Safety net: if the OS/WebView silently steals the touch sequence
+    // near a screen edge (common close to the gesture-navigation bar) and
+    // never delivers pointerup/pointercancel, losing pointer capture is
+    // still guaranteed to fire — without this, the drag state would stay
+    // stuck forever, leaving the row's transform frozen (visible as it
+    // overlapping another row) and blocking all future watchlist renders.
+    bodyEl.addEventListener("lostpointercapture", (event) => {
+      endImWatchlistDrag(event);
     });
 
     bodyEl.addEventListener("pointerleave", () => {
