@@ -5866,18 +5866,93 @@ function clearLiveChartAiOverlay() {
   // reorder. All delegated on the tbody (not per-row) so it survives the
   // 5-second poll re-rendering the rows out from under it.
   let imWatchlistDragPointerId = null;
+  let imWatchlistDragPointerOffsetY = 0;
+  let imWatchlistDragLatestClientY = 0;
+  let imWatchlistDragFrameQueued = false;
+  let imWatchlistDragLastSwapAt = 0;
+  const IM_ROW_SWAP_COOLDOWN_MS = 220;
   let imWatchlistPressTimer = null;
   let imWatchlistPressStart = null;
   let imWatchlistLongPressFired = false;
   let imWatchlistPressMoved = false;
   const IM_LONG_PRESS_MS = 500;
   const IM_PRESS_MOVE_CANCEL_PX = 10;
+  const IM_ROW_SWAP_TRANSITION = "transform 0.2s cubic-bezier(0.2, 0, 0.2, 1)";
 
   function clearImWatchlistPressTimer() {
     if (imWatchlistPressTimer) {
       window.clearTimeout(imWatchlistPressTimer);
       imWatchlistPressTimer = null;
     }
+  }
+
+  // The row's own translateY (set on every pointermove) has to be
+  // subtracted back out to get where it would sit with no drag offset —
+  // its *natural*, current-DOM-order position — since that's what moves
+  // whenever the row swaps position in the DOM below.
+  function getImWatchlistNaturalTop(row) {
+    const previousTransform = row.style.transform;
+    row.style.transform = "none";
+    const top = row.getBoundingClientRect().top;
+    row.style.transform = previousTransform;
+    return top;
+  }
+
+  // Slides a displaced row from its pre-swap spot into its new one instead
+  // of letting the DOM reorder snap it there instantly (the "blink").
+  function animateImWatchlistRowFrom(row, previousTop) {
+    const newTop = getImWatchlistNaturalTop(row);
+    const delta = previousTop - newTop;
+    if (!delta) return;
+    row.style.transition = "none";
+    row.style.transform = `translateY(${delta}px)`;
+    // Force layout so the browser commits the starting transform above
+    // before the transition below is applied, or it would just skip
+    // straight to the end state with nothing to animate.
+    void row.offsetHeight;
+    row.style.transition = IM_ROW_SWAP_TRANSITION;
+    row.style.transform = "translateY(0px)";
+  }
+
+  function updateImWatchlistDragPosition(bodyEl, draggingRow, pointerClientY) {
+    const rows = Array.from(bodyEl.querySelectorAll(".im-watchlist-row"));
+    const otherRows = rows.filter((row) => row !== draggingRow);
+
+    // A brief cooldown after each swap, rather than re-testing every
+    // frame: the just-displaced row is still physically sliding into its
+    // new slot for the next ~0.2s, so its geometry (live or "natural") is
+    // ambiguous either way during that window, and re-deciding from it
+    // was flip-flopping the swap straight back out again next frame.
+    // Letting the animation settle first avoids that outright.
+    if (Date.now() - imWatchlistDragLastSwapAt < IM_ROW_SWAP_COOLDOWN_MS) {
+      const naturalTop = getImWatchlistNaturalTop(draggingRow);
+      draggingRow.style.transform = `translateY(${pointerClientY - imWatchlistDragPointerOffsetY - naturalTop}px)`;
+      return;
+    }
+
+    const overRow = otherRows.find((row) => {
+      const rect = row.getBoundingClientRect();
+      return pointerClientY >= rect.top && pointerClientY <= rect.bottom;
+    });
+
+    if (overRow) {
+      const draggingIsAbove = rows.indexOf(draggingRow) < rows.indexOf(overRow);
+      const overRowTopBefore = overRow.getBoundingClientRect().top;
+      if (draggingIsAbove) overRow.after(draggingRow);
+      else overRow.before(draggingRow);
+      // Only the row that changed slots needs to visibly slide — the
+      // dragging row itself is repositioned below via translateY, not by
+      // however the browser happens to lay out its new DOM spot.
+      animateImWatchlistRowFrom(overRow, overRowTopBefore);
+      imWatchlistDragLastSwapAt = Date.now();
+    }
+
+    // Keep the dragged row tracking the finger smoothly regardless of how
+    // many times it's swapped position in the DOM above — always measured
+    // against its current natural (untransformed) slot, so there's no
+    // jump when that slot changes.
+    const naturalTop = getImWatchlistNaturalTop(draggingRow);
+    draggingRow.style.transform = `translateY(${pointerClientY - imWatchlistDragPointerOffsetY - naturalTop}px)`;
   }
 
   function persistImWatchlistRowOrder(bodyEl) {
@@ -5904,7 +5979,11 @@ function clearLiveChartAiOverlay() {
       if (handle) {
         event.preventDefault();
         imWatchlistDragPointerId = event.pointerId;
+        imWatchlistDragPointerOffsetY = event.clientY - row.getBoundingClientRect().top;
+        imWatchlistDragLastSwapAt = 0;
         row.classList.add("im-watchlist-row-dragging");
+        row.style.transition = "none";
+        row.style.transform = "translateY(0px)";
         try { handle.setPointerCapture(event.pointerId); } catch { /* ignore */ }
         return;
       }
@@ -5925,17 +6004,20 @@ function clearLiveChartAiOverlay() {
       if (imWatchlistDragPointerId !== null && event.pointerId === imWatchlistDragPointerId) {
         const draggingRow = bodyEl.querySelector(".im-watchlist-row-dragging");
         if (!draggingRow) return;
-        const rows = Array.from(bodyEl.querySelectorAll(".im-watchlist-row"));
-        const overRow = rows.find((row) => {
-          if (row === draggingRow) return false;
-          const rect = row.getBoundingClientRect();
-          return event.clientY >= rect.top && event.clientY <= rect.bottom;
+
+        // Touch/pointer events can fire much faster than the display can
+        // paint — batch to one update per animation frame instead of doing
+        // this (layout-reading) work on every single event, which is both
+        // more performant and avoids querying a row's position mid-way
+        // through a previous frame's still-in-flight CSS transition.
+        imWatchlistDragLatestClientY = event.clientY;
+        if (imWatchlistDragFrameQueued) return;
+        imWatchlistDragFrameQueued = true;
+        requestAnimationFrame(() => {
+          imWatchlistDragFrameQueued = false;
+          if (imWatchlistDragPointerId === null) return;
+          updateImWatchlistDragPosition(bodyEl, draggingRow, imWatchlistDragLatestClientY);
         });
-        if (overRow) {
-          const draggingIsAbove = draggingRow.getBoundingClientRect().top < overRow.getBoundingClientRect().top;
-          if (draggingIsAbove) overRow.after(draggingRow);
-          else overRow.before(draggingRow);
-        }
         return;
       }
 
@@ -5952,7 +6034,21 @@ function clearLiveChartAiOverlay() {
     function endImWatchlistDrag(event) {
       if (imWatchlistDragPointerId === null || event.pointerId !== imWatchlistDragPointerId) return false;
       const draggingRow = bodyEl.querySelector(".im-watchlist-row-dragging");
-      if (draggingRow) draggingRow.classList.remove("im-watchlist-row-dragging");
+      if (draggingRow) {
+        // Settle into its final slot with the same easing the displaced
+        // rows slide with, instead of snapping straight to translateY(0).
+        draggingRow.style.transition = IM_ROW_SWAP_TRANSITION;
+        draggingRow.style.transform = "translateY(0px)";
+        draggingRow.addEventListener(
+          "transitionend",
+          () => {
+            draggingRow.style.transition = "";
+            draggingRow.style.transform = "";
+          },
+          { once: true }
+        );
+        draggingRow.classList.remove("im-watchlist-row-dragging");
+      }
       imWatchlistDragPointerId = null;
       persistImWatchlistRowOrder(bodyEl);
       return true;
