@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260925v6">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260925v8">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -3331,21 +3331,24 @@
         </div>
         <div class="im-terminal-depth-table">
           <div class="im-terminal-depth-head">
-            <span class="im-td-col td-bid-head">BID</span>
-            <span class="im-td-col td-orders-head">ORDERS</span>
-            <span class="im-td-col td-qty-head">QTY</span>
-            <span class="im-td-col td-offer-head">OFFER</span>
-            <span class="im-td-col td-orders-head">ORDERS</span>
-            <span class="im-td-col td-qty-head">QTY</span>
+            <div class="im-td-head-side im-td-head-bid">
+              <span class="td-col-orders">Bid (Buy)</span>
+              <span class="td-col-bar">Qty</span>
+              <span class="td-col-price text-right">Price</span>
+            </div>
+            <div class="im-td-head-side im-td-head-ask">
+              <span class="td-col-price">Ask (Sell)</span>
+              <span class="td-col-bar text-right" style="grid-column: span 2;">Qty</span>
+            </div>
           </div>
           <div class="im-terminal-depth-body" id="im-kite-depth-rows"></div>
           <div class="im-terminal-depth-total">
-            <div class="im-td-total-half td-bid-tot">
-              <span>TOTAL</span>
+            <div class="im-td-total-side">
+              <span>Total Bid Qty</span>
               <strong id="im-kd-bid-total-qty">0</strong>
             </div>
-            <div class="im-td-total-half td-offer-tot">
-              <span>TOTAL</span>
+            <div class="im-td-total-side">
+              <span>Total Ask Qty</span>
               <strong id="im-kd-offer-total-qty">0</strong>
             </div>
           </div>
@@ -3755,7 +3758,7 @@
     </section>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260925v6"></script>
+  <script src="/frontend/app.js?v=v20260925v8"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
