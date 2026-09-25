@@ -4669,23 +4669,44 @@ function clearLiveChartAiOverlay() {
     return false;
   }
 
-  // Native Android back button: if a drill-down is open, close it back to
-  // its return page and stop there (never exits the app for that press).
-  // Otherwise fall back to Capacitor's own documented default — go back in
-  // the WebView if it can, else exit the app — since this listener fully
-  // replaces Capacitor's built-in handling once registered.
+  let imLastHomeBackPressAt = 0;
+  const IM_BACK_EXIT_WINDOW_MS = 2000;
+
+  function showImBackExitToast() {
+    let toast = document.getElementById("app-back-exit-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "app-back-exit-toast";
+      toast.className = "app-back-exit-toast";
+      toast.textContent = "Press back again to exit";
+      document.body.appendChild(toast);
+    }
+    toast.classList.add("visible");
+    window.clearTimeout(showImBackExitToast.hideTimer);
+    showImBackExitToast.hideTimer = window.setTimeout(() => toast.classList.remove("visible"), IM_BACK_EXIT_WINDOW_MS);
+  }
+
+  // Native Android back button, in priority order: dismiss whatever is
+  // open on top (keyboard, dropdown, sheet, sort panel, settings drawer,
+  // fullscreen chart), then return from a drill-down, then from any other
+  // page go back to the Dashboard. Only on the Dashboard itself does back
+  // exit — and only on a second press within 2s, so a stray press never
+  // closes the app. This listener fully replaces Capacitor's built-in
+  // handling once registered.
   const capacitorApp = window.Capacitor?.Plugins?.App;
   if (capacitorApp?.addListener) {
-    capacitorApp.addListener("backButton", ({ canGoBack }) => {
+    capacitorApp.addListener("backButton", () => {
       // Both can be true together (a focused search box with its dropdown
-      // open) — run both so a single back press clears the whole thing
-      // instead of needing a second press once the input loses focus.
+      // open) — run both so a single back press clears the whole thing.
       const blurredInput = blurAnyFocusedImInput();
       const closedOverlay = closeAnyOpenImOverlay();
       if (blurredInput || closedOverlay) return;
-      // Fullscreen Live Chart is a modal-like overlay on top of whatever
-      // page opened it — close that first, same as Escape already does,
-      // before considering a page drill-down or exiting.
+
+      const settingsDrawer = document.getElementById("settingsDrawer");
+      if (settingsDrawer?.classList.contains("open")) {
+        document.getElementById("settingsCloseButton")?.click();
+        return;
+      }
       if (imChartFullscreenActive) {
         setImChartFullscreen(false);
         return;
@@ -4696,11 +4717,29 @@ function clearLiveChartAiOverlay() {
         showPage(returnPage);
         return;
       }
-      if (canGoBack) {
-        window.history.back();
+
+      const indianRoot = document.getElementById("indianModeRoot");
+      if (indianRoot && !indianRoot.hidden) {
+        const activePage = Array.from(pages).find((page) => page.classList.contains("active"));
+        if (activePage && activePage.id !== "im-dashboard") {
+          showPage("im-dashboard");
+          return;
+        }
       } else {
-        capacitorApp.exitApp();
+        const activeTab = document.querySelector("#btcModeRoot .app-tab.active");
+        if (activeTab && activeTab.dataset.tab !== "dashboard") {
+          document.querySelector('#btcModeRoot .app-tab[data-tab="dashboard"]')?.click();
+          return;
+        }
       }
+
+      const now = Date.now();
+      if (now - imLastHomeBackPressAt < IM_BACK_EXIT_WINDOW_MS) {
+        capacitorApp.exitApp();
+        return;
+      }
+      imLastHomeBackPressAt = now;
+      showImBackExitToast();
     });
   }
 
