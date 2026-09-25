@@ -6071,6 +6071,12 @@ function clearLiveChartAiOverlay() {
       target.symbols = symbols;
       saveImWatchlists(lists);
     }
+    // Keep the cached row data (used to redraw instantly on a sort-mode
+    // switch) in the same order the drag just produced — otherwise
+    // switching to a sort and back to Manual before the next 5s poll
+    // would briefly show the stale pre-drag order.
+    const rowsBySymbol = new Map(imWatchlistLastRows.map((row) => [row.symbol, row]));
+    imWatchlistLastRows = symbols.map((symbol) => rowsBySymbol.get(symbol)).filter(Boolean);
   }
 
   function setupImWatchlistRowInteractions() {
