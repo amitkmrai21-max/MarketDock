@@ -5725,22 +5725,74 @@ function clearLiveChartAiOverlay() {
   // reuses the same /api/watchlist?symbols= endpoint (now with a per-row
   // ai_score/ai_label the backend derives from live % change).
 
-  const IM_WATCHLISTS_KEY = "imWatchlistsV2";
+  const IM_WATCHLISTS_KEY = "imWatchlistsV3";
   const IM_MAX_WATCHLISTS = 10;
   const IM_MAX_SYMBOLS_PER_WATCHLIST = 100;
-  const IM_DEFAULT_WATCHLIST_SYMBOLS = [
-    "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN", "BHARTIARTL",
-    "ITC", "KOTAKBANK", "LT", "HINDUNILVR", "BAJFINANCE", "MARUTI", "TITAN",
-    "SUNPHARMA", "AXISBANK", "ASIANPAINT", "WIPRO", "TATAMOTORS", "NTPC"
+  const IM_DEFAULT_5_WATCHLISTS = [
+    {
+      id: "wl-1",
+      name: "Watchlist 1",
+      symbols: [
+        "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "BHARTIARTL", "ITC", "SBIN", "LT", "HINDUNILVR",
+        "BAJFINANCE", "MARUTI", "TITAN", "SUNPHARMA", "AXISBANK", "ASIANPAINT", "TATAMOTORS", "NTPC", "M&M", "POWERGRID"
+      ]
+    },
+    {
+      id: "wl-2",
+      name: "Watchlist 2",
+      symbols: [
+        "HDFCBANK", "ICICIBANK", "SBIN", "KOTAKBANK", "AXISBANK", "BAJFINANCE", "BAJAJFINSV", "INDUSINDBK", "CHOLAFIN", "MUTHOOTFIN",
+        "SBILIFE", "HDFCLIFE", "ICICIPRULI", "PFC", "RECLTD", "BANKBARODA", "PNB", "CANBK", "SHRIRAMFIN", "FEDERALBNK"
+      ]
+    },
+    {
+      id: "wl-3",
+      name: "Watchlist 3",
+      symbols: [
+        "TCS", "INFY", "HCLTECH", "WIPRO", "TECHM", "LTIM", "PERSISTENT", "COFORGE", "MPHASIS", "KPITTECH",
+        "TATAELXSI", "LTTS", "CYIENT", "OFSS", "BSOFT", "SONACOMS", "ZOMATO", "NAUKRI", "POLICYBZR", "PAYTM"
+      ]
+    },
+    {
+      id: "wl-4",
+      name: "Watchlist 4",
+      symbols: [
+        "TATAMOTORS", "MARUTI", "M&M", "BAJAJ-AUTO", "EICHERMOT", "HEROMOTOCO", "TVSMOTOR", "BHARATFORG", "MOTHERSON", "RELIANCE",
+        "ONGC", "BPCL", "IOC", "COALINDIA", "NTPC", "POWERGRID", "TATAPOWER", "ADANIGREEN", "ADANIPOWER", "JSWENERGY"
+      ]
+    },
+    {
+      id: "wl-5",
+      name: "Watchlist 5",
+      symbols: [
+        "TATASTEEL", "JSWSTEEL", "HINDALCO", "VEDL", "JINDALSTEL", "NMDC", "SAIL", "NATIONALUM", "SUNPHARMA", "CIPLA",
+        "DRREDDY", "DIVISLAB", "APOLLOHOSP", "LUPIN", "AUROPHARMA", "MANKIND", "TORNTPHARM", "ZYDUSLIFE", "BIOCON", "GLENMARK"
+      ]
+    }
   ];
+  const IM_DEFAULT_WATCHLIST_SYMBOLS = IM_DEFAULT_5_WATCHLISTS[0].symbols;
   let activeImWatchlistId = null;
 
   function getImWatchlists() {
     try {
       const saved = JSON.parse(localStorage.getItem(IM_WATCHLISTS_KEY));
-      if (Array.isArray(saved) && saved.length) return saved;
+      if (Array.isArray(saved) && saved.length >= 5) return saved;
+      if (Array.isArray(saved) && saved.length > 0) {
+        const existingIds = new Set(saved.map((w) => w.id));
+        const combined = [...saved];
+        for (const defWl of IM_DEFAULT_5_WATCHLISTS) {
+          if (combined.length >= 5) break;
+          if (!existingIds.has(defWl.id)) {
+            combined.push(defWl);
+          }
+        }
+        saveImWatchlists(combined);
+        return combined;
+      }
     } catch (error) { /* ignore */ }
-    return [{ id: "default", name: "My Watchlist", symbols: [...IM_DEFAULT_WATCHLIST_SYMBOLS] }];
+    const defaults = JSON.parse(JSON.stringify(IM_DEFAULT_5_WATCHLISTS));
+    saveImWatchlists(defaults);
+    return defaults;
   }
 
   function saveImWatchlists(lists) {
