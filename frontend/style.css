@@ -7149,12 +7149,106 @@ body.im-chart-fullscreen-open {
 
 .indian-market-mode .im-watchlist-search-wrap input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 10px 78px 10px 12px;
   border-radius: 8px;
   border: 1px solid rgba(139, 92, 246, 0.2);
   background: rgba(var(--tint-rgb), 0.55);
   color: var(--im-text);
   font-size: 13px;
+}
+
+.indian-market-mode .im-watchlist-search-tools {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 10px;
+  pointer-events: none;
+}
+
+.indian-market-mode .im-watchlist-search-count {
+  font-size: 11px;
+  color: var(--im-muted);
+  white-space: nowrap;
+}
+
+.indian-market-mode .im-watchlist-sort-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--im-muted);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.indian-market-mode .im-watchlist-sort-btn:hover,
+.indian-market-mode .im-watchlist-sort-btn.active {
+  color: var(--im-blue);
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.indian-market-mode .im-watchlist-sort-panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 200px;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 10px;
+  background: var(--im-panel-2);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.indian-market-mode .im-watchlist-sort-panel-heading {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--im-muted);
+  border-bottom: 1px solid var(--im-border);
+}
+
+.indian-market-mode .im-watchlist-sort-option {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-bottom: 1px solid var(--im-border);
+  background: transparent;
+  color: var(--im-text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.indian-market-mode .im-watchlist-sort-option:last-child {
+  border-bottom: 0;
+}
+
+.indian-market-mode .im-watchlist-sort-option:hover {
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.indian-market-mode .im-watchlist-sort-option.active {
+  color: var(--im-blue);
+  font-weight: 700;
+}
+
+.indian-market-mode .im-watchlist-body-sorted .im-watchlist-drag-handle {
+  opacity: 0.3;
+  pointer-events: none;
+  cursor: default;
 }
 
 .indian-market-mode .im-watchlist-search-results {

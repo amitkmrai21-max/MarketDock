@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=20260924m">
+  <link rel="stylesheet" href="/frontend/style.css?v=20260924n">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -2039,8 +2039,28 @@
 
           <div class="im-watchlist-toolbar">
             <div class="im-watchlist-search-wrap">
-              <input id="im-watchlist-search-input" type="text" placeholder="Search 5,000+ NSE stocks by name or symbol to add..." aria-label="Search stocks to add" autocomplete="off" />
+              <input id="im-watchlist-search-input" type="text" placeholder="Search &amp; add" aria-label="Search stocks to add" autocomplete="off" />
+              <div class="im-watchlist-search-tools">
+                <span class="im-watchlist-search-count" id="im-watchlist-search-count">0/100</span>
+                <button class="im-watchlist-sort-btn" id="im-watchlist-sort-btn" type="button" aria-label="Sort watchlist" title="Sort watchlist">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="6" x2="20" y2="6"></line>
+                    <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"></circle>
+                    <line x1="4" y1="12" x2="20" y2="12"></line>
+                    <circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"></circle>
+                    <line x1="4" y1="18" x2="20" y2="18"></line>
+                    <circle cx="11" cy="18" r="2" fill="currentColor" stroke="none"></circle>
+                  </svg>
+                </button>
+              </div>
               <div id="im-watchlist-search-results" class="im-watchlist-search-results" hidden></div>
+              <div id="im-watchlist-sort-panel" class="im-watchlist-sort-panel" hidden>
+                <div class="im-watchlist-sort-panel-heading">Sort</div>
+                <button class="im-watchlist-sort-option" type="button" data-sort="manual">Manual &middot; drag order</button>
+                <button class="im-watchlist-sort-option" type="button" data-sort="alpha">A &rarr; Z Alphabetically</button>
+                <button class="im-watchlist-sort-option" type="button" data-sort="change">% Change</button>
+                <button class="im-watchlist-sort-option" type="button" data-sort="price">Last Traded Price</button>
+              </div>
             </div>
             <button class="chart-control-button replay-danger-btn" id="im-watchlist-delete-btn" type="button">Delete This Watchlist</button>
           </div>
@@ -3554,7 +3574,7 @@
     </section>
   </aside>
 
-  <script src="/frontend/app.js?v=20260924l"></script>
+  <script src="/frontend/app.js?v=20260924m"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
