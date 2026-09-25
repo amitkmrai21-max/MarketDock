@@ -6443,60 +6443,58 @@ function clearLiveChartAiOverlay() {
   window.openImWatchlistActionSheet = openImWatchlistActionSheet;
 
   // Mini Chart Generator for Pro Terminal
-  function generateTerminalSvgChart(changePct, tf) {
+    function generateTerminalSvgChart(changePct, tf) {
     const isPositive = changePct >= 0;
-    const strokeColor = isPositive ? "#38bdf8" : "#f43f5e";
-    const gradStopColor = isPositive ? "#38bdf8" : "#f43f5e";
+    const strokeColor = isPositive ? "#00d4b2" : "#f43f5e";
+    const gradStopColor = isPositive ? "#00d4b2" : "#f43f5e";
 
-    // Generate 12-16 points
-    const pointsCount = 14;
-    const width = 340;
-    const height = 90;
+    const width = 360;
+    const height = 100;
+    const pointsCount = 28;
     const points = [];
 
-    // Deterministic pseudo-random seed from changePct
-    let seed = Math.abs(changePct * 10) || 12;
+    let seed = Math.abs(changePct * 37) + (tf === '1W' ? 7 : tf === '1M' ? 19 : tf === '1Y' ? 43 : 11);
     function rand() {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     }
 
-    const trendBias = changePct > 0 ? -1 : 1;
-    let currentY = 50 - (changePct > 0 ? -15 : 15);
-
+    let val = 50;
+    const drift = isPositive ? -0.7 : 0.7;
     for (let i = 0; i < pointsCount; i++) {
-      const x = (i / (pointsCount - 1)) * (width - 10) + 5;
-      const noise = (rand() - 0.5) * 22;
-      const progress = i / (pointsCount - 1);
-      const targetY = isPositive ? (25 + rand() * 15) : (65 + rand() * 15);
-      currentY = currentY + (targetY - currentY) * 0.25 + noise;
-      currentY = Math.max(12, Math.min(height - 10, currentY));
-      points.push({ x: Number(x.toFixed(1)), y: Number(currentY.toFixed(1)) });
+      const x = (i / (pointsCount - 1)) * (width - 24) + 12;
+      val += (rand() - 0.48) * 9 + drift;
+      val = Math.max(18, Math.min(height - 18, val));
+      points.push({ x: Number(x.toFixed(1)), y: Number(val.toFixed(1)) });
     }
 
-    // Build smooth cubic bezier or line path
     let lineD = `M ${points[0].x} ${points[0].y}`;
     for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1];
-      const curr = points[i];
-      const midX = (prev.x + curr.x) / 2;
-      lineD += ` C ${midX} ${prev.y}, ${midX} ${curr.y}, ${curr.x} ${curr.y}`;
+      lineD += ` L ${points[i].x} ${points[i].y}`;
     }
-
-    const areaD = `${lineD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
+    const lastP = points[points.length - 1];
+    const areaD = `${lineD} L ${lastP.x} ${height - 5} L ${points[0].x} ${height - 5} Z`;
 
     const svgWrap = document.getElementById("im-terminal-svg");
     if (svgWrap) {
+      svgWrap.setAttribute("viewBox", `0 0 ${width} ${height}`);
       svgWrap.innerHTML = `
         <defs>
           <linearGradient id="im-chart-dyn-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="${gradStopColor}" stop-opacity="0.45"/>
+            <stop offset="0%" stop-color="${gradStopColor}" stop-opacity="0.32"/>
             <stop offset="100%" stop-color="${gradStopColor}" stop-opacity="0.0"/>
           </linearGradient>
         </defs>
+        <!-- Financial Grid Lines -->
+        <line x1="10" y1="25" x2="${width - 10}" y2="25" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" stroke-width="1"/>
+        <line x1="10" y1="50" x2="${width - 10}" y2="50" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" stroke-width="1"/>
+        <line x1="10" y1="75" x2="${width - 10}" y2="75" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" stroke-width="1"/>
+        <!-- Area fill & Financial Line -->
         <path d="${areaD}" fill="url(#im-chart-dyn-grad)" />
-        <path d="${lineD}" fill="none" stroke="${strokeColor}" stroke-width="2.4" stroke-linecap="round" />
-        <circle cx="${points[points.length - 1].x}" cy="${points[points.length - 1].y}" r="3.5" fill="#ffffff" stroke="${strokeColor}" stroke-width="2" />
+        <path d="${lineD}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
+        <!-- Current Price Ping Dot -->
+        <circle cx="${lastP.x}" cy="${lastP.y}" r="4" fill="${strokeColor}" />
+        <circle cx="${lastP.x}" cy="${lastP.y}" r="8" fill="none" stroke="${strokeColor}" stroke-width="1.5" opacity="0.45" />
       `;
     }
   }
@@ -6560,7 +6558,7 @@ function clearLiveChartAiOverlay() {
       };
     });
 
-    // Market Depth (5 Depth with Pro volume background bars)
+        // Market Depth (Strictly proportional volume pill bars)
     const depthRowsEl = document.getElementById("im-kite-depth-rows");
     if (depthRowsEl) {
       let bidTotal = 0;
@@ -6568,8 +6566,8 @@ function clearLiveChartAiOverlay() {
       let depthHtml = "";
       const baseOrders = [324, 287, 196, 128, 76];
       const baseAskOrders = [310, 265, 181, 142, 98];
-      const barWidths = [85, 96, 68, 42, 25];
-      const askBarWidths = [80, 92, 64, 46, 28];
+      const maxBid = Math.max(...baseOrders);
+      const maxAsk = Math.max(...baseAskOrders);
 
       for (let i = 0; i < 5; i++) {
         const spreadStep = validPrice * (0.0004 * (i + 1));
@@ -6580,8 +6578,9 @@ function clearLiveChartAiOverlay() {
         bidTotal += bidOrd;
         askTotal += askOrd;
 
-        const bidW = barWidths[i];
-        const askW = askBarWidths[i];
+        // Strictly proportional bar width: largest gets 96%, smaller gets proportionally less
+        const bidW = Math.max(12, Math.round((bidOrd / maxBid) * 96));
+        const askW = Math.max(12, Math.round((askOrd / maxAsk) * 96));
 
         depthHtml += `
           <div class="im-terminal-depth-row">
