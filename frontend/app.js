@@ -6425,9 +6425,19 @@ function clearLiveChartAiOverlay() {
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const actionSheet = document.getElementById("im-watchlist-action-sheet");
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
-    if (backdrop) backdrop.hidden = true;
-    if (actionSheet) actionSheet.hidden = true;
-    if (deleteSheet) deleteSheet.hidden = true;
+    if (backdrop) {
+      backdrop.hidden = true;
+      backdrop.style.display = "none";
+    }
+    if (actionSheet) {
+      actionSheet.hidden = true;
+      actionSheet.style.display = "none";
+      actionSheet.classList.remove("im-sheet-open");
+    }
+    if (deleteSheet) {
+      deleteSheet.hidden = true;
+      deleteSheet.style.display = "none";
+    }
   }
 
   window.openImWatchlistActionSheet = openImWatchlistActionSheet;
@@ -6698,7 +6708,14 @@ function clearLiveChartAiOverlay() {
     }
 
     backdrop.hidden = false;
+    backdrop.style.display = "block";
     sheet.hidden = false;
+    sheet.style.display = "flex";
+    sheet.classList.add("im-sheet-open");
+
+    try {
+      history.pushState({ imSheetOpen: true }, "");
+    } catch (_) {}
   }
 
   function openImWatchlistDeleteSheet(symbol) {
@@ -6721,7 +6738,14 @@ function clearLiveChartAiOverlay() {
     };
 
     backdrop.hidden = false;
+    backdrop.style.display = "block";
     sheet.hidden = false;
+    sheet.style.display = "flex";
+    sheet.classList.add("im-sheet-open");
+
+    try {
+      history.pushState({ imSheetOpen: true }, "");
+    } catch (_) {}
   }
 
   (function setupImWatchlistSheetDismiss() {
@@ -6738,6 +6762,28 @@ function clearLiveChartAiOverlay() {
   })();
 
   setupImWatchlistControls();
+
+  // Android hardware/gesture back button & browser popstate support to close stock detail sheet
+  window.addEventListener("popstate", () => {
+    const sheet = document.getElementById("im-watchlist-action-sheet");
+    if (sheet && (!sheet.hidden || sheet.style.display === "flex" || sheet.classList.contains("im-sheet-open"))) {
+      closeImWatchlistSheets(true);
+    }
+  });
+
+  try {
+    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
+      window.Capacitor.Plugins.App.addListener("backButton", (data) => {
+        const sheet = document.getElementById("im-watchlist-action-sheet");
+        if (sheet && (!sheet.hidden || sheet.style.display === "flex" || sheet.classList.contains("im-sheet-open"))) {
+          closeImWatchlistSheets(true);
+        } else if (data && data.canGoBack) {
+          window.history.back();
+        }
+      });
+    }
+  } catch (_) {}
+
 
   // A curated, liquid subset of NSE F&O-eligible stocks across sectors (not the
   // complete ~180-stock F&O universe) — reuses the existing /api/watchlist
