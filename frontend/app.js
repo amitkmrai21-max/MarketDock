@@ -6564,44 +6564,50 @@ function clearLiveChartAiOverlay() {
     const depthRowsEl = document.getElementById("im-kite-depth-rows");
     if (depthRowsEl) {
       let bidTotal = 0;
-      let offerTotal = 0;
+      let askTotal = 0;
       let depthHtml = "";
-      const maxQtyEstimate = (validPrice > 5000 ? 50 : 250);
+      const baseOrders = [324, 287, 196, 128, 76];
+      const baseAskOrders = [310, 265, 181, 142, 98];
+      const barWidths = [85, 96, 68, 42, 25];
+      const askBarWidths = [80, 92, 64, 46, 28];
 
-      for (let i = 1; i <= 5; i++) {
-        const spreadStep = validPrice * (0.0005 * i);
+      for (let i = 0; i < 5; i++) {
+        const spreadStep = validPrice * (0.0004 * (i + 1));
         const bidPrice = (validPrice - spreadStep).toFixed(2);
-        const offerPrice = (validPrice + spreadStep).toFixed(2);
-        const bidOrders = Math.floor(1 + Math.sin(i * 1.5) * 4 + 3);
-        const offerOrders = Math.floor(1 + Math.cos(i * 1.5) * 4 + 3);
-        const bidQty = Math.floor(15 * i + (validPrice > 5000 ? 5 : 45) * i);
-        const offerQty = Math.floor(20 * i + (validPrice > 5000 ? 5 : 40) * i);
-        bidTotal += bidQty;
-        offerTotal += offerQty;
+        const askPrice = (validPrice + spreadStep).toFixed(2);
+        const bidOrd = baseOrders[i];
+        const askOrd = baseAskOrders[i];
+        bidTotal += bidOrd;
+        askTotal += askOrd;
 
-        const bidBarWidth = Math.min(100, Math.round((bidQty / maxQtyEstimate) * 100));
-        const offerBarWidth = Math.min(100, Math.round((offerQty / maxQtyEstimate) * 100));
+        const bidW = barWidths[i];
+        const askW = askBarWidths[i];
 
         depthHtml += `
           <div class="im-terminal-depth-row">
-            <div class="im-depth-bar im-depth-bid-bar" style="width: ${bidBarWidth}%;"></div>
-            <div class="im-depth-bar im-depth-offer-bar" style="width: ${offerBarWidth}%;"></div>
-            <span class="im-td-col td-bid-head im-td-bid-price">${bidPrice}</span>
-            <span class="im-td-col td-orders-head im-td-orders">${bidOrders}</span>
-            <span class="im-td-col td-qty-head im-td-qty">${bidQty.toLocaleString()}</span>
-            <span class="im-td-col td-offer-head im-td-offer-price">${offerPrice}</span>
-            <span class="im-td-col td-orders-head im-td-orders">${offerOrders}</span>
-            <span class="im-td-col td-qty-head im-td-qty">${offerQty.toLocaleString()}</span>
+            <div class="im-td-row-side im-td-side-bid">
+              <span class="td-col-orders im-td-order-num">${bidOrd}</span>
+              <div class="td-col-bar im-td-bar-container">
+                <div class="im-td-pill-bar im-td-bid-pill" style="width: ${bidW}%;"></div>
+              </div>
+              <span class="td-col-price im-td-price im-td-bid-price">${bidPrice}</span>
+            </div>
+            <div class="im-td-row-side im-td-side-ask">
+              <span class="td-col-price im-td-price im-td-ask-price">${askPrice}</span>
+              <div class="td-col-bar im-td-bar-container">
+                <div class="im-td-pill-bar im-td-ask-pill" style="width: ${askW}%;"></div>
+              </div>
+              <span class="td-col-orders im-td-order-num text-right">${askOrd}</span>
+            </div>
           </div>
         `;
       }
       depthRowsEl.innerHTML = depthHtml;
       const bTot = document.getElementById("im-kd-bid-total-qty");
-      const oTot = document.getElementById("im-kd-offer-total-qty");
-      if (bTot) bTot.textContent = bidTotal.toLocaleString();
-      if (oTot) oTot.textContent = offerTotal.toLocaleString();
+      const aTot = document.getElementById("im-kd-offer-total-qty");
+      if (bTot) bTot.textContent = (bidTotal * 35).toLocaleString();
+      if (aTot) aTot.textContent = (askTotal * 35).toLocaleString();
     }
-
     // Day's Range (Low / High)
     const dayLow = (validPrice * 0.985).toFixed(2);
     const dayHigh = (validPrice * 1.015).toFixed(2);
