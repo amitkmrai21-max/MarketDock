@@ -8429,8 +8429,8 @@ body.im-chart-fullscreen-open {
 
 .im-terminal-symbol {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 600;
   letter-spacing: 0.6px;
   color: #f8fafc;
   margin: 0;
@@ -8480,8 +8480,8 @@ body.im-chart-fullscreen-open {
 
 .im-terminal-price {
   font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 600;
   color: #ffffff;
 }
 
@@ -8608,10 +8608,10 @@ body.im-chart-fullscreen-open {
 
 .im-terminal-tf-group {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   background: #080b11;
   padding: 2px;
-  border-radius: 6px;
+  border-radius: 5px;
   border: 1px solid #1a2233;
 }
 
@@ -8619,11 +8619,12 @@ body.im-chart-fullscreen-open {
   background: transparent;
   border: none;
   color: #64748b;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
   cursor: pointer;
+  line-height: 1.2;
   transition: all 0.15s ease;
 }
 .im-tf-btn.active {
