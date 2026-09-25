@@ -5820,6 +5820,14 @@ function clearLiveChartAiOverlay() {
           (w) => `<button class="im-watchlist-tab ${w.id === activeImWatchlistId ? "active" : ""}" type="button" data-watchlist-id="${escapeHtml(w.id)}">${escapeHtml(w.name)}</button>`
         )
         .join("") + `<button class="im-watchlist-tab-new" type="button" id="im-watchlist-new-btn">+ New</button>`;
+
+    // Auto-scroll active tab into view in the horizontal sliding bar
+    setTimeout(() => {
+      const activeTab = tabsEl.querySelector(".im-watchlist-tab.active");
+      if (activeTab && typeof activeTab.scrollIntoView === "function") {
+        activeTab.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+      }
+    }, 40);
   }
 
   function renderAiScoreBadge(score, label) {
@@ -6152,8 +6160,90 @@ function clearLiveChartAiOverlay() {
     }
 
     setupImWatchlistRowInteractions();
+    setupImWatchlistSwipe();
     renderImWatchlistTabs();
   }
+
+  function setupImWatchlistSwipe() {
+    const watchlistPage = document.getElementById("im-watchlist");
+    if (!watchlistPage || watchlistPage.dataset.swipeWired) return;
+    watchlistPage.dataset.swipeWired = "true";
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+    let isSwiping = false;
+
+    watchlistPage.addEventListener(
+      "touchstart",
+      (e) => {
+        if (e.touches.length !== 1) return;
+        if (e.target.closest("input, select, textarea, .im-watchlist-sort-panel, .im-terminal-sheet, .im-watchlist-drag-handle, .im-watchlist-tabs")) {
+          return;
+        }
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchStartTime = Date.now();
+        isSwiping = true;
+      },
+      { passive: true }
+    );
+
+    watchlistPage.addEventListener(
+      "touchend",
+      (e) => {
+        if (!isSwiping || e.changedTouches.length === 0) return;
+        isSwiping = false;
+
+        const touch = e.changedTouches[0];
+        const deltaX = touch.clientX - touchStartX;
+        const deltaY = touch.clientY - touchStartY;
+        const elapsed = Date.now() - touchStartTime;
+
+        // Must be a horizontal swipe: >= 40px, mostly horizontal, under 650ms
+        if (Math.abs(deltaX) >= 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3 && elapsed < 650) {
+          const lists = getImWatchlists();
+          if (lists.length <= 1) return;
+          const currentIndex = lists.findIndex((w) => w.id === activeImWatchlistId);
+          if (currentIndex === -1) return;
+
+          let nextIndex = currentIndex;
+          if (deltaX < 0) {
+            // Swipe Left -> Next watchlist
+            if (currentIndex < lists.length - 1) nextIndex = currentIndex + 1;
+          } else {
+            // Swipe Right -> Previous watchlist
+            if (currentIndex > 0) nextIndex = currentIndex - 1;
+          }
+
+          if (nextIndex !== currentIndex) {
+            activeImWatchlistId = lists[nextIndex].id;
+            renderImWatchlistTabs();
+            fetchWatchlist();
+
+            const tableWrap = watchlistPage.querySelector(".table-wrap");
+            if (tableWrap) {
+              tableWrap.style.transition = "transform 0.15s ease, opacity 0.15s ease";
+              tableWrap.style.transform = deltaX < 0 ? "translateX(-12px)" : "translateX(12px)";
+              tableWrap.style.opacity = "0.7";
+              setTimeout(() => {
+                tableWrap.style.transform = "translateX(0)";
+                tableWrap.style.opacity = "1";
+                setTimeout(() => {
+                  tableWrap.style.transition = "";
+                  tableWrap.style.transform = "";
+                  tableWrap.style.opacity = "";
+                }, 160);
+              }, 120);
+            }
+          }
+        }
+      },
+      { passive: true }
+    );
+  }
+
 
   // Zerodha-style row interactions: tap a row for a Buy/Sell/View Chart
   // sheet, press-and-hold for a delete confirm, drag the handle to
