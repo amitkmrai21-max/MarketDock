@@ -4685,7 +4685,10 @@ function clearLiveChartAiOverlay() {
     const actionSheet = document.getElementById("im-watchlist-action-sheet");
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
     if ((actionSheet && !actionSheet.hidden) || (deleteSheet && !deleteSheet.hidden)) {
-      closeImWatchlistSheets();
+      if (Date.now() - imSheetOpenedAt < 450) {
+        return false;
+      }
+      closeImWatchlistSheets(true);
       return true;
     }
     const searchDropdowns = [
@@ -6374,17 +6377,17 @@ function clearLiveChartAiOverlay() {
 
       const wasLongPress = imWatchlistLongPressFired;
       clearImWatchlistPressTimer();
-      imWatchlistLongPressFired = false;
-      imWatchlistPressMoved = false;
+      // Keep wasLongPress and wasMoved state until click event finishes
+      setTimeout(() => {
+        imWatchlistLongPressFired = false;
+        imWatchlistPressMoved = false;
+      }, 300);
       if (wasLongPress) return;
-
-      const row = event.target.closest(".im-watchlist-row");
-      if (!row || event.target.closest(".im-watchlist-drag-handle")) return;
-      openImWatchlistActionSheet(row.dataset.symbol, row.dataset.price);
     });
 
-    // Explicit click listener so both desktop clicks and mobile taps reliably open the sheet
+    // Explicit click listener as single source of truth for opening the sheet (avoids synthetic click dismissing sheet)
     bodyEl.addEventListener("click", (event) => {
+      if (imWatchlistPressMoved || imWatchlistLongPressFired) return;
       if (event.target.closest(".im-watchlist-drag-handle")) return;
       const row = event.target.closest(".im-watchlist-row");
       if (!row) return;
@@ -6413,7 +6416,12 @@ function clearLiveChartAiOverlay() {
     });
   }
 
-  function closeImWatchlistSheets() {
+  let imSheetOpenedAt = 0;
+
+  function closeImWatchlistSheets(force = false) {
+    if (!force && (Date.now() - imSheetOpenedAt < 450)) {
+      return;
+    }
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const actionSheet = document.getElementById("im-watchlist-action-sheet");
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
@@ -6424,6 +6432,7 @@ function clearLiveChartAiOverlay() {
 
   window.openImWatchlistActionSheet = openImWatchlistActionSheet;
   function openImWatchlistActionSheet(symbol, price) {
+    imSheetOpenedAt = Date.now();
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const sheet = document.getElementById("im-watchlist-action-sheet");
     if (!backdrop || !sheet) return;
@@ -6589,9 +6598,13 @@ function clearLiveChartAiOverlay() {
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const cancelBtn = document.getElementById("im-action-sheet-cancel-btn");
     const deleteCancelBtn = document.getElementById("im-delete-sheet-cancel-btn");
-    if (backdrop) backdrop.addEventListener("click", closeImWatchlistSheets);
-    if (cancelBtn) cancelBtn.addEventListener("click", closeImWatchlistSheets);
-    if (deleteCancelBtn) deleteCancelBtn.addEventListener("click", closeImWatchlistSheets);
+    if (backdrop) {
+      backdrop.addEventListener("click", (e) => {
+        if (e.target === backdrop) closeImWatchlistSheets(false);
+      });
+    }
+    if (cancelBtn) cancelBtn.addEventListener("click", () => closeImWatchlistSheets(true));
+    if (deleteCancelBtn) deleteCancelBtn.addEventListener("click", () => closeImWatchlistSheets(true));
   })();
 
   setupImWatchlistControls();
