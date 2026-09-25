@@ -4617,6 +4617,42 @@ function clearLiveChartAiOverlay() {
     });
   });
 
+  // Any small overlay (a search-suggestions dropdown, the Watchlist's
+  // sort panel, its Buy/Sell/Chart or delete-confirm sheet) sits on top of
+  // whatever page it opened from without changing the page itself — none
+  // of that is tracked by pushImDrilldown. Without this, the back button
+  // had nothing "open" to close and fell straight through to exiting the
+  // app instead of just dismissing the dropdown/sheet, same underlying gap
+  // as the drilldown one above. Checked first since these can be open on
+  // top of anything else (a drilldown page, even the fullscreen chart).
+  function closeAnyOpenImOverlay() {
+    const sortPanel = document.getElementById("im-watchlist-sort-panel");
+    if (sortPanel && !sortPanel.hidden) {
+      sortPanel.hidden = true;
+      return true;
+    }
+    const actionSheet = document.getElementById("im-watchlist-action-sheet");
+    const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
+    if ((actionSheet && !actionSheet.hidden) || (deleteSheet && !deleteSheet.hidden)) {
+      closeImWatchlistSheets();
+      return true;
+    }
+    const searchDropdowns = [
+      ["im-watchlist-search-results", () => hideImWatchlistSearchResults()],
+      ["im-ai-scanner-search-results", () => hideImAiScannerSearchResults()],
+      ["im-dashboard-ai-search-results", () => hideImDashboardAiSearchResults()],
+      ["im-stock-detail-search-results", () => hideImStockDetailSearchResults()],
+    ];
+    for (const [id, hideFn] of searchDropdowns) {
+      const el = document.getElementById(id);
+      if (el && !el.hidden) {
+        hideFn();
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Native Android back button: if a drill-down is open, close it back to
   // its return page and stop there (never exits the app for that press).
   // Otherwise fall back to Capacitor's own documented default — go back in
@@ -4625,6 +4661,7 @@ function clearLiveChartAiOverlay() {
   const capacitorApp = window.Capacitor?.Plugins?.App;
   if (capacitorApp?.addListener) {
     capacitorApp.addListener("backButton", ({ canGoBack }) => {
+      if (closeAnyOpenImOverlay()) return;
       // Fullscreen Live Chart is a modal-like overlay on top of whatever
       // page opened it — close that first, same as Escape already does,
       // before considering a page drill-down or exiting.
