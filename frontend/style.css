@@ -8370,9 +8370,16 @@ body.im-chart-fullscreen-open {
 
 
 /* --- Pro-Terminal Stock Detail Sheet (Obsidian Terminal Theme) --- */
+.im-terminal-sheet[hidden],
+.im-action-sheet[hidden],
+#im-watchlist-action-sheet[hidden],
+.im-watchlist-sheet-backdrop[hidden] {
+  display: none !important;
+}
+
 .im-terminal-sheet {
   max-height: 88vh;
-  display: flex !important;
+  display: none;
   flex-direction: column;
   background: #0b0f17 !important;
   border-top: 1px solid #1e293b !important;
@@ -8383,6 +8390,11 @@ body.im-chart-fullscreen-open {
   color: #e2e8f0;
   overflow: hidden !important;
   z-index: 9999;
+}
+
+.im-terminal-sheet.im-sheet-open,
+.im-terminal-sheet:not([hidden]) {
+  display: flex !important;
 }
 
 .im-terminal-sheet .im-action-sheet-handle {
