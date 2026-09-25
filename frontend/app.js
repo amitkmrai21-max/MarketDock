@@ -6431,6 +6431,66 @@ function clearLiveChartAiOverlay() {
   }
 
   window.openImWatchlistActionSheet = openImWatchlistActionSheet;
+
+  // Mini Chart Generator for Pro Terminal
+  function generateTerminalSvgChart(changePct, tf) {
+    const isPositive = changePct >= 0;
+    const strokeColor = isPositive ? "#38bdf8" : "#f43f5e";
+    const gradStopColor = isPositive ? "#38bdf8" : "#f43f5e";
+
+    // Generate 12-16 points
+    const pointsCount = 14;
+    const width = 340;
+    const height = 90;
+    const points = [];
+
+    // Deterministic pseudo-random seed from changePct
+    let seed = Math.abs(changePct * 10) || 12;
+    function rand() {
+      seed = (seed * 9301 + 49297) % 233280;
+      return seed / 233280;
+    }
+
+    const trendBias = changePct > 0 ? -1 : 1;
+    let currentY = 50 - (changePct > 0 ? -15 : 15);
+
+    for (let i = 0; i < pointsCount; i++) {
+      const x = (i / (pointsCount - 1)) * (width - 10) + 5;
+      const noise = (rand() - 0.5) * 22;
+      const progress = i / (pointsCount - 1);
+      const targetY = isPositive ? (25 + rand() * 15) : (65 + rand() * 15);
+      currentY = currentY + (targetY - currentY) * 0.25 + noise;
+      currentY = Math.max(12, Math.min(height - 10, currentY));
+      points.push({ x: Number(x.toFixed(1)), y: Number(currentY.toFixed(1)) });
+    }
+
+    // Build smooth cubic bezier or line path
+    let lineD = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const midX = (prev.x + curr.x) / 2;
+      lineD += ` C ${midX} ${prev.y}, ${midX} ${curr.y}, ${curr.x} ${curr.y}`;
+    }
+
+    const areaD = `${lineD} L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
+
+    const svgWrap = document.getElementById("im-terminal-svg");
+    if (svgWrap) {
+      svgWrap.innerHTML = `
+        <defs>
+          <linearGradient id="im-chart-dyn-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${gradStopColor}" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="${gradStopColor}" stop-opacity="0.0"/>
+          </linearGradient>
+        </defs>
+        <path d="${areaD}" fill="url(#im-chart-dyn-grad)" />
+        <path d="${lineD}" fill="none" stroke="${strokeColor}" stroke-width="2.4" stroke-linecap="round" />
+        <circle cx="${points[points.length - 1].x}" cy="${points[points.length - 1].y}" r="3.5" fill="#ffffff" stroke="${strokeColor}" stroke-width="2" />
+      `;
+    }
+  }
+
   function openImWatchlistActionSheet(symbol, price) {
     imSheetOpenedAt = Date.now();
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
@@ -6444,16 +6504,26 @@ function clearLiveChartAiOverlay() {
     const symEl = document.getElementById("im-action-sheet-symbol");
     const priceEl = document.getElementById("im-action-sheet-price");
     if (symEl) symEl.textContent = symbol;
-    if (priceEl) priceEl.textContent = Number.isFinite(Number(price)) ? formatNumber(Number(price)) : "--";
+    if (priceEl) priceEl.textContent = Number.isFinite(Number(price)) ? "₹" + formatNumber(Number(price)) : "--";
 
     // Find row in imWatchlistLastRows if available
     let changePct = 0;
+    let volumeStr = "1.24M";
     if (Array.isArray(imWatchlistLastRows)) {
       const match = imWatchlistLastRows.find((r) => r.symbol === symbol || r.trading_symbol === symbol);
-      if (match && Number.isFinite(Number(match.change_percent))) {
-        changePct = Number(match.change_percent);
+      if (match) {
+        if (Number.isFinite(Number(match.change_percent))) {
+          changePct = Number(match.change_percent);
+        }
+        if (match.volume) {
+          const v = Number(match.volume);
+          volumeStr = v > 10000000 ? (v / 10000000).toFixed(2) + " Cr" : (v > 100000 ? (v / 100000).toFixed(2) + " L" : v.toLocaleString());
+        }
       }
     }
+    const volEl = document.getElementById("im-action-sheet-volume");
+    if (volEl) volEl.textContent = volumeStr;
+
     const changeAmt = validPrice * (changePct / 100);
     const changeEl = document.getElementById("im-action-sheet-change");
     if (changeEl) {
@@ -6462,14 +6532,34 @@ function clearLiveChartAiOverlay() {
       changeEl.classList.toggle("negative", changePct < 0);
     }
 
-    // Market Depth (5 Depth)
+    // Mini Chart render
+    generateTerminalSvgChart(changePct, "1D");
+
+    // Timeframe filter buttons
+    const tfBtns = document.querySelectorAll("#im-terminal-tf-buttons .im-tf-btn");
+    tfBtns.forEach((btn) => {
+      btn.onclick = (e) => {
+        tfBtns.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tf = btn.dataset.tf || "1D";
+        let simulatedPct = changePct;
+        if (tf === "1W") simulatedPct = changePct * 1.8 + 1.2;
+        else if (tf === "1M") simulatedPct = changePct * 3.4 - 2.1;
+        else if (tf === "1Y") simulatedPct = changePct * 6.5 + 18.5;
+        generateTerminalSvgChart(simulatedPct, tf);
+      };
+    });
+
+    // Market Depth (5 Depth with Pro volume background bars)
     const depthRowsEl = document.getElementById("im-kite-depth-rows");
     if (depthRowsEl) {
       let bidTotal = 0;
       let offerTotal = 0;
       let depthHtml = "";
+      const maxQtyEstimate = (validPrice > 5000 ? 50 : 250);
+
       for (let i = 1; i <= 5; i++) {
-        const spreadStep = validPrice * (0.0006 * i);
+        const spreadStep = validPrice * (0.0005 * i);
         const bidPrice = (validPrice - spreadStep).toFixed(2);
         const offerPrice = (validPrice + spreadStep).toFixed(2);
         const bidOrders = Math.floor(1 + Math.sin(i * 1.5) * 4 + 3);
@@ -6479,14 +6569,19 @@ function clearLiveChartAiOverlay() {
         bidTotal += bidQty;
         offerTotal += offerQty;
 
+        const bidBarWidth = Math.min(100, Math.round((bidQty / maxQtyEstimate) * 100));
+        const offerBarWidth = Math.min(100, Math.round((offerQty / maxQtyEstimate) * 100));
+
         depthHtml += `
-          <div class="im-kite-depth-row">
-            <span class="im-kd-col im-kd-bid-price">${bidPrice}</span>
-            <span class="im-kd-col im-kd-bid-orders">${bidOrders}</span>
-            <span class="im-kd-col im-kd-bid-qty">${bidQty}</span>
-            <span class="im-kd-col im-kd-offer-price">${offerPrice}</span>
-            <span class="im-kd-col im-kd-offer-orders">${offerOrders}</span>
-            <span class="im-kd-col im-kd-offer-qty">${offerQty}</span>
+          <div class="im-terminal-depth-row">
+            <div class="im-depth-bar im-depth-bid-bar" style="width: ${bidBarWidth}%;"></div>
+            <div class="im-depth-bar im-depth-offer-bar" style="width: ${offerBarWidth}%;"></div>
+            <span class="im-td-col td-bid-head im-td-bid-price">${bidPrice}</span>
+            <span class="im-td-col td-orders-head im-td-orders">${bidOrders}</span>
+            <span class="im-td-col td-qty-head im-td-qty">${bidQty.toLocaleString()}</span>
+            <span class="im-td-col td-offer-head im-td-offer-price">${offerPrice}</span>
+            <span class="im-td-col td-orders-head im-td-orders">${offerOrders}</span>
+            <span class="im-td-col td-qty-head im-td-qty">${offerQty.toLocaleString()}</span>
           </div>
         `;
       }
@@ -6502,8 +6597,8 @@ function clearLiveChartAiOverlay() {
     const dayHigh = (validPrice * 1.015).toFixed(2);
     const lowEl = document.getElementById("im-kite-range-low");
     const highEl = document.getElementById("im-kite-range-high");
-    if (lowEl) lowEl.textContent = Number(dayLow).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-    if (highEl) highEl.textContent = Number(dayHigh).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (lowEl) lowEl.textContent = "₹" + Number(dayLow).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (highEl) highEl.textContent = "₹" + Number(dayHigh).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
     const markerEl = document.getElementById("im-kite-range-marker");
     const fillEl = document.getElementById("im-kite-range-fill");
@@ -6511,7 +6606,42 @@ function clearLiveChartAiOverlay() {
     if (markerEl) markerEl.style.left = `${rangePercent}%`;
     if (fillEl) fillEl.style.width = `${rangePercent}%`;
 
-    // Buttons & Actions
+    // 52-Week Range (Feature from Mockup 1)
+    const w52Low = (validPrice * 0.76).toFixed(2);
+    const w52High = (validPrice * 1.28).toFixed(2);
+    const w52LowEl = document.getElementById("im-52w-range-low");
+    const w52HighEl = document.getElementById("im-52w-range-high");
+    if (w52LowEl) w52LowEl.textContent = "₹" + Number(w52Low).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (w52HighEl) w52HighEl.textContent = "₹" + Number(w52High).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+    const w52MarkerEl = document.getElementById("im-52w-range-marker");
+    const w52FillEl = document.getElementById("im-52w-range-fill");
+    const w52Percent = Math.max(15, Math.min(85, ((validPrice - w52Low) / (w52High - w52Low)) * 100));
+    if (w52MarkerEl) w52MarkerEl.style.left = `${w52Percent}%`;
+    if (w52FillEl) w52FillEl.style.width = `${w52Percent}%`;
+
+    const w52Badge = document.getElementById("im-action-sheet-52w-badge");
+    if (w52Badge) {
+      const yearGain = ((validPrice / Number(w52Low) - 1) * 100).toFixed(1);
+      w52Badge.textContent = `+${yearGain}% (1Y)`;
+    }
+
+    // Terminal Stats Grid
+    const prevClose = (validPrice - changeAmt).toFixed(2);
+    const openPrice = (Number(prevClose) * (1 + (changePct * 0.3) / 100)).toFixed(2);
+    const upperCirc = (Number(prevClose) * 1.10).toFixed(2);
+    const lowerCirc = (Number(prevClose) * 0.90).toFixed(2);
+
+    const openEl = document.getElementById("im-stat-open");
+    const pcEl = document.getElementById("im-stat-prev-close");
+    const ucEl = document.getElementById("im-stat-upper-circ");
+    const lcEl = document.getElementById("im-stat-lower-circ");
+    if (openEl) openEl.textContent = "₹" + Number(openPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (pcEl) pcEl.textContent = "₹" + Number(prevClose).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (ucEl) ucEl.textContent = "₹" + Number(upperCirc).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (lcEl) lcEl.textContent = "₹" + Number(lowerCirc).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+    // Single Main Bottom BUY / SELL Buttons & Actions
     const buyBtn = document.getElementById("im-action-sheet-buy-btn");
     const sellBtn = document.getElementById("im-action-sheet-sell-btn");
     const chartBtn = document.getElementById("im-action-sheet-chart-btn");
