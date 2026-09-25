@@ -2,6 +2,18 @@ let liveCandleChart = null;
 let liveCandleSeries = null;
 let liveCandleRawData = [];
 
+// Shown at the bottom of Settings, read straight from this script's own
+// ?v= cache-bust so it can never drift — lets a phone confirm at a glance
+// which build it actually loaded.
+(function showAppBuildVersion() {
+  let version = "dev";
+  try {
+    version = new URL(document.currentScript.src).searchParams.get("v") || "dev";
+  } catch { /* ignore */ }
+  const el = document.getElementById("appBuildVersion");
+  if (el) el.textContent = `Version: ${version}`;
+})();
+
 // ===================== Chart theming =====================
 // LightweightCharts renders to canvas, so its colors can't follow CSS
 // variables — they have to be passed as JS options at creation time, and

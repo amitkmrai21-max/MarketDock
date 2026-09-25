@@ -25,6 +25,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# The HTML shell and service worker carry no Cache-Control by default, so
+# browsers/WebViews heuristically cache index.html off its Last-Modified and
+# keep loading an old app.js?v=... reference for a while after a deploy.
+# "no-cache" still allows a cheap ETag 304 revalidation on every load.
+NO_CACHE_PATHS = {"/", "/frontend/index.html", "/frontend/sw.js"}
+
+
+@app.middleware("http")
+async def no_cache_app_shell(request, call_next):
+    response = await call_next(request)
+    if request.url.path in NO_CACHE_PATHS:
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 # Same project/publishable key the frontend uses (frontend/app.js) — safe to
 # hardcode, matches the client-side values. Only the service role key below
 # is a secret and must come from an environment variable.
