@@ -6173,6 +6173,10 @@ function clearLiveChartAiOverlay() {
     let touchStartY = 0;
     let touchStartTime = 0;
     let isSwiping = false;
+    let isHorizontalGesture = null; // null | true | false
+    let currentDeltaX = 0;
+
+    const getTableWrap = () => watchlistPage.querySelector(".table-wrap");
 
     watchlistPage.addEventListener(
       "touchstart",
@@ -6186,69 +6190,153 @@ function clearLiveChartAiOverlay() {
         touchStartY = touch.clientY;
         touchStartTime = Date.now();
         isSwiping = true;
+        isHorizontalGesture = null;
+        currentDeltaX = 0;
+
+        const tableWrap = getTableWrap();
+        if (tableWrap) {
+          tableWrap.scrollLeft = 0;
+          tableWrap.style.transition = "none";
+        }
       },
       { passive: true }
     );
 
     watchlistPage.addEventListener(
-      "touchend",
+      "touchmove",
       (e) => {
-        if (!isSwiping || e.changedTouches.length === 0) return;
-        isSwiping = false;
+        if (!isSwiping || e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        const dx = touch.clientX - touchStartX;
+        const dy = touch.clientY - touchStartY;
 
-        const touch = e.changedTouches[0];
-        const deltaX = touch.clientX - touchStartX;
-        const deltaY = touch.clientY - touchStartY;
-        const elapsed = Date.now() - touchStartTime;
-
-        // Must be a horizontal swipe: >= 40px, mostly horizontal, under 650ms
-        if (Math.abs(deltaX) >= 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.3 && elapsed < 650) {
-          const lists = getImWatchlists();
-          if (lists.length <= 1) return;
-          const currentIndex = lists.findIndex((w) => w.id === activeImWatchlistId);
-          if (currentIndex === -1) return;
-
-          let nextIndex = currentIndex;
-          if (deltaX < 0) {
-            // Swipe Left -> Next watchlist
-            if (currentIndex < lists.length - 1) nextIndex = currentIndex + 1;
-          } else {
-            // Swipe Right -> Previous watchlist
-            if (currentIndex > 0) nextIndex = currentIndex - 1;
-          }
-
-          if (nextIndex !== currentIndex) {
-            activeImWatchlistId = lists[nextIndex].id;
-            renderImWatchlistTabs();
-            fetchWatchlist();
-
-            const tableWrap = watchlistPage.querySelector(".table-wrap");
-            if (tableWrap) {
-              tableWrap.style.transition = "transform 0.15s ease, opacity 0.15s ease";
-              tableWrap.style.transform = deltaX < 0 ? "translateX(-12px)" : "translateX(12px)";
-              tableWrap.style.opacity = "0.7";
-              setTimeout(() => {
-                tableWrap.style.transform = "translateX(0)";
-                tableWrap.style.opacity = "1";
-                setTimeout(() => {
-                  tableWrap.style.transition = "";
-                  tableWrap.style.transform = "";
-                  tableWrap.style.opacity = "";
-                }, 160);
-              }, 120);
+        // Determine gesture direction on first significant movement
+        if (isHorizontalGesture === null) {
+          if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+            if (Math.abs(dx) > Math.abs(dy) * 1.1) {
+              isHorizontalGesture = true;
+            } else {
+              isHorizontalGesture = false;
+              isSwiping = false;
+              return;
             }
+          }
+        }
+
+        if (isHorizontalGesture === true) {
+          currentDeltaX = dx;
+          const tableWrap = getTableWrap();
+          if (tableWrap) {
+            // Smooth natural rubberband drag feedback
+            const dampedDx = dx * 0.35;
+            const opacity = Math.max(0.65, 1 - Math.abs(dx) / 500);
+            tableWrap.style.transform = `translateX(${dampedDx}px)`;
+            tableWrap.style.opacity = opacity;
           }
         }
       },
       { passive: true }
     );
+
+    const finishSwipe = (e) => {
+      if (!isSwiping) return;
+      isSwiping = false;
+
+      const tableWrap = getTableWrap();
+      const elapsed = Date.now() - touchStartTime;
+      const dx = currentDeltaX;
+
+      if (tableWrap) {
+        tableWrap.scrollLeft = 0;
+      }
+
+      if (isHorizontalGesture && Math.abs(dx) >= 42 && elapsed < 700) {
+        const lists = getImWatchlists();
+        if (lists.length <= 1) {
+          resetWrap(tableWrap);
+          return;
+        }
+        const currentIndex = lists.findIndex((w) => w.id === activeImWatchlistId);
+        if (currentIndex === -1) {
+          resetWrap(tableWrap);
+          return;
+        }
+
+        let nextIndex = currentIndex;
+        if (dx < 0 && currentIndex < lists.length - 1) {
+          // Swipe Left -> next watchlist
+          nextIndex = currentIndex + 1;
+        } else if (dx > 0 && currentIndex > 0) {
+          // Swipe Right -> previous watchlist
+          nextIndex = currentIndex - 1;
+        }
+
+        if (nextIndex !== currentIndex) {
+          const slideOutX = dx < 0 ? -70 : 70;
+          const slideInX = dx < 0 ? 50 : -50;
+
+          if (tableWrap) {
+            tableWrap.style.transition = "transform 0.16s cubic-bezier(0.2, 0.8, 0.4, 1), opacity 0.16s ease";
+            tableWrap.style.transform = `translateX(${slideOutX}px)`;
+            tableWrap.style.opacity = "0.15";
+          }
+
+          setTimeout(() => {
+            activeImWatchlistId = lists[nextIndex].id;
+            renderImWatchlistTabs();
+            fetchWatchlist();
+
+            if (tableWrap) {
+              tableWrap.scrollLeft = 0;
+              tableWrap.style.transition = "none";
+              tableWrap.style.transform = `translateX(${slideInX}px)`;
+              tableWrap.style.opacity = "0.2";
+
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  tableWrap.style.transition = "transform 0.22s cubic-bezier(0.15, 0.9, 0.3, 1), opacity 0.22s ease";
+                  tableWrap.style.transform = "translateX(0)";
+                  tableWrap.style.opacity = "1";
+                  setTimeout(() => {
+                    if (tableWrap) {
+                      tableWrap.style.transition = "";
+                      tableWrap.style.transform = "";
+                      tableWrap.style.opacity = "";
+                      tableWrap.scrollLeft = 0;
+                    }
+                  }, 240);
+                });
+              });
+            }
+          }, 140);
+          return;
+        }
+      }
+
+      // Snap back if swipe threshold not met or at the boundary
+      resetWrap(tableWrap);
+    };
+
+    function resetWrap(tableWrap) {
+      if (tableWrap) {
+        tableWrap.style.transition = "transform 0.2s ease, opacity 0.2s ease";
+        tableWrap.style.transform = "translateX(0)";
+        tableWrap.style.opacity = "1";
+        setTimeout(() => {
+          if (tableWrap) {
+            tableWrap.style.transition = "";
+            tableWrap.style.transform = "";
+            tableWrap.style.opacity = "";
+            tableWrap.scrollLeft = 0;
+          }
+        }, 220);
+      }
+    }
+
+    watchlistPage.addEventListener("touchend", finishSwipe, { passive: true });
+    watchlistPage.addEventListener("touchcancel", finishSwipe, { passive: true });
   }
 
-
-  // Zerodha-style row interactions: tap a row for a Buy/Sell/View Chart
-  // sheet, press-and-hold for a delete confirm, drag the handle to
-  // reorder. All delegated on the tbody (not per-row) so it survives the
-  // 5-second poll re-rendering the rows out from under it.
   let imWatchlistDragPointerId = null;
   let imWatchlistDragPointerOffsetY = 0;
   let imWatchlistDragLatestClientY = 0;
