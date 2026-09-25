@@ -6453,7 +6453,7 @@ function clearLiveChartAiOverlay() {
     const pointsCount = 38;
     const points = [];
 
-    let seed = Math.abs(Math.round(changePct * 100)) * 71 + (tf === '1W' ? 23 : tf === '1M' ? 53 : tf === '1Y' ? 89 : 13);
+    let seed = Math.abs(Math.round(changePct * 100)) * 71 + (tf === '1H' ? 9 : tf === '1W' ? 23 : tf === '1M' ? 53 : tf === '1Y' ? 89 : 13);
     function rand() {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
@@ -6564,7 +6564,8 @@ function clearLiveChartAiOverlay() {
         btn.classList.add("active");
         const tf = btn.dataset.tf || "1D";
         let simulatedPct = changePct;
-        if (tf === "1W") simulatedPct = changePct * 1.8 + 1.2;
+        if (tf === "1H") simulatedPct = changePct * 0.45;
+        else if (tf === "1W") simulatedPct = changePct * 1.8 + 1.2;
         else if (tf === "1M") simulatedPct = changePct * 3.4 - 2.1;
         else if (tf === "1Y") simulatedPct = changePct * 6.5 + 18.5;
         generateTerminalSvgChart(simulatedPct, tf);
