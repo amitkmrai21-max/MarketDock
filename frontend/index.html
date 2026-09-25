@@ -3245,18 +3245,96 @@
 
   <div class="im-watchlist-sheet-backdrop" id="im-watchlist-sheet-backdrop" hidden></div>
 
-  <div class="im-action-sheet" id="im-watchlist-action-sheet" hidden>
+  <div class="im-action-sheet im-kite-sheet" id="im-watchlist-action-sheet" hidden>
     <div class="im-action-sheet-handle"></div>
-    <div class="im-action-sheet-header">
-      <span class="im-action-sheet-symbol" id="im-action-sheet-symbol">&mdash;</span>
-      <span class="im-action-sheet-price" id="im-action-sheet-price">&mdash;</span>
+    
+    <div class="im-kite-header">
+      <div class="im-kite-title-row">
+        <h2 class="im-kite-symbol" id="im-action-sheet-symbol">&mdash;</h2>
+        <button class="im-kite-close-btn" type="button" id="im-action-sheet-cancel-btn" aria-label="Close">&times;</button>
+      </div>
+      <div class="im-kite-sub-row">
+        <span class="im-kite-exchange">NSE</span>
+        <span class="im-kite-price" id="im-action-sheet-price">&mdash;</span>
+        <span class="im-kite-change" id="im-action-sheet-change">+0.00 (+0.00%)</span>
+      </div>
     </div>
-    <div class="im-action-sheet-buttons">
-      <button class="im-action-sheet-btn im-action-sheet-buy" type="button" id="im-action-sheet-buy-btn">Buy</button>
-      <button class="im-action-sheet-btn im-action-sheet-sell" type="button" id="im-action-sheet-sell-btn">Sell</button>
-      <button class="im-action-sheet-btn im-action-sheet-chart" type="button" id="im-action-sheet-chart-btn">View Chart</button>
+
+    <div class="im-kite-trade-buttons">
+      <button class="im-kite-btn im-kite-buy" type="button" id="im-action-sheet-buy-btn">BUY</button>
+      <button class="im-kite-btn im-kite-sell" type="button" id="im-action-sheet-sell-btn">SELL</button>
     </div>
-    <button class="im-action-sheet-cancel" type="button" id="im-action-sheet-cancel-btn">Cancel</button>
+
+    <div class="im-kite-action-links">
+      <button class="im-kite-link-btn" type="button" id="im-action-sheet-chart-btn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        <span>View chart</span>
+      </button>
+      <button class="im-kite-link-btn" type="button" id="im-action-sheet-option-chain-btn">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>Option chain</span>
+      </button>
+    </div>
+
+    <div class="im-kite-secondary-links">
+      <button class="im-kite-sec-link" type="button" id="im-action-sheet-alert-btn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span>Set alert</span>
+      </button>
+      <button class="im-kite-sec-link" type="button" id="im-action-sheet-notes-btn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        <span>Add notes</span>
+      </button>
+      <button class="im-kite-sec-link" type="button" id="im-action-sheet-gtt-btn">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        <span>Create GTT</span>
+      </button>
+    </div>
+
+    <div class="im-kite-depth-section">
+      <div class="im-kite-depth-table">
+        <div class="im-kite-depth-head">
+          <span class="im-kd-col im-kd-bid">Bid</span>
+          <span class="im-kd-col im-kd-orders">Orders</span>
+          <span class="im-kd-col im-kd-qty">Qty</span>
+          <span class="im-kd-col im-kd-offer">Offer</span>
+          <span class="im-kd-col im-kd-orders">Orders</span>
+          <span class="im-kd-col im-kd-qty">Qty</span>
+        </div>
+        <div class="im-kite-depth-body" id="im-kite-depth-rows"></div>
+        <div class="im-kite-depth-total">
+          <div class="im-kd-total-half im-kd-bid-total">
+            <span class="im-kd-total-label">Total</span>
+            <strong class="im-kd-total-val" id="im-kd-bid-total-qty">0</strong>
+          </div>
+          <div class="im-kd-total-half im-kd-offer-total">
+            <span class="im-kd-total-label">Total</span>
+            <strong class="im-kd-total-val" id="im-kd-offer-total-qty">0</strong>
+          </div>
+        </div>
+      </div>
+      <button class="im-kite-depth-toggle" type="button" id="im-kite-depth-toggle-btn">Show 20 depth</button>
+    </div>
+
+    <div class="im-kite-range-section">
+      <div class="im-kite-range-title">Day's range</div>
+      <div class="im-kite-range-bar-wrap">
+        <div class="im-kite-range-track">
+          <div class="im-kite-range-fill" id="im-kite-range-fill"></div>
+          <div class="im-kite-range-marker" id="im-kite-range-marker"></div>
+        </div>
+      </div>
+      <div class="im-kite-range-labels">
+        <div class="im-kite-range-val">
+          <span class="im-range-tag">Low</span>
+          <strong id="im-kite-range-low">&mdash;</strong>
+        </div>
+        <div class="im-kite-range-val" style="text-align: right;">
+          <span class="im-range-tag">High</span>
+          <strong id="im-kite-range-high">&mdash;</strong>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="im-action-sheet im-delete-sheet" id="im-watchlist-delete-sheet" hidden>
