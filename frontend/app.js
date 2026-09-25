@@ -6449,23 +6449,35 @@ function clearLiveChartAiOverlay() {
     const gradStopColor = isPositive ? "#00d4b2" : "#f43f5e";
 
     const width = 360;
-    const height = 100;
-    const pointsCount = 28;
+    const height = 96;
+    const pointsCount = 38;
     const points = [];
 
-    let seed = Math.abs(changePct * 37) + (tf === '1W' ? 7 : tf === '1M' ? 19 : tf === '1Y' ? 43 : 11);
+    let seed = Math.abs(Math.round(changePct * 100)) * 71 + (tf === '1W' ? 23 : tf === '1M' ? 53 : tf === '1Y' ? 89 : 13);
     function rand() {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     }
 
-    let val = 50;
-    const drift = isPositive ? -0.7 : 0.7;
+    const openY = isPositive ? 64 : 32;
+    const targetEndY = isPositive ? (openY - 26 - (rand() * 8)) : (openY + 26 + (rand() * 8));
+
     for (let i = 0; i < pointsCount; i++) {
-      const x = (i / (pointsCount - 1)) * (width - 24) + 12;
-      val += (rand() - 0.48) * 9 + drift;
-      val = Math.max(18, Math.min(height - 18, val));
-      points.push({ x: Number(x.toFixed(1)), y: Number(val.toFixed(1)) });
+      const progress = i / (pointsCount - 1);
+      const x = progress * (width - 24) + 12;
+
+      const macro = openY + (targetEndY - openY) * Math.pow(progress, 0.88);
+      const wave = Math.sin(progress * Math.PI * 3.6 + (seed % 9)) * 6.5 + Math.cos(progress * Math.PI * 7.2) * 3;
+      const tick = (rand() - 0.49) * 3.8;
+
+      let y = macro + wave + tick;
+      y = Math.max(14, Math.min(height - 14, y));
+
+      if (i === pointsCount - 1) {
+        if (isPositive && y >= openY) y = openY - 14;
+        if (!isPositive && y <= openY) y = openY + 14;
+      }
+      points.push({ x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) });
     }
 
     let lineD = `M ${points[0].x} ${points[0].y}`;
@@ -6473,7 +6485,7 @@ function clearLiveChartAiOverlay() {
       lineD += ` L ${points[i].x} ${points[i].y}`;
     }
     const lastP = points[points.length - 1];
-    const areaD = `${lineD} L ${lastP.x} ${height - 5} L ${points[0].x} ${height - 5} Z`;
+    const areaD = `${lineD} L ${lastP.x} ${height - 2} L ${points[0].x} ${height - 2} Z`;
 
     const svgWrap = document.getElementById("im-terminal-svg");
     if (svgWrap) {
@@ -6481,24 +6493,25 @@ function clearLiveChartAiOverlay() {
       svgWrap.innerHTML = `
         <defs>
           <linearGradient id="im-chart-dyn-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="${gradStopColor}" stop-opacity="0.32"/>
+            <stop offset="0%" stop-color="${gradStopColor}" stop-opacity="0.28"/>
             <stop offset="100%" stop-color="${gradStopColor}" stop-opacity="0.0"/>
           </linearGradient>
         </defs>
-        <!-- Financial Grid Lines -->
-        <line x1="10" y1="25" x2="${width - 10}" y2="25" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" stroke-width="1"/>
-        <line x1="10" y1="50" x2="${width - 10}" y2="50" stroke="rgba(255,255,255,0.06)" stroke-dasharray="3,3" stroke-width="1"/>
-        <line x1="10" y1="75" x2="${width - 10}" y2="75" stroke="rgba(255,255,255,0.05)" stroke-dasharray="3,3" stroke-width="1"/>
+        <!-- Horizontal Base / Open Reference Line -->
+        <line x1="8" y1="${openY}" x2="${width - 8}" y2="${openY}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="2,3" stroke-width="1"/>
+        <!-- Background Grid -->
+        <line x1="8" y1="22" x2="${width - 8}" y2="22" stroke="rgba(255,255,255,0.04)" stroke-dasharray="3,4" stroke-width="1"/>
+        <line x1="8" y1="${height - 18}" x2="${width - 8}" y2="${height - 18}" stroke="rgba(255,255,255,0.04)" stroke-dasharray="3,4" stroke-width="1"/>
         <!-- Area fill & Financial Line -->
         <path d="${areaD}" fill="url(#im-chart-dyn-grad)" />
-        <path d="${lineD}" fill="none" stroke="${strokeColor}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />
-        <!-- Current Price Ping Dot -->
-        <circle cx="${lastP.x}" cy="${lastP.y}" r="4" fill="${strokeColor}" />
-        <circle cx="${lastP.x}" cy="${lastP.y}" r="8" fill="none" stroke="${strokeColor}" stroke-width="1.5" opacity="0.45" />
+        <path d="${lineD}" fill="none" stroke="${strokeColor}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" />
+        <!-- Current Price Reference Line & Ping Dot -->
+        <line x1="${points[0].x}" y1="${lastP.y}" x2="${lastP.x}" y2="${lastP.y}" stroke="${strokeColor}" stroke-dasharray="2,2" stroke-width="1" opacity="0.35"/>
+        <circle cx="${lastP.x}" cy="${lastP.y}" r="3.5" fill="${strokeColor}" />
+        <circle cx="${lastP.x}" cy="${lastP.y}" r="7" fill="none" stroke="${strokeColor}" stroke-width="1.2" opacity="0.4" />
       `;
     }
   }
-
   function openImWatchlistActionSheet(symbol, price) {
     imSheetOpenedAt = Date.now();
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
