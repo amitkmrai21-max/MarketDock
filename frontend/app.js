@@ -5596,6 +5596,28 @@ function clearLiveChartAiOverlay() {
     return `<span class="im-ai-score ${cls}">${score} &middot; ${escapeHtml(label)}</span>`;
   }
 
+  let imWatchlistSortMode = "manual"; // "manual" | "alpha" | "change" | "price"
+  let imWatchlistLastRows = [];
+
+  function sortImWatchlistRows(rows) {
+    if (imWatchlistSortMode === "manual") return rows;
+    const sorted = [...rows];
+    if (imWatchlistSortMode === "alpha") {
+      sorted.sort((a, b) => String(a.symbol).localeCompare(String(b.symbol)));
+    } else if (imWatchlistSortMode === "change") {
+      sorted.sort((a, b) => (Number(b.change_percent) || 0) - (Number(a.change_percent) || 0));
+    } else if (imWatchlistSortMode === "price") {
+      sorted.sort((a, b) => (Number(b.last_price) || 0) - (Number(a.last_price) || 0));
+    }
+    return sorted;
+  }
+
+  function updateImWatchlistSearchCount() {
+    const countEl = document.getElementById("im-watchlist-search-count");
+    if (!countEl) return;
+    countEl.textContent = `${getActiveImWatchlist().symbols.length}/${IM_MAX_SYMBOLS_PER_WATCHLIST}`;
+  }
+
   function renderWatchlist(rows) {
     const body = document.getElementById("im-watchlist-body");
     const status = document.getElementById("im-watchlist-status");
@@ -5604,6 +5626,8 @@ function clearLiveChartAiOverlay() {
     // re-render mid-drag (the 5-second poll calls this too) — skip this
     // refresh and let the next poll pick up fresh prices once it's done.
     if (imWatchlistDragPointerId !== null) return;
+
+    updateImWatchlistSearchCount();
 
     if (!Array.isArray(rows) || !rows.length) {
       body.innerHTML = `<tr><td colspan="5">No symbols in this watchlist yet. Add one above.</td></tr>`;
@@ -5614,7 +5638,9 @@ function clearLiveChartAiOverlay() {
       return;
     }
 
-    body.innerHTML = rows
+    body.classList.toggle("im-watchlist-body-sorted", imWatchlistSortMode !== "manual");
+
+    body.innerHTML = sortImWatchlistRows(rows)
       .map((row) => {
         const symbol = escapeHtml(row.symbol);
         return `
@@ -5637,6 +5663,7 @@ function clearLiveChartAiOverlay() {
     const watchlist = getActiveImWatchlist();
 
     if (!watchlist.symbols.length) {
+      imWatchlistLastRows = [];
       renderWatchlist([]);
       if (status) {
         status.hidden = false;
@@ -5651,6 +5678,7 @@ function clearLiveChartAiOverlay() {
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "Watchlist request failed.");
       }
+      imWatchlistLastRows = Array.isArray(result.data) ? result.data : [];
       renderWatchlist(result.data);
 
       if (typeof checkImPaperTrades === "function" && Array.isArray(result.data)) {
@@ -5807,6 +5835,39 @@ function clearLiveChartAiOverlay() {
     });
   }
 
+  function setupImWatchlistSortPanel() {
+    const btn = document.getElementById("im-watchlist-sort-btn");
+    const panel = document.getElementById("im-watchlist-sort-panel");
+    if (!btn || !panel) return;
+
+    function updateActiveSortOption() {
+      btn.classList.toggle("active", imWatchlistSortMode !== "manual");
+      panel.querySelectorAll(".im-watchlist-sort-option").forEach((opt) => {
+        opt.classList.toggle("active", opt.dataset.sort === imWatchlistSortMode);
+      });
+    }
+    updateActiveSortOption();
+
+    btn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      hideImWatchlistSearchResults();
+      panel.hidden = !panel.hidden;
+    });
+
+    panel.addEventListener("click", (event) => {
+      const opt = event.target.closest(".im-watchlist-sort-option");
+      if (!opt) return;
+      imWatchlistSortMode = opt.dataset.sort;
+      updateActiveSortOption();
+      panel.hidden = true;
+      renderWatchlist(imWatchlistLastRows);
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".im-watchlist-search-wrap")) panel.hidden = true;
+    });
+  }
+
   function setupImWatchlistControls() {
     const tabsEl = document.getElementById("im-watchlist-tabs");
     if (tabsEl) {
@@ -5838,6 +5899,7 @@ function clearLiveChartAiOverlay() {
     }
 
     setupImWatchlistSearch();
+    setupImWatchlistSortPanel();
 
     const deleteBtn = document.getElementById("im-watchlist-delete-btn");
     if (deleteBtn) {
@@ -6052,6 +6114,10 @@ function clearLiveChartAiOverlay() {
       if (!row) return;
 
       if (handle) {
+        // Dragging only makes sense in manual order — while a live sort
+        // (A-Z / % change / LTP) is active, the row would just snap back
+        // to its sorted spot on the next poll anyway.
+        if (imWatchlistSortMode !== "manual") return;
         event.preventDefault();
         imWatchlistDragPointerId = event.pointerId;
         imWatchlistDragPointerOffsetY = event.clientY - row.getBoundingClientRect().top;
