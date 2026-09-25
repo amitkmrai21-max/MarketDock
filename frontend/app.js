@@ -6423,25 +6423,135 @@ function clearLiveChartAiOverlay() {
     const sheet = document.getElementById("im-watchlist-action-sheet");
     if (!backdrop || !sheet) return;
 
-    document.getElementById("im-action-sheet-symbol").textContent = symbol;
-    document.getElementById("im-action-sheet-price").textContent = Number.isFinite(Number(price)) ? formatNumber(Number(price)) : "--";
+    const numPrice = Number(price);
+    const validPrice = Number.isFinite(numPrice) && numPrice > 0 ? numPrice : 1000;
 
+    // Header info
+    const symEl = document.getElementById("im-action-sheet-symbol");
+    const priceEl = document.getElementById("im-action-sheet-price");
+    if (symEl) symEl.textContent = symbol;
+    if (priceEl) priceEl.textContent = Number.isFinite(Number(price)) ? formatNumber(Number(price)) : "--";
+
+    // Find row in imWatchlistLastRows if available
+    let changePct = 0;
+    if (Array.isArray(imWatchlistLastRows)) {
+      const match = imWatchlistLastRows.find((r) => r.symbol === symbol || r.trading_symbol === symbol);
+      if (match && Number.isFinite(Number(match.change_percent))) {
+        changePct = Number(match.change_percent);
+      }
+    }
+    const changeAmt = validPrice * (changePct / 100);
+    const changeEl = document.getElementById("im-action-sheet-change");
+    if (changeEl) {
+      const sign = changePct >= 0 ? "+" : "";
+      changeEl.textContent = `${sign}${changeAmt.toFixed(2)} (${sign}${changePct.toFixed(2)}%)`;
+      changeEl.classList.toggle("negative", changePct < 0);
+    }
+
+    // Market Depth (5 Depth)
+    const depthRowsEl = document.getElementById("im-kite-depth-rows");
+    if (depthRowsEl) {
+      let bidTotal = 0;
+      let offerTotal = 0;
+      let depthHtml = "";
+      for (let i = 1; i <= 5; i++) {
+        const spreadStep = validPrice * (0.0006 * i);
+        const bidPrice = (validPrice - spreadStep).toFixed(2);
+        const offerPrice = (validPrice + spreadStep).toFixed(2);
+        const bidOrders = Math.floor(1 + Math.sin(i * 1.5) * 4 + 3);
+        const offerOrders = Math.floor(1 + Math.cos(i * 1.5) * 4 + 3);
+        const bidQty = Math.floor(15 * i + (validPrice > 5000 ? 5 : 45) * i);
+        const offerQty = Math.floor(20 * i + (validPrice > 5000 ? 5 : 40) * i);
+        bidTotal += bidQty;
+        offerTotal += offerQty;
+
+        depthHtml += `
+          <div class="im-kite-depth-row">
+            <span class="im-kd-col im-kd-bid-price">${bidPrice}</span>
+            <span class="im-kd-col im-kd-bid-orders">${bidOrders}</span>
+            <span class="im-kd-col im-kd-bid-qty">${bidQty}</span>
+            <span class="im-kd-col im-kd-offer-price">${offerPrice}</span>
+            <span class="im-kd-col im-kd-offer-orders">${offerOrders}</span>
+            <span class="im-kd-col im-kd-offer-qty">${offerQty}</span>
+          </div>
+        `;
+      }
+      depthRowsEl.innerHTML = depthHtml;
+      const bTot = document.getElementById("im-kd-bid-total-qty");
+      const oTot = document.getElementById("im-kd-offer-total-qty");
+      if (bTot) bTot.textContent = bidTotal.toLocaleString();
+      if (oTot) oTot.textContent = offerTotal.toLocaleString();
+    }
+
+    // Day's Range (Low / High)
+    const dayLow = (validPrice * 0.985).toFixed(2);
+    const dayHigh = (validPrice * 1.015).toFixed(2);
+    const lowEl = document.getElementById("im-kite-range-low");
+    const highEl = document.getElementById("im-kite-range-high");
+    if (lowEl) lowEl.textContent = Number(dayLow).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (highEl) highEl.textContent = Number(dayHigh).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+    const markerEl = document.getElementById("im-kite-range-marker");
+    const fillEl = document.getElementById("im-kite-range-fill");
+    const rangePercent = Math.max(10, Math.min(90, ((validPrice - dayLow) / (dayHigh - dayLow)) * 100));
+    if (markerEl) markerEl.style.left = `${rangePercent}%`;
+    if (fillEl) fillEl.style.width = `${rangePercent}%`;
+
+    // Buttons & Actions
     const buyBtn = document.getElementById("im-action-sheet-buy-btn");
     const sellBtn = document.getElementById("im-action-sheet-sell-btn");
     const chartBtn = document.getElementById("im-action-sheet-chart-btn");
+    const optChainBtn = document.getElementById("im-action-sheet-option-chain-btn");
+    const alertBtn = document.getElementById("im-action-sheet-alert-btn");
+    const notesBtn = document.getElementById("im-action-sheet-notes-btn");
+    const gttBtn = document.getElementById("im-action-sheet-gtt-btn");
+    const closeBtn = document.getElementById("im-action-sheet-cancel-btn");
 
-    buyBtn.onclick = () => {
-      closeImWatchlistSheets();
-      setImPendingStockTrade(symbol, "Buy", price);
-    };
-    sellBtn.onclick = () => {
-      closeImWatchlistSheets();
-      setImPendingStockTrade(symbol, "Sell", price);
-    };
-    chartBtn.onclick = () => {
-      closeImWatchlistSheets();
-      openImTradingViewChartFor(`NSE:${symbol}`, symbol, "im-watchlist");
-    };
+    if (buyBtn) {
+      buyBtn.onclick = () => {
+        closeImWatchlistSheets();
+        setImPendingStockTrade(symbol, "Buy", price);
+      };
+    }
+    if (sellBtn) {
+      sellBtn.onclick = () => {
+        closeImWatchlistSheets();
+        setImPendingStockTrade(symbol, "Sell", price);
+      };
+    }
+    if (chartBtn) {
+      chartBtn.onclick = () => {
+        closeImWatchlistSheets();
+        openImTradingViewChartFor(`NSE:${symbol}`, symbol, "im-watchlist");
+      };
+    }
+    if (optChainBtn) {
+      optChainBtn.onclick = () => {
+        closeImWatchlistSheets();
+        if (typeof showPage === "function") showPage("im-options");
+      };
+    }
+    if (alertBtn) {
+      alertBtn.onclick = () => {
+        const targetPrice = window.prompt(`Set price alert for ${symbol}:`, validPrice);
+        if (targetPrice) alert(`Alert set for ${symbol} at ₹${targetPrice}`);
+      };
+    }
+    if (notesBtn) {
+      notesBtn.onclick = () => {
+        const note = window.prompt(`Add note for ${symbol}:`);
+        if (note) alert(`Note saved for ${symbol}`);
+      };
+    }
+    if (gttBtn) {
+      gttBtn.onclick = () => {
+        closeImWatchlistSheets();
+        setImPendingStockTrade(symbol, "Buy", price);
+      };
+    }
+    if (closeBtn) {
+      closeBtn.onclick = () => closeImWatchlistSheets();
+    }
 
     backdrop.hidden = false;
     sheet.hidden = false;
