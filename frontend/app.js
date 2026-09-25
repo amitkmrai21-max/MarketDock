@@ -4617,6 +4617,22 @@ function clearLiveChartAiOverlay() {
     });
   });
 
+  // Tapping a search box (or any text input) focuses it and pops the
+  // on-screen keyboard, without opening any of the overlays below — e.g.
+  // an empty search box, or one whose dropdown already closed after
+  // picking a result. That focused state isn't tracked as an "overlay"
+  // either, so back had nothing to intercept and fell straight through to
+  // exiting the app instead of just dismissing the keyboard, same gap as
+  // the overlays below. Checked first, before anything else.
+  function blurAnyFocusedImInput() {
+    const active = document.activeElement;
+    if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) {
+      active.blur();
+      return true;
+    }
+    return false;
+  }
+
   // Any small overlay (a search-suggestions dropdown, the Watchlist's
   // sort panel, its Buy/Sell/Chart or delete-confirm sheet) sits on top of
   // whatever page it opened from without changing the page itself — none
@@ -4661,7 +4677,12 @@ function clearLiveChartAiOverlay() {
   const capacitorApp = window.Capacitor?.Plugins?.App;
   if (capacitorApp?.addListener) {
     capacitorApp.addListener("backButton", ({ canGoBack }) => {
-      if (closeAnyOpenImOverlay()) return;
+      // Both can be true together (a focused search box with its dropdown
+      // open) — run both so a single back press clears the whole thing
+      // instead of needing a second press once the input loses focus.
+      const blurredInput = blurAnyFocusedImInput();
+      const closedOverlay = closeAnyOpenImOverlay();
+      if (blurredInput || closedOverlay) return;
       // Fullscreen Live Chart is a modal-like overlay on top of whatever
       // page opened it — close that first, same as Escape already does,
       // before considering a page drill-down or exiting.
