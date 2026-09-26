@@ -9118,26 +9118,89 @@ body.im-chart-fullscreen-open {
   will-change: transform, opacity;
 }
 
+.indian-market-mode #im-watchlist /* Watchlist table responsive improvements */
 .indian-market-mode #im-watchlist .im-watchlist-table {
   min-width: 100%;
   width: 100%;
-  table-layout: auto;
+  table-layout: fixed;
+}
+
+.indian-market-mode #im-watchlist .im-watchlist-drag-col {
+  width: 24px;
+  text-align: center;
+  padding: 8px 2px;
+}
+
+.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(2),
+.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(2) {
+  width: 32%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(3),
+.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(3) {
+  width: 22%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(4),
+.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(4) {
+  width: 20%;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(5),
+.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(5) {
+  width: 26%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.im-ai-score-short {
+  display: none;
+}
+.im-ai-score-full {
+  display: inline;
+}
+.im-col-short {
+  display: none;
+}
+.im-col-full {
+  display: inline;
 }
 
 @media (max-width: 640px) {
   .indian-market-mode #im-watchlist .im-watchlist-table th,
   .indian-market-mode #im-watchlist .im-watchlist-table td {
-    padding: 10px 6px;
-    font-size: 12px;
+    padding: 8px 3px;
+    font-size: 11px;
   }
   .indian-market-mode #im-watchlist .im-watchlist-drag-col {
-    width: 18px;
-    padding-left: 2px;
-    padding-right: 2px;
+    width: 16px;
+    padding: 8px 1px;
+    font-size: 10px;
   }
   .indian-market-mode #im-watchlist .im-ai-score {
-    font-size: 10px;
-    padding: 2px 6px;
+    font-size: 9.5px;
+    padding: 2px 4px;
     white-space: nowrap;
+    letter-spacing: -0.2px;
+  }
+  .im-ai-score-full {
+    display: none;
+  }
+  .im-ai-score-short {
+    display: inline;
+  }
+  .im-col-full {
+    display: none;
+  }
+  .im-col-short {
+    display: inline;
   }
 }
+
