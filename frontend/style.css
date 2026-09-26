@@ -9343,15 +9343,15 @@ body.im-chart-fullscreen-open {
 .im-watchlist-summary-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   padding: 10px 4px 12px 4px;
-  gap: 8px;
 }
 .im-watchlist-summary-right {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 5px;
   flex-wrap: nowrap;
+  width: 100%;
 }
 .im-summary-pill {
   display: inline-flex;
