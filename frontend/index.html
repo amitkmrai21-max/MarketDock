@@ -61,7 +61,7 @@
     ☰
   </button>
 
-  <span id="topMarketStatus" class="market-status-badge" role="status">
+  <span id="topMarketStatus" class="market-status-badge" role="status" hidden>
     <span class="market-status-dot"></span>
     <span id="topMarketStatusText">Connecting…</span>
   </span>
@@ -3756,21 +3756,9 @@
     </section>
 
     <p class="settings-help" id="appBuildVersion">Version: --</p>
-
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-        </span>
-        <h3>Back button debug log</h3>
-      </div>
-      <p class="settings-help">Temporary — records what the last few back-button presses did, so a report of the app closing unexpectedly can be checked against it.</p>
-      <button id="imBackDebugLogRefreshBtn" class="reset-settings-btn" type="button">Refresh log</button>
-      <pre id="imBackDebugLogOutput" style="white-space: pre-wrap; font-size: 11px; line-height: 1.5; max-height: 260px; overflow-y: auto; margin-top: 10px; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.25);"></pre>
-    </section>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260926v17"></script>
+  <script src="/frontend/app.js?v=v20260926v18"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
