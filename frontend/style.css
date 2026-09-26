@@ -9338,3 +9338,312 @@ body.im-chart-fullscreen-open {
   color: #fecdd3 !important;
   border-left: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
+
+/* === MarketDock Watchlist Modern Card Design (Matching Reference) === */
+.im-watchlist-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 4px 12px 4px;
+  gap: 8px;
+}
+.im-watchlist-summary-left {
+  display: flex;
+  flex-direction: column;
+}
+.im-summary-count {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+}
+.im-summary-sub {
+  font-size: 11px;
+  color: #7b8ba5;
+  line-height: 1.2;
+}
+.im-watchlist-summary-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: nowrap;
+}
+.im-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+}
+.im-summary-pill strong {
+  font-weight: 700;
+}
+.im-summary-buy {
+  background: rgba(0, 208, 132, 0.12);
+  color: #00d084;
+  border: 1px solid rgba(0, 208, 132, 0.3);
+}
+.im-summary-neutral {
+  background: rgba(123, 139, 165, 0.12);
+  color: #8da2c0;
+  border: 1px solid rgba(123, 139, 165, 0.3);
+}
+.im-summary-sell {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.im-arrow-up, .im-arrow-down, .im-arrow-neutral {
+  font-size: 9px;
+}
+
+/* Watchlist Table Headers */
+.im-watchlist-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: separate !important;
+  border-spacing: 0 4px !important;
+}
+.im-watchlist-table th {
+  padding: 6px 3px !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.3px !important;
+  border: none !important;
+}
+.im-th-num {
+  width: 7% !important;
+  text-align: center !important;
+}
+.im-th-symbol {
+  width: 41% !important;
+  text-align: left !important;
+  padding-left: 6px !important;
+}
+.im-th-price-chg {
+  width: 26% !important;
+  text-align: right !important;
+  padding-right: 4px !important;
+}
+.im-th-mom {
+  width: 26% !important;
+  text-align: center !important;
+}
+
+/* Watchlist Row as sleek card */
+.im-watchlist-row {
+  background: #0d1424 !important;
+  position: relative !important;
+  border-radius: 6px !important;
+  transition: background 0.15s ease !important;
+  cursor: pointer !important;
+}
+.im-watchlist-row:hover {
+  background: #121c32 !important;
+}
+.im-watchlist-row td {
+  padding: 6px 2px !important;
+  vertical-align: middle !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.04) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+.im-watchlist-row td:first-child {
+  border-top-left-radius: 6px !important;
+  border-bottom-left-radius: 6px !important;
+  border-left: 3px solid transparent !important;
+}
+.im-watchlist-row td:last-child {
+  border-top-right-radius: 6px !important;
+  border-bottom-right-radius: 6px !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Row indicator strip */
+.im-row-buy td:first-child {
+  border-left: 3px solid #00d084 !important;
+}
+.im-row-sell td:first-child {
+  border-left: 3px solid #ef4444 !important;
+}
+.im-row-neutral td:first-child {
+  border-left: 3px solid #64748b !important;
+}
+
+/* Number cell */
+.im-col-num {
+  text-align: center !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+}
+
+/* Symbol & Logo cell */
+.im-col-symbol {
+  text-align: left !important;
+}
+.im-stock-brand-cell {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  overflow: hidden !important;
+}
+.im-stock-avatar {
+  width: 26px !important;
+  height: 26px !important;
+  border-radius: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  color: #ffffff !important;
+  flex-shrink: 0 !important;
+  letter-spacing: -0.5px !important;
+}
+.im-stock-text-col {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  min-width: 0 !important;
+}
+.im-stock-symbol-text {
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.im-stock-name-text {
+  font-size: 10px !important;
+  color: #7b8ba5 !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Price & Change cell */
+.im-col-price-chg {
+  text-align: right !important;
+}
+.im-price-block {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  padding-right: 4px !important;
+}
+.im-price-value {
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  line-height: 1.2 !important;
+  font-variant-numeric: tabular-nums !important;
+}
+.im-change-value {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+}
+.im-change-up {
+  color: #00d084 !important;
+}
+.im-change-down {
+  color: #ef4444 !important;
+}
+.im-change-neutral {
+  color: #94a3b8 !important;
+}
+
+/* Momentum & Chevron cell */
+.im-col-momentum {
+  text-align: center !important;
+}
+.im-mom-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 3px !important;
+  padding-right: 4px !important;
+}
+.im-mom-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  border-radius: 9999px !important;
+  padding: 2px 3px 2px 7px !important;
+  gap: 4px !important;
+}
+.im-mom-pill-buy {
+  background: rgba(0, 208, 132, 0.18) !important;
+  border: 1px solid rgba(0, 208, 132, 0.4) !important;
+}
+.im-mom-pill-buy .im-mom-txt {
+  color: #00d084 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px !important;
+}
+.im-mom-pill-buy .im-mom-bubble {
+  background: #00d084 !important;
+  color: #0b1524 !important;
+  font-weight: 800 !important;
+}
+
+.im-mom-pill-neutral {
+  background: rgba(79, 110, 154, 0.22) !important;
+  border: 1px solid rgba(79, 110, 154, 0.4) !important;
+}
+.im-mom-pill-neutral .im-mom-txt {
+  color: #8fa7c9 !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.2px !important;
+}
+.im-mom-pill-neutral .im-mom-bubble {
+  background: #334863 !important;
+  color: #d1dced !important;
+  font-weight: 700 !important;
+}
+
+.im-mom-pill-sell {
+  background: rgba(239, 68, 68, 0.18) !important;
+  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+}
+.im-mom-pill-sell .im-mom-txt {
+  color: #ef4444 !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px !important;
+}
+.im-mom-pill-sell .im-mom-bubble {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+.im-mom-bubble {
+  width: 19px !important;
+  height: 19px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 9.5px !important;
+  line-height: 1 !important;
+}
+.im-chevron-arrow {
+  color: #4a5c78 !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  padding-left: 1px !important;
+}
