@@ -9657,3 +9657,59 @@ body.im-chart-fullscreen-open {
   line-height: 1 !important;
   padding-left: 1px !important;
 }
+
+/* Watchlist: no serial column, logo-led symbol cell with balanced spacing */
+.indian-market-mode #im-watchlist .im-watchlist-table .im-th-symbol,
+.indian-market-mode #im-watchlist .im-watchlist-table .im-col-symbol {
+  width: 46% !important;
+  padding-left: 12px !important;
+  padding-right: 6px !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-table .im-th-price-chg,
+.indian-market-mode #im-watchlist .im-watchlist-table .im-col-price-chg {
+  width: 24% !important;
+  padding-right: 8px !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-table .im-th-mom,
+.indian-market-mode #im-watchlist .im-watchlist-table .im-col-momentum {
+  width: 30% !important;
+  padding-right: 8px !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-table .im-th-mom {
+  text-align: right !important;
+  padding-right: 24px !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-row td {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+.indian-market-mode #im-watchlist .im-stock-brand-cell {
+  gap: 10px !important;
+}
+.indian-market-mode #im-watchlist .im-stock-avatar.im-watchlist-drag-handle {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 9px !important;
+  font-size: 13px !important;
+  cursor: grab !important;
+}
+.indian-market-mode #im-watchlist .im-stock-text-col {
+  gap: 2px !important;
+}
+.indian-market-mode #im-watchlist .im-stock-symbol-text {
+  font-size: 13.5px !important;
+}
+.indian-market-mode #im-watchlist .im-stock-name-text {
+  font-size: 11px !important;
+}
+.indian-market-mode #im-watchlist .im-price-block {
+  gap: 3px !important;
+  padding-right: 0 !important;
+}
+.indian-market-mode #im-watchlist .im-price-value {
+  font-size: 13.5px !important;
+}
+.indian-market-mode #im-watchlist .im-mom-wrapper {
+  gap: 6px !important;
+  padding-right: 0 !important;
+}

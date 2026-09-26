@@ -5939,7 +5939,7 @@ function clearLiveChartAiOverlay() {
     updateImWatchlistSearchCount();
 
     if (!Array.isArray(rows) || !rows.length) {
-      body.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px 10px;color:var(--im-muted);">No symbols in this watchlist yet. Add one above.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">No symbols in this watchlist yet. Add one above.</td></tr>`;
       if (status) {
         status.hidden = false;
         status.textContent = "Empty";
@@ -6007,10 +6007,9 @@ function clearLiveChartAiOverlay() {
 
         return `
           <tr class="im-watchlist-row ${rowClass}" data-symbol="${symbol}" data-price="${row.last_price ?? ""}">
-            <td class="im-col-num im-watchlist-drag-handle" title="Drag to reorder">${index + 1}</td>
             <td class="im-col-symbol">
               <div class="im-stock-brand-cell">
-                <div class="im-stock-avatar" style="background:${meta.bg};color:${meta.color};">${meta.icon}</div>
+                <div class="im-stock-avatar im-watchlist-drag-handle" title="Drag to reorder" style="background:${meta.bg};color:${meta.color};">${meta.icon}</div>
                 <div class="im-stock-text-col">
                   <span class="im-stock-symbol-text">${symbol}</span>
                   <span class="im-stock-name-text">${escapeHtml(meta.name)}</span>
@@ -6077,7 +6076,7 @@ async function fetchWatchlist() {
         status.textContent = "Unavailable";
       }
       const body = document.getElementById("im-watchlist-body");
-      if (body) body.innerHTML = `<tr><td colspan="4">${escapeHtml(error.message || "Could not load watchlist.")}</td></tr>`;
+      if (body) body.innerHTML = `<tr><td colspan="3">${escapeHtml(error.message || "Could not load watchlist.")}</td></tr>`;
     }
   }
 
