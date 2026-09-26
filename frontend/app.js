@@ -5879,6 +5879,57 @@ function clearLiveChartAiOverlay() {
     countEl.textContent = `${getActiveImWatchlist().symbols.length}/${IM_MAX_SYMBOLS_PER_WATCHLIST}`;
   }
 
+  
+  // Stock company names and branded avatar colors for clean display
+  const IM_STOCK_META = {
+    HDFCBANK: { name: "HDFC Bank", bg: "#004c8f", color: "#ffffff", icon: "H" },
+    ICICIBANK: { name: "ICICI Bank", bg: "#b83804", color: "#ffffff", icon: "i" },
+    SBIN: { name: "State Bank of India", bg: "#0093d8", color: "#ffffff", icon: "S" },
+    KOTAKBANK: { name: "Kotak Mahindra Bank", bg: "#ed1c24", color: "#ffffff", icon: "K" },
+    AXISBANK: { name: "Axis Bank", bg: "#97144d", color: "#ffffff", icon: "A" },
+    BAJFINANCE: { name: "Bajaj Finance", bg: "#0072bc", color: "#ffffff", icon: "B" },
+    BAJAJFINSV: { name: "Bajaj Finserv", bg: "#0072bc", color: "#ffffff", icon: "B" },
+    INDUSINDBK: { name: "IndusInd Bank", bg: "#8a151b", color: "#ffffff", icon: "I" },
+    CHOLAFIN: { name: "Cholamandalam Inv", bg: "#0e5296", color: "#ffffff", icon: "C" },
+    MUTHOOTFIN: { name: "Muthoot Finance", bg: "#d71920", color: "#ffffff", icon: "M" },
+    RELIANCE: { name: "Reliance Industries", bg: "#0a4c9b", color: "#ffffff", icon: "R" },
+    TCS: { name: "Tata Consultancy", bg: "#00539b", color: "#ffffff", icon: "T" },
+    INFY: { name: "Infosys", bg: "#007cc3", color: "#ffffff", icon: "I" },
+    WIPRO: { name: "Wipro", bg: "#353434", color: "#ffffff", icon: "W" },
+    HCLTECH: { name: "HCL Technologies", bg: "#005696", color: "#ffffff", icon: "H" },
+    ITC: { name: "ITC Ltd", bg: "#25488e", color: "#ffffff", icon: "I" },
+    LT: { name: "Larsen & Toubro", bg: "#003b73", color: "#ffffff", icon: "L" },
+    BHARTIARTL: { name: "Bharti Airtel", bg: "#ed1b24", color: "#ffffff", icon: "A" },
+    TATAMOTORS: { name: "Tata Motors", bg: "#1f4388", color: "#ffffff", icon: "T" },
+    MARUTI: { name: "Maruti Suzuki", bg: "#003087", color: "#ffffff", icon: "M" },
+    SUNPHARMA: { name: "Sun Pharma", bg: "#f26522", color: "#ffffff", icon: "S" },
+    CIPLA: { name: "Cipla", bg: "#0d5ca4", color: "#ffffff", icon: "C" },
+    TATASTEEL: { name: "Tata Steel", bg: "#005a9c", color: "#ffffff", icon: "T" },
+    TITAN: { name: "Titan Company", bg: "#231f20", color: "#ffffff", icon: "T" },
+    ASIANPAINT: { name: "Asian Paints", bg: "#d8242f", color: "#ffffff", icon: "A" },
+    NTPC: { name: "NTPC Ltd", bg: "#006699", color: "#ffffff", icon: "N" },
+    POWERGRID: { name: "Power Grid Corp", bg: "#00558f", color: "#ffffff", icon: "P" },
+    ONGC: { name: "ONGC", bg: "#cc0000", color: "#ffffff", icon: "O" },
+    COALINDIA: { name: "Coal India", bg: "#2b2b2b", color: "#ffffff", icon: "C" },
+    ADANIENT: { name: "Adani Enterprises", bg: "#1c3f6e", color: "#ffffff", icon: "A" },
+    ADANIPORTS: { name: "Adani Ports", bg: "#1c3f6e", color: "#ffffff", icon: "A" }
+  };
+
+  function getStockMeta(symbol) {
+    const s = String(symbol || "").toUpperCase().trim();
+    if (IM_STOCK_META[s]) return IM_STOCK_META[s];
+    let hash = 0;
+    for (let i = 0; i < s.length; i++) hash = s.charCodeAt(i) + ((hash << 5) - hash);
+    const colors = ["#0052cc", "#172b4d", "#00875a", "#de350b", "#5243aa", "#00a3bf", "#ff5630", "#403294"];
+    const bg = colors[Math.abs(hash) % colors.length];
+    return {
+      name: s.replace(/[-_]/g, " "),
+      bg: bg,
+      color: "#ffffff",
+      icon: s.slice(0, 2)
+    };
+  }
+
   function renderWatchlist(rows) {
     const body = document.getElementById("im-watchlist-body");
     const status = document.getElementById("im-watchlist-status");
@@ -5893,30 +5944,94 @@ function clearLiveChartAiOverlay() {
         status.hidden = false;
         status.textContent = "Empty";
       }
+      const countEl = document.getElementById("im-watchlist-stocks-count");
+      if (countEl) countEl.textContent = "0 Stocks";
       return;
     }
 
     body.classList.toggle("im-watchlist-body-sorted", imWatchlistSortMode !== "manual");
 
-    body.innerHTML = sortImWatchlistRows(rows)
-      .map((row) => {
+    const sortedRows = sortImWatchlistRows(rows);
+
+    let buyCount = 0;
+    let neutralCount = 0;
+    let sellCount = 0;
+
+    sortedRows.forEach((r) => {
+      const lbl = String(r.ai_label || "").toUpperCase();
+      if (lbl.includes("BUY")) buyCount++;
+      else if (lbl.includes("SELL")) sellCount++;
+      else neutralCount++;
+    });
+
+    const stocksCountEl = document.getElementById("im-watchlist-stocks-count");
+    if (stocksCountEl) stocksCountEl.textContent = `${sortedRows.length} Stocks`;
+    const buyCountEl = document.getElementById("im-summary-buy-count");
+    if (buyCountEl) buyCountEl.textContent = buyCount;
+    const neutralCountEl = document.getElementById("im-summary-neutral-count");
+    if (neutralCountEl) neutralCountEl.textContent = neutralCount;
+    const sellCountEl = document.getElementById("im-summary-sell-count");
+    if (sellCountEl) sellCountEl.textContent = sellCount;
+
+    body.innerHTML = sortedRows
+      .map((row, index) => {
         const symbol = escapeHtml(row.symbol);
+        const meta = getStockMeta(symbol);
         const changeNum = Number(row.change_percent);
         const isUp = Number.isFinite(changeNum) && changeNum >= 0;
         const isDown = Number.isFinite(changeNum) && changeNum < 0;
-        const trendCls = isUp ? "im-trend-up" : (isDown ? "im-trend-down" : "im-trend-neutral");
+
+        const score = typeof row.ai_score === "number" ? Math.round(row.ai_score) : (Number.isFinite(changeNum) ? Math.min(99, Math.max(1, Math.round(50 + changeNum * 12))) : 50);
+        const rawLabel = String(row.ai_label || "").toUpperCase();
+        let action = "NEUTRAL";
+        let momPillClass = "im-mom-pill-neutral";
+        let rowClass = "im-row-neutral";
+
+        if (rawLabel.includes("BUY") || (score >= 60 && !rawLabel.includes("SELL"))) {
+          action = "BUY";
+          momPillClass = "im-mom-pill-buy";
+          rowClass = "im-row-buy";
+        } else if (rawLabel.includes("SELL") || score <= 40) {
+          action = "SELL";
+          momPillClass = "im-mom-pill-sell";
+          rowClass = "im-row-sell";
+        }
+
+        let changeHtml = '<span class="im-change-value im-change-neutral">— 0.00%</span>';
+        if (Number.isFinite(changeNum)) {
+          const sign = changeNum >= 0 ? "+" : "";
+          const arrow = changeNum >= 0 ? "▲" : "▼";
+          const cls = changeNum >= 0 ? "im-change-up" : "im-change-down";
+          changeHtml = `<span class="im-change-value ${cls}">${arrow} ${sign}${changeNum.toFixed(2)}%</span>`;
+        }
 
         return `
-          <tr class="im-watchlist-row" data-symbol="${symbol}" data-price="${row.last_price ?? ""}">
+          <tr class="im-watchlist-row ${rowClass}" data-symbol="${symbol}" data-price="${row.last_price ?? ""}">
+            <td class="im-col-num im-watchlist-drag-handle" title="Drag to reorder">${index + 1}</td>
             <td class="im-col-symbol">
-              <div class="im-symbol-cell">
-                <span class="im-trend-bar ${trendCls} im-watchlist-drag-handle" title="Drag to reorder">&#8203;</span>
-                <span class="im-symbol-name">${symbol}</span>
+              <div class="im-stock-brand-cell">
+                <div class="im-stock-avatar" style="background:${meta.bg};color:${meta.color};">${meta.icon}</div>
+                <div class="im-stock-text-col">
+                  <span class="im-stock-symbol-text">${symbol}</span>
+                  <span class="im-stock-name-text">${escapeHtml(meta.name)}</span>
+                </div>
               </div>
             </td>
-            <td class="im-col-price">${formatNumber(row.last_price)}</td>
-            <td class="im-col-change">${renderWatchlistChange(row.change_percent)}</td>
-            <td class="im-col-mom">${renderAiScoreBadge(row.ai_score, row.ai_label)}</td>
+            <td class="im-col-price-chg">
+              <div class="im-price-block">
+                <span class="im-price-value">${formatNumber(row.last_price)}</span>
+                ${changeHtml}
+              </div>
+            </td>
+            <td class="im-col-momentum">
+              <div class="im-mom-wrapper">
+                <div class="im-mom-pill ${momPillClass}">
+                  <span class="im-mom-txt">${action}</span>
+                  <span class="im-mom-bubble">${score}</span>
+                </div>
+                <span class="im-chevron-arrow">›</span>
+              </div>
+            </td>
           </tr>
         `;
       })
@@ -5925,7 +6040,7 @@ function clearLiveChartAiOverlay() {
     if (status) status.hidden = true;
   }
 
-  async function fetchWatchlist() {
+async function fetchWatchlist() {
     const status = document.getElementById("im-watchlist-status");
     const watchlist = getActiveImWatchlist();
 
