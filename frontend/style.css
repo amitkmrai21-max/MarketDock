@@ -9608,7 +9608,7 @@ body.im-chart-fullscreen-open {
 .im-mom-pill-buy .im-mom-bubble {
   background: #0b1524 !important;
   color: #d1fae5 !important;
-  border: 1.5px solid #10b981 !important;
+  border: 2px solid #10b981 !important;
 }
 
 .im-mom-pill-neutral {
@@ -9621,7 +9621,7 @@ body.im-chart-fullscreen-open {
 .im-mom-pill-neutral .im-mom-bubble {
   background: #0b1524 !important;
   color: #cbd5e1 !important;
-  border: 1.5px solid #64748b !important;
+  border: 2px solid #64748b !important;
 }
 
 .im-mom-pill-sell {
@@ -9634,19 +9634,19 @@ body.im-chart-fullscreen-open {
 .im-mom-pill-sell .im-mom-bubble {
   background: #0b1524 !important;
   color: #fecaca !important;
-  border: 1.5px solid #ef4444 !important;
+  border: 2px solid #ef4444 !important;
 }
 
 .im-mom-bubble {
   box-sizing: border-box !important;
-  flex: 0 0 16px !important;
-  width: 16px !important;
-  height: 16px !important;
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 20px !important;
   border-radius: 50% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 8px !important;
+  font-size: 9.5px !important;
   font-weight: 800 !important;
   font-variant-numeric: tabular-nums !important;
   line-height: 1 !important;
@@ -9798,18 +9798,18 @@ body.im-chart-fullscreen-open {
   gap: 6px !important;
 }
 .indian-market-mode #im-watchlist .im-mom-pill {
-  flex: 0 0 108px !important;
-  width: 108px !important;
-  min-width: 108px !important;
-  max-width: 108px !important;
-  height: 30px !important;
+  flex: 0 0 90px !important;
+  width: 90px !important;
+  min-width: 90px !important;
+  max-width: 90px !important;
+  height: 24px !important;
   box-sizing: border-box !important;
 }
 
 @media (max-width: 360px) {
   .indian-market-mode #im-watchlist .im-watchlist-table .im-th-mom,
   .indian-market-mode #im-watchlist .im-watchlist-table .im-col-momentum { width: 106px !important; }
-  .indian-market-mode #im-watchlist .im-mom-pill { flex-basis: 98px !important; width: 98px !important; min-width: 98px !important; max-width: 98px !important; }
+  .indian-market-mode #im-watchlist .im-mom-pill { flex-basis: 84px !important; width: 84px !important; min-width: 84px !important; max-width: 84px !important; }
   .indian-market-mode #im-watchlist .im-watchlist-table .im-th-price-chg,
   .indian-market-mode #im-watchlist .im-watchlist-table .im-col-price-chg { width: 68px !important; }
 }
