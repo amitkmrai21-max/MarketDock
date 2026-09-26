@@ -9579,66 +9579,76 @@ body.im-chart-fullscreen-open {
 .im-mom-pill {
   display: inline-flex !important;
   align-items: center !important;
+  justify-content: space-between !important;
+  box-sizing: border-box !important;
+  width: 92px !important;
+  min-width: 92px !important;
+  max-width: 92px !important;
+  height: 24px !important;
   border-radius: 9999px !important;
-  padding: 2px 3px 2px 7px !important;
-  gap: 4px !important;
+  padding: 0 2px 0 0 !important;
+  gap: 0 !important;
+}
+.im-mom-txt {
+  flex: 1 1 auto !important;
+  text-align: center !important;
+  font-size: 9.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.4px !important;
+  line-height: 1 !important;
+  white-space: nowrap !important;
 }
 .im-mom-pill-buy {
-  background: rgba(0, 208, 132, 0.18) !important;
-  border: 1px solid rgba(0, 208, 132, 0.4) !important;
+  background: linear-gradient(90deg, #047857 0%, #065f46 100%) !important;
+  border: 1px solid rgba(16, 185, 129, 0.55) !important;
 }
 .im-mom-pill-buy .im-mom-txt {
-  color: #00d084 !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.3px !important;
+  color: #ecfdf5 !important;
 }
 .im-mom-pill-buy .im-mom-bubble {
-  background: #00d084 !important;
-  color: #0b1524 !important;
-  font-weight: 800 !important;
+  background: #0b1524 !important;
+  color: #d1fae5 !important;
+  border: 2px solid #10b981 !important;
 }
 
 .im-mom-pill-neutral {
-  background: rgba(79, 110, 154, 0.22) !important;
-  border: 1px solid rgba(79, 110, 154, 0.4) !important;
+  background: linear-gradient(90deg, #334863 0%, #243449 100%) !important;
+  border: 1px solid rgba(100, 130, 170, 0.55) !important;
 }
 .im-mom-pill-neutral .im-mom-txt {
-  color: #8fa7c9 !important;
-  font-size: 9.5px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.2px !important;
+  color: #e2e8f0 !important;
 }
 .im-mom-pill-neutral .im-mom-bubble {
-  background: #334863 !important;
-  color: #d1dced !important;
-  font-weight: 700 !important;
+  background: #0b1524 !important;
+  color: #cbd5e1 !important;
+  border: 2px solid #64748b !important;
 }
 
 .im-mom-pill-sell {
-  background: rgba(239, 68, 68, 0.18) !important;
-  border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  background: linear-gradient(90deg, #b91c1c 0%, #7f1d1d 100%) !important;
+  border: 1px solid rgba(239, 68, 68, 0.55) !important;
 }
 .im-mom-pill-sell .im-mom-txt {
-  color: #ef4444 !important;
-  font-size: 10px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.3px !important;
+  color: #fef2f2 !important;
 }
 .im-mom-pill-sell .im-mom-bubble {
-  background: #ef4444 !important;
-  color: #ffffff !important;
-  font-weight: 800 !important;
+  background: #0b1524 !important;
+  color: #fecaca !important;
+  border: 2px solid #ef4444 !important;
 }
 
 .im-mom-bubble {
-  width: 19px !important;
-  height: 19px !important;
+  box-sizing: border-box !important;
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 20px !important;
   border-radius: 50% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
   font-size: 9.5px !important;
+  font-weight: 800 !important;
+  font-variant-numeric: tabular-nums !important;
   line-height: 1 !important;
 }
 .im-chevron-arrow {
