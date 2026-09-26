@@ -5884,8 +5884,6 @@ function clearLiveChartAiOverlay() {
         status.hidden = false;
         status.textContent = "Empty";
       }
-      const countEl = document.getElementById("im-watchlist-stocks-count");
-      if (countEl) countEl.textContent = "0 Stocks";
       return;
     }
 
@@ -5896,22 +5894,6 @@ function clearLiveChartAiOverlay() {
     let buyCount = 0;
     let neutralCount = 0;
     let sellCount = 0;
-
-    sortedRows.forEach((r) => {
-      const lbl = String(r.ai_label || "").toUpperCase();
-      if (lbl.includes("BUY")) buyCount++;
-      else if (lbl.includes("SELL")) sellCount++;
-      else neutralCount++;
-    });
-
-    const stocksCountEl = document.getElementById("im-watchlist-stocks-count");
-    if (stocksCountEl) stocksCountEl.textContent = `${sortedRows.length} Stocks`;
-    const buyCountEl = document.getElementById("im-summary-buy-count");
-    if (buyCountEl) buyCountEl.textContent = buyCount;
-    const neutralCountEl = document.getElementById("im-summary-neutral-count");
-    if (neutralCountEl) neutralCountEl.textContent = neutralCount;
-    const sellCountEl = document.getElementById("im-summary-sell-count");
-    if (sellCountEl) sellCountEl.textContent = sellCount;
 
     body.innerHTML = sortedRows
       .map((row, index) => {
@@ -5940,6 +5922,15 @@ function clearLiveChartAiOverlay() {
           momPillClass = "im-mom-pill-sell";
           rowClass = "im-row-sell";
         }
+
+        // Tallied here (rather than in a separate pass over row.ai_label)
+        // so the summary chips always match exactly what each row's own
+        // pill displays — a separate label-only pass previously undercounted
+        // everything as neutral, since the backend's label text ("Bullish"/
+        // "Bearish") never literally contains the substring "BUY"/"SELL".
+        if (action === "BULLISH") buyCount++;
+        else if (action === "BEARISH") sellCount++;
+        else neutralCount++;
 
         let changeHtml = '<span class="im-change-value im-change-neutral">— 0.00%</span>';
         if (Number.isFinite(changeNum)) {
@@ -5978,6 +5969,13 @@ function clearLiveChartAiOverlay() {
         `;
       })
       .join("");
+
+    const buyCountEl = document.getElementById("im-summary-buy-count");
+    if (buyCountEl) buyCountEl.textContent = buyCount;
+    const neutralCountEl = document.getElementById("im-summary-neutral-count");
+    if (neutralCountEl) neutralCountEl.textContent = neutralCount;
+    const sellCountEl = document.getElementById("im-summary-sell-count");
+    if (sellCountEl) sellCountEl.textContent = sellCount;
 
     if (status) status.hidden = true;
   }
