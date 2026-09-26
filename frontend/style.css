@@ -9639,14 +9639,14 @@ body.im-chart-fullscreen-open {
 
 .im-mom-bubble {
   box-sizing: border-box !important;
-  flex: 0 0 20px !important;
-  width: 20px !important;
-  height: 20px !important;
+  flex: 0 0 23px !important;
+  width: 23px !important;
+  height: 23px !important;
   border-radius: 50% !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 9.5px !important;
+  font-size: 10.5px !important;
   font-weight: 800 !important;
   font-variant-numeric: tabular-nums !important;
   line-height: 1 !important;
@@ -9802,7 +9802,7 @@ body.im-chart-fullscreen-open {
   width: 90px !important;
   min-width: 90px !important;
   max-width: 90px !important;
-  height: 24px !important;
+  height: 26px !important;
   box-sizing: border-box !important;
 }
 
