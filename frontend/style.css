@@ -9118,46 +9118,92 @@ body.im-chart-fullscreen-open {
   will-change: transform, opacity;
 }
 
-.indian-market-mode #im-watchlist /* Watchlist table responsive improvements */
-.indian-market-mode #im-watchlist .im-watchlist-table {
-  min-width: 100%;
-  width: 100%;
-  table-layout: fixed;
+/* Watchlist table responsive improvements */
+.indian-market-mode #im-watchlist .table-wrap {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
 }
 
-.indian-market-mode #im-watchlist .im-watchlist-drag-col {
-  width: 24px;
-  text-align: center;
-  padding: 8px 2px;
+.indian-market-mode #im-watchlist .im-watchlist-table {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: collapse !important;
+  box-sizing: border-box !important;
+}
+
+.indian-market-mode #im-watchlist .im-watchlist-table th,
+.indian-market-mode #im-watchlist .im-watchlist-table td {
+  box-sizing: border-box !important;
+  padding: 8px 3px !important;
+  vertical-align: middle !important;
+}
+
+/* Specific column widths totaling exactly 100% */
+.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(1),
+.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(1) {
+  width: 18px !important;
+  max-width: 18px !important;
+  padding: 8px 1px !important;
+  text-align: center !important;
 }
 
 .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(2),
 .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(2) {
-  width: 32%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 27% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  font-weight: 700 !important;
+  font-size: 11.5px !important;
+  text-align: left !important;
+  padding-left: 2px !important;
 }
 
 .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(3),
 .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(3) {
-  width: 22%;
-  text-align: right;
-  white-space: nowrap;
+  width: 22% !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  font-size: 11.5px !important;
+  padding-right: 2px !important;
 }
 
 .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(4),
 .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(4) {
-  width: 20%;
-  text-align: right;
-  white-space: nowrap;
+  width: 24% !important;
+  text-align: right !important;
+  white-space: nowrap !important;
+  padding-right: 2px !important;
 }
 
 .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(5),
 .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(5) {
-  width: 26%;
-  text-align: center;
-  white-space: nowrap;
+  width: 27% !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  padding: 8px 1px !important;
+}
+
+.indian-market-mode #im-watchlist .change-pill {
+  font-size: 10px !important;
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+  letter-spacing: -0.2px !important;
+  display: inline-block !important;
+}
+
+.indian-market-mode #im-watchlist .im-ai-score {
+  font-size: 9.5px !important;
+  padding: 2px 4px !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+  letter-spacing: -0.2px !important;
+  display: inline-block !important;
 }
 
 .im-ai-score-short {
@@ -9176,31 +9222,45 @@ body.im-chart-fullscreen-open {
 @media (max-width: 640px) {
   .indian-market-mode #im-watchlist .im-watchlist-table th,
   .indian-market-mode #im-watchlist .im-watchlist-table td {
-    padding: 8px 3px;
-    font-size: 11px;
+    padding: 7px 2px !important;
+    font-size: 11px !important;
   }
-  .indian-market-mode #im-watchlist .im-watchlist-drag-col {
-    width: 16px;
-    padding: 8px 1px;
-    font-size: 10px;
+  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(1),
+  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(1) {
+    width: 14px !important;
+    font-size: 9px !important;
   }
-  .indian-market-mode #im-watchlist .im-ai-score {
-    font-size: 9.5px;
-    padding: 2px 4px;
-    white-space: nowrap;
-    letter-spacing: -0.2px;
+  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(2),
+  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(2) {
+    width: 27% !important;
+    font-size: 11px !important;
+  }
+  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(3),
+  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(3) {
+    width: 22% !important;
+    font-size: 11px !important;
+  }
+  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(4),
+  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(4) {
+    width: 24% !important;
+    font-size: 10.5px !important;
+  }
+  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(5),
+  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(5) {
+    width: 27% !important;
+    font-size: 10px !important;
   }
   .im-ai-score-full {
-    display: none;
+    display: none !important;
   }
   .im-ai-score-short {
-    display: inline;
+    display: inline !important;
   }
   .im-col-full {
-    display: none;
+    display: none !important;
   }
   .im-col-short {
-    display: inline;
+    display: inline !important;
   }
 }
 
