@@ -5927,12 +5927,16 @@ function clearLiveChartAiOverlay() {
         let momPillClass = "im-mom-pill-neutral";
         let rowClass = "im-row-neutral";
 
+        // Shown as "BULLISH"/"BEARISH" rather than "BUY"/"SELL" — this is a
+        // momentum read on today's % change (see the disclaimer note below
+        // the tabs), not a trade instruction, and "BUY"/"SELL" reads as one
+        // regardless of any disclaimer text elsewhere on the page.
         if (rawLabel.includes("BUY") || (score >= 60 && !rawLabel.includes("SELL"))) {
-          action = "BUY";
+          action = "BULLISH";
           momPillClass = "im-mom-pill-buy";
           rowClass = "im-row-buy";
         } else if (rawLabel.includes("SELL") || score <= 40) {
-          action = "SELL";
+          action = "BEARISH";
           momPillClass = "im-mom-pill-sell";
           rowClass = "im-row-sell";
         }
