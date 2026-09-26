@@ -9343,24 +9343,9 @@ body.im-chart-fullscreen-open {
 .im-watchlist-summary-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   padding: 10px 4px 12px 4px;
   gap: 8px;
-}
-.im-watchlist-summary-left {
-  display: flex;
-  flex-direction: column;
-}
-.im-summary-count {
-  font-size: 15px;
-  font-weight: 700;
-  color: #ffffff;
-  line-height: 1.2;
-}
-.im-summary-sub {
-  font-size: 11px;
-  color: #7b8ba5;
-  line-height: 1.2;
 }
 .im-watchlist-summary-right {
   display: flex;
@@ -9751,10 +9736,9 @@ body.im-chart-fullscreen-open {
   padding-right: 10px !important;
 }
 .indian-market-mode #im-watchlist .im-watchlist-table .im-th-mom {
-  text-align: left !important;
+  text-align: right !important;
   padding-left: 0 !important;
 }
-.indian-market-mode #im-watchlist .im-watchlist-table .im-th-mom > * { justify-content: flex-start !important; }
 
 .indian-market-mode #im-watchlist .im-stock-brand-cell {
   display: flex !important;
