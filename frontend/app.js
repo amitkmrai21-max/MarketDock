@@ -5968,7 +5968,6 @@ function clearLiveChartAiOverlay() {
                   <span class="im-mom-txt">${action}</span>
                   <span class="im-mom-bubble">${score}</span>
                 </div>
-                <span class="im-chevron-arrow">›</span>
               </div>
             </td>
           </tr>
@@ -6353,13 +6352,23 @@ async function fetchWatchlist() {
         }
 
         if (nextIndex !== currentIndex) {
-          const slideOutX = dx < 0 ? -70 : 70;
-          const slideInX = dx < 0 ? 50 : -50;
+          // A short, modest slide-out/in (not a near-full fade to 15-20%
+          // opacity, and not two separately-timed phases with a static gap
+          // between them) — the previous version dipped almost to
+          // invisible then held there for 140ms before an instant jump-cut
+          // to the other side, which read as a "blink"/stutter rather than
+          // one continuous motion. Keeping opacity no lower than ~0.5, and
+          // matching it exactly at the jump-cut point, means the position
+          // swap underneath is imperceptible and the whole thing reads as
+          // a single smooth glide.
+          const slideOutX = dx < 0 ? -28 : 28;
+          const slideInX = dx < 0 ? 28 : -28;
+          const midOpacity = "0.5";
 
           if (tableWrap) {
-            tableWrap.style.transition = "transform 0.16s cubic-bezier(0.2, 0.8, 0.4, 1), opacity 0.16s ease";
+            tableWrap.style.transition = "transform 0.15s cubic-bezier(0.3, 0, 0.6, 1), opacity 0.15s ease";
             tableWrap.style.transform = `translateX(${slideOutX}px)`;
-            tableWrap.style.opacity = "0.15";
+            tableWrap.style.opacity = midOpacity;
           }
 
           setTimeout(() => {
@@ -6371,11 +6380,11 @@ async function fetchWatchlist() {
               tableWrap.scrollLeft = 0;
               tableWrap.style.transition = "none";
               tableWrap.style.transform = `translateX(${slideInX}px)`;
-              tableWrap.style.opacity = "0.2";
+              tableWrap.style.opacity = midOpacity;
 
               requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
-                  tableWrap.style.transition = "transform 0.22s cubic-bezier(0.15, 0.9, 0.3, 1), opacity 0.22s ease";
+                  tableWrap.style.transition = "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease";
                   tableWrap.style.transform = "translateX(0)";
                   tableWrap.style.opacity = "1";
                   setTimeout(() => {
@@ -6385,11 +6394,11 @@ async function fetchWatchlist() {
                       tableWrap.style.opacity = "";
                       tableWrap.scrollLeft = 0;
                     }
-                  }, 240);
+                  }, 260);
                 });
               });
             }
-          }, 140);
+          }, 150);
           return;
         }
       }
