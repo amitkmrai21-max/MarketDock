@@ -14,29 +14,6 @@ let liveCandleRawData = [];
   if (el) el.textContent = `Version: ${version}`;
 })();
 
-// Temporary: renders the back-button debug log (written directly to
-// localStorage by the backButton listener below, independent of this
-// IIFE) whenever Settings is opened or "Refresh log" is tapped — reads
-// localStorage directly rather than depending on IndianMarketModule so
-// it can't silently no-op due to load-order.
-(function setupImBackDebugLogViewer() {
-  const output = document.getElementById("imBackDebugLogOutput");
-  const refreshBtn = document.getElementById("imBackDebugLogRefreshBtn");
-  if (!output) return;
-
-  function renderLog() {
-    let log = [];
-    try {
-      log = JSON.parse(localStorage.getItem("imBackButtonDebugLog") || "[]");
-    } catch { /* ignore */ }
-    output.textContent = log.length ? log.join("\n") : "(empty — press the phone's back button a few times, then tap Refresh)";
-  }
-
-  renderLog();
-  refreshBtn?.addEventListener("click", renderLog);
-  document.querySelectorAll(".settings-menu-button").forEach((btn) => btn.addEventListener("click", renderLog));
-})();
-
 // ===================== Chart theming =====================
 // LightweightCharts renders to canvas, so its colors can't follow CSS
 // variables — they have to be passed as JS options at creation time, and
@@ -4273,7 +4250,11 @@ function clearLiveChartAiOverlay() {
     // Indian mode has its own live-status pill built into the scrolling
     // ticker bar, so the header's separate badge (still used by BTC mode,
     // which has no ticker bar) would be a redundant second "Live" here.
+    // Setting `hidden` directly (not just the CSS class below) means it
+    // can never show through — including on first paint, before this JS
+    // has even run — instead of only being hidden once this class exists.
     document.body.classList.toggle("mode-indian-live-status", isIndian);
+    if (statusBadge) statusBadge.hidden = isIndian;
     if (brandSubtitle) {
       brandSubtitle.textContent = isIndian
         ? "NIFTY 50 and Bank Nifty research dashboard with paper-trading workflow"
@@ -4685,9 +4666,13 @@ function clearLiveChartAiOverlay() {
     const actionSheet = document.getElementById("im-watchlist-action-sheet");
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
     if ((actionSheet && !actionSheet.hidden) || (deleteSheet && !deleteSheet.hidden)) {
-      if (Date.now() - imSheetOpenedAt < 450) {
-        return false;
-      }
+      // The 450ms guard in closeImWatchlistSheets() exists to ignore an
+      // accidental backdrop-tap right after the sheet opens (touch bubbling
+      // from the same gesture that opened it) — it doesn't apply to a
+      // deliberate hardware back-button press, which must always close the
+      // sheet. Returning false here instead would leave the sheet visually
+      // stuck open while the back handler falls through and still
+      // navigates the page underneath it.
       closeImWatchlistSheets(true);
       return true;
     }
@@ -4724,31 +4709,6 @@ function clearLiveChartAiOverlay() {
     showImBackExitToast.hideTimer = window.setTimeout(() => toast.classList.remove("visible"), IM_BACK_EXIT_WINDOW_MS);
   }
 
-  // Temporary diagnostic log for the native back button — written to
-  // localStorage synchronously (survives even if the app is about to
-  // close/background right after), so a report of "back closed the app"
-  // can be matched against exactly what this listener saw and decided,
-  // visible in Settings under "Back button debug log".
-  function logImBackDecision(reason) {
-    try {
-      const activePage =
-        document.querySelector("#indianModeRoot .page.active")?.id ||
-        document.querySelector("#btcModeRoot .app-tab.active")?.dataset.tab ||
-        "?";
-      const log = JSON.parse(localStorage.getItem("imBackButtonDebugLog") || "[]");
-      log.push(`${new Date().toLocaleTimeString()} | page=${activePage} | ${reason}`);
-      while (log.length > 25) log.shift();
-      localStorage.setItem("imBackButtonDebugLog", JSON.stringify(log));
-    } catch { /* ignore */ }
-  }
-  window.imShowBackButtonDebugLog = function () {
-    try {
-      return JSON.parse(localStorage.getItem("imBackButtonDebugLog") || "[]");
-    } catch {
-      return [];
-    }
-  };
-
   // Native Android back button, in priority order: dismiss whatever is
   // open on top (keyboard, dropdown, sheet, sort panel, settings drawer,
   // fullscreen chart), then return from a drill-down, then from any other
@@ -4759,32 +4719,24 @@ function clearLiveChartAiOverlay() {
   const capacitorApp = window.Capacitor?.Plugins?.App;
   if (capacitorApp?.addListener) {
     capacitorApp.addListener("backButton", () => {
-      logImBackDecision("fired");
-
       // Both can be true together (a focused search box with its dropdown
       // open) — run both so a single back press clears the whole thing.
       const blurredInput = blurAnyFocusedImInput();
       const closedOverlay = closeAnyOpenImOverlay();
-      if (blurredInput || closedOverlay) {
-        logImBackDecision(`handled: blurredInput=${blurredInput} closedOverlay=${closedOverlay}`);
-        return;
-      }
+      if (blurredInput || closedOverlay) return;
 
       const settingsDrawer = document.getElementById("settingsDrawer");
       if (settingsDrawer?.classList.contains("open")) {
-        logImBackDecision("handled: closed settings drawer");
         document.getElementById("settingsCloseButton")?.click();
         return;
       }
       if (imChartFullscreenActive) {
-        logImBackDecision("handled: closed fullscreen chart");
         setImChartFullscreen(false);
         return;
       }
       if (imDrilldownReturnPage !== null) {
         const returnPage = imDrilldownReturnPage;
         imDrilldownReturnPage = null;
-        logImBackDecision(`handled: drilldown -> ${returnPage}`);
         showPage(returnPage);
         return;
       }
@@ -4793,14 +4745,12 @@ function clearLiveChartAiOverlay() {
       if (indianRoot && !indianRoot.hidden) {
         const activePage = Array.from(pages).find((page) => page.classList.contains("active"));
         if (activePage && activePage.id !== "im-dashboard") {
-          logImBackDecision(`handled: ${activePage.id} -> im-dashboard`);
           showPage("im-dashboard");
           return;
         }
       } else {
         const activeTab = document.querySelector("#btcModeRoot .app-tab.active");
         if (activeTab && activeTab.dataset.tab !== "dashboard") {
-          logImBackDecision(`handled: ${activeTab.dataset.tab} -> dashboard tab`);
           document.querySelector('#btcModeRoot .app-tab[data-tab="dashboard"]')?.click();
           return;
         }
@@ -4808,22 +4758,12 @@ function clearLiveChartAiOverlay() {
 
       const now = Date.now();
       if (now - imLastHomeBackPressAt < IM_BACK_EXIT_WINDOW_MS) {
-        logImBackDecision("EXIT: second press within window");
         capacitorApp.exitApp();
         return;
       }
       imLastHomeBackPressAt = now;
-      logImBackDecision("showed exit toast (first press on home)");
       showImBackExitToast();
     });
-    logImBackDecision("listener registered");
-  } else {
-    try {
-      localStorage.setItem(
-        "imBackButtonDebugLog",
-        JSON.stringify([`${new Date().toLocaleTimeString()} | Capacitor App plugin NOT available — listener never registered`])
-      );
-    } catch { /* ignore */ }
   }
 
   // Dashboard's own NIFTY 50/Bank Nifty/FinNifty/Sensex tiles jump to that
@@ -7051,27 +6991,32 @@ async function fetchWatchlist() {
     const gttBtn = document.getElementById("im-action-sheet-gtt-btn");
     const closeBtn = document.getElementById("im-action-sheet-cancel-btn");
 
+    // These are all a deliberate tap on a button inside the just-opened
+    // sheet, never an accidental mis-tap on the backdrop behind it — force
+    // past the 450ms guard (meant only for that backdrop case) so a fast,
+    // decisive tap right after the sheet opens still closes it, instead of
+    // leaving it visually stuck open while the app navigates underneath.
     if (buyBtn) {
       buyBtn.onclick = () => {
-        closeImWatchlistSheets();
+        closeImWatchlistSheets(true);
         setImPendingStockTrade(symbol, "Buy", price);
       };
     }
     if (sellBtn) {
       sellBtn.onclick = () => {
-        closeImWatchlistSheets();
+        closeImWatchlistSheets(true);
         setImPendingStockTrade(symbol, "Sell", price);
       };
     }
     if (chartBtn) {
       chartBtn.onclick = () => {
-        closeImWatchlistSheets();
+        closeImWatchlistSheets(true);
         openImTradingViewChartFor(`NSE:${symbol}`, symbol, "im-watchlist");
       };
     }
     if (optChainBtn) {
       optChainBtn.onclick = () => {
-        closeImWatchlistSheets();
+        closeImWatchlistSheets(true);
         if (typeof showPage === "function") showPage("im-options");
       };
     }
@@ -7089,12 +7034,12 @@ async function fetchWatchlist() {
     }
     if (gttBtn) {
       gttBtn.onclick = () => {
-        closeImWatchlistSheets();
+        closeImWatchlistSheets(true);
         setImPendingStockTrade(symbol, "Buy", price);
       };
     }
     if (closeBtn) {
-      closeBtn.onclick = () => closeImWatchlistSheets();
+      closeBtn.onclick = () => closeImWatchlistSheets(true);
     }
 
     backdrop.hidden = false;
@@ -7102,13 +7047,10 @@ async function fetchWatchlist() {
     sheet.hidden = false;
     sheet.style.display = "flex";
     sheet.classList.add("im-sheet-open");
-
-    try {
-      history.pushState({ imSheetOpen: true }, "");
-    } catch (_) {}
   }
 
   function openImWatchlistDeleteSheet(symbol) {
+    imSheetOpenedAt = Date.now();
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const sheet = document.getElementById("im-watchlist-delete-sheet");
     if (!backdrop || !sheet) return;
@@ -7124,7 +7066,7 @@ async function fetchWatchlist() {
         saveImWatchlists(lists);
         fetchWatchlist();
       }
-      closeImWatchlistSheets();
+      closeImWatchlistSheets(true);
     };
 
     backdrop.hidden = false;
@@ -7132,10 +7074,6 @@ async function fetchWatchlist() {
     sheet.hidden = false;
     sheet.style.display = "flex";
     sheet.classList.add("im-sheet-open");
-
-    try {
-      history.pushState({ imSheetOpen: true }, "");
-    } catch (_) {}
   }
 
   (function setupImWatchlistSheetDismiss() {
@@ -7152,28 +7090,6 @@ async function fetchWatchlist() {
   })();
 
   setupImWatchlistControls();
-
-  // Android hardware/gesture back button & browser popstate support to close stock detail sheet
-  window.addEventListener("popstate", () => {
-    const sheet = document.getElementById("im-watchlist-action-sheet");
-    if (sheet && (!sheet.hidden || sheet.style.display === "flex" || sheet.classList.contains("im-sheet-open"))) {
-      closeImWatchlistSheets(true);
-    }
-  });
-
-  try {
-    if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
-      window.Capacitor.Plugins.App.addListener("backButton", (data) => {
-        const sheet = document.getElementById("im-watchlist-action-sheet");
-        if (sheet && (!sheet.hidden || sheet.style.display === "flex" || sheet.classList.contains("im-sheet-open"))) {
-          closeImWatchlistSheets(true);
-        } else if (data && data.canGoBack) {
-          window.history.back();
-        }
-      });
-    }
-  } catch (_) {}
-
 
   // A curated, liquid subset of NSE F&O-eligible stocks across sectors (not the
   // complete ~180-stock F&O universe) — reuses the existing /api/watchlist
