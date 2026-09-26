@@ -5830,18 +5830,31 @@ function clearLiveChartAiOverlay() {
     }, 40);
   }
 
+  function renderWatchlistChange(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) {
+      return `<span class="im-chg-val im-chg-neutral">--</span>`;
+    }
+    const isUp = num >= 0;
+    const arrow = isUp ? "▲ " : "▼ ";
+    const cls = isUp ? "im-chg-up" : "im-chg-down";
+    return `<span class="im-chg-val ${cls}">${arrow}${Math.abs(num).toFixed(2)}%</span>`;
+  }
+
   function renderAiScoreBadge(score, label) {
-    if (score === null || score === undefined || !label) return `<span class="im-ai-score">--</span>`;
-    const cls = `im-ai-score-${String(label).toLowerCase().replace(/\s+/g, "-")}`;
-    const shortMap = {
-      "strong bullish": "Bull+",
-      "bullish": "Bull",
-      "neutral": "Neut",
-      "bearish": "Bear",
-      "strong bearish": "Bear-"
-    };
-    const shortLabel = shortMap[String(label).toLowerCase().trim()] || label;
-    return `<span class="im-ai-score ${cls}"><span>${score}</span>&middot;<span class="im-ai-score-full">${escapeHtml(label)}</span><span class="im-ai-score-short">${escapeHtml(shortLabel)}</span></span>`;
+    const s = (score !== null && score !== undefined && Number.isFinite(Number(score))) ? Math.round(Number(score)) : "--";
+    const lbl = String(label || "").toLowerCase();
+    let action = "NEUTRAL";
+    let typeCls = "neutral";
+    if (lbl.includes("bullish") || (s !== "--" && s >= 60)) {
+      action = "BUY";
+      typeCls = "buy";
+    } else if (lbl.includes("bearish") || (s !== "--" && s <= 45)) {
+      action = "SELL";
+      typeCls = "sell";
+    }
+
+    return `<span class="im-mom-pill im-mom-${typeCls}"><span class="im-mom-action">${action}</span><span class="im-mom-val">${s}</span></span>`;
   }
 
   let imWatchlistSortMode = "manual"; // "manual" | "alpha" | "change" | "price"
@@ -5870,15 +5883,12 @@ function clearLiveChartAiOverlay() {
     const body = document.getElementById("im-watchlist-body");
     const status = document.getElementById("im-watchlist-status");
     if (!body) return;
-    // A row currently being dragged to reorder would get destroyed by a
-    // re-render mid-drag (the 5-second poll calls this too) — skip this
-    // refresh and let the next poll pick up fresh prices once it's done.
     if (imWatchlistDragPointerId !== null) return;
 
     updateImWatchlistSearchCount();
 
     if (!Array.isArray(rows) || !rows.length) {
-      body.innerHTML = `<tr><td colspan="5">No symbols in this watchlist yet. Add one above.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px 10px;color:var(--im-muted);">No symbols in this watchlist yet. Add one above.</td></tr>`;
       if (status) {
         status.hidden = false;
         status.textContent = "Empty";
@@ -5891,13 +5901,22 @@ function clearLiveChartAiOverlay() {
     body.innerHTML = sortImWatchlistRows(rows)
       .map((row) => {
         const symbol = escapeHtml(row.symbol);
+        const changeNum = Number(row.change_percent);
+        const isUp = Number.isFinite(changeNum) && changeNum >= 0;
+        const isDown = Number.isFinite(changeNum) && changeNum < 0;
+        const trendCls = isUp ? "im-trend-up" : (isDown ? "im-trend-down" : "im-trend-neutral");
+
         return `
           <tr class="im-watchlist-row" data-symbol="${symbol}" data-price="${row.last_price ?? ""}">
-            <td class="im-watchlist-drag-col"><span class="im-watchlist-drag-handle" title="Drag to reorder">&#8942;&#8942;</span></td>
-            <td>${symbol}</td>
-            <td>${formatNumber(row.last_price)}</td>
-            <td>${changePillHtml(row.change_percent)}</td>
-            <td>${renderAiScoreBadge(row.ai_score, row.ai_label)}</td>
+            <td class="im-col-symbol">
+              <div class="im-symbol-cell">
+                <span class="im-trend-bar ${trendCls} im-watchlist-drag-handle" title="Drag to reorder">&#8203;</span>
+                <span class="im-symbol-name">${symbol}</span>
+              </div>
+            </td>
+            <td class="im-col-price">${formatNumber(row.last_price)}</td>
+            <td class="im-col-change">${renderWatchlistChange(row.change_percent)}</td>
+            <td class="im-col-mom">${renderAiScoreBadge(row.ai_score, row.ai_label)}</td>
           </tr>
         `;
       })
@@ -5943,7 +5962,7 @@ function clearLiveChartAiOverlay() {
         status.textContent = "Unavailable";
       }
       const body = document.getElementById("im-watchlist-body");
-      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load watchlist.")}</td></tr>`;
+      if (body) body.innerHTML = `<tr><td colspan="4">${escapeHtml(error.message || "Could not load watchlist.")}</td></tr>`;
     }
   }
 
@@ -8610,7 +8629,7 @@ function clearLiveChartAiOverlay() {
     const body = document.getElementById("im-scanner-body");
     if (!body) return;
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="5">No matching stocks right now.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="4">No matching stocks right now.</td></tr>`;
       return;
     }
     body.innerHTML = rows
@@ -8652,7 +8671,7 @@ function clearLiveChartAiOverlay() {
     setScannerProgress(0, isAll ? 1 : 0);
     if (statusText) statusText.textContent = isAll ? "Loading full NSE stock list…" : `Loading ${imScannerUniverse}…`;
     if (liveBadge) liveBadge.hidden = true;
-    if (body) body.innerHTML = `<tr><td colspan="5">Loading…</td></tr>`;
+    if (body) body.innerHTML = `<tr><td colspan="4">Loading…</td></tr>`;
 
     try {
       let stocks;
@@ -8732,7 +8751,7 @@ function clearLiveChartAiOverlay() {
     } catch (error) {
       console.error("Scanner load failed:", error);
       if (statusText) statusText.textContent = "Could not load scanner data right now.";
-      if (body) body.innerHTML = `<tr><td colspan="5">Could not load scanner data right now.</td></tr>`;
+      if (body) body.innerHTML = `<tr><td colspan="4">Could not load scanner data right now.</td></tr>`;
       setScannerProgress(0, 0);
     }
   }
