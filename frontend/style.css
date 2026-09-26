@@ -9109,158 +9109,218 @@ body.im-chart-fullscreen-open {
   to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
-/* Watchlist Table responsive & swipe smoothness */
-.indian-market-mode #im-watchlist .table-wrap {
-  overflow-x: hidden;
-  position: relative;
-  width: 100%;
-  touch-action: pan-y;
-  will-change: transform, opacity;
-}
 
-/* Watchlist table responsive improvements */
+
+
+
+/* =========================================================
+   WATCHLIST COMPACT 4-COLUMN LAYOUT (OPTION 1)
+   100% width, no horizontal scroll, fits all screens
+   ========================================================= */
+
 .indian-market-mode #im-watchlist .table-wrap {
   overflow-x: hidden !important;
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
   padding: 0 !important;
+  margin: 0 !important;
 }
 
 .indian-market-mode #im-watchlist .im-watchlist-table {
   width: 100% !important;
   max-width: 100% !important;
+  min-width: 0 !important;
   table-layout: fixed !important;
   border-collapse: collapse !important;
   box-sizing: border-box !important;
+  margin: 0 !important;
 }
 
-.indian-market-mode #im-watchlist .im-watchlist-table th,
+/* 4 Columns Totaling 100% */
+.im-th-symbol, .im-col-symbol {
+  width: 34% !important;
+  text-align: left !important;
+  padding-left: 8px !important;
+  padding-right: 4px !important;
+}
+
+.im-th-price, .im-col-price {
+  width: 23% !important;
+  text-align: right !important;
+  padding-left: 2px !important;
+  padding-right: 6px !important;
+}
+
+.im-th-change, .im-col-change {
+  width: 20% !important;
+  text-align: right !important;
+  padding-left: 2px !important;
+  padding-right: 6px !important;
+}
+
+.im-th-mom, .im-col-mom {
+  width: 23% !important;
+  text-align: right !important;
+  padding-left: 2px !important;
+  padding-right: 8px !important;
+}
+
+/* Headers */
+.indian-market-mode #im-watchlist .im-watchlist-table th {
+  padding: 10px 4px !important;
+  color: #94a3b8 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.6px !important;
+  text-transform: uppercase !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Rows - 58-64px height */
+.indian-market-mode #im-watchlist .im-watchlist-row {
+  height: 60px !important;
+  min-height: 58px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.indian-market-mode #im-watchlist .im-watchlist-row:active {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
 .indian-market-mode #im-watchlist .im-watchlist-table td {
-  box-sizing: border-box !important;
-  padding: 8px 3px !important;
+  padding: 8px 4px !important;
   vertical-align: middle !important;
+  box-sizing: border-box !important;
 }
 
-/* Specific column widths totaling exactly 100% */
-.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(1),
-.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(1) {
-  width: 18px !important;
-  max-width: 18px !important;
-  padding: 8px 1px !important;
-  text-align: center !important;
+/* Symbol Cell */
+.im-symbol-cell {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
 }
 
-.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(2),
-.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(2) {
-  width: 27% !important;
+.im-trend-bar {
+  display: inline-block !important;
+  width: 3.5px !important;
+  height: 18px !important;
+  border-radius: 3px !important;
+  flex-shrink: 0 !important;
+}
+
+.im-trend-up {
+  background-color: #10b981 !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5) !important;
+}
+
+.im-trend-down {
+  background-color: #f43f5e !important;
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.5) !important;
+}
+
+.im-trend-neutral {
+  background-color: #64748b !important;
+}
+
+.im-symbol-name {
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: 0.2px !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
+}
+
+/* Price Cell */
+.im-col-price {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #f8fafc !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+}
+
+/* Change % Cell */
+.im-chg-val {
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+}
+
+.im-chg-up {
+  color: #10b981 !important;
+}
+
+.im-chg-down {
+  color: #f43f5e !important;
+}
+
+.im-chg-neutral {
+  color: #94a3b8 !important;
+}
+
+/* Momentum Split Pill Badge */
+.im-mom-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  border-radius: 9999px !important;
+  font-size: 11.5px !important;
   font-weight: 700 !important;
+  line-height: 1 !important;
+  overflow: hidden !important;
+  user-select: none !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+  vertical-align: middle !important;
+}
+
+.im-mom-action {
+  padding: 4px 6px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.2px !important;
+  font-size: 11px !important;
+}
+
+.im-mom-val {
+  padding: 4px 6px !important;
   font-size: 11.5px !important;
-  text-align: left !important;
-  padding-left: 2px !important;
+  font-variant-numeric: tabular-nums !important;
 }
 
-.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(3),
-.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(3) {
-  width: 22% !important;
-  text-align: right !important;
-  white-space: nowrap !important;
-  font-size: 11.5px !important;
-  padding-right: 2px !important;
+/* BUY Badge (Green) */
+.im-mom-buy .im-mom-action {
+  background: #059669 !important;
+  color: #ffffff !important;
+}
+.im-mom-buy .im-mom-val {
+  background: #047857 !important;
+  color: #a7f3d0 !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
-.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(4),
-.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(4) {
-  width: 24% !important;
-  text-align: right !important;
-  white-space: nowrap !important;
-  padding-right: 2px !important;
+/* NEUTRAL Badge (Slate/Blue) */
+.im-mom-neutral .im-mom-action {
+  background: #334155 !important;
+  color: #f1f5f9 !important;
+}
+.im-mom-neutral .im-mom-val {
+  background: #1e293b !important;
+  color: #94a3b8 !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
-.indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(5),
-.indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(5) {
-  width: 27% !important;
-  text-align: center !important;
-  white-space: nowrap !important;
-  padding: 8px 1px !important;
+/* SELL Badge (Red) */
+.im-mom-sell .im-mom-action {
+  background: #dc2626 !important;
+  color: #ffffff !important;
 }
-
-.indian-market-mode #im-watchlist .change-pill {
-  font-size: 10px !important;
-  padding: 2px 4px !important;
-  border-radius: 4px !important;
-  white-space: nowrap !important;
-  letter-spacing: -0.2px !important;
-  display: inline-block !important;
+.im-mom-sell .im-mom-val {
+  background: #991b1b !important;
+  color: #fecdd3 !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
-
-.indian-market-mode #im-watchlist .im-ai-score {
-  font-size: 9.5px !important;
-  padding: 2px 4px !important;
-  border-radius: 4px !important;
-  white-space: nowrap !important;
-  letter-spacing: -0.2px !important;
-  display: inline-block !important;
-}
-
-.im-ai-score-short {
-  display: none;
-}
-.im-ai-score-full {
-  display: inline;
-}
-.im-col-short {
-  display: none;
-}
-.im-col-full {
-  display: inline;
-}
-
-@media (max-width: 640px) {
-  .indian-market-mode #im-watchlist .im-watchlist-table th,
-  .indian-market-mode #im-watchlist .im-watchlist-table td {
-    padding: 7px 2px !important;
-    font-size: 11px !important;
-  }
-  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(1),
-  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(1) {
-    width: 14px !important;
-    font-size: 9px !important;
-  }
-  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(2),
-  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(2) {
-    width: 27% !important;
-    font-size: 11px !important;
-  }
-  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(3),
-  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(3) {
-    width: 22% !important;
-    font-size: 11px !important;
-  }
-  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(4),
-  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(4) {
-    width: 24% !important;
-    font-size: 10.5px !important;
-  }
-  .indian-market-mode #im-watchlist .im-watchlist-table th:nth-child(5),
-  .indian-market-mode #im-watchlist .im-watchlist-table td:nth-child(5) {
-    width: 27% !important;
-    font-size: 10px !important;
-  }
-  .im-ai-score-full {
-    display: none !important;
-  }
-  .im-ai-score-short {
-    display: inline !important;
-  }
-  .im-col-full {
-    display: none !important;
-  }
-  .im-col-short {
-    display: inline !important;
-  }
-}
-
