@@ -9115,8 +9115,14 @@ body.im-chart-fullscreen-open {
 
 /* =========================================================
    WATCHLIST COMPACT 4-COLUMN LAYOUT (OPTION 1)
-   100% width, no horizontal scroll, fits all screens
+   100% width, no horizontal scroll, fits all phone screens perfectly
    ========================================================= */
+
+#im-watchlist .card,
+#im-watchlist .section-card {
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
 
 .indian-market-mode #im-watchlist .table-wrap {
   overflow-x: hidden !important;
@@ -9137,33 +9143,34 @@ body.im-chart-fullscreen-open {
   margin: 0 !important;
 }
 
-/* 4 Columns Totaling 100% */
+/* 4 Balanced Columns: Total = 100%
+   Symbol: 29% | Price: 20% | Change: 19% | Momentum: 32% (comfortably fits NEUTRAL + 2-digit score) */
 .im-th-symbol, .im-col-symbol {
-  width: 34% !important;
+  width: 29% !important;
   text-align: left !important;
-  padding-left: 8px !important;
-  padding-right: 4px !important;
+  padding-left: 6px !important;
+  padding-right: 2px !important;
 }
 
 .im-th-price, .im-col-price {
-  width: 23% !important;
-  text-align: right !important;
-  padding-left: 2px !important;
-  padding-right: 6px !important;
-}
-
-.im-th-change, .im-col-change {
   width: 20% !important;
   text-align: right !important;
   padding-left: 2px !important;
-  padding-right: 6px !important;
+  padding-right: 4px !important;
+}
+
+.im-th-change, .im-col-change {
+  width: 19% !important;
+  text-align: right !important;
+  padding-left: 2px !important;
+  padding-right: 4px !important;
 }
 
 .im-th-mom, .im-col-mom {
-  width: 23% !important;
+  width: 32% !important;
   text-align: right !important;
   padding-left: 2px !important;
-  padding-right: 8px !important;
+  padding-right: 4px !important;
 }
 
 /* Headers */
@@ -9172,15 +9179,16 @@ body.im-chart-fullscreen-open {
   color: #94a3b8 !important;
   font-size: 11px !important;
   font-weight: 700 !important;
-  letter-spacing: 0.6px !important;
+  letter-spacing: 0.5px !important;
   text-transform: uppercase !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  white-space: nowrap !important;
 }
 
-/* Rows - 58-64px height */
+/* Rows - ~58-60px height */
 .indian-market-mode #im-watchlist .im-watchlist-row {
-  height: 60px !important;
-  min-height: 58px !important;
+  height: 58px !important;
+  min-height: 56px !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
   cursor: pointer !important;
   transition: background-color 0.15s ease !important;
@@ -9191,7 +9199,7 @@ body.im-chart-fullscreen-open {
 }
 
 .indian-market-mode #im-watchlist .im-watchlist-table td {
-  padding: 8px 4px !important;
+  padding: 6px 2px !important;
   vertical-align: middle !important;
   box-sizing: border-box !important;
 }
@@ -9200,26 +9208,27 @@ body.im-chart-fullscreen-open {
 .im-symbol-cell {
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
+  gap: 6px !important;
   min-width: 0 !important;
+  overflow: hidden !important;
 }
 
 .im-trend-bar {
   display: inline-block !important;
   width: 3.5px !important;
-  height: 18px !important;
+  height: 16px !important;
   border-radius: 3px !important;
   flex-shrink: 0 !important;
 }
 
 .im-trend-up {
   background-color: #10b981 !important;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5) !important;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.5) !important;
 }
 
 .im-trend-down {
   background-color: #f43f5e !important;
-  box-shadow: 0 0 8px rgba(244, 63, 94, 0.5) !important;
+  box-shadow: 0 0 6px rgba(244, 63, 94, 0.5) !important;
 }
 
 .im-trend-neutral {
@@ -9227,10 +9236,10 @@ body.im-chart-fullscreen-open {
 }
 
 .im-symbol-name {
-  font-size: 14.5px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
   color: #ffffff !important;
-  letter-spacing: 0.2px !important;
+  letter-spacing: 0.1px !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
@@ -9238,7 +9247,7 @@ body.im-chart-fullscreen-open {
 
 /* Price Cell */
 .im-col-price {
-  font-size: 14px !important;
+  font-size: 13.5px !important;
   font-weight: 600 !important;
   color: #f8fafc !important;
   font-variant-numeric: tabular-nums !important;
@@ -9270,26 +9279,32 @@ body.im-chart-fullscreen-open {
   display: inline-flex !important;
   align-items: center !important;
   border-radius: 9999px !important;
-  font-size: 11.5px !important;
   font-weight: 700 !important;
   line-height: 1 !important;
   overflow: hidden !important;
   user-select: none !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
   vertical-align: middle !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  max-width: 100% !important;
 }
 
 .im-mom-action {
-  padding: 4px 6px !important;
+  padding: 3.5px 5px !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.2px !important;
-  font-size: 11px !important;
+  letter-spacing: 0.1px !important;
+  font-size: 10.5px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
 }
 
 .im-mom-val {
-  padding: 4px 6px !important;
-  font-size: 11.5px !important;
+  padding: 3.5px 5.5px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
   font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
 }
 
 /* BUY Badge (Green) */
