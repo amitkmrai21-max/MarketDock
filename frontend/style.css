@@ -9713,3 +9713,110 @@ body.im-chart-fullscreen-open {
   gap: 6px !important;
   padding-right: 0 !important;
 }
+
+/* Watchlist v2: clean row strip, single divider, fixed column alignment */
+.indian-market-mode #im-watchlist .im-watchlist-table {
+  table-layout: fixed !important;
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-row td {
+  border-top: 0 !important;
+  border-left: 0 !important;
+  border-right: 0 !important;
+  border-radius: 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  vertical-align: middle !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-row { border-radius: 0 !important; }
+.indian-market-mode #im-watchlist .im-watchlist-row td:first-child { box-shadow: inset 3px 0 0 #64748b !important; }
+.indian-market-mode #im-watchlist .im-row-buy td:first-child { box-shadow: inset 3px 0 0 #00d084 !important; }
+.indian-market-mode #im-watchlist .im-row-sell td:first-child { box-shadow: inset 3px 0 0 #ef4444 !important; }
+
+.indian-market-mode #im-watchlist .im-watchlist-table .im-th-symbol,
+.indian-market-mode #im-watchlist .im-watchlist-table .im-col-symbol {
+  width: auto !important;
+  padding-left: 14px !important;
+  padding-right: 8px !important;
+  text-align: left !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-table .im-th-price-chg,
+.indian-market-mode #im-watchlist .im-watchlist-table .im-col-price-chg {
+  width: 92px !important;
+  padding-left: 4px !important;
+  padding-right: 10px !important;
+  text-align: right !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-table .im-th-mom,
+.indian-market-mode #im-watchlist .im-watchlist-table .im-col-momentum {
+  width: 132px !important;
+  padding-left: 0 !important;
+  padding-right: 8px !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-table .im-th-mom {
+  text-align: left !important;
+  padding-left: 0 !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-table .im-th-mom > * { justify-content: flex-start !important; }
+
+.indian-market-mode #im-watchlist .im-stock-brand-cell {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+}
+.indian-market-mode #im-watchlist .im-stock-avatar.im-watchlist-drag-handle { flex: 0 0 34px !important; }
+.indian-market-mode #im-watchlist .im-stock-text-col {
+  display: flex !important;
+  flex-direction: column !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+.indian-market-mode #im-watchlist .im-stock-symbol-text,
+.indian-market-mode #im-watchlist .im-stock-name-text {
+  display: block !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.indian-market-mode #im-watchlist .im-price-block {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  gap: 3px !important;
+  white-space: nowrap !important;
+}
+.indian-market-mode #im-watchlist .im-price-value,
+.indian-market-mode #im-watchlist .im-change-value {
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+  line-height: 1.15 !important;
+}
+.indian-market-mode #im-watchlist .im-change-value { font-size: 11.5px !important; }
+
+.indian-market-mode #im-watchlist .im-mom-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 6px !important;
+}
+.indian-market-mode #im-watchlist .im-mom-pill {
+  flex: 0 0 108px !important;
+  width: 108px !important;
+  min-width: 108px !important;
+  max-width: 108px !important;
+  height: 30px !important;
+  box-sizing: border-box !important;
+}
+.indian-market-mode #im-watchlist .im-chevron-arrow { flex: 0 0 auto !important; }
+
+@media (max-width: 360px) {
+  .indian-market-mode #im-watchlist .im-watchlist-table .im-th-mom,
+  .indian-market-mode #im-watchlist .im-watchlist-table .im-col-momentum { width: 120px !important; }
+  .indian-market-mode #im-watchlist .im-mom-pill { flex-basis: 98px !important; width: 98px !important; min-width: 98px !important; max-width: 98px !important; }
+  .indian-market-mode #im-watchlist .im-watchlist-table .im-th-price-chg,
+  .indian-market-mode #im-watchlist .im-watchlist-table .im-col-price-chg { width: 84px !important; }
+}
