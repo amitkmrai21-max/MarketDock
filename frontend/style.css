@@ -9797,3 +9797,333 @@ body.im-chart-fullscreen-open {
   .indian-market-mode #im-watchlist .im-watchlist-table .im-th-price-chg,
   .indian-market-mode #im-watchlist .im-watchlist-table .im-col-price-chg { width: 68px !important; }
 }
+
+
+/* ==========================================================================
+   MARKETDOCK PRO OPTION CHAIN (MODERN 5-COLUMN COLOR-CODED UI)
+   ========================================================================== */
+.im-options-card {
+  padding: 10px 10px 16px !important;
+  background: #0f1722 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 14px !important;
+}
+
+/* Top bar: Back, OI / Greeks tabs */
+.im-options-top-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.im-options-back-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+}
+.im-options-back-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+.im-options-view-tabs {
+  display: flex;
+  gap: 20px;
+}
+.im-options-tab {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 14.5px;
+  font-weight: 600;
+  padding: 6px 4px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s;
+}
+.im-options-tab.active {
+  color: #fff;
+}
+.im-options-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #3b82f6;
+  border-radius: 2px;
+}
+
+/* Spot & Symbol strip */
+.im-options-spot-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #152232;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: 10px 0;
+}
+.im-options-symbol-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+}
+.im-options-market-selectors {
+  display: flex;
+  background: #0d1520;
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.im-options-market-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.im-options-market-btn.active {
+  background: #2563eb;
+  color: #fff;
+}
+.im-options-spot-price-box {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.im-options-spot-val {
+  font-size: 15px;
+  font-weight: 800;
+  color: #22c55e;
+  font-variant-numeric: tabular-nums;
+}
+.im-options-spot-chg {
+  font-size: 12px;
+  font-weight: 600;
+  color: #22c55e;
+}
+
+/* Expiry pills horizontal scrolling */
+.im-options-expiry-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.im-options-expiry-strip::-webkit-scrollbar {
+  display: none;
+}
+.im-options-expiry-pill {
+  flex-shrink: 0;
+  background: #14202e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  padding: 7px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.im-options-expiry-pill:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #cbd5e1;
+}
+.im-options-expiry-pill.active {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #3b82f6;
+  color: #60a5fa;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
+}
+
+/* Table container & Pro Table */
+.im-options-table-wrap {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0c131c;
+  margin-bottom: 12px;
+}
+.im-options-pro-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.im-options-hdr-top th {
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+.im-hdr-call {
+  background: rgba(34, 197, 94, 0.08);
+  color: #4ade80;
+}
+.im-hdr-strike {
+  background: #111a26;
+  color: #94a3b8;
+}
+.im-hdr-put {
+  background: rgba(239, 68, 68, 0.08);
+  color: #f87171;
+}
+.im-options-hdr-cols th {
+  padding: 6px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  text-align: center;
+  background: #111b27;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.im-col-strike {
+  color: #60a5fa !important;
+}
+
+/* Row styles with ITM / OTM / ATM */
+.im-options-pro-table tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.im-options-pro-table td {
+  padding: 7px 4px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Two-line cell content */
+.im-cell-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.im-cell-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.1;
+}
+.im-cell-chg {
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1;
+}
+.im-chg-pos {
+  color: #22c55e;
+}
+.im-chg-neg {
+  color: #ef4444;
+}
+.im-chg-zero {
+  color: #64748b;
+}
+
+/* Strike cell in center */
+.im-cell-strike {
+  background: #0d1520;
+  width: 22%;
+  position: relative;
+}
+.im-strike-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.im-strike-num {
+  font-size: 14px;
+  font-weight: 800;
+  color: #f8fafc;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+/* ATM Pill Container */
+.im-row-atm .im-cell-strike .im-strike-num {
+  background: #334155;
+  color: #38bdf8;
+  border: 1px solid #0284c7;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
+}
+.im-row-atm {
+  background: rgba(30, 41, 59, 0.6) !important;
+}
+
+/* Mini indicator bar under strike */
+.im-strike-bar-wrap {
+  display: flex;
+  width: 38px;
+  height: 2.5px;
+  margin-top: 3px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+.im-strike-bar-call {
+  background: #22c55e;
+}
+.im-strike-bar-put {
+  background: #ef4444;
+}
+
+/* ITM Shading: Calls below ATM, Puts above ATM */
+.im-side-call.itm {
+  background: rgba(34, 197, 94, 0.05);
+  border-left: 2px solid rgba(34, 197, 94, 0.4);
+}
+.im-side-put.itm {
+  background: rgba(239, 68, 68, 0.05);
+  border-right: 2px solid rgba(239, 68, 68, 0.4);
+}
+
+/* Bottom Fixed Summary Dock */
+.im-options-bottom-dock {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: #14202e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 8px;
+}
+.im-dock-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.im-dock-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.im-dock-value {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #f1f5f9;
+}
+.im-dock-bias {
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+}

@@ -2266,72 +2266,85 @@
       </section>
 
       <section class="page" id="im-options">
-        <article class="card section-card">
-          <div class="section-heading">
-            <div>
-              <h2>Option Chain</h2>
-              <p>NIFTY 50 and Bank Nifty by strike. Research view only — no order placement.</p>
+        <article class="card section-card im-options-card">
+          <!-- Top bar with Back button, OI / Greeks tabs -->
+          <div class="im-options-top-nav">
+            <button type="button" class="im-options-back-btn" id="im-options-back-btn" aria-label="Go Back">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <div class="im-options-view-tabs">
+              <button type="button" class="im-options-tab active" data-options-tab="oi">OI</button>
+              <button type="button" class="im-options-tab" data-options-tab="greeks">Greeks</button>
             </div>
-            <div class="setup-badge" id="im-options-status" hidden>Loading…</div>
-          </div>
-
-          <div class="chart-controls">
-            <div class="chart-control-group">
-              <span class="chart-control-label">Index</span>
-              <button class="chart-control-button active" type="button" data-options-market="nifty">NIFTY 50</button>
-              <button class="chart-control-button" type="button" data-options-market="banknifty">Bank Nifty</button>
-            </div>
-
-            <div class="chart-control-group">
-              <span class="chart-control-label">Expiry</span>
-              <select id="im-options-expiry" aria-label="Expiry date"></select>
+            <div class="im-options-header-actions">
+              <span class="setup-badge" id="im-options-status" hidden>Live</span>
             </div>
           </div>
 
-          <p id="im-options-meta" class="im-chart-status">Loading expiries…</p>
-
-          <div class="im-options-summary" id="im-options-summary">
-            <div class="im-options-summary-card">
-              <span class="im-options-summary-label">PCR (Put/Call OI)</span>
-              <strong id="im-options-pcr">--</strong>
-              <span id="im-options-pcr-bias" class="im-options-summary-note">--</span>
+          <!-- Symbol & Spot Price Strip -->
+          <div class="im-options-spot-strip">
+            <div class="im-options-symbol-badge">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+              <div class="im-options-market-selectors">
+                <button class="im-options-market-btn active" type="button" data-options-market="nifty">NIFTY</button>
+                <button class="im-options-market-btn" type="button" data-options-market="banknifty">BANKNIFTY</button>
+              </div>
             </div>
-            <div class="im-options-summary-card">
-              <span class="im-options-summary-label">Max Pain</span>
-              <strong id="im-options-max-pain">--</strong>
-              <span class="im-options-summary-note">Strike where option writers pay out least at expiry</span>
+            <div class="im-options-spot-price-box">
+              <span id="im-options-spot-val" class="im-options-spot-val">--</span>
+              <span id="im-options-spot-chg" class="im-options-spot-chg">--</span>
             </div>
           </div>
 
-          <div class="im-options-legend">
-            <span class="im-options-legend-item"><span class="im-options-legend-dot im-options-legend-atm"></span>Current price (ATM)</span>
-            <span class="im-options-legend-item"><span class="im-options-legend-dot im-options-legend-maxpain"></span>Max Pain strike</span>
-            <span class="im-options-legend-item"><span class="im-options-legend-dot im-options-legend-itm-call"></span>ITM Call</span>
-            <span class="im-options-legend-item"><span class="im-options-legend-dot im-options-legend-itm-put"></span>ITM Put</span>
+          <!-- Horizontal Expiry Pills -->
+          <div class="im-options-expiry-strip" id="im-options-expiry-strip">
+            <!-- Populated dynamically via JS -->
+            <span class="im-options-expiry-placeholder">Loading expiries…</span>
           </div>
+          <!-- Fallback hidden select for existing listeners -->
+          <select id="im-options-expiry" aria-label="Expiry date" style="display:none;"></select>
 
-          <div class="table-wrap">
-            <table class="im-options-table">
+          <!-- Main Color-Coded 5-Column Chain Table -->
+          <div class="table-wrap im-options-table-wrap">
+            <table class="im-options-pro-table">
               <thead>
-                <tr>
-                  <th colspan="3">CALL</th>
-                  <th>STRIKE</th>
-                  <th colspan="3">PUT</th>
+                <tr class="im-options-hdr-top">
+                  <th colspan="2" class="im-hdr-call">CALLS</th>
+                  <th class="im-hdr-strike">STRIKE</th>
+                  <th colspan="2" class="im-hdr-put">PUTS</th>
                 </tr>
-                <tr>
-                  <th>OI</th>
-                  <th>Volume</th>
-                  <th>LTP</th>
-                  <th></th>
-                  <th>LTP</th>
-                  <th>Volume</th>
-                  <th>OI</th>
+                <tr class="im-options-hdr-cols">
+                  <th class="im-col-oi">OI (in L)</th>
+                  <th class="im-col-ltp">Call LTP</th>
+                  <th class="im-col-strike">Strike ▴</th>
+                  <th class="im-col-ltp">Put LTP</th>
+                  <th class="im-col-oi">OI (in L)</th>
                 </tr>
               </thead>
               <tbody id="im-options-body">
-                <tr><td colspan="7">Loading option chain…</td></tr>
+                <tr><td colspan="5" class="im-options-loading-cell">Loading option chain…</td></tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Bottom Fixed Summary Dock -->
+          <div class="im-options-bottom-dock" id="im-options-summary">
+            <div class="im-dock-metric">
+              <span class="im-dock-label">PCR</span>
+              <strong id="im-options-pcr" class="im-dock-value">--</strong>
+            </div>
+            <div class="im-dock-metric">
+              <span class="im-dock-label">Max Pain</span>
+              <strong id="im-options-max-pain" class="im-dock-value">--</strong>
+            </div>
+            <div class="im-dock-metric">
+              <span class="im-dock-label">ATM IV</span>
+              <strong id="im-options-atm-iv" class="im-dock-value">--</strong>
+            </div>
+            <div class="im-dock-metric">
+              <span class="im-dock-label">Sentiment</span>
+              <span id="im-options-pcr-bias" class="im-dock-bias">--</span>
+            </div>
           </div>
         </article>
       </section>

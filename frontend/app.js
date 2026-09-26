@@ -7188,13 +7188,14 @@ async function fetchWatchlist() {
 
   function renderOptionChain(data) {
     const body = document.getElementById("im-options-body");
-    const meta = document.getElementById("im-options-meta");
     const status = document.getElementById("im-options-status");
+    const spotValEl = document.getElementById("im-options-spot-val");
+    const spotChgEl = document.getElementById("im-options-spot-chg");
     if (!body) return;
 
     const rows = Array.isArray(data.rows) ? data.rows : [];
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="7">No option chain data available for this expiry.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="5" class="im-options-loading-cell">No option chain data available for this expiry.</td></tr>`;
       if (status) {
         status.hidden = false;
         status.textContent = "Unavailable";
@@ -7211,17 +7212,32 @@ async function fetchWatchlist() {
         if (closest === null || Math.abs(strike - spot) < Math.abs(closest - spot)) return strike;
         return closest;
       }, null);
+      if (spotValEl) {
+        spotValEl.textContent = formatNumber(spot);
+      }
     }
 
     const maxPainStrike = Number.isFinite(Number(data.max_pain)) ? Number(data.max_pain) : null;
     const atmIndex = atmStrike !== null ? rows.findIndex((row) => Number(row.strike) === atmStrike) : -1;
-    // In-the-money shading: strikes below spot are ITM for calls (rows above
-    // the ATM row, since strikes are listed ascending), strikes above spot
-    // are ITM for puts (rows below). The tint is strongest right next to the
-    // ATM row and fades toward neutral over this many rows, since that
-    // boundary is the actionable part of the chain — deep ITM/deep OTM
-    // strikes recede rather than staying as visually loud as the ATM area.
-    const ITM_FADE_ROWS = 8;
+
+    function formatOiVal(val) {
+      if (val === null || val === undefined) return "--";
+      const n = Number(val);
+      if (!Number.isFinite(n)) return "--";
+      if (n >= 10000000) return (n / 10000000).toFixed(2) + "Cr";
+      if (n >= 100000) return (n / 100000).toFixed(2) + "L";
+      return n.toLocaleString("en-IN");
+    }
+
+    function formatCellChg(chg, ltp) {
+      const c = Number(chg);
+      if (Number.isFinite(c) && c !== 0) {
+        const sign = c > 0 ? "+" : "";
+        const cls = c > 0 ? "im-chg-pos" : "im-chg-neg";
+        return `<span class="im-cell-chg ${cls}">${sign}${c.toFixed(2)}%</span>`;
+      }
+      return `<span class="im-cell-chg im-chg-zero">0.00%</span>`;
+    }
 
     body.innerHTML = rows
       .map((row, index) => {
@@ -7230,57 +7246,101 @@ async function fetchWatchlist() {
         const isMaxPain = maxPainStrike !== null && strike === maxPainStrike;
         const call = row.call || {};
         const put = row.put || {};
-        const rowClasses = [isAtm ? "im-options-atm" : "", isMaxPain ? "im-options-max-pain" : ""].filter(Boolean).join(" ");
+        const isCallItm = Number.isFinite(spot) && strike < spot;
+        const isPutItm = Number.isFinite(spot) && strike > spot;
 
-        let callStyle = "";
-        let putStyle = "";
-        if (atmIndex >= 0 && Number.isFinite(strike) && atmStrike !== null) {
-          const distance = Math.abs(index - atmIndex);
-          const intensity = Math.max(0, 1 - distance / ITM_FADE_ROWS);
-          const alpha = (0.03 + intensity * 0.15).toFixed(3);
-          if (strike < atmStrike) {
-            callStyle = ` style="background: rgba(34, 197, 94, ${alpha});"`;
-          } else if (strike > atmStrike) {
-            putStyle = ` style="background: rgba(239, 68, 68, ${alpha});"`;
-          }
-        }
+        const rowClasses = [
+          isAtm ? "im-row-atm" : "",
+          isMaxPain ? "im-row-maxpain" : ""
+        ].filter(Boolean).join(" ");
+
+        const callLtp = Number(call.ltp);
+        const putLtp = Number(put.ltp);
+
+        // Calculate or derive change %
+        const callChg = Number(call.pChange || call.change || 0);
+        const putChg = Number(put.pChange || put.change || 0);
 
         return `
           <tr class="${rowClasses}">
-            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.oi)}</td>
-            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.volume)}</td>
-            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.ltp)}</td>
-            <td class="im-options-strike">${formatOptionNumber(row.strike)}</td>
-            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.ltp)}</td>
-            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.volume)}</td>
-            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.oi)}</td>
+            <!-- Call OI -->
+            <td class="im-side-call ${isCallItm ? 'itm' : ''}">
+              <div class="im-cell-box">
+                <span class="im-cell-val">${formatOiVal(call.oi)}</span>
+                ${formatCellChg(callChg, callLtp)}
+              </div>
+            </td>
+            <!-- Call LTP -->
+            <td class="im-side-call ${isCallItm ? 'itm' : ''}">
+              <div class="im-cell-box">
+                <span class="im-cell-val">${Number.isFinite(callLtp) ? callLtp.toFixed(2) : '--'}</span>
+                ${formatCellChg(callChg, callLtp)}
+              </div>
+            </td>
+            <!-- Strike Center -->
+            <td class="im-cell-strike">
+              <div class="im-strike-box">
+                <span class="im-strike-num">${formatOptionNumber(row.strike)}</span>
+                <div class="im-strike-bar-wrap">
+                  <div class="im-strike-bar-call" style="width: 50%;"></div>
+                  <div class="im-strike-bar-put" style="width: 50%;"></div>
+                </div>
+              </div>
+            </td>
+            <!-- Put LTP -->
+            <td class="im-side-put ${isPutItm ? 'itm' : ''}">
+              <div class="im-cell-box">
+                <span class="im-cell-val">${Number.isFinite(putLtp) ? putLtp.toFixed(2) : '--'}</span>
+                ${formatCellChg(putChg, putLtp)}
+              </div>
+            </td>
+            <!-- Put OI -->
+            <td class="im-side-put ${isPutItm ? 'itm' : ''}">
+              <div class="im-cell-box">
+                <span class="im-cell-val">${formatOiVal(put.oi)}</span>
+                ${formatCellChg(putChg, putLtp)}
+              </div>
+            </td>
           </tr>
         `;
       })
       .join("");
 
-    if (meta) {
-      meta.textContent = `${data.market} · Expiry ${data.expiry} · Spot ${Number.isFinite(spot) ? formatNumber(spot) : "--"}`;
+    if (status) {
+      status.hidden = false;
+      status.textContent = "Live";
     }
-    if (status) status.hidden = true;
 
     const pcrEl = document.getElementById("im-options-pcr");
     const pcrBiasEl = document.getElementById("im-options-pcr-bias");
     const maxPainEl = document.getElementById("im-options-max-pain");
+    const atmIvEl = document.getElementById("im-options-atm-iv");
     const pcr = Number(data.pcr);
     if (pcrEl) pcrEl.textContent = Number.isFinite(pcr) ? pcr.toFixed(2) : "--";
     if (pcrBiasEl) {
       if (!Number.isFinite(pcr)) {
-        pcrBiasEl.textContent = "--";
+        pcrBiasEl.textContent = "Neutral";
       } else if (pcr > 1.2) {
-        pcrBiasEl.textContent = "More puts written — often read as bullish bias";
+        pcrBiasEl.textContent = "Bullish";
+        pcrBiasEl.style.color = "#22c55e";
       } else if (pcr < 0.8) {
-        pcrBiasEl.textContent = "More calls written — often read as bearish bias";
+        pcrBiasEl.textContent = "Bearish";
+        pcrBiasEl.style.color = "#ef4444";
       } else {
-        pcrBiasEl.textContent = "Balanced — no strong bias either way";
+        pcrBiasEl.textContent = "Balanced";
+        pcrBiasEl.style.color = "#38bdf8";
       }
     }
     if (maxPainEl) maxPainEl.textContent = maxPainStrike !== null ? formatNumber(maxPainStrike) : "--";
+
+    // ATM IV calculation
+    if (atmIvEl && atmIndex >= 0 && rows[atmIndex]) {
+      const atmRow = rows[atmIndex];
+      const callIv = Number(atmRow.call?.iv);
+      const putIv = Number(atmRow.put?.iv);
+      const avgIv = (Number.isFinite(callIv) && Number.isFinite(putIv)) ? ((callIv + putIv) / 2).toFixed(1) : (Number.isFinite(callIv) ? callIv.toFixed(1) : (Number.isFinite(putIv) ? putIv.toFixed(1) : "--"));
+      atmIvEl.textContent = avgIv !== "--" ? `${avgIv}%` : "--";
+    }
   }
 
   async function loadOptionChain() {
@@ -7329,6 +7389,22 @@ async function fetchWatchlist() {
 
       select.innerHTML = result.expiries.map((expiry) => `<option value="${escapeHtml(expiry)}">${escapeHtml(expiry)}</option>`).join("");
       selectedOptionsExpiry = result.expiries[0];
+      
+      const strip = document.getElementById("im-options-expiry-strip");
+      if (strip) {
+        strip.innerHTML = result.expiries.map((expiry, idx) => {
+          return `<button type="button" class="im-options-expiry-pill ${idx === 0 ? 'active' : ''}" data-expiry="${escapeHtml(expiry)}">${escapeHtml(expiry)}</button>`;
+        }).join("");
+        strip.querySelectorAll(".im-options-expiry-pill").forEach((pill) => {
+          pill.addEventListener("click", () => {
+            strip.querySelectorAll(".im-options-expiry-pill").forEach((p) => p.classList.remove("active"));
+            pill.classList.add("active");
+            selectedOptionsExpiry = pill.dataset.expiry;
+            if (select) select.value = selectedOptionsExpiry;
+            loadOptionChain();
+          });
+        });
+      }
       select.value = selectedOptionsExpiry;
       await loadOptionChain();
     } catch (error) {
@@ -12328,3 +12404,21 @@ async function fetchWatchlist() {
     // Ignore — private browsing / storage quota, non-critical.
   }
 })();
+
+
+  // Option Chain Nav Wiring
+  const optBackBtn = document.getElementById("im-options-back-btn");
+  if (optBackBtn) {
+    optBackBtn.addEventListener("click", () => {
+      if (typeof showPage === "function") showPage("im-watchlist");
+    });
+  }
+  document.querySelectorAll(".im-options-market-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".im-options-market-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      selectedOptionsMarket = btn.dataset.optionsMarket;
+      selectedOptionsExpiry = null;
+      loadOptionExpiries();
+    });
+  });
