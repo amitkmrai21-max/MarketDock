@@ -5833,7 +5833,15 @@ function clearLiveChartAiOverlay() {
   function renderAiScoreBadge(score, label) {
     if (score === null || score === undefined || !label) return `<span class="im-ai-score">--</span>`;
     const cls = `im-ai-score-${String(label).toLowerCase().replace(/\s+/g, "-")}`;
-    return `<span class="im-ai-score ${cls}">${score} &middot; ${escapeHtml(label)}</span>`;
+    const shortMap = {
+      "strong bullish": "Bull+",
+      "bullish": "Bull",
+      "neutral": "Neut",
+      "bearish": "Bear",
+      "strong bearish": "Bear-"
+    };
+    const shortLabel = shortMap[String(label).toLowerCase().trim()] || label;
+    return `<span class="im-ai-score ${cls}"><span>${score}</span>&middot;<span class="im-ai-score-full">${escapeHtml(label)}</span><span class="im-ai-score-short">${escapeHtml(shortLabel)}</span></span>`;
   }
 
   let imWatchlistSortMode = "manual"; // "manual" | "alpha" | "change" | "price"
