@@ -2067,14 +2067,27 @@
 
           <p id="im-watchlist-ai-note" class="im-chart-status">Momentum score: a formula-based read (0-100) from today's live % change, not an AI/LLM judgment. Not financial advice. Up to 100 stocks per watchlist, up to 10 watchlists.</p>
 
+                    <!-- Watchlist Summary Header -->
+          <div class="im-watchlist-summary-bar" id="im-watchlist-summary-bar">
+            <div class="im-watchlist-summary-left">
+              <span class="im-summary-count" id="im-watchlist-stocks-count">-- Stocks</span>
+              <span class="im-summary-sub">in your watchlist</span>
+            </div>
+            <div class="im-watchlist-summary-right">
+              <span class="im-summary-pill im-summary-buy"><span class="im-arrow-up">▲</span> BUY <strong id="im-summary-buy-count">0</strong></span>
+              <span class="im-summary-pill im-summary-neutral"><span class="im-arrow-neutral">—</span> NEUTRAL <strong id="im-summary-neutral-count">0</strong></span>
+              <span class="im-summary-pill im-summary-sell"><span class="im-arrow-down">▼</span> SELL <strong id="im-summary-sell-count">0</strong></span>
+            </div>
+          </div>
+
           <div class="table-wrap">
             <table class="im-watchlist-table">
               <thead>
                 <tr>
+                  <th class="im-th-num">#</th>
                   <th class="im-th-symbol">SYMBOL</th>
-                  <th class="im-th-price">PRICE</th>
-                  <th class="im-th-change">CHG %</th>
-                  <th class="im-th-mom">MOM</th>
+                  <th class="im-th-price-chg">PRICE &nbsp; CHG %</th>
+                  <th class="im-th-mom">MOMENTUM</th>
                 </tr>
               </thead>
               <tbody id="im-watchlist-body">
