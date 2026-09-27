@@ -7228,7 +7228,19 @@ async function fetchWatchlist() {
 
   let selectedOptionsMarket = "nifty";
   let selectedOptionsExpiry = null;
+  let selectedOptionsStrikeRange = "10";
+  let lastOptionChainData = null;
   let optionsChainTimer = null;
+
+  function formatOptionCompactNumber(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "--";
+    const abs = Math.abs(number);
+    if (abs >= 1e7) return (number / 1e7).toFixed(2).replace(/\.00$/, "") + "Cr";
+    if (abs >= 1e5) return (number / 1e5).toFixed(1).replace(/\.0$/, "") + "L";
+    if (abs >= 1e3) return (number / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
+    return number.toLocaleString("en-IN");
+  }
 
   function formatOptionNumber(value) {
     if (value === null || value === undefined) return "--";
@@ -7244,7 +7256,7 @@ async function fetchWatchlist() {
 
     const rows = Array.isArray(data.rows) ? data.rows : [];
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="7">No option chain data available for this expiry.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="5">No option chain data available for this expiry.</td></tr>`;
       if (status) {
         status.hidden = false;
         status.textContent = "Unavailable";
@@ -7265,6 +7277,19 @@ async function fetchWatchlist() {
 
     const maxPainStrike = Number.isFinite(Number(data.max_pain)) ? Number(data.max_pain) : null;
     const atmIndex = atmStrike !== null ? rows.findIndex((row) => Number(row.strike) === atmStrike) : -1;
+
+    // Strike Range keeps the visible chain focused around the ATM strike —
+    // like Zerodha Kite's default view — instead of every strike Upstox
+    // returns, which would otherwise mean a long vertical scroll to find
+    // the strikes anyone actually cares about.
+    let sliceStart = 0;
+    let visibleRows = rows;
+    if (selectedOptionsStrikeRange !== "all" && atmIndex >= 0) {
+      const range = Number(selectedOptionsStrikeRange) || 10;
+      sliceStart = Math.max(0, atmIndex - range);
+      visibleRows = rows.slice(sliceStart, atmIndex + range + 1);
+    }
+
     // In-the-money shading: strikes below spot are ITM for calls (rows above
     // the ATM row, since strikes are listed ascending), strikes above spot
     // are ITM for puts (rows below). The tint is strongest right next to the
@@ -7273,8 +7298,9 @@ async function fetchWatchlist() {
     // strikes recede rather than staying as visually loud as the ATM area.
     const ITM_FADE_ROWS = 8;
 
-    body.innerHTML = rows
-      .map((row, index) => {
+    body.innerHTML = visibleRows
+      .map((row, i) => {
+        const index = sliceStart + i;
         const strike = Number(row.strike);
         const isAtm = atmStrike !== null && strike === atmStrike;
         const isMaxPain = maxPainStrike !== null && strike === maxPainStrike;
@@ -7297,13 +7323,11 @@ async function fetchWatchlist() {
 
         return `
           <tr class="${rowClasses}">
-            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.oi)}</td>
-            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.volume)}</td>
+            <td class="im-options-call-side"${callStyle}>${formatOptionCompactNumber(call.oi)}</td>
             <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.ltp)}</td>
             <td class="im-options-strike">${formatOptionNumber(row.strike)}</td>
             <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.ltp)}</td>
-            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.volume)}</td>
-            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.oi)}</td>
+            <td class="im-options-put-side"${putStyle}>${formatOptionCompactNumber(put.oi)}</td>
           </tr>
         `;
       })
@@ -7345,6 +7369,7 @@ async function fetchWatchlist() {
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "Option chain request failed.");
       }
+      lastOptionChainData = result.data;
       renderOptionChain(result.data);
     } catch (error) {
       console.error("Option chain fetch failed:", error);
@@ -7353,7 +7378,7 @@ async function fetchWatchlist() {
         status.textContent = "Unavailable";
       }
       const body = document.getElementById("im-options-body");
-      if (body) body.innerHTML = `<tr><td colspan="7">${escapeHtml(error.message || "Could not load the option chain.")}</td></tr>`;
+      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load the option chain.")}</td></tr>`;
     }
   }
 
@@ -7389,7 +7414,7 @@ async function fetchWatchlist() {
         status.textContent = "Unavailable";
       }
       const body = document.getElementById("im-options-body");
-      if (body) body.innerHTML = `<tr><td colspan="7">${escapeHtml(error.message || "Could not load option expiries.")}</td></tr>`;
+      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load option expiries.")}</td></tr>`;
     }
   }
 
@@ -7422,6 +7447,17 @@ async function fetchWatchlist() {
     optionsExpirySelect.addEventListener("change", () => {
       selectedOptionsExpiry = optionsExpirySelect.value;
       loadOptionChain();
+    });
+  }
+
+  const optionsStrikeRangeSelect = document.getElementById("im-options-strike-range");
+  if (optionsStrikeRangeSelect) {
+    optionsStrikeRangeSelect.addEventListener("change", () => {
+      selectedOptionsStrikeRange = optionsStrikeRangeSelect.value;
+      // Re-render from the already-fetched chain instead of a fresh
+      // network round-trip — the range only changes how much of the same
+      // data is sliced for display.
+      if (lastOptionChainData) renderOptionChain(lastOptionChainData);
     });
   }
 
