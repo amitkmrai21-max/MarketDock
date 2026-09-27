@@ -5898,7 +5898,7 @@ body.im-chart-fullscreen-open {
 .indian-market-mode h1 {
   margin: 0;
   font-size: clamp(21px, 2.6vw, 30px);
-  line-height: 1.15;
+  line-height: 1;
 }
 
 .indian-market-mode .subtitle {
