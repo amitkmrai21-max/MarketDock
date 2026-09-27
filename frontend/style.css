@@ -9811,8 +9811,8 @@ body.im-chart-fullscreen-open {
    92px pill + padding, to let price extend further right too. */
 .indian-market-mode #im-commodities .im-watchlist-table .im-th-mom,
 .indian-market-mode #im-commodities .im-watchlist-table .im-col-momentum {
-  width: 106px !important;
-  padding-right: 3px !important;
+  width: 97px !important;
+  padding-right: 2px !important;
 }
 
 .indian-market-mode #im-watchlist .im-stock-brand-cell,
