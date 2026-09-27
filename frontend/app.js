@@ -7592,10 +7592,12 @@ async function fetchWatchlist() {
               </div>
             </td>
             <td class="im-col-momentum">
-              <span class="im-mom-pill ${momPillClass}">
-                <span class="im-mom-text">${action}</span>
-                <span class="im-mom-score">${score}</span>
-              </span>
+              <div class="im-mom-wrapper">
+                <div class="im-mom-pill ${momPillClass}">
+                  <span class="im-mom-txt">${action}</span>
+                  <span class="im-mom-bubble">${score}</span>
+                </div>
+              </div>
             </td>
           </tr>
         `;
