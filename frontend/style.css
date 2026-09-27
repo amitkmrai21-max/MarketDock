@@ -169,6 +169,8 @@ body > header.topbar {
   height: 44px;
   flex: 0 0 44px;
   object-fit: contain;
+  position: relative;
+  top: -4px;
 }
 
 .brand h1 {
