@@ -9151,7 +9151,9 @@ body.im-chart-fullscreen-open {
    ========================================================= */
 
 #im-watchlist .card,
-#im-watchlist .section-card {
+#im-watchlist .section-card,
+#im-commodities .card,
+#im-commodities .section-card {
   padding-left: 4px !important;
   padding-right: 4px !important;
 }
