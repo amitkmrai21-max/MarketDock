@@ -4384,7 +4384,7 @@ function clearLiveChartAiOverlay() {
     },
     "im-watchlist": {
       title: "Watchlist",
-      subtitle: ""
+      subtitle: "Live last-traded price for popular NSE stocks."
     },
     "im-scanner": {
       title: "Market Scanner",
