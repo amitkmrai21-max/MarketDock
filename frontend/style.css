@@ -5908,6 +5908,25 @@ body.im-chart-fullscreen-open {
   line-height: 1.55;
 }
 
+.indian-market-mode .topbar {
+  margin-bottom: 2px;
+}
+
+.indian-market-mode .topbar .eyebrow {
+  margin: 0 0 3px;
+  font-size: 9.5px;
+}
+
+.indian-market-mode .topbar .subtitle {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+}
+
+.indian-market-mode .topbar .tv-attribution {
+  margin-top: 3px;
+  font-size: 9.5px;
+}
+
 .indian-market-mode .market-status {
   /* Solid pastel background + dark text (same treatment as .change-pill and
      .confirmation-state) so this stays readable in Light theme instead of
