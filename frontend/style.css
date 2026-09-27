@@ -10030,4 +10030,15 @@ body.im-chart-fullscreen-open {
   .indian-market-mode #im-commodities .section-card {
     max-width: 620px;
   }
+
+  /* Price sits right-aligned directly against the momentum column's
+     left edge, so on the narrower capped card it read as glued to the
+     momentum pill with no breathing room. Give it some right padding
+     back, just on desktop, without touching the width itself. */
+  .indian-market-mode #im-watchlist .im-watchlist-table .im-th-price-chg,
+  .indian-market-mode #im-watchlist .im-watchlist-table .im-col-price-chg,
+  .indian-market-mode #im-commodities .im-watchlist-table .im-th-price-chg,
+  .indian-market-mode #im-commodities .im-watchlist-table .im-col-price-chg {
+    padding-right: 28px !important;
+  }
 }
