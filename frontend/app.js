@@ -6193,13 +6193,13 @@ async function fetchWatchlist() {
     fetchWatchlist();
   }
 
-  function renameImWatchlistById(id, currentName) {
-    const newName = window.prompt("Rename watchlist:", currentName);
-    if (!newName || !newName.trim() || newName.trim() === currentName) return;
+  function renameImWatchlistById(id, newName) {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
     const lists = getImWatchlists();
     const target = lists.find((w) => w.id === id);
-    if (!target) return;
-    target.name = newName.trim().slice(0, 40);
+    if (!target || trimmed === target.name) return;
+    target.name = trimmed.slice(0, 40);
     saveImWatchlists(lists);
     renderImWatchlistTabs();
   }
@@ -6217,13 +6217,34 @@ async function fetchWatchlist() {
     const nameEl = document.getElementById("im-tab-menu-name");
     if (nameEl) nameEl.textContent = target.name;
 
-    document.getElementById("im-tab-menu-rename-btn").onclick = () => {
+    const actionsRow = document.getElementById("im-tab-menu-actions");
+    const renameForm = document.getElementById("im-tab-menu-rename-form");
+    const renameInput = document.getElementById("im-tab-menu-rename-input");
+
+    // Always reopen on the Rename/Delete choice, not wherever a previous
+    // open of this same sheet left the inline rename input.
+    actionsRow.hidden = false;
+    renameForm.hidden = true;
+    renameInput.value = target.name;
+
+    const submitRename = () => {
       closeImWatchlistSheets(true);
-      renameImWatchlistById(id, target.name);
+      renameImWatchlistById(id, renameInput.value);
+    };
+
+    document.getElementById("im-tab-menu-rename-btn").onclick = () => {
+      actionsRow.hidden = true;
+      renameForm.hidden = false;
+      renameInput.focus();
+      renameInput.select();
     };
     document.getElementById("im-tab-menu-delete-btn").onclick = () => {
       closeImWatchlistSheets(true);
       deleteImWatchlistById(id);
+    };
+    document.getElementById("im-tab-menu-rename-ok-btn").onclick = submitRename;
+    renameInput.onkeydown = (event) => {
+      if (event.key === "Enter") submitRename();
     };
 
     backdrop.hidden = false;

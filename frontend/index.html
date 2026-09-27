@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v6">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v7">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -3433,9 +3433,13 @@
   <div class="im-action-sheet im-delete-sheet" id="im-watchlist-tab-menu-sheet" hidden>
     <div class="im-action-sheet-handle"></div>
     <p class="im-delete-sheet-text"><strong id="im-tab-menu-name">&mdash;</strong></p>
-    <div class="im-action-sheet-buttons">
+    <div class="im-action-sheet-buttons" id="im-tab-menu-actions">
       <button class="im-action-sheet-btn" type="button" id="im-tab-menu-rename-btn">Rename</button>
-      <button class="im-action-sheet-btn im-action-sheet-delete" type="button" id="im-tab-menu-delete-btn">Delete Watchlist</button>
+      <button class="im-action-sheet-btn im-action-sheet-delete" type="button" id="im-tab-menu-delete-btn">Delete</button>
+    </div>
+    <div class="im-tab-menu-rename-form" id="im-tab-menu-rename-form" hidden>
+      <input type="text" id="im-tab-menu-rename-input" class="im-tab-menu-rename-input" maxlength="40" aria-label="Watchlist name" />
+      <button type="button" class="im-tab-menu-rename-ok" id="im-tab-menu-rename-ok-btn">OK</button>
     </div>
     <button class="im-action-sheet-cancel" type="button" id="im-tab-menu-cancel-btn">Cancel</button>
   </div>
@@ -3748,7 +3752,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v5"></script>
+  <script src="/frontend/app.js?v=v20260927v6"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

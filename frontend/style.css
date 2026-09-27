@@ -4506,6 +4506,14 @@ body[data-accent="green"] .settings-choice.active {
   background: var(--im-panel);
   border: 1px solid var(--im-border);
   border-bottom: none;
+  /* Every sheet variant is switched to display:flex in JS when opened;
+     without an explicit column direction here, the browser's row default
+     would lay the handle/text/buttons out side-by-side instead of
+     stacked — .im-terminal-sheet already set this itself, but the
+     simpler .im-delete-sheet variant (Remove confirm, this Rename/Delete
+     menu) never did, and just happened to look tolerable with one short
+     line of buttons. */
+  flex-direction: column;
   box-shadow: 0 -14px 32px rgba(0, 0, 0, 0.4);
   animation: im-action-sheet-up 0.18s ease-out;
 }
@@ -4604,6 +4612,40 @@ body[data-accent="green"] .settings-choice.active {
   color: var(--im-text);
   font-size: 14px;
   text-align: center;
+}
+
+#im-tab-menu-actions {
+  grid-template-columns: 1fr 1fr;
+}
+
+.im-tab-menu-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.im-tab-menu-rename-input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 11px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-text);
+  font-size: 14px;
+}
+
+.im-tab-menu-rename-ok {
+  flex-shrink: 0;
+  padding: 12px 18px;
+  border-radius: 11px;
+  border: none;
+  background: var(--im-blue);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
 }
 
 .im-chart-fullscreen-btn {
