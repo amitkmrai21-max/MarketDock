@@ -10053,3 +10053,38 @@ body.im-chart-fullscreen-open {
 .indian-market-mode #im-commodities .section-card {
   padding: 0;
 }
+
+/* Same treatment across the rest of the simple, single-table/list pages:
+   drop the bordered card panel so content sits directly on the page
+   background and pushes up into the space the card's own padding used
+   to reserve. Left untouched: the index detail pages (NIFTY/Bank Nifty/
+   FinNifty/SENSEX/RRG) and Dashboard/Paper Trading, which use the card
+   to visually group multiple distinct chart/stat blocks rather than
+   wrapping one single list/table. */
+.indian-market-mode #im-watchlist .card,
+.indian-market-mode #im-scanner .card,
+.indian-market-mode #im-ai-scanner .card,
+.indian-market-mode #im-stock-detail .card,
+.indian-market-mode #im-fo .card,
+.indian-market-mode #im-news .card,
+.indian-market-mode #im-alerts .card,
+.indian-market-mode #im-heatmap .card,
+.indian-market-mode #im-live-chart .card,
+.indian-market-mode #im-tradingview-chart .card,
+.indian-market-mode #im-stock-options .card {
+  background: transparent;
+  border-radius: 0;
+}
+.indian-market-mode #im-watchlist .section-card,
+.indian-market-mode #im-scanner .section-card,
+.indian-market-mode #im-ai-scanner .section-card,
+.indian-market-mode #im-stock-detail .section-card,
+.indian-market-mode #im-fo .section-card,
+.indian-market-mode #im-news .section-card,
+.indian-market-mode #im-alerts .section-card,
+.indian-market-mode #im-heatmap .section-card,
+.indian-market-mode #im-live-chart .section-card,
+.indian-market-mode #im-tradingview-chart .section-card,
+.indian-market-mode #im-stock-options .section-card {
+  padding: 0;
+}
