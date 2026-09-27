@@ -181,11 +181,11 @@ body > header.topbar {
 }
 
 .brand-accent {
-  background: linear-gradient(135deg, #71c6ff, #004ef2);
+  background: linear-gradient(135deg, #5594bf, #003ab5);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  color: #1e78ff;
+  color: #12569e;
 }
 
 .brand p {
