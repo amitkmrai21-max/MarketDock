@@ -1909,6 +1909,28 @@ UPSTOX_OPTIONS_UNDERLYINGS = {
     "banknifty": {"name": "Bank Nifty", "instrument_key": "NSE_INDEX|Nifty Bank"},
 }
 
+
+def resolve_options_underlying(market_key):
+    """Returns (instrument_key, display_name) for an option chain's
+    underlying — one of the two hardcoded indices above, or any NSE equity
+    trading symbol resolved live via Upstox's instrument search. This is
+    what lets the option chain work for any of the ~180 F&O-eligible stocks
+    without hardcoding which of the 5000+ NSE symbols those are: a symbol
+    with no listed options just comes back with no expiries below."""
+    key = market_key.lower().strip()
+    if key in UPSTOX_OPTIONS_UNDERLYINGS:
+        entry = UPSTOX_OPTIONS_UNDERLYINGS[key]
+        return entry["instrument_key"], entry["name"]
+
+    symbol = market_key.strip().upper()
+    if not symbol:
+        return None, None
+    try:
+        return resolve_instrument_key(symbol), symbol
+    except Exception:
+        return None, None
+
+
 _option_expiry_cache = {}
 OPTION_EXPIRY_CACHE_SECONDS = 3600
 _option_chain_cache = {}
@@ -1917,23 +1939,23 @@ OPTION_CHAIN_CACHE_SECONDS = 15
 
 @app.get("/api/options/expiries/<market_key>")
 def option_expiries(market_key):
-    market_key = market_key.lower().strip()
-
-    if market_key not in UPSTOX_OPTIONS_UNDERLYINGS:
-        return jsonify(
-            {"ok": False, "error": "Unknown market. Use: nifty or banknifty."}
-        ), 404
+    cache_key = market_key.lower().strip()
 
     if not UPSTOX_ACCESS_TOKEN:
         return jsonify(
             {"ok": False, "error": "Live market data is not configured on the server."}
         ), 503
 
-    cached = _option_expiry_cache.get(market_key)
+    cached = _option_expiry_cache.get(cache_key)
     if cached and time.time() - cached["fetched_at"] < OPTION_EXPIRY_CACHE_SECONDS:
         return jsonify({"ok": True, "expiries": cached["data"]})
 
-    instrument_key = UPSTOX_OPTIONS_UNDERLYINGS[market_key]["instrument_key"]
+    instrument_key, _name = resolve_options_underlying(market_key)
+    if not instrument_key:
+        return jsonify(
+            {"ok": False, "error": "Could not find that symbol."}
+        ), 404
+
     url = f"https://api.upstox.com/v2/option/contract?instrument_key={quote(instrument_key, safe='')}"
     headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
 
@@ -1945,10 +1967,10 @@ def option_expiries(market_key):
 
         if not expiries:
             return jsonify(
-                {"ok": False, "error": "No option expiries were returned for this market."}
-            ), 502
+                {"ok": False, "error": "This stock does not have listed options."}
+            ), 404
 
-        _option_expiry_cache[market_key] = {"data": expiries, "fetched_at": time.time()}
+        _option_expiry_cache[cache_key] = {"data": expiries, "fetched_at": time.time()}
         return jsonify({"ok": True, "expiries": expiries})
 
     except Exception as error:
@@ -1990,13 +2012,7 @@ def compute_max_pain(rows):
 
 @app.get("/api/options/chain/<market_key>")
 def option_chain(market_key):
-    market_key = market_key.lower().strip()
     expiry = request.args.get("expiry", "").strip()
-
-    if market_key not in UPSTOX_OPTIONS_UNDERLYINGS:
-        return jsonify(
-            {"ok": False, "error": "Unknown market. Use: nifty or banknifty."}
-        ), 404
 
     if not expiry:
         return jsonify(
@@ -2008,12 +2024,17 @@ def option_chain(market_key):
             {"ok": False, "error": "Live market data is not configured on the server."}
         ), 503
 
-    cache_key = f"{market_key}:{expiry}"
+    cache_key = f"{market_key.lower().strip()}:{expiry}"
     cached = _option_chain_cache.get(cache_key)
     if cached and time.time() - cached["fetched_at"] < OPTION_CHAIN_CACHE_SECONDS:
         return jsonify({"ok": True, "updated_at": cached["updated_at"], "data": cached["data"]})
 
-    instrument_key = UPSTOX_OPTIONS_UNDERLYINGS[market_key]["instrument_key"]
+    instrument_key, display_name = resolve_options_underlying(market_key)
+    if not instrument_key:
+        return jsonify(
+            {"ok": False, "error": "Could not find that symbol."}
+        ), 404
+
     url = (
         "https://api.upstox.com/v2/option/chain"
         f"?instrument_key={quote(instrument_key, safe='')}&expiry_date={quote(expiry, safe='')}"
@@ -2069,7 +2090,7 @@ def option_chain(market_key):
         max_pain = compute_max_pain(rows)
 
         result = {
-            "market": UPSTOX_OPTIONS_UNDERLYINGS[market_key]["name"],
+            "market": display_name,
             "expiry": expiry,
             "underlying_spot_price": underlying_spot,
             "rows": rows,

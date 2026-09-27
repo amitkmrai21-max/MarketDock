@@ -4544,6 +4544,10 @@ function clearLiveChartAiOverlay() {
       stopFoWatchlistPolling();
     }
 
+    if (pageId !== "im-stock-options" && typeof stopStockOptionsPolling === "function") {
+      stopStockOptionsPolling();
+    }
+
     if (pageId === "im-commodities") {
       if (typeof startCommoditiesPolling === "function") startCommoditiesPolling();
     } else if (typeof stopCommoditiesPolling === "function") {
@@ -7036,6 +7040,7 @@ async function fetchWatchlist() {
     const buyBtn = document.getElementById("im-action-sheet-buy-btn");
     const sellBtn = document.getElementById("im-action-sheet-sell-btn");
     const chartBtn = document.getElementById("im-action-sheet-chart-btn");
+    const optChainBtn = document.getElementById("im-action-sheet-option-chain-btn");
     const alertBtn = document.getElementById("im-action-sheet-alert-btn");
     const notesBtn = document.getElementById("im-action-sheet-notes-btn");
     const gttBtn = document.getElementById("im-action-sheet-gtt-btn");
@@ -7062,6 +7067,12 @@ async function fetchWatchlist() {
       chartBtn.onclick = () => {
         closeImWatchlistSheets(true);
         openImTradingViewChartFor(`NSE:${symbol}`, symbol, "im-watchlist");
+      };
+    }
+    if (optChainBtn) {
+      optChainBtn.onclick = () => {
+        closeImWatchlistSheets(true);
+        openImStockOptionChainFor(symbol, "im-watchlist");
       };
     }
     if (alertBtn) {
@@ -7206,6 +7217,219 @@ async function fetchWatchlist() {
       foWatchlistTimer = null;
     }
   }
+
+  // ===================== Per-stock Option Chain (drill-down from Watchlist) =====================
+  // Reached only via the watchlist row action sheet's "Option" button, for
+  // whichever symbol was tapped — not a permanent nav tab, since options
+  // only exist for the ~180 F&O-eligible NSE stocks, not all of them. The
+  // backend resolves any symbol's Upstox instrument_key live, so nothing
+  // here needs a hardcoded list of which stocks qualify.
+
+  let imStockOptionsSymbol = null;
+  let imStockOptionsExpiry = null;
+  let imStockOptionsStrikeRange = "10";
+  let imStockOptionsLastData = null;
+  let imStockOptionsReturnPage = "im-watchlist";
+  let imStockOptionsTimer = null;
+
+  function formatOptionNumber(value) {
+    if (value === null || value === undefined) return "--";
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toLocaleString("en-IN") : "--";
+  }
+
+  function formatOptionCompactNumber(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "--";
+    const abs = Math.abs(number);
+    if (abs >= 1e7) return (number / 1e7).toFixed(2).replace(/\.00$/, "") + "Cr";
+    if (abs >= 1e5) return (number / 1e5).toFixed(1).replace(/\.0$/, "") + "L";
+    if (abs >= 1e3) return (number / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
+    return number.toLocaleString("en-IN");
+  }
+
+  function renderStockOptionChain(data) {
+    const body = document.getElementById("im-stock-options-body");
+    const meta = document.getElementById("im-stock-options-meta");
+    if (!body) return;
+
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="5">No option chain data available for this expiry.</td></tr>`;
+      return;
+    }
+
+    const spot = Number(data.underlying_spot_price);
+    let atmStrike = null;
+    if (Number.isFinite(spot)) {
+      atmStrike = rows.reduce((closest, row) => {
+        const strike = Number(row.strike);
+        if (!Number.isFinite(strike)) return closest;
+        if (closest === null || Math.abs(strike - spot) < Math.abs(closest - spot)) return strike;
+        return closest;
+      }, null);
+    }
+
+    const maxPainStrike = Number.isFinite(Number(data.max_pain)) ? Number(data.max_pain) : null;
+    const atmIndex = atmStrike !== null ? rows.findIndex((row) => Number(row.strike) === atmStrike) : -1;
+
+    let sliceStart = 0;
+    let visibleRows = rows;
+    if (imStockOptionsStrikeRange !== "all" && atmIndex >= 0) {
+      const range = Number(imStockOptionsStrikeRange) || 10;
+      sliceStart = Math.max(0, atmIndex - range);
+      visibleRows = rows.slice(sliceStart, atmIndex + range + 1);
+    }
+
+    const ITM_FADE_ROWS = 8;
+
+    body.innerHTML = visibleRows
+      .map((row, i) => {
+        const index = sliceStart + i;
+        const strike = Number(row.strike);
+        const isAtm = atmStrike !== null && strike === atmStrike;
+        const isMaxPain = maxPainStrike !== null && strike === maxPainStrike;
+        const call = row.call || {};
+        const put = row.put || {};
+        const rowClasses = [isAtm ? "im-options-atm" : "", isMaxPain ? "im-options-max-pain" : ""].filter(Boolean).join(" ");
+
+        let callStyle = "";
+        let putStyle = "";
+        if (atmIndex >= 0 && Number.isFinite(strike) && atmStrike !== null) {
+          const distance = Math.abs(index - atmIndex);
+          const intensity = Math.max(0, 1 - distance / ITM_FADE_ROWS);
+          const alpha = (0.03 + intensity * 0.15).toFixed(3);
+          if (strike < atmStrike) {
+            callStyle = ` style="background: rgba(34, 197, 94, ${alpha});"`;
+          } else if (strike > atmStrike) {
+            putStyle = ` style="background: rgba(239, 68, 68, ${alpha});"`;
+          }
+        }
+
+        return `
+          <tr class="${rowClasses}">
+            <td class="im-options-call-side"${callStyle}>${formatOptionCompactNumber(call.oi)}</td>
+            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.ltp)}</td>
+            <td class="im-options-strike">${formatOptionNumber(row.strike)}</td>
+            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.ltp)}</td>
+            <td class="im-options-put-side"${putStyle}>${formatOptionCompactNumber(put.oi)}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    if (meta) {
+      meta.textContent = `${data.market} · Expiry ${data.expiry} · Spot ${Number.isFinite(spot) ? formatNumber(spot) : "--"}`;
+    }
+
+    const pcrEl = document.getElementById("im-stock-options-pcr");
+    const pcrBiasEl = document.getElementById("im-stock-options-pcr-bias");
+    const maxPainEl = document.getElementById("im-stock-options-max-pain");
+    const pcr = Number(data.pcr);
+    if (pcrEl) pcrEl.textContent = Number.isFinite(pcr) ? pcr.toFixed(2) : "--";
+    if (pcrBiasEl) {
+      if (!Number.isFinite(pcr)) {
+        pcrBiasEl.textContent = "--";
+      } else if (pcr > 1.2) {
+        pcrBiasEl.textContent = "More puts written — often read as bullish bias";
+      } else if (pcr < 0.8) {
+        pcrBiasEl.textContent = "More calls written — often read as bearish bias";
+      } else {
+        pcrBiasEl.textContent = "Balanced — no strong bias either way";
+      }
+    }
+    if (maxPainEl) maxPainEl.textContent = maxPainStrike !== null ? formatNumber(maxPainStrike) : "--";
+  }
+
+  async function loadStockOptionChain() {
+    if (!imStockOptionsSymbol || !imStockOptionsExpiry) return;
+    const meta = document.getElementById("im-stock-options-meta");
+    const body = document.getElementById("im-stock-options-body");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/options/chain/${encodeURIComponent(imStockOptionsSymbol)}?expiry=${encodeURIComponent(imStockOptionsExpiry)}`
+      );
+      const result = await response.json();
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || "Option chain request failed.");
+      }
+      imStockOptionsLastData = result.data;
+      renderStockOptionChain(result.data);
+    } catch (error) {
+      console.error("Stock option chain fetch failed:", error);
+      if (meta) meta.textContent = error.message || "Could not load the option chain.";
+      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load the option chain.")}</td></tr>`;
+    }
+  }
+
+  async function loadStockOptionExpiries() {
+    const select = document.getElementById("im-stock-options-expiry");
+    const meta = document.getElementById("im-stock-options-meta");
+    const body = document.getElementById("im-stock-options-body");
+    if (!select || !imStockOptionsSymbol) return;
+
+    meta && (meta.textContent = "Loading expiries...");
+    select.innerHTML = "";
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/options/expiries/${encodeURIComponent(imStockOptionsSymbol)}`);
+      const result = await response.json();
+      if (!response.ok || !result.ok || !Array.isArray(result.expiries) || !result.expiries.length) {
+        throw new Error(result.error || `${imStockOptionsSymbol} does not have listed options.`);
+      }
+
+      select.innerHTML = result.expiries.map((expiry) => `<option value="${escapeHtml(expiry)}">${escapeHtml(expiry)}</option>`).join("");
+      imStockOptionsExpiry = result.expiries[0];
+      select.value = imStockOptionsExpiry;
+      await loadStockOptionChain();
+    } catch (error) {
+      console.error("Stock option expiries fetch failed:", error);
+      if (meta) meta.textContent = error.message || "Could not load option expiries.";
+      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load option expiries.")}</td></tr>`;
+    }
+  }
+
+  function stopStockOptionsPolling() {
+    if (imStockOptionsTimer) {
+      window.clearInterval(imStockOptionsTimer);
+      imStockOptionsTimer = null;
+    }
+  }
+
+  function startStockOptionsPolling() {
+    stopStockOptionsPolling();
+    loadStockOptionExpiries();
+    imStockOptionsTimer = window.setInterval(loadStockOptionChain, 5000);
+  }
+
+  function openImStockOptionChainFor(symbol, returnPage) {
+    imStockOptionsSymbol = symbol;
+    imStockOptionsExpiry = null;
+    imStockOptionsLastData = null;
+    imStockOptionsReturnPage = returnPage || "im-watchlist";
+    const titleEl = document.getElementById("im-stock-options-title");
+    if (titleEl) titleEl.textContent = `${symbol} Options`;
+    pushImDrilldown(imStockOptionsReturnPage);
+    showPage("im-stock-options");
+    startStockOptionsPolling();
+  }
+
+  document.getElementById("im-stock-options-back-btn")?.addEventListener("click", () => {
+    stopStockOptionsPolling();
+    consumeImDrilldown();
+    showPage(imStockOptionsReturnPage);
+  });
+
+  document.getElementById("im-stock-options-strike-range")?.addEventListener("change", (event) => {
+    imStockOptionsStrikeRange = event.target.value;
+    if (imStockOptionsLastData) renderStockOptionChain(imStockOptionsLastData);
+  });
+
+  document.getElementById("im-stock-options-expiry")?.addEventListener("change", (event) => {
+    imStockOptionsExpiry = event.target.value;
+    loadStockOptionChain();
+  });
 
   // ===================== Commodities (MCX) =====================
 
@@ -12134,6 +12358,7 @@ async function fetchWatchlist() {
       stopWatchlistPolling();
       stopFoWatchlistPolling();
       stopCommoditiesPolling();
+      stopStockOptionsPolling();
       pauseImReplay();
     }
   };
