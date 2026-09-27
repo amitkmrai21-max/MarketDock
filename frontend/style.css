@@ -10042,3 +10042,14 @@ body.im-chart-fullscreen-open {
     padding-right: 48px !important;
   }
 }
+
+/* Commodities: drop the card look (background/rounded panel) entirely —
+   the section-heading text that used to live here is gone, so this was
+   just an empty-looking bordered box sitting above the table. */
+.indian-market-mode #im-commodities .card {
+  background: transparent;
+  border-radius: 0;
+}
+.indian-market-mode #im-commodities .section-card {
+  padding: 0;
+}
