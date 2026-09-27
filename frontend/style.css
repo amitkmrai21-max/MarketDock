@@ -5911,6 +5911,10 @@ body.im-chart-fullscreen-open {
 
 .indian-market-mode .topbar {
   margin-bottom: 2px;
+  padding: 0;
+  border-bottom: none;
+  backdrop-filter: none;
+  background: transparent;
 }
 
 .indian-market-mode .topbar .eyebrow {
