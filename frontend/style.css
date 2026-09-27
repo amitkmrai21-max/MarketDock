@@ -168,10 +168,7 @@ body > header.topbar {
   width: 52px;
   height: 52px;
   flex: 0 0 52px;
-  border: 1px solid rgba(139, 92, 246, 0.55);
-  border-radius: 9px;
   object-fit: contain;
-  box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.22), 0 0 12px rgba(139, 92, 246, 0.22);
 }
 
 .brand h1 {
@@ -1943,7 +1940,6 @@ canvas {
     width: 55px;
     height: 55px;
     flex-basis: 55px;
-    border-radius: 10px;
   }
 
   .brand h1 {
