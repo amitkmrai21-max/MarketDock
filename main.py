@@ -1845,6 +1845,11 @@ def home():
     return FileResponse("frontend/index.html")
 
 
+@app.get("/favicon.ico")
+def favicon_ico():
+    return FileResponse("frontend/favicon.ico")
+
+
 @app.get("/robots.txt")
 def robots_txt():
     content = "User-agent: *\nAllow: /\n\nSitemap: https://marketdock.in/sitemap.xml\n"
