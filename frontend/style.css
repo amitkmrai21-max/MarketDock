@@ -9156,7 +9156,8 @@ body.im-chart-fullscreen-open {
   padding-right: 4px !important;
 }
 
-.indian-market-mode #im-watchlist .table-wrap {
+.indian-market-mode #im-watchlist .table-wrap,
+.indian-market-mode #im-commodities .table-wrap {
   overflow-x: hidden !important;
   width: 100% !important;
   max-width: 100% !important;
@@ -9165,7 +9166,8 @@ body.im-chart-fullscreen-open {
   margin: 0 !important;
 }
 
-.indian-market-mode #im-watchlist .im-watchlist-table {
+.indian-market-mode #im-watchlist .im-watchlist-table,
+.indian-market-mode #im-commodities .im-watchlist-table {
   width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
