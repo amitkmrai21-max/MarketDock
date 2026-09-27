@@ -5921,6 +5921,7 @@ body.im-chart-fullscreen-open {
 .indian-market-mode .topbar .subtitle {
   margin: 3px 0 0;
   font-size: 11.5px;
+  line-height: 1.3;
 }
 
 .indian-market-mode .topbar .tv-attribution {
@@ -6699,7 +6700,7 @@ body.im-chart-fullscreen-open {
   }
 
 .indian-market-mode .content {
-    padding: 18px 14px 84px;
+    padding: 10px 10px 84px;
   }
 
 .indian-market-mode .topbar,
