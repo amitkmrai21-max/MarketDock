@@ -6190,9 +6190,75 @@ async function fetchWatchlist() {
     });
   }
 
+  function deleteImWatchlistById(id) {
+    const lists = getImWatchlists();
+    if (lists.length <= 1) {
+      alert("You need at least one watchlist. Add another before deleting this one.");
+      return;
+    }
+    const target = lists.find((w) => w.id === id);
+    if (!target) return;
+    if (!window.confirm(`Delete watchlist "${target.name}"?`)) return;
+    const remaining = lists.filter((w) => w.id !== id);
+    saveImWatchlists(remaining);
+    if (activeImWatchlistId === id) activeImWatchlistId = remaining[0].id;
+    renderImWatchlistTabs();
+    fetchWatchlist();
+  }
+
+  let imWatchlistTabPressTimer = null;
+  let imWatchlistTabPressStart = null;
+  let imWatchlistTabLongPressFired = false;
+  let imWatchlistTabPressMoved = false;
+  const IM_TAB_LONG_PRESS_MS = 500;
+  const IM_TAB_PRESS_MOVE_CANCEL_PX = 10;
+
+  function clearImWatchlistTabPressTimer() {
+    if (imWatchlistTabPressTimer) {
+      window.clearTimeout(imWatchlistTabPressTimer);
+      imWatchlistTabPressTimer = null;
+    }
+  }
+
   function setupImWatchlistControls() {
     const tabsEl = document.getElementById("im-watchlist-tabs");
     if (tabsEl) {
+      tabsEl.addEventListener("pointerdown", (event) => {
+        const tabBtn = event.target.closest("[data-watchlist-id]");
+        if (!tabBtn) return;
+        imWatchlistTabLongPressFired = false;
+        imWatchlistTabPressMoved = false;
+        imWatchlistTabPressStart = { x: event.clientX, y: event.clientY };
+        clearImWatchlistTabPressTimer();
+        imWatchlistTabPressTimer = window.setTimeout(() => {
+          imWatchlistTabLongPressFired = true;
+          imWatchlistTabPressTimer = null;
+          if (navigator.vibrate) navigator.vibrate(15);
+          deleteImWatchlistById(tabBtn.dataset.watchlistId);
+        }, IM_TAB_LONG_PRESS_MS);
+      });
+
+      tabsEl.addEventListener("pointermove", (event) => {
+        if (!imWatchlistTabPressStart) return;
+        const dx = Math.abs(event.clientX - imWatchlistTabPressStart.x);
+        const dy = Math.abs(event.clientY - imWatchlistTabPressStart.y);
+        if (dx > IM_TAB_PRESS_MOVE_CANCEL_PX || dy > IM_TAB_PRESS_MOVE_CANCEL_PX) {
+          imWatchlistTabPressMoved = true;
+          clearImWatchlistTabPressTimer();
+        }
+      });
+
+      const endImWatchlistTabPress = () => {
+        clearImWatchlistTabPressTimer();
+        setTimeout(() => {
+          imWatchlistTabLongPressFired = false;
+          imWatchlistTabPressMoved = false;
+        }, 300);
+      };
+      tabsEl.addEventListener("pointerup", endImWatchlistTabPress);
+      tabsEl.addEventListener("pointercancel", endImWatchlistTabPress);
+      tabsEl.addEventListener("pointerleave", clearImWatchlistTabPressTimer);
+
       tabsEl.addEventListener("click", (event) => {
         if (event.target.closest("#im-watchlist-new-btn")) {
           const lists = getImWatchlists();
@@ -6211,6 +6277,8 @@ async function fetchWatchlist() {
           return;
         }
 
+        if (imWatchlistTabPressMoved || imWatchlistTabLongPressFired) return;
+
         const tabBtn = event.target.closest("[data-watchlist-id]");
         if (tabBtn) {
           activeImWatchlistId = tabBtn.dataset.watchlistId;
@@ -6222,24 +6290,6 @@ async function fetchWatchlist() {
 
     setupImWatchlistSearch();
     setupImWatchlistSortPanel();
-
-    const deleteBtn = document.getElementById("im-watchlist-delete-btn");
-    if (deleteBtn) {
-      deleteBtn.addEventListener("click", () => {
-        const lists = getImWatchlists();
-        if (lists.length <= 1) {
-          alert("You need at least one watchlist. Add another before deleting this one.");
-          return;
-        }
-        const active = getActiveImWatchlist();
-        if (!window.confirm(`Delete watchlist "${active.name}"?`)) return;
-        const remaining = lists.filter((w) => w.id !== active.id);
-        saveImWatchlists(remaining);
-        activeImWatchlistId = remaining[0].id;
-        renderImWatchlistTabs();
-        fetchWatchlist();
-      });
-    }
 
     setupImWatchlistRowInteractions();
     setupImWatchlistSwipe();
