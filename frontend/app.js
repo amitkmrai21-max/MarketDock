@@ -4439,7 +4439,7 @@ function clearLiveChartAiOverlay() {
   const root = document.querySelector(".indian-market-mode");
   if (!root) return;
 
-  const navButtons = root.querySelectorAll(".nav-button");
+  const navButtons = root.querySelectorAll(".nav-button[data-page]");
   const pages = root.querySelectorAll(".page");
   const pageTitle = document.getElementById("im-page-title");
   const pageSubtitle = document.getElementById("im-page-subtitle");
