@@ -10088,3 +10088,11 @@ body.im-chart-fullscreen-open {
 .indian-market-mode #im-stock-options .section-card {
   padding: 0;
 }
+
+/* Scanner: the Top Gainers/Losers filter row now sits directly under
+   the shared page subtitle with no card padding left to separate them
+   (it read as glued to "...momentum leaders."). Give it a little room
+   back, just on top. */
+.indian-market-mode #im-scanner .section-card {
+  padding-top: 10px;
+}
