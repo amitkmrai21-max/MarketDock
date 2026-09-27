@@ -2002,6 +2002,7 @@ setInterval(loadRrg, 300000);
     const menuButtons = [...document.querySelectorAll(".settings-menu-button")];
     const drawer = document.querySelector("#settingsDrawer");
     const closeButton = document.querySelector("#settingsCloseButton");
+    const backdrop = document.querySelector("#settingsBackdrop");
 
     const nameInput = document.querySelector("#userNameInput");
     const saveNameButton = document.querySelector("#saveUserNameBtn");
@@ -2097,11 +2098,13 @@ setInterval(loadRrg, 300000);
 
     function openSettings() {
       drawer?.classList.add("open");
+      backdrop?.classList.add("open");
       menuButtons.forEach((button) => button.setAttribute("aria-expanded", "true"));
     }
 
     function closeSettings() {
       drawer?.classList.remove("open");
+      backdrop?.classList.remove("open");
       menuButtons.forEach((button) => button.setAttribute("aria-expanded", "false"));
     }
 
@@ -2123,6 +2126,7 @@ setInterval(loadRrg, 300000);
 
     menuButtons.forEach((button) => button.addEventListener("click", openSettings));
     closeButton?.addEventListener("click", closeSettings);
+    backdrop?.addEventListener("click", closeSettings);
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {

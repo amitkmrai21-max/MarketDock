@@ -3487,6 +3487,49 @@ body.mode-indian-live-status .market-status-badge {
   transform: translateX(0);
 }
 
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1999;
+  background: rgba(4, 6, 14, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.24s ease;
+}
+
+.settings-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+html.capacitor-app .settings-backdrop {
+  display: none !important;
+}
+
+html:not(.capacitor-app) .settings-drawer {
+  top: 50%;
+  left: 50%;
+  right: auto;
+  width: min(480px, 92vw);
+  max-height: 86dvh;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%) scale(0.94);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+html:not(.capacitor-app) .settings-drawer.open {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .settings-drawer-header {
   display: flex;
   align-items: flex-start;
