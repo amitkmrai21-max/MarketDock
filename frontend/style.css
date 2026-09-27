@@ -180,6 +180,14 @@ body > header.topbar {
   line-height: 1.15;
 }
 
+.brand-accent {
+  background: linear-gradient(135deg, #71c6ff, #004ef2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #1e78ff;
+}
+
 .brand p {
   margin: 4px 0 0;
   color: var(--muted);
