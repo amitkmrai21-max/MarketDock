@@ -7398,6 +7398,97 @@ body.im-chart-fullscreen-open {
   font-size: 11px;
 }
 
+.indian-market-mode #im-stock-options-expiry,
+.indian-market-mode #im-stock-options-strike-range {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(var(--tint-rgb), 0.55);
+  color: var(--im-text);
+  font-size: 12px;
+}
+
+/* Compact 5-column layout (OI/LTP per side + strike) instead of a wider
+   one with Volume/IV — keeps the whole chain on one screen on a phone
+   without the horizontal scroll the generic table's 560px min-width would
+   otherwise force. */
+.indian-market-mode .im-options-table-wrap {
+  overflow-x: visible;
+}
+
+.indian-market-mode .im-options-table {
+  width: 100%;
+  min-width: 0;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.indian-market-mode .im-options-table th,
+.indian-market-mode .im-options-table td {
+  padding: 8px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--im-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.indian-market-mode .im-options-table-compact .im-options-strike {
+  width: 26%;
+}
+
+@media (max-width: 480px) {
+  .indian-market-mode .im-options-table-compact {
+    font-size: 11px;
+  }
+
+  .indian-market-mode .im-options-table-compact th,
+  .indian-market-mode .im-options-table-compact td {
+    padding: 7px 2px;
+  }
+}
+
+.indian-market-mode .im-options-table thead tr:first-child th {
+  color: var(--im-text);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.indian-market-mode .im-options-table thead tr:last-child th {
+  color: var(--im-muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+}
+
+.indian-market-mode .im-options-table .im-options-strike {
+  font-weight: 800;
+  color: var(--im-text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.indian-market-mode .im-options-table tr.im-options-atm td {
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.indian-market-mode .im-options-table tr.im-options-atm .im-options-strike {
+  color: #fbbf24;
+}
+
+.indian-market-mode .im-options-table tr.im-options-max-pain .im-options-strike {
+  color: #a78bfa;
+  box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.5);
+}
+
+.indian-market-mode .im-options-table .im-options-call-side {
+  color: var(--im-green);
+}
+
+.indian-market-mode .im-options-table .im-options-put-side {
+  color: var(--im-red);
+}
+
 .indian-market-mode .im-journal-heading-actions {
   display: flex;
   flex-direction: column;
