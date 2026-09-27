@@ -8887,13 +8887,13 @@ async function fetchWatchlist() {
   function applyScannerFilterAndRender(quotes) {
     let filtered;
     if (imScannerFilter === "losers") {
-      filtered = quotes.slice().sort((a, b) => a.change_percent - b.change_percent).slice(0, 25);
+      filtered = quotes.slice().sort((a, b) => a.change_percent - b.change_percent);
     } else if (imScannerFilter === "strong_bullish") {
-      filtered = quotes.filter((q) => q.ai_label === "Strong Bullish").sort((a, b) => b.change_percent - a.change_percent).slice(0, 50);
+      filtered = quotes.filter((q) => q.ai_label === "Strong Bullish").sort((a, b) => b.change_percent - a.change_percent);
     } else if (imScannerFilter === "strong_bearish") {
-      filtered = quotes.filter((q) => q.ai_label === "Strong Bearish").sort((a, b) => a.change_percent - b.change_percent).slice(0, 50);
+      filtered = quotes.filter((q) => q.ai_label === "Strong Bearish").sort((a, b) => a.change_percent - b.change_percent);
     } else {
-      filtered = quotes.slice().sort((a, b) => b.change_percent - a.change_percent).slice(0, 25);
+      filtered = quotes.slice().sort((a, b) => b.change_percent - a.change_percent);
     }
     renderScannerTable(filtered);
   }
