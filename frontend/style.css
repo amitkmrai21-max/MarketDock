@@ -9812,6 +9812,7 @@ body.im-chart-fullscreen-open {
 .indian-market-mode #im-commodities .im-watchlist-table .im-th-mom,
 .indian-market-mode #im-commodities .im-watchlist-table .im-col-momentum {
   width: 106px !important;
+  padding-right: 3px !important;
 }
 
 .indian-market-mode #im-watchlist .im-stock-brand-cell,
