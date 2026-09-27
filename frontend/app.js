@@ -7533,10 +7533,6 @@ async function fetchWatchlist() {
       aluminium: { icon: "🪨", name: "Aluminium Futures", bg: "rgba(45, 212, 191, 0.16)", color: "#2dd4bf" },
     };
 
-    let buyCount = 0;
-    let neutralCount = 0;
-    let sellCount = 0;
-
     body.innerHTML = rows
       .map((row) => {
         const key = String(row.key || "").toLowerCase();
@@ -7558,14 +7554,10 @@ async function fetchWatchlist() {
           action = "BULLISH";
           momPillClass = "im-mom-pill-buy";
           rowClass = "im-row-buy";
-          buyCount++;
         } else if (changeNum <= -0.4 || score <= 44) {
           action = "BEARISH";
           momPillClass = "im-mom-pill-sell";
           rowClass = "im-row-sell";
-          sellCount++;
-        } else {
-          neutralCount++;
         }
 
         let changeHtml = `<span class="im-change-value im-change-neutral">— 0.00%</span>`;
@@ -7607,13 +7599,6 @@ async function fetchWatchlist() {
         `;
       })
       .join("");
-
-    const bEl = document.getElementById("im-commodities-bullish-count");
-    const nEl = document.getElementById("im-commodities-neutral-count");
-    const sEl = document.getElementById("im-commodities-bearish-count");
-    if (bEl) bEl.textContent = buyCount;
-    if (nEl) nEl.textContent = neutralCount;
-    if (sEl) sEl.textContent = sellCount;
 
     if (status) status.hidden = true;
   }
