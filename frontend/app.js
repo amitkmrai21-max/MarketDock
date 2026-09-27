@@ -4398,10 +4398,6 @@ function clearLiveChartAiOverlay() {
       title: "F&O Watchlist",
       subtitle: "Live last-traded price for liquid, derivatives-eligible NSE stocks."
     },
-    "im-options": {
-      title: "Option Chain",
-      subtitle: "NIFTY 50 and Bank Nifty option chain by strike."
-    },
     "im-commodities": {
       title: "Commodities",
       subtitle: "Current-month MCX futures for Gold, Silver, Crude Oil, and Natural Gas."
@@ -4546,12 +4542,6 @@ function clearLiveChartAiOverlay() {
       if (typeof startFoWatchlistPolling === "function") startFoWatchlistPolling();
     } else if (typeof stopFoWatchlistPolling === "function") {
       stopFoWatchlistPolling();
-    }
-
-    if (pageId === "im-options") {
-      if (typeof startOptionsChainPolling === "function") startOptionsChainPolling();
-    } else if (typeof stopOptionsChainPolling === "function") {
-      stopOptionsChainPolling();
     }
 
     if (pageId === "im-commodities") {
@@ -7046,7 +7036,6 @@ async function fetchWatchlist() {
     const buyBtn = document.getElementById("im-action-sheet-buy-btn");
     const sellBtn = document.getElementById("im-action-sheet-sell-btn");
     const chartBtn = document.getElementById("im-action-sheet-chart-btn");
-    const optChainBtn = document.getElementById("im-action-sheet-option-chain-btn");
     const alertBtn = document.getElementById("im-action-sheet-alert-btn");
     const notesBtn = document.getElementById("im-action-sheet-notes-btn");
     const gttBtn = document.getElementById("im-action-sheet-gtt-btn");
@@ -7073,12 +7062,6 @@ async function fetchWatchlist() {
       chartBtn.onclick = () => {
         closeImWatchlistSheets(true);
         openImTradingViewChartFor(`NSE:${symbol}`, symbol, "im-watchlist");
-      };
-    }
-    if (optChainBtn) {
-      optChainBtn.onclick = () => {
-        closeImWatchlistSheets(true);
-        if (typeof showPage === "function") showPage("im-options");
       };
     }
     if (alertBtn) {
@@ -7222,243 +7205,6 @@ async function fetchWatchlist() {
       window.clearInterval(foWatchlistTimer);
       foWatchlistTimer = null;
     }
-  }
-
-  // ===================== Options chain (NIFTY / Bank Nifty) =====================
-
-  let selectedOptionsMarket = "nifty";
-  let selectedOptionsExpiry = null;
-  let selectedOptionsStrikeRange = "10";
-  let lastOptionChainData = null;
-  let optionsChainTimer = null;
-
-  function formatOptionCompactNumber(value) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return "--";
-    const abs = Math.abs(number);
-    if (abs >= 1e7) return (number / 1e7).toFixed(2).replace(/\.00$/, "") + "Cr";
-    if (abs >= 1e5) return (number / 1e5).toFixed(1).replace(/\.0$/, "") + "L";
-    if (abs >= 1e3) return (number / 1e3).toFixed(1).replace(/\.0$/, "") + "K";
-    return number.toLocaleString("en-IN");
-  }
-
-  function formatOptionNumber(value) {
-    if (value === null || value === undefined) return "--";
-    const number = Number(value);
-    return Number.isFinite(number) ? number.toLocaleString("en-IN") : "--";
-  }
-
-  function renderOptionChain(data) {
-    const body = document.getElementById("im-options-body");
-    const meta = document.getElementById("im-options-meta");
-    const status = document.getElementById("im-options-status");
-    if (!body) return;
-
-    const rows = Array.isArray(data.rows) ? data.rows : [];
-    if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="5">No option chain data available for this expiry.</td></tr>`;
-      if (status) {
-        status.hidden = false;
-        status.textContent = "Unavailable";
-      }
-      return;
-    }
-
-    const spot = Number(data.underlying_spot_price);
-    let atmStrike = null;
-    if (Number.isFinite(spot)) {
-      atmStrike = rows.reduce((closest, row) => {
-        const strike = Number(row.strike);
-        if (!Number.isFinite(strike)) return closest;
-        if (closest === null || Math.abs(strike - spot) < Math.abs(closest - spot)) return strike;
-        return closest;
-      }, null);
-    }
-
-    const maxPainStrike = Number.isFinite(Number(data.max_pain)) ? Number(data.max_pain) : null;
-    const atmIndex = atmStrike !== null ? rows.findIndex((row) => Number(row.strike) === atmStrike) : -1;
-
-    // Strike Range keeps the visible chain focused around the ATM strike —
-    // like Zerodha Kite's default view — instead of every strike Upstox
-    // returns, which would otherwise mean a long vertical scroll to find
-    // the strikes anyone actually cares about.
-    let sliceStart = 0;
-    let visibleRows = rows;
-    if (selectedOptionsStrikeRange !== "all" && atmIndex >= 0) {
-      const range = Number(selectedOptionsStrikeRange) || 10;
-      sliceStart = Math.max(0, atmIndex - range);
-      visibleRows = rows.slice(sliceStart, atmIndex + range + 1);
-    }
-
-    // In-the-money shading: strikes below spot are ITM for calls (rows above
-    // the ATM row, since strikes are listed ascending), strikes above spot
-    // are ITM for puts (rows below). The tint is strongest right next to the
-    // ATM row and fades toward neutral over this many rows, since that
-    // boundary is the actionable part of the chain — deep ITM/deep OTM
-    // strikes recede rather than staying as visually loud as the ATM area.
-    const ITM_FADE_ROWS = 8;
-
-    body.innerHTML = visibleRows
-      .map((row, i) => {
-        const index = sliceStart + i;
-        const strike = Number(row.strike);
-        const isAtm = atmStrike !== null && strike === atmStrike;
-        const isMaxPain = maxPainStrike !== null && strike === maxPainStrike;
-        const call = row.call || {};
-        const put = row.put || {};
-        const rowClasses = [isAtm ? "im-options-atm" : "", isMaxPain ? "im-options-max-pain" : ""].filter(Boolean).join(" ");
-
-        let callStyle = "";
-        let putStyle = "";
-        if (atmIndex >= 0 && Number.isFinite(strike) && atmStrike !== null) {
-          const distance = Math.abs(index - atmIndex);
-          const intensity = Math.max(0, 1 - distance / ITM_FADE_ROWS);
-          const alpha = (0.03 + intensity * 0.15).toFixed(3);
-          if (strike < atmStrike) {
-            callStyle = ` style="background: rgba(34, 197, 94, ${alpha});"`;
-          } else if (strike > atmStrike) {
-            putStyle = ` style="background: rgba(239, 68, 68, ${alpha});"`;
-          }
-        }
-
-        return `
-          <tr class="${rowClasses}">
-            <td class="im-options-call-side"${callStyle}>${formatOptionCompactNumber(call.oi)}</td>
-            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.ltp)}</td>
-            <td class="im-options-strike">${formatOptionNumber(row.strike)}</td>
-            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.ltp)}</td>
-            <td class="im-options-put-side"${putStyle}>${formatOptionCompactNumber(put.oi)}</td>
-          </tr>
-        `;
-      })
-      .join("");
-
-    if (meta) {
-      meta.textContent = `${data.market} · Expiry ${data.expiry} · Spot ${Number.isFinite(spot) ? formatNumber(spot) : "--"}`;
-    }
-    if (status) status.hidden = true;
-
-    const pcrEl = document.getElementById("im-options-pcr");
-    const pcrBiasEl = document.getElementById("im-options-pcr-bias");
-    const maxPainEl = document.getElementById("im-options-max-pain");
-    const pcr = Number(data.pcr);
-    if (pcrEl) pcrEl.textContent = Number.isFinite(pcr) ? pcr.toFixed(2) : "--";
-    if (pcrBiasEl) {
-      if (!Number.isFinite(pcr)) {
-        pcrBiasEl.textContent = "--";
-      } else if (pcr > 1.2) {
-        pcrBiasEl.textContent = "More puts written — often read as bullish bias";
-      } else if (pcr < 0.8) {
-        pcrBiasEl.textContent = "More calls written — often read as bearish bias";
-      } else {
-        pcrBiasEl.textContent = "Balanced — no strong bias either way";
-      }
-    }
-    if (maxPainEl) maxPainEl.textContent = maxPainStrike !== null ? formatNumber(maxPainStrike) : "--";
-  }
-
-  async function loadOptionChain() {
-    const status = document.getElementById("im-options-status");
-    if (!selectedOptionsExpiry) return;
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/options/chain/${selectedOptionsMarket}?expiry=${selectedOptionsExpiry}`
-      );
-      const result = await response.json();
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || "Option chain request failed.");
-      }
-      lastOptionChainData = result.data;
-      renderOptionChain(result.data);
-    } catch (error) {
-      console.error("Option chain fetch failed:", error);
-      if (status) {
-        status.hidden = false;
-        status.textContent = "Unavailable";
-      }
-      const body = document.getElementById("im-options-body");
-      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load the option chain.")}</td></tr>`;
-    }
-  }
-
-  async function loadOptionExpiries() {
-    const select = document.getElementById("im-options-expiry");
-    const meta = document.getElementById("im-options-meta");
-    const status = document.getElementById("im-options-status");
-    if (!select) return;
-
-    if (meta) meta.textContent = "Loading expiries...";
-    if (status) {
-      status.hidden = false;
-      status.textContent = "Loading...";
-    }
-    select.innerHTML = "";
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/options/expiries/${selectedOptionsMarket}`);
-      const result = await response.json();
-      if (!response.ok || !result.ok || !Array.isArray(result.expiries) || !result.expiries.length) {
-        throw new Error(result.error || "Could not load option expiries.");
-      }
-
-      select.innerHTML = result.expiries.map((expiry) => `<option value="${escapeHtml(expiry)}">${escapeHtml(expiry)}</option>`).join("");
-      selectedOptionsExpiry = result.expiries[0];
-      select.value = selectedOptionsExpiry;
-      await loadOptionChain();
-    } catch (error) {
-      console.error("Option expiries fetch failed:", error);
-      if (meta) meta.textContent = error.message || "Could not load option expiries.";
-      if (status) {
-        status.hidden = false;
-        status.textContent = "Unavailable";
-      }
-      const body = document.getElementById("im-options-body");
-      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load option expiries.")}</td></tr>`;
-    }
-  }
-
-  function startOptionsChainPolling() {
-    if (optionsChainTimer) return;
-    loadOptionExpiries();
-    optionsChainTimer = window.setInterval(loadOptionChain, 5000);
-  }
-
-  function stopOptionsChainPolling() {
-    if (optionsChainTimer) {
-      window.clearInterval(optionsChainTimer);
-      optionsChainTimer = null;
-    }
-  }
-
-  document.querySelectorAll("[data-options-market]").forEach((button) => {
-    button.addEventListener("click", () => {
-      selectedOptionsMarket = button.dataset.optionsMarket;
-      document.querySelectorAll("[data-options-market]").forEach((item) => {
-        item.classList.toggle("active", item === button);
-      });
-      selectedOptionsExpiry = null;
-      loadOptionExpiries();
-    });
-  });
-
-  const optionsExpirySelect = document.getElementById("im-options-expiry");
-  if (optionsExpirySelect) {
-    optionsExpirySelect.addEventListener("change", () => {
-      selectedOptionsExpiry = optionsExpirySelect.value;
-      loadOptionChain();
-    });
-  }
-
-  const optionsStrikeRangeSelect = document.getElementById("im-options-strike-range");
-  if (optionsStrikeRangeSelect) {
-    optionsStrikeRangeSelect.addEventListener("change", () => {
-      selectedOptionsStrikeRange = optionsStrikeRangeSelect.value;
-      // Re-render from the already-fetched chain instead of a fresh
-      // network round-trip — the range only changes how much of the same
-      // data is sliced for display.
-      if (lastOptionChainData) renderOptionChain(lastOptionChainData);
-    });
   }
 
   // ===================== Commodities (MCX) =====================
@@ -12387,7 +12133,6 @@ async function fetchWatchlist() {
       stopLiveChartPolling();
       stopWatchlistPolling();
       stopFoWatchlistPolling();
-      stopOptionsChainPolling();
       stopCommoditiesPolling();
       pauseImReplay();
     }
