@@ -4403,8 +4403,8 @@ function clearLiveChartAiOverlay() {
       subtitle: "Live last-traded price for liquid, derivatives-eligible NSE stocks."
     },
     "im-commodities": {
-      title: "Commodities",
-      subtitle: "Current-month MCX futures for Gold, Silver, Crude Oil, and Natural Gas."
+      title: "Commodities (MCX)",
+      subtitle: "Current-month MCX futures for Gold, Silver, Crude Oil, Natural Gas, Copper, Zinc, and Aluminium."
     },
     "im-news": {
       title: "Market News",
