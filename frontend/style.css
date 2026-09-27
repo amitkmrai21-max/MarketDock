@@ -7359,7 +7359,8 @@ body.im-chart-fullscreen-open {
   background: #f87171;
 }
 
-.indian-market-mode #im-options-expiry {
+.indian-market-mode #im-options-expiry,
+.indian-market-mode #im-options-strike-range {
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid rgba(139, 92, 246, 0.2);
@@ -7368,18 +7369,46 @@ body.im-chart-fullscreen-open {
   font-size: 12px;
 }
 
+/* The option chain fits on one screen (no sideways scroll) by keeping to
+   5 narrow columns (OI/LTP per side + strike) instead of the old 7 — the
+   table-wrap's inherited 560px min-width from the generic table rule is
+   exactly what forced horizontal scrolling on a phone, so it's overridden
+   here to size to content instead. */
+.indian-market-mode .im-options-table-wrap {
+  overflow-x: visible;
+}
+
 .indian-market-mode .im-options-table {
   width: 100%;
+  min-width: 0;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 12.5px;
-  white-space: nowrap;
 }
 
 .indian-market-mode .im-options-table th,
 .indian-market-mode .im-options-table td {
-  padding: 8px 10px;
+  padding: 8px 4px;
   text-align: center;
   border-bottom: 1px solid var(--im-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.indian-market-mode .im-options-table-compact .im-options-strike {
+  width: 26%;
+}
+
+@media (max-width: 480px) {
+  .indian-market-mode .im-options-table-compact {
+    font-size: 11px;
+  }
+
+  .indian-market-mode .im-options-table-compact th,
+  .indian-market-mode .im-options-table-compact td {
+    padding: 7px 2px;
+  }
 }
 
 .indian-market-mode .im-options-table thead tr:first-child th {
