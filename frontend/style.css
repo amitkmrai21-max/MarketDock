@@ -7105,6 +7105,9 @@ body.im-chart-fullscreen-open {
 .indian-market-mode .im-watchlist-tab-new {
   flex: 0 0 auto;
   white-space: nowrap;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .indian-market-mode .im-watchlist-tab {
