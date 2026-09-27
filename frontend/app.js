@@ -5710,20 +5710,12 @@ function clearLiveChartAiOverlay() {
   function getImWatchlists() {
     try {
       const saved = JSON.parse(localStorage.getItem(IM_WATCHLISTS_KEY));
-      if (Array.isArray(saved) && saved.length >= 5) return saved;
-      if (Array.isArray(saved) && saved.length > 0) {
-        const existingIds = new Set(saved.map((w) => w.id));
-        const combined = [...saved];
-        for (const defWl of IM_DEFAULT_5_WATCHLISTS) {
-          if (combined.length >= 5) break;
-          if (!existingIds.has(defWl.id)) {
-            combined.push(defWl);
-          }
-        }
-        saveImWatchlists(combined);
-        return combined;
-      }
+      if (Array.isArray(saved) && saved.length > 0) return saved;
     } catch (error) { /* ignore */ }
+    // Only a genuinely empty/missing/corrupt first run seeds the 5 default
+    // watchlists — a saved list is never topped back up to 5, since that
+    // silently reintroduced a default watchlist right after the user
+    // deleted one, making the delete look like it didn't do anything.
     const defaults = JSON.parse(JSON.stringify(IM_DEFAULT_5_WATCHLISTS));
     saveImWatchlists(defaults);
     return defaults;
