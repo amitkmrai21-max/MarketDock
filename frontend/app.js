@@ -7571,8 +7571,7 @@ async function fetchWatchlist() {
           changeHtml = `<span class="im-change-value ${cls}">${arrow} ${sign}${changeNum.toFixed(2)}%</span>`;
         }
 
-        const expiryLabel = row.expiry ? ` · ${escapeHtml(row.expiry)}` : "";
-        const contractSub = `${escapeHtml(row.trading_symbol || "MCX")}${expiryLabel}`;
+        const contractSub = `${escapeHtml(String(row.name || key.toUpperCase()).toUpperCase())} FUT`;
 
         return `
           <tr class="im-watchlist-row ${rowClass}">

@@ -9790,6 +9790,30 @@ body.im-chart-fullscreen-open {
   padding-left: 0 !important;
 }
 
+/* Commodities: the symbol column no longer needs Watchlist's wide,
+   flexible width now that the subtitle is a short "NAME FUT" instead of
+   a long contract code + expiry — give it a fixed, modest width instead,
+   and let price flex into the space that frees up so the price value
+   (already right-aligned within its own column) sits closer to momentum
+   instead of leaving a wide gap after the name. */
+.indian-market-mode #im-commodities .im-watchlist-table .im-th-symbol,
+.indian-market-mode #im-commodities .im-watchlist-table .im-col-symbol {
+  width: 172px !important;
+}
+.indian-market-mode #im-commodities .im-watchlist-table .im-th-price-chg,
+.indian-market-mode #im-commodities .im-watchlist-table .im-col-price-chg {
+  width: auto !important;
+}
+/* Momentum's own fixed width is what actually pins price's right edge
+   (it's the last column, so price can never reach further right than
+   "table width minus momentum's width" no matter how symbol/price split
+   the space before it) — narrow it slightly, just enough over the
+   92px pill + padding, to let price extend further right too. */
+.indian-market-mode #im-commodities .im-watchlist-table .im-th-mom,
+.indian-market-mode #im-commodities .im-watchlist-table .im-col-momentum {
+  width: 106px !important;
+}
+
 .indian-market-mode #im-watchlist .im-stock-brand-cell,
 .indian-market-mode #im-commodities .im-stock-brand-cell {
   display: flex !important;
@@ -9889,7 +9913,5 @@ body.im-chart-fullscreen-open {
   .indian-market-mode #im-watchlist .im-mom-pill,
   .indian-market-mode #im-commodities .im-mom-pill { flex-basis: 84px !important; width: 84px !important; min-width: 84px !important; max-width: 84px !important; }
   .indian-market-mode #im-watchlist .im-watchlist-table .im-th-price-chg,
-  .indian-market-mode #im-watchlist .im-watchlist-table .im-col-price-chg,
-  .indian-market-mode #im-commodities .im-watchlist-table .im-th-price-chg,
-  .indian-market-mode #im-commodities .im-watchlist-table .im-col-price-chg { width: 68px !important; }
+  .indian-market-mode #im-watchlist .im-watchlist-table .im-col-price-chg { width: 68px !important; }
 }
