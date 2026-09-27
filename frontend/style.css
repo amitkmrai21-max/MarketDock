@@ -10039,6 +10039,6 @@ body.im-chart-fullscreen-open {
   .indian-market-mode #im-watchlist .im-watchlist-table .im-col-price-chg,
   .indian-market-mode #im-commodities .im-watchlist-table .im-th-price-chg,
   .indian-market-mode #im-commodities .im-watchlist-table .im-col-price-chg {
-    padding-right: 28px !important;
+    padding-right: 48px !important;
   }
 }
