@@ -10096,3 +10096,9 @@ body.im-chart-fullscreen-open {
 .indian-market-mode #im-scanner .section-card {
   padding-top: 10px;
 }
+
+/* Heatmap: same issue as Scanner — the NIFTY 50/Bank Nifty/... index
+   filter row sat glued to the subtitle above it. */
+.indian-market-mode #im-heatmap .section-card {
+  padding-top: 10px;
+}
