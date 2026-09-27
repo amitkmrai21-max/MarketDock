@@ -4659,7 +4659,8 @@ function clearLiveChartAiOverlay() {
     }
     const actionSheet = document.getElementById("im-watchlist-action-sheet");
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
-    if ((actionSheet && !actionSheet.hidden) || (deleteSheet && !deleteSheet.hidden)) {
+    const tabMenuSheet = document.getElementById("im-watchlist-tab-menu-sheet");
+    if ((actionSheet && !actionSheet.hidden) || (deleteSheet && !deleteSheet.hidden) || (tabMenuSheet && !tabMenuSheet.hidden)) {
       // The 450ms guard in closeImWatchlistSheets() exists to ignore an
       // accidental backdrop-tap right after the sheet opens (touch bubbling
       // from the same gesture that opened it) — it doesn't apply to a
@@ -6192,6 +6193,46 @@ async function fetchWatchlist() {
     fetchWatchlist();
   }
 
+  function renameImWatchlistById(id, currentName) {
+    const newName = window.prompt("Rename watchlist:", currentName);
+    if (!newName || !newName.trim() || newName.trim() === currentName) return;
+    const lists = getImWatchlists();
+    const target = lists.find((w) => w.id === id);
+    if (!target) return;
+    target.name = newName.trim().slice(0, 40);
+    saveImWatchlists(lists);
+    renderImWatchlistTabs();
+  }
+
+  function openImWatchlistTabMenu(id) {
+    imSheetOpenedAt = Date.now();
+    const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
+    const sheet = document.getElementById("im-watchlist-tab-menu-sheet");
+    if (!backdrop || !sheet) return;
+
+    const lists = getImWatchlists();
+    const target = lists.find((w) => w.id === id);
+    if (!target) return;
+
+    const nameEl = document.getElementById("im-tab-menu-name");
+    if (nameEl) nameEl.textContent = target.name;
+
+    document.getElementById("im-tab-menu-rename-btn").onclick = () => {
+      closeImWatchlistSheets(true);
+      renameImWatchlistById(id, target.name);
+    };
+    document.getElementById("im-tab-menu-delete-btn").onclick = () => {
+      closeImWatchlistSheets(true);
+      deleteImWatchlistById(id);
+    };
+
+    backdrop.hidden = false;
+    backdrop.style.display = "block";
+    sheet.hidden = false;
+    sheet.style.display = "flex";
+    sheet.classList.add("im-sheet-open");
+  }
+
   let imWatchlistTabPressTimer = null;
   let imWatchlistTabPressStart = null;
   let imWatchlistTabLongPressFired = false;
@@ -6212,6 +6253,11 @@ async function fetchWatchlist() {
       tabsEl.addEventListener("pointerdown", (event) => {
         const tabBtn = event.target.closest("[data-watchlist-id]");
         if (!tabBtn) return;
+        // Without this, a long-press on Android sometimes gets read as a
+        // native "select this text" gesture, popping up the OS's own
+        // Copy/Select All/Share menu over the tab instead of (or on top
+        // of) the custom long-press menu below.
+        event.preventDefault();
         imWatchlistTabLongPressFired = false;
         imWatchlistTabPressMoved = false;
         imWatchlistTabPressStart = { x: event.clientX, y: event.clientY };
@@ -6220,8 +6266,12 @@ async function fetchWatchlist() {
           imWatchlistTabLongPressFired = true;
           imWatchlistTabPressTimer = null;
           if (navigator.vibrate) navigator.vibrate(15);
-          deleteImWatchlistById(tabBtn.dataset.watchlistId);
+          openImWatchlistTabMenu(tabBtn.dataset.watchlistId);
         }, IM_TAB_LONG_PRESS_MS);
+      });
+
+      tabsEl.addEventListener("contextmenu", (event) => {
+        if (event.target.closest("[data-watchlist-id]")) event.preventDefault();
       });
 
       tabsEl.addEventListener("pointermove", (event) => {
@@ -6783,6 +6833,7 @@ async function fetchWatchlist() {
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const actionSheet = document.getElementById("im-watchlist-action-sheet");
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
+    const tabMenuSheet = document.getElementById("im-watchlist-tab-menu-sheet");
     if (backdrop) {
       backdrop.hidden = true;
       backdrop.style.display = "none";
@@ -6795,6 +6846,11 @@ async function fetchWatchlist() {
     if (deleteSheet) {
       deleteSheet.hidden = true;
       deleteSheet.style.display = "none";
+    }
+    if (tabMenuSheet) {
+      tabMenuSheet.hidden = true;
+      tabMenuSheet.style.display = "none";
+      tabMenuSheet.classList.remove("im-sheet-open");
     }
   }
 
@@ -7127,6 +7183,7 @@ async function fetchWatchlist() {
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const cancelBtn = document.getElementById("im-action-sheet-cancel-btn");
     const deleteCancelBtn = document.getElementById("im-delete-sheet-cancel-btn");
+    const tabMenuCancelBtn = document.getElementById("im-tab-menu-cancel-btn");
     if (backdrop) {
       backdrop.addEventListener("click", (e) => {
         if (e.target === backdrop) closeImWatchlistSheets(false);
@@ -7134,6 +7191,7 @@ async function fetchWatchlist() {
     }
     if (cancelBtn) cancelBtn.addEventListener("click", () => closeImWatchlistSheets(true));
     if (deleteCancelBtn) deleteCancelBtn.addEventListener("click", () => closeImWatchlistSheets(true));
+    if (tabMenuCancelBtn) tabMenuCancelBtn.addEventListener("click", () => closeImWatchlistSheets(true));
   })();
 
   setupImWatchlistControls();
