@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v2">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v3">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1284,10 +1284,6 @@
           F&amp;O
         </button>
 
-        <button class="nav-button" data-page="im-options" type="button">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M8 6h12M8 12h12M8 18h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="4" cy="6" r="1.3" fill="currentColor"/><circle cx="4" cy="12" r="1.3" fill="currentColor"/><circle cx="4" cy="18" r="1.3" fill="currentColor"/></svg></span>
-          Options
-        </button>
 
         <button class="nav-button" data-page="im-commodities" type="button">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8"/></svg></span>
@@ -2264,85 +2260,6 @@
         </article>
       </section>
 
-      <section class="page" id="im-options">
-        <article class="card section-card">
-          <div class="section-heading">
-            <div>
-              <h2>Option Chain</h2>
-              <p>NIFTY 50 and Bank Nifty by strike. Research view only — no order placement.</p>
-            </div>
-            <div class="setup-badge" id="im-options-status" hidden>Loading…</div>
-          </div>
-
-          <div class="chart-controls">
-            <div class="chart-control-group">
-              <span class="chart-control-label">Index</span>
-              <button class="chart-control-button active" type="button" data-options-market="nifty">NIFTY 50</button>
-              <button class="chart-control-button" type="button" data-options-market="banknifty">Bank Nifty</button>
-            </div>
-
-            <div class="chart-control-group">
-              <span class="chart-control-label">Expiry</span>
-              <select id="im-options-expiry" aria-label="Expiry date"></select>
-            </div>
-
-            <div class="chart-control-group">
-              <span class="chart-control-label">Strike Range</span>
-              <select id="im-options-strike-range" aria-label="Strike range">
-                <option value="5">&plusmn; 5 Strikes</option>
-                <option value="10" selected>&plusmn; 10 Strikes</option>
-                <option value="20">&plusmn; 20 Strikes</option>
-                <option value="all">All Strikes</option>
-              </select>
-            </div>
-          </div>
-
-          <p id="im-options-meta" class="im-chart-status">Loading expiries…</p>
-
-          <div class="im-options-summary" id="im-options-summary">
-            <div class="im-options-summary-card">
-              <span class="im-options-summary-label">PCR (Put/Call OI)</span>
-              <strong id="im-options-pcr">--</strong>
-              <span id="im-options-pcr-bias" class="im-options-summary-note">--</span>
-            </div>
-            <div class="im-options-summary-card">
-              <span class="im-options-summary-label">Max Pain</span>
-              <strong id="im-options-max-pain">--</strong>
-              <span class="im-options-summary-note">Strike where option writers pay out least at expiry</span>
-            </div>
-          </div>
-
-          <div class="im-options-legend">
-            <span class="im-options-legend-item"><span class="im-options-legend-dot im-options-legend-atm"></span>Current price (ATM)</span>
-            <span class="im-options-legend-item"><span class="im-options-legend-dot im-options-legend-maxpain"></span>Max Pain strike</span>
-            <span class="im-options-legend-item"><span class="im-options-legend-dot im-options-legend-itm-call"></span>ITM Call</span>
-            <span class="im-options-legend-item"><span class="im-options-legend-dot im-options-legend-itm-put"></span>ITM Put</span>
-          </div>
-
-          <div class="table-wrap im-options-table-wrap">
-            <table class="im-options-table im-options-table-compact">
-              <thead>
-                <tr>
-                  <th colspan="2">CALL</th>
-                  <th>STRIKE</th>
-                  <th colspan="2">PUT</th>
-                </tr>
-                <tr>
-                  <th>OI</th>
-                  <th>LTP</th>
-                  <th></th>
-                  <th>LTP</th>
-                  <th>OI</th>
-                </tr>
-              </thead>
-              <tbody id="im-options-body">
-                <tr><td colspan="5">Loading option chain…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </article>
-      </section>
-
       <section class="page" id="im-commodities">
         <article class="card section-card">
           <div class="section-heading">
@@ -3286,10 +3203,6 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
           <span>Chart</span>
         </button>
-        <button class="im-term-pill-btn" type="button" id="im-action-sheet-option-chain-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          <span>Option Chain</span>
-        </button>
         <button class="im-term-pill-btn" type="button" id="im-action-sheet-alert-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span>Set Alert</span>
@@ -3756,7 +3669,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v2"></script>
+  <script src="/frontend/app.js?v=v20260927v3"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
