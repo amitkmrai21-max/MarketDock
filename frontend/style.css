@@ -9811,8 +9811,28 @@ body.im-chart-fullscreen-open {
    92px pill + padding, to let price extend further right too. */
 .indian-market-mode #im-commodities .im-watchlist-table .im-th-mom,
 .indian-market-mode #im-commodities .im-watchlist-table .im-col-momentum {
-  width: 97px !important;
+  width: 86px !important;
   padding-right: 2px !important;
+}
+/* Shrink the pill badge itself for Commodities (BULLISH/NEUTRAL/BEARISH
+   are all 7 letters, so this is the same fit budget for every state) —
+   this is what actually frees more of the momentum column's width for
+   price to grow into, beyond what padding/column-width tuning alone
+   could reach. */
+.indian-market-mode #im-commodities .im-mom-pill {
+  width: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+}
+.indian-market-mode #im-commodities .im-mom-txt {
+  font-size: 8.5px !important;
+  letter-spacing: 0.2px !important;
+}
+.indian-market-mode #im-commodities .im-mom-bubble {
+  flex: 0 0 20px !important;
+  width: 20px !important;
+  height: 20px !important;
+  font-size: 9px !important;
 }
 
 .indian-market-mode #im-watchlist .im-stock-brand-cell,
