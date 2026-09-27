@@ -2818,6 +2818,9 @@ MCX_COMMODITIES = {
     "silver": {"name": "Silver", "prefix": "SILVER"},
     "crudeoil": {"name": "Crude Oil", "prefix": "CRUDEOIL"},
     "naturalgas": {"name": "Natural Gas", "prefix": "NATURALGAS"},
+    "copper": {"name": "Copper", "prefix": "COPPER"},
+    "zinc": {"name": "Zinc", "prefix": "ZINC"},
+    "aluminium": {"name": "Aluminium", "prefix": "ALUMINIUM"},
 }
 
 INSTRUMENT_MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/complete.csv.gz"

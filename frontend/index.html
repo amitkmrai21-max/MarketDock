@@ -2263,23 +2263,29 @@
         <article class="card section-card">
           <div class="section-heading">
             <div>
-              <h2>MCX Futures</h2>
+              <h2>Commodities (MCX)</h2>
+              <p>Current-month MCX futures for metals and energy contracts.</p>
             </div>
             <div class="setup-badge" id="im-commodities-status" hidden>Loading…</div>
           </div>
 
-          <div class="table-wrap">
-            <table>
+          <div class="im-watchlist-summary-strip" style="margin-bottom:12px;">
+            <span class="im-summary-chip im-chip-buy">BULLISH <strong id="im-commodities-bullish-count">0</strong></span>
+            <span class="im-summary-chip im-chip-neutral">NEUTRAL <strong id="im-commodities-neutral-count">0</strong></span>
+            <span class="im-summary-chip im-chip-sell">BEARISH <strong id="im-commodities-bearish-count">0</strong></span>
+          </div>
+
+          <div class="table-wrap im-watchlist-table-wrap">
+            <table class="im-watchlist-table" style="width:100%;">
               <thead>
                 <tr>
-                  <th>Commodity</th>
-                  <th>Contract</th>
-                  <th>Last Price</th>
-                  <th>Change</th>
+                  <th class="im-col-symbol">COMMODITY</th>
+                  <th class="im-col-price-chg">PRICE</th>
+                  <th class="im-col-momentum">MOMENTUM</th>
                 </tr>
               </thead>
               <tbody id="im-commodities-body">
-                <tr><td colspan="4">Loading commodity prices…</td></tr>
+                <tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">Loading commodities…</td></tr>
               </tbody>
             </table>
           </div>

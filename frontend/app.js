@@ -7510,7 +7510,7 @@ async function fetchWatchlist() {
     if (!body) return;
 
     if (!Array.isArray(rows) || !rows.length) {
-      body.innerHTML = `<tr><td colspan="4">No commodity data available right now.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">No commodity data available right now.</td></tr>`;
       if (status) {
         status.hidden = false;
         status.textContent = "Unavailable";
@@ -7518,18 +7518,96 @@ async function fetchWatchlist() {
       return;
     }
 
+    const COMMODITY_METAS = {
+      gold: { icon: "🪙", name: "Gold Futures", bg: "rgba(234, 179, 8, 0.16)", color: "#eab308" },
+      silver: { icon: "🥈", name: "Silver Futures", bg: "rgba(148, 163, 184, 0.16)", color: "#cbd5e1" },
+      crudeoil: { icon: "🛢️", name: "Crude Oil Futures", bg: "rgba(239, 68, 68, 0.16)", color: "#f87171" },
+      naturalgas: { icon: "⚡", name: "Natural Gas Futures", bg: "rgba(59, 130, 246, 0.16)", color: "#60a5fa" },
+      copper: { icon: "🔶", name: "Copper Futures", bg: "rgba(249, 115, 22, 0.16)", color: "#fb923c" },
+      zinc: { icon: "⚙️", name: "Zinc Futures", bg: "rgba(168, 85, 247, 0.16)", color: "#c084fc" },
+      aluminium: { icon: "🪨", name: "Aluminium Futures", bg: "rgba(45, 212, 191, 0.16)", color: "#2dd4bf" },
+    };
+
+    let buyCount = 0;
+    let neutralCount = 0;
+    let sellCount = 0;
+
     body.innerHTML = rows
       .map((row) => {
+        const key = String(row.key || "").toLowerCase();
+        const meta = COMMODITY_METAS[key] || {
+          icon: "📦",
+          name: row.name || "Commodity",
+          bg: "rgba(100, 116, 139, 0.16)",
+          color: "#94a3b8"
+        };
+
+        const changeNum = Number(row.change_percent);
+        const score = Number.isFinite(changeNum) ? Math.min(99, Math.max(1, Math.round(50 + changeNum * 15))) : 50;
+
+        let action = "NEUTRAL";
+        let momPillClass = "im-mom-pill-neutral";
+        let rowClass = "im-row-neutral";
+
+        if (changeNum >= 0.4 || score >= 56) {
+          action = "BULLISH";
+          momPillClass = "im-mom-pill-buy";
+          rowClass = "im-row-buy";
+          buyCount++;
+        } else if (changeNum <= -0.4 || score <= 44) {
+          action = "BEARISH";
+          momPillClass = "im-mom-pill-sell";
+          rowClass = "im-row-sell";
+          sellCount++;
+        } else {
+          neutralCount++;
+        }
+
+        let changeHtml = `<span class="im-change-value im-change-neutral">— 0.00%</span>`;
+        if (Number.isFinite(changeNum)) {
+          const sign = changeNum >= 0 ? "+" : "";
+          const arrow = changeNum >= 0 ? "▲" : "▼";
+          const cls = changeNum >= 0 ? "im-change-up" : "im-change-down";
+          changeHtml = `<span class="im-change-value ${cls}">${arrow} ${sign}${changeNum.toFixed(2)}%</span>`;
+        }
+
+        const expiryLabel = row.expiry ? ` · ${escapeHtml(row.expiry)}` : "";
+        const contractSub = `${escapeHtml(row.trading_symbol || "MCX")}${expiryLabel}`;
+
         return `
-          <tr>
-            <td>${escapeHtml(row.name)}</td>
-            <td>${escapeHtml(row.trading_symbol)} &middot; ${escapeHtml(row.expiry)}</td>
-            <td>${formatNumber(row.last_price)}</td>
-            <td>${changePillHtml(row.change_percent, { arrow: false })}</td>
+          <tr class="im-watchlist-row ${rowClass}">
+            <td class="im-col-symbol">
+              <div class="im-stock-brand-cell">
+                <div class="im-stock-avatar" style="background:${meta.bg};color:${meta.color};font-size:16px;">${meta.icon}</div>
+                <div class="im-stock-text-col">
+                  <span class="im-stock-symbol-text">${escapeHtml(row.name || key.toUpperCase())}</span>
+                  <span class="im-stock-name-text">${contractSub}</span>
+                </div>
+              </div>
+            </td>
+            <td class="im-col-price-chg">
+              <div class="im-price-block">
+                <span class="im-price-value">${formatNumber(row.last_price)}</span>
+                ${changeHtml}
+              </div>
+            </td>
+            <td class="im-col-momentum">
+              <span class="im-mom-pill ${momPillClass}">
+                <span class="im-mom-text">${action}</span>
+                <span class="im-mom-score">${score}</span>
+              </span>
+            </td>
           </tr>
         `;
       })
       .join("");
+
+    const bEl = document.getElementById("im-commodities-bullish-count");
+    const nEl = document.getElementById("im-commodities-neutral-count");
+    const sEl = document.getElementById("im-commodities-bearish-count");
+    if (bEl) bEl.textContent = buyCount;
+    if (nEl) nEl.textContent = neutralCount;
+    if (sEl) sEl.textContent = sellCount;
 
     if (status) status.hidden = true;
   }
