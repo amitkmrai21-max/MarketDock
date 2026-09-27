@@ -24,7 +24,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v4">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v5">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -3287,35 +3287,6 @@
         </button>
       </div>
 
-      <!-- Mini Chart Card (From Concept 1) -->
-      <div class="im-terminal-chart-card">
-        <div class="im-terminal-chart-header">
-          <div class="im-terminal-chart-title">
-            <span class="im-chart-pulse"></span>
-            <span>INTRADAY TREND</span>
-          </div>
-          <div class="im-terminal-tf-group" id="im-terminal-tf-buttons">
-            <button class="im-tf-btn" type="button" data-tf="1H">1H</button>
-            <button class="im-tf-btn active" type="button" data-tf="1D">1D</button>
-            <button class="im-tf-btn" type="button" data-tf="1W">1W</button>
-            <button class="im-tf-btn" type="button" data-tf="1M">1M</button>
-            <button class="im-tf-btn" type="button" data-tf="1Y">1Y</button>
-          </div>
-        </div>
-        <div class="im-terminal-chart-container" id="im-terminal-chart-container">
-          <svg class="im-terminal-svg" id="im-terminal-svg" viewBox="0 0 340 100" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="im-chart-grad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
-                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
-              </linearGradient>
-            </defs>
-            <path id="im-chart-area-path" d="" fill="url(#im-chart-grad)"/>
-            <path id="im-chart-line-path" d="" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
-          </svg>
-        </div>
-      </div>
-
       <!-- Market Depth Section (Pro L2 with visual horizontal volume bars) -->
       <div class="im-terminal-section">
         <div class="im-term-section-head">
@@ -3345,6 +3316,35 @@
               <strong id="im-kd-offer-total-qty">0</strong>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Mini Chart Card (From Concept 1) -->
+      <div class="im-terminal-chart-card">
+        <div class="im-terminal-chart-header">
+          <div class="im-terminal-chart-title">
+            <span class="im-chart-pulse"></span>
+            <span>INTRADAY TREND</span>
+          </div>
+          <div class="im-terminal-tf-group" id="im-terminal-tf-buttons">
+            <button class="im-tf-btn" type="button" data-tf="1H">1H</button>
+            <button class="im-tf-btn active" type="button" data-tf="1D">1D</button>
+            <button class="im-tf-btn" type="button" data-tf="1W">1W</button>
+            <button class="im-tf-btn" type="button" data-tf="1M">1M</button>
+            <button class="im-tf-btn" type="button" data-tf="1Y">1Y</button>
+          </div>
+        </div>
+        <div class="im-terminal-chart-container" id="im-terminal-chart-container">
+          <svg class="im-terminal-svg" id="im-terminal-svg" viewBox="0 0 340 100" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="im-chart-grad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
+                <stop offset="100%" stop-color="#38bdf8" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+            <path id="im-chart-area-path" d="" fill="url(#im-chart-grad)"/>
+            <path id="im-chart-line-path" d="" fill="none" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
         </div>
       </div>
 
