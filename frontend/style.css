@@ -10203,3 +10203,158 @@ body.im-chart-fullscreen-open {
   color: #ffffff;
   margin: 4px 0 0;
 }
+
+/* Positions page — Total/Day P&L summary, search, segment filters, and a
+   card-per-position list (merges Positions + Holdings into one feed, since
+   that's how a trader actually wants to scan them together). */
+.im-pos-summary-row {
+  display: flex;
+  gap: 10px;
+  margin: 4px 0 14px;
+}
+.im-pos-summary-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--im-card-bg, #131b2e);
+  border: 1px solid var(--im-border, #232d45);
+  border-radius: 12px;
+}
+.im-pos-summary-label {
+  font-size: 12px;
+  color: var(--im-muted, #8b93a8);
+}
+.im-pos-summary-value {
+  font-size: 20px;
+  font-weight: 800;
+}
+.im-pos-summary-pct {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.im-pos-search-row {
+  margin-bottom: 10px;
+}
+.im-pos-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--im-border, #232d45);
+  background: var(--im-card-bg, #131b2e);
+  color: #ffffff;
+  font-size: 14px;
+}
+.im-pos-search-input::placeholder {
+  color: var(--im-muted, #8b93a8);
+}
+
+.im-pos-filter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+.im-pos-filter-pill {
+  flex: none;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--im-border, #232d45);
+  background: var(--im-card-bg, #131b2e);
+  color: var(--im-muted, #8b93a8);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.im-pos-filter-pill.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.im-pos-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.im-pos-row {
+  padding: 14px 16px;
+  background: var(--im-card-bg, #131b2e);
+  border: 1px solid var(--im-border, #232d45);
+  border-radius: 12px;
+}
+.im-pos-row-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.im-pos-row-left {
+  min-width: 0;
+}
+.im-pos-symbol {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 6px;
+}
+.im-pos-badges {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.im-pos-badge {
+  padding: 2px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+}
+.im-pos-badge-buy {
+  background: #00d084;
+  color: #052e1c;
+}
+.im-pos-badge-sell {
+  background: #ef4444;
+  color: #2b0505;
+}
+.im-pos-badge-product {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--im-muted, #8b93a8);
+}
+.im-pos-segment-text {
+  font-size: 12px;
+  color: var(--im-muted, #8b93a8);
+}
+.im-pos-row-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.im-pos-row-right-values {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.im-pos-pnl {
+  font-size: 14px;
+  font-weight: 800;
+}
+.im-pos-pnl-pct {
+  font-size: 12px;
+  font-weight: 600;
+}
+.im-pos-chevron {
+  font-size: 18px;
+  color: var(--im-muted, #8b93a8);
+}
+.im-pos-row-meta {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--im-muted, #8b93a8);
+}

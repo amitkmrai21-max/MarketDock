@@ -9367,31 +9367,157 @@ async function fetchWatchlist() {
     body.innerHTML = rows.map(mapRow).join("");
   }
 
-  async function loadBrokerPositions() {
-    const result = await brokerApiFetch("/api/broker/upstox/positions");
-    if (!result.ok) {
-      renderBrokerRows("im-broker-positions-body", [], () => "");
-      document.getElementById("im-broker-positions-body").innerHTML = `<tr><td colspan="3">${escapeHtml(result.error || "Could not load positions.")}</td></tr>`;
-      return;
-    }
-    renderBrokerRows("im-broker-positions-body", result.data || [], (row) => {
-      const pnl = Number(row.pnl ?? 0);
-      const cls = pnl >= 0 ? "im-change-up" : "im-change-down";
-      return `<tr><td class="im-col-symbol">${escapeHtml(row.trading_symbol || row.tradingsymbol || "--")}</td><td class="im-col-price">${formatNumber(row.quantity)}</td><td class="im-col-change-pct"><span class="im-change-value ${cls}">${formatNumber(pnl)}</span></td></tr>`;
-    });
+  // ---- Positions page: merges live Positions + Holdings into one
+  // searchable, filterable list (matches how a trader actually wants to
+  // scan them together, rather than as two separate tables). ----
+  let imPosAllRows = [];
+  let imPosActiveSegment = "ALL";
+
+  function classifyPositionSegment(exchange, tradingSymbol) {
+    const ex = String(exchange || "").toUpperCase();
+    const sym = String(tradingSymbol || "").toUpperCase();
+    if (ex.includes("FO")) return /(CE|PE)$/.test(sym) ? "OPT" : "FO";
+    return "EQ";
   }
 
-  async function loadBrokerHoldings() {
-    const result = await brokerApiFetch("/api/broker/upstox/holdings");
-    if (!result.ok) {
-      document.getElementById("im-broker-holdings-body").innerHTML = `<tr><td colspan="3">${escapeHtml(result.error || "Could not load holdings.")}</td></tr>`;
+  function brokerSegmentLabel(segment) {
+    if (segment === "OPT") return "F&O · Options";
+    if (segment === "FO") return "F&O · Futures";
+    return "NSE · Equity";
+  }
+
+  function brokerProductLabel(product) {
+    const p = String(product || "").toUpperCase();
+    if (p === "I") return "MIS";
+    if (p === "D") return "CNC";
+    return p || "--";
+  }
+
+  function normalizeBrokerRow(row, kind) {
+    const quantity = Number(row.quantity ?? 0);
+    const direction = kind === "holding" ? "BUY" : (quantity < 0 ? "SELL" : "BUY");
+    const segment = classifyPositionSegment(row.exchange, row.trading_symbol || row.tradingsymbol);
+    const pnl = Number(row.pnl ?? 0);
+    const lastPrice = Number(row.last_price ?? 0);
+    const avgPrice = Number(row.average_price ?? 0);
+    const investedValue = Math.abs(avgPrice * quantity) || null;
+    const pnlPct = investedValue ? (pnl / investedValue) * 100 : null;
+    // Holdings carry an explicit per-share day_change from Upstox; a
+    // position opened intraday has no prior-day carry, so its total pnl
+    // already IS today's pnl in the common retail case.
+    const dayPnl = kind === "holding" && Number.isFinite(Number(row.day_change))
+      ? Number(row.day_change) * Math.abs(quantity)
+      : pnl;
+
+    return {
+      symbol: row.trading_symbol || row.tradingsymbol || "--",
+      direction,
+      product: brokerProductLabel(row.product),
+      segment,
+      segmentLabel: brokerSegmentLabel(segment),
+      quantity: Math.abs(quantity),
+      lastPrice,
+      pnl,
+      pnlPct,
+      dayPnl
+    };
+  }
+
+  function renderPositionsSummary(rows) {
+    const totalPnl = rows.reduce((sum, r) => sum + r.pnl, 0);
+    const dayPnl = rows.reduce((sum, r) => sum + r.dayPnl, 0);
+    const invested = rows.reduce((sum, r) => sum + r.lastPrice * r.quantity, 0);
+
+    const totalEl = document.getElementById("im-pos-total-pnl");
+    const totalPctEl = document.getElementById("im-pos-total-pnl-pct");
+    const dayEl = document.getElementById("im-pos-day-pnl");
+    const dayPctEl = document.getElementById("im-pos-day-pnl-pct");
+    const totalCls = totalPnl >= 0 ? "im-change-up" : "im-change-down";
+    const dayCls = dayPnl >= 0 ? "im-change-up" : "im-change-down";
+
+    if (totalEl) { totalEl.textContent = `${totalPnl >= 0 ? "+" : ""}${formatNumber(totalPnl)}`; totalEl.className = `im-pos-summary-value ${totalCls}`; }
+    if (dayEl) { dayEl.textContent = `${dayPnl >= 0 ? "+" : ""}${formatNumber(dayPnl)}`; dayEl.className = `im-pos-summary-value ${dayCls}`; }
+
+    const totalPct = invested ? (totalPnl / invested) * 100 : null;
+    const dayPct = invested ? (dayPnl / invested) * 100 : null;
+    if (totalPctEl) { totalPctEl.textContent = Number.isFinite(totalPct) ? `(${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(2)}%)` : ""; totalPctEl.className = `im-pos-summary-pct ${totalCls}`; }
+    if (dayPctEl) { dayPctEl.textContent = Number.isFinite(dayPct) ? `(${dayPct >= 0 ? "+" : ""}${dayPct.toFixed(2)}%)` : ""; dayPctEl.className = `im-pos-summary-pct ${dayCls}`; }
+  }
+
+  function renderPositionsList() {
+    const listEl = document.getElementById("im-pos-list");
+    if (!listEl) return;
+    const searchTerm = (document.getElementById("im-pos-search-input")?.value || "").trim().toUpperCase();
+
+    const filtered = imPosAllRows.filter((r) => {
+      // "F&O" is the broader bucket (futures + options); "Options" narrows
+      // to just the CE/PE contracts within it.
+      if (imPosActiveSegment === "FO" && r.segment !== "FO" && r.segment !== "OPT") return false;
+      if (imPosActiveSegment !== "ALL" && imPosActiveSegment !== "FO" && r.segment !== imPosActiveSegment) return false;
+      if (searchTerm && !r.symbol.toUpperCase().includes(searchTerm)) return false;
+      return true;
+    });
+
+    if (!filtered.length) {
+      listEl.innerHTML = `<p class="settings-help">No positions to show.</p>`;
       return;
     }
-    renderBrokerRows("im-broker-holdings-body", result.data || [], (row) => {
-      const pnl = Number(row.pnl ?? 0);
-      const cls = pnl >= 0 ? "im-change-up" : "im-change-down";
-      return `<tr><td class="im-col-symbol">${escapeHtml(row.trading_symbol || row.tradingsymbol || "--")}</td><td class="im-col-price">${formatNumber(row.quantity)}</td><td class="im-col-change-pct"><span class="im-change-value ${cls}">${formatNumber(pnl)}</span></td></tr>`;
+
+    listEl.innerHTML = filtered.map((r) => {
+      const cls = r.pnl >= 0 ? "im-change-up" : "im-change-down";
+      const dirCls = r.direction === "BUY" ? "im-pos-badge-buy" : "im-pos-badge-sell";
+      const pctText = Number.isFinite(r.pnlPct) ? `(${r.pnlPct >= 0 ? "+" : ""}${r.pnlPct.toFixed(2)}%)` : "";
+      return `
+        <div class="im-pos-row" data-segment="${r.segment}">
+          <div class="im-pos-row-main">
+            <div class="im-pos-row-left">
+              <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
+              <div class="im-pos-badges">
+                <span class="im-pos-badge ${dirCls}">${r.direction}</span>
+                <span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span>
+              </div>
+              <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
+            </div>
+            <div class="im-pos-row-right">
+              <div class="im-pos-row-right-values">
+                <span class="im-pos-pnl ${cls}">${r.pnl >= 0 ? "+" : ""}${formatNumber(r.pnl)}</span>
+                <span class="im-pos-pnl-pct ${cls}">${pctText}</span>
+              </div>
+              <span class="im-pos-chevron">&rsaquo;</span>
+            </div>
+          </div>
+          <div class="im-pos-row-meta">Qty. ${Math.round(r.quantity).toLocaleString("en-IN")} · LTP ${formatNumber(r.lastPrice)}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  document.getElementById("im-pos-search-input")?.addEventListener("input", renderPositionsList);
+
+  document.querySelectorAll(".im-pos-filter-pill").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      imPosActiveSegment = btn.dataset.segment;
+      document.querySelectorAll(".im-pos-filter-pill").forEach((b) => b.classList.toggle("active", b === btn));
+      renderPositionsList();
     });
+  });
+
+  async function loadBrokerPositionsAndHoldings() {
+    const statusEl = document.getElementById("im-broker-positions-status");
+    const [positionsResult, holdingsResult] = await Promise.all([
+      brokerApiFetch("/api/broker/upstox/positions"),
+      brokerApiFetch("/api/broker/upstox/holdings")
+    ]);
+
+    const rows = [];
+    if (positionsResult.ok) (positionsResult.data || []).forEach((r) => rows.push(normalizeBrokerRow(r, "position")));
+    if (holdingsResult.ok) (holdingsResult.data || []).forEach((r) => rows.push(normalizeBrokerRow(r, "holding")));
+    imPosAllRows = rows;
+
+    if (statusEl) statusEl.textContent = (!positionsResult.ok && !holdingsResult.ok) ? (positionsResult.error || holdingsResult.error || "Could not load positions.") : "";
+
+    renderPositionsSummary(rows);
+    renderPositionsList();
   }
 
   async function loadBrokerOrders() {
@@ -9419,8 +9545,7 @@ async function fetchWatchlist() {
     notConnectedEl.hidden = true;
     connectedContentEl.hidden = false;
 
-    loadBrokerPositions();
-    loadBrokerHoldings();
+    loadBrokerPositionsAndHoldings();
     loadBrokerOrders();
   }
 
