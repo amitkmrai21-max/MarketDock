@@ -1475,7 +1475,7 @@ def broker_upstox_brokerage():
         return jsonify({"ok": False, "error": "symbol, quantity and price are required."}), 400
 
     try:
-        instrument_key = resolve_instrument_key(symbol)
+        instrument_key = resolve_order_instrument_key(symbol)
         data = upstox_get(
             "/v2/charges/brokerage",
             access_token,
@@ -1521,7 +1521,7 @@ def broker_upstox_place_order():
         return jsonify({"ok": False, "error": "price is required for a LIMIT order."}), 400
 
     try:
-        instrument_key = resolve_instrument_key(symbol)
+        instrument_key = resolve_order_instrument_key(symbol)
         response = requests.post(
             "https://api-hft.upstox.com/v3/order/place",
             headers={
@@ -1777,6 +1777,26 @@ def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
     instrument_key = match["instrument_key"]
     _instrument_key_cache[cache_key] = instrument_key
     return instrument_key
+
+
+# Matches an MCX futures contract's trading symbol exactly as
+# /api/commodities returns it (e.g. GOLD25DECFUT) — see
+# find_current_mcx_future() below, which resolves these in the first place.
+MCX_FUTURES_SYMBOL_PATTERN = re.compile(r"^[A-Z]+\d{2}[A-Z]{3}FUT$")
+
+
+def resolve_order_instrument_key(symbol):
+    """Resolves a trading symbol to its Upstox instrument_key for order
+    placement/brokerage-estimate purposes, covering both regular NSE equity
+    symbols (the common case, via resolve_instrument_key above) and MCX
+    commodity futures contracts (via resolve_mcx_instrument_key further
+    below, alongside the rest of the commodities code) — the Commodities
+    page passes its rows' real current contract symbol here, not a plain
+    "GOLD"/"SILVER" key, since that's what Upstox's own order API needs."""
+    symbol = symbol.upper()
+    if MCX_FUTURES_SYMBOL_PATTERN.match(symbol):
+        return resolve_mcx_instrument_key(symbol)
+    return resolve_instrument_key(symbol)
 
 
 RRG_BENCHMARK_SYMBOL = "NIFTY 50"
@@ -3364,6 +3384,25 @@ def find_current_mcx_future(prefix):
         "trading_symbol": nearest_row.get("tradingsymbol"),
         "expiry": candidates[0][0].isoformat(),
     }
+
+
+def resolve_mcx_instrument_key(trading_symbol):
+    """Looks up an MCX futures contract's instrument_key by its exact
+    trading symbol (e.g. GOLD25DECFUT) from Upstox's instrument master —
+    the same source find_current_mcx_future() above already resolves
+    quotes from, so this always agrees with what /api/commodities shows."""
+    cache_key = f"MCX_FO:{trading_symbol.upper()}"
+    if cache_key in _instrument_key_cache:
+        return _instrument_key_cache[cache_key]
+
+    for row in get_instrument_master_rows():
+        if row.get("exchange") == "MCX_FO" and row.get("tradingsymbol", "").upper() == trading_symbol.upper():
+            instrument_key = row.get("instrument_key")
+            if instrument_key:
+                _instrument_key_cache[cache_key] = instrument_key
+                return instrument_key
+
+    raise RuntimeError(f"No MCX instrument found for {trading_symbol}")
 
 
 def get_current_commodity_contract(commodity_key):
