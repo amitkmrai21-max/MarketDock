@@ -9606,10 +9606,11 @@ async function fetchWatchlist() {
 
   document.getElementById("im-pos-search-input")?.addEventListener("input", renderPositionsList);
 
-  document.querySelectorAll(".im-pos-filter-pill").forEach((btn) => {
+  const imPosSegmentPills = document.querySelectorAll("#im-pos-segment-filter-row .im-pos-filter-pill");
+  imPosSegmentPills.forEach((btn) => {
     btn.addEventListener("click", () => {
       imPosActiveSegment = btn.dataset.segment;
-      document.querySelectorAll(".im-pos-filter-pill").forEach((b) => b.classList.toggle("active", b === btn));
+      imPosSegmentPills.forEach((b) => b.classList.toggle("active", b === btn));
       renderPositionsList();
     });
   });
@@ -9632,15 +9633,51 @@ async function fetchWatchlist() {
     renderPositionsList();
   }
 
+  // Upstox's own status strings, bucketed into the three tabs the Order
+  // Book filters by. Anything not recognized as executed or cancelled
+  // (e.g. "open", "trigger pending", "modify pending", an AMO awaiting the
+  // market to open) is treated as still-open — a pending order waiting for
+  // its price, which is what "Open" means here.
+  function classifyOrderStatus(status) {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "complete") return "executed";
+    if (normalized === "cancelled" || normalized === "rejected") return "cancelled";
+    return "open";
+  }
+
+  let imBrokerOrdersAllRows = [];
+  let imBrokerOrdersActiveFilter = "all";
+
+  function renderBrokerOrdersList() {
+    const rows = imBrokerOrdersActiveFilter === "all"
+      ? imBrokerOrdersAllRows
+      : imBrokerOrdersAllRows.filter((row) => classifyOrderStatus(row.status) === imBrokerOrdersActiveFilter);
+    if (!rows.length) {
+      document.getElementById("im-broker-orders-body").innerHTML = `<tr><td colspan="3">No ${imBrokerOrdersActiveFilter === "all" ? "" : imBrokerOrdersActiveFilter + " "}orders.</td></tr>`;
+      return;
+    }
+    renderBrokerRows("im-broker-orders-body", rows, (row) => {
+      return `<tr><td class="im-col-symbol">${escapeHtml(row.trading_symbol || row.tradingsymbol || "--")}</td><td class="im-col-price">${formatNumber(row.quantity)}</td><td class="im-col-change-pct">${escapeHtml(row.status || "--")}</td></tr>`;
+    });
+  }
+
+  const imBrokerOrdersFilterPills = document.querySelectorAll("#im-broker-orders-filter-row .im-pos-filter-pill");
+  imBrokerOrdersFilterPills.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      imBrokerOrdersActiveFilter = btn.dataset.orderFilter;
+      imBrokerOrdersFilterPills.forEach((b) => b.classList.toggle("active", b === btn));
+      renderBrokerOrdersList();
+    });
+  });
+
   async function loadBrokerOrders() {
     const result = await brokerApiFetch("/api/broker/upstox/orders");
     if (!result.ok) {
       document.getElementById("im-broker-orders-body").innerHTML = `<tr><td colspan="3">${escapeHtml(result.error || "Could not load orders.")}</td></tr>`;
       return;
     }
-    renderBrokerRows("im-broker-orders-body", result.data || [], (row) => {
-      return `<tr><td class="im-col-symbol">${escapeHtml(row.trading_symbol || row.tradingsymbol || "--")}</td><td class="im-col-price">${formatNumber(row.quantity)}</td><td class="im-col-change-pct">${escapeHtml(row.status || "--")}</td></tr>`;
-    });
+    imBrokerOrdersAllRows = result.data || [];
+    renderBrokerOrdersList();
   }
 
   async function loadBrokerAccountPage() {
