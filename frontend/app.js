@@ -2462,6 +2462,7 @@ setInterval(loadRrg, 300000);
 
     async function refreshBrokerStatus() {
       if (!brokerStatusEl || !brokerConnectBtn || !brokerDisconnectBtn) return;
+      const fundsSection = document.getElementById("brokerFundsSection");
       try {
         const { data } = await supabaseClient.auth.getSession();
         const accessToken = data?.session?.access_token;
@@ -2475,15 +2476,65 @@ setInterval(loadRrg, 300000);
           setBrokerStatus("Connected — your Watchlist uses your own Upstox account.", false);
           brokerConnectBtn.hidden = true;
           brokerDisconnectBtn.hidden = false;
+          if (fundsSection) fundsSection.hidden = false;
+          refreshSettingsFunds(accessToken);
         } else {
           setBrokerStatus("Not connected — your Watchlist uses MarketDock's shared data for now.", false);
           brokerConnectBtn.hidden = false;
           brokerDisconnectBtn.hidden = true;
+          if (fundsSection) fundsSection.hidden = true;
         }
       } catch (error) {
         console.error("Broker status check failed:", error);
       }
     }
+
+    async function refreshSettingsFunds(accessToken) {
+      const valueEl = document.getElementById("settingsFundsValue");
+      if (!valueEl) return;
+      try {
+        const response = await fetch(`${BROKER_API_BASE_URL}/api/broker/upstox/funds`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const result = await response.json();
+        const available = result?.data?.equity?.available_margin;
+        valueEl.textContent = result.ok && Number.isFinite(Number(available)) ? `₹${Number(available).toLocaleString("en-IN")}` : "--";
+      } catch (error) {
+        valueEl.textContent = "--";
+      }
+    }
+
+    document.getElementById("settingsWithdrawBtn")?.addEventListener("click", async () => {
+      const statusEl = document.getElementById("settingsWithdrawStatus");
+      const amountInput = document.getElementById("settingsWithdrawAmount");
+      const amount = Number(amountInput?.value);
+      if (!Number.isFinite(amount) || amount < 100) {
+        if (statusEl) statusEl.textContent = "Enter an amount of at least ₹100.";
+        return;
+      }
+      const confirmed = window.confirm(`Withdraw ₹${amount.toLocaleString("en-IN")} from your Upstox account to your own registered bank account?`);
+      if (!confirmed) return;
+
+      try {
+        const { data } = await supabaseClient.auth.getSession();
+        const accessToken = data?.session?.access_token;
+        if (!accessToken) throw new Error("Please log in first.");
+        if (statusEl) statusEl.textContent = "Processing withdrawal…";
+
+        const response = await fetch(`${BROKER_API_BASE_URL}/api/broker/upstox/withdraw`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ amount, mode: "IMPS" })
+        });
+        const result = await response.json();
+        if (!result.ok) throw new Error(result.error || "Withdrawal could not be processed.");
+        if (statusEl) statusEl.textContent = "Withdrawal submitted.";
+        if (amountInput) amountInput.value = "";
+        refreshSettingsFunds(accessToken);
+      } catch (error) {
+        if (statusEl) statusEl.textContent = error.message || "Could not process withdrawal.";
+      }
+    });
 
     brokerConnectBtn?.addEventListener("click", async () => {
       const { data } = await supabaseClient.auth.getSession();
@@ -4524,8 +4575,8 @@ function clearLiveChartAiOverlay() {
       subtitle: "Record research setups only. No real-money order execution."
     },
     "im-broker-account": {
-      title: "My Broker",
-      subtitle: "Your connected Upstox account — funds, positions, holdings, and manual order placement."
+      title: "Positions",
+      subtitle: "Your connected Upstox account's open positions, holdings, and today's order book."
     }
   };
 
@@ -7257,15 +7308,17 @@ async function fetchWatchlist() {
     // decisive tap right after the sheet opens still closes it, instead of
     // leaving it visually stuck open while the app navigates underneath.
     if (buyBtn) {
-      buyBtn.onclick = () => {
+      buyBtn.onclick = async () => {
         closeImWatchlistSheets(true);
-        setImPendingStockTrade(symbol, "Buy", price);
+        const handledAsRealOrder = typeof placeRealOrderFromWatchlist === "function" && await placeRealOrderFromWatchlist(symbol, "Buy", price);
+        if (!handledAsRealOrder) setImPendingStockTrade(symbol, "Buy", price);
       };
     }
     if (sellBtn) {
-      sellBtn.onclick = () => {
+      sellBtn.onclick = async () => {
         closeImWatchlistSheets(true);
-        setImPendingStockTrade(symbol, "Sell", price);
+        const handledAsRealOrder = typeof placeRealOrderFromWatchlist === "function" && await placeRealOrderFromWatchlist(symbol, "Sell", price);
+        if (!handledAsRealOrder) setImPendingStockTrade(symbol, "Sell", price);
       };
     }
     if (chartBtn) {
@@ -9285,8 +9338,6 @@ async function fetchWatchlist() {
   // portfolio. Every order is the user's own explicit Buy/Sell click; the
   // app never decides on its own to place, time, or size a trade.
 
-  let imBrokerTxnType = "BUY";
-
   async function getSupabaseAccessTokenForBroker() {
     try {
       const { data } = (await window.marketDockSupabase?.auth.getSession()) || {};
@@ -9314,19 +9365,6 @@ async function fetchWatchlist() {
       return;
     }
     body.innerHTML = rows.map(mapRow).join("");
-  }
-
-  async function loadBrokerFunds() {
-    const statusEl = document.getElementById("im-broker-funds-status");
-    const valueEl = document.getElementById("im-broker-funds-value");
-    const result = await brokerApiFetch("/api/broker/upstox/funds");
-    if (!result.ok) {
-      if (statusEl) statusEl.textContent = result.error || "Could not load funds.";
-      return;
-    }
-    const equity = result.data?.equity || {};
-    if (valueEl) valueEl.textContent = formatNumber(equity.available_margin ?? 0);
-    if (statusEl) statusEl.textContent = "Available margin (Equity)";
   }
 
   async function loadBrokerPositions() {
@@ -9381,81 +9419,48 @@ async function fetchWatchlist() {
     notConnectedEl.hidden = true;
     connectedContentEl.hidden = false;
 
-    loadBrokerFunds();
     loadBrokerPositions();
     loadBrokerHoldings();
     loadBrokerOrders();
   }
 
-  function getBrokerOrderFormValues() {
-    return {
-      symbol: (document.getElementById("im-broker-order-symbol")?.value || "").trim().toUpperCase(),
-      quantity: document.getElementById("im-broker-order-qty")?.value,
-      product: document.getElementById("im-broker-order-product")?.value || "D",
-      orderType: document.getElementById("im-broker-order-type")?.value || "MARKET",
-      price: document.getElementById("im-broker-order-price")?.value || "0"
-    };
-  }
+  // Real Buy/Sell straight from a Watchlist stock's action sheet — see
+  // openImWatchlistActionSheet()'s buyBtn/sellBtn below, which call this
+  // instead of the Paper Trading hand-off when the user has a connected
+  // Upstox account. Quantity is the only thing asked for since the sheet
+  // already knows the symbol and current price; a MARKET order at Delivery
+  // covers the common case without a whole form for a quick tap-to-trade.
+  async function placeRealOrderFromWatchlist(symbol, direction, lastPrice) {
+    const statusCheck = await brokerApiFetch("/api/broker/upstox/status");
+    if (!statusCheck.ok || !statusCheck.connected) return false; // caller falls back to Paper Trading
 
-  document.getElementById("im-broker-order-type")?.addEventListener("change", (event) => {
-    const priceInput = document.getElementById("im-broker-order-price");
-    if (priceInput) priceInput.disabled = event.target.value !== "LIMIT";
-  });
-
-  document.querySelectorAll(".im-broker-txn-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      imBrokerTxnType = btn.dataset.txn;
-      document.querySelectorAll(".im-broker-txn-btn").forEach((b) => b.classList.toggle("active", b === btn));
-    });
-  });
-
-  document.getElementById("im-broker-check-charges-btn")?.addEventListener("click", async () => {
-    const statusEl = document.getElementById("im-broker-order-status");
-    const { symbol, quantity, product, price } = getBrokerOrderFormValues();
-    if (!symbol || !quantity || !price) {
-      if (statusEl) statusEl.textContent = "Enter symbol, quantity and price to check charges.";
-      return;
+    const quantityInput = window.prompt(`${direction.toUpperCase()} ${symbol} — how many shares (Delivery, Market order)?`, "1");
+    if (!quantityInput) return true; // connected, but user cancelled — don't fall back to Paper Trading
+    const quantity = Number(quantityInput);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      window.alert("Enter a valid quantity.");
+      return true;
     }
-    if (statusEl) statusEl.textContent = "Checking charges…";
-    const result = await brokerApiFetch(
-      `/api/broker/upstox/brokerage?symbol=${encodeURIComponent(symbol)}&quantity=${encodeURIComponent(quantity)}&price=${encodeURIComponent(price)}&product=${encodeURIComponent(product)}&transaction_type=${imBrokerTxnType}`
+
+    const chargesResult = await brokerApiFetch(
+      `/api/broker/upstox/brokerage?symbol=${encodeURIComponent(symbol)}&quantity=${quantity}&price=${encodeURIComponent(lastPrice || 0)}&product=D&transaction_type=${direction.toUpperCase()}`
     );
-    if (!result.ok) {
-      if (statusEl) statusEl.textContent = result.error || "Could not estimate charges.";
-      return;
-    }
-    const total = result.data?.charges?.total;
-    if (statusEl) statusEl.textContent = Number.isFinite(Number(total)) ? `Estimated charges: ${formatNumber(total)}` : "Charges estimate unavailable for this order.";
-  });
+    const estimatedCharges = chargesResult.ok ? Number(chargesResult.data?.charges?.total) : null;
+    const chargesLine = Number.isFinite(estimatedCharges) ? `\nEstimated charges: ₹${estimatedCharges.toFixed(2)}` : "";
 
-  document.getElementById("im-broker-place-order-btn")?.addEventListener("click", async () => {
-    const statusEl = document.getElementById("im-broker-order-status");
-    const { symbol, quantity, product, orderType, price } = getBrokerOrderFormValues();
-    if (!symbol || !quantity) {
-      if (statusEl) statusEl.textContent = "Enter symbol and quantity first.";
-      return;
-    }
-    if (orderType === "LIMIT" && !price) {
-      if (statusEl) statusEl.textContent = "Enter a price for a Limit order.";
-      return;
-    }
-    const confirmed = window.confirm(`Place a REAL ${imBrokerTxnType} order for ${quantity} × ${symbol} (${orderType})? This uses real money in your own Upstox account.`);
-    if (!confirmed) return;
+    const confirmed = window.confirm(
+      `Place a REAL ${direction.toUpperCase()} order for ${quantity} × ${symbol} (Market, Delivery)?${chargesLine}\n\nThis uses real money in your own Upstox account.`
+    );
+    if (!confirmed) return true;
 
-    if (statusEl) statusEl.textContent = "Placing order…";
     const result = await brokerApiFetch("/api/broker/upstox/place-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol, quantity: Number(quantity), product, order_type: orderType, transaction_type: imBrokerTxnType, price: Number(price || 0) })
+      body: JSON.stringify({ symbol, quantity, product: "D", order_type: "MARKET", transaction_type: direction.toUpperCase(), price: 0 })
     });
-    if (!result.ok) {
-      if (statusEl) statusEl.textContent = result.error || "Order could not be placed.";
-      return;
-    }
-    if (statusEl) statusEl.textContent = "Order placed successfully.";
-    loadBrokerPositions();
-    loadBrokerOrders();
-  });
+    window.alert(result.ok ? "Order placed successfully." : (result.error || "Order could not be placed."));
+    return true;
+  }
 
   // ===================== AI Chart Scanner =====================
   // Pick any NSE stock, get an instant AI-written technical summary. Reuses
