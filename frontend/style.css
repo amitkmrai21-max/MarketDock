@@ -3989,6 +3989,38 @@ html:not(.capacitor-app) .settings-drawer.open {
   color: #ffffff;
 }
 
+.account-google-btn {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 10px 14px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.settings-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  color: var(--text-soft, #8b93a8);
+  font-size: 12px;
+}
+.settings-divider::before,
+.settings-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 #accountAuthStatus:empty {
   display: none;
 }
