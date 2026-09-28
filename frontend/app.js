@@ -8900,16 +8900,12 @@ async function fetchWatchlist() {
           ? r.last_price - r.previous_close
           : null;
 
-        let pctHtml = '<span class="im-change-value im-change-neutral">0.00%</span>';
+        const pctHtml = changePillHtml(changePercent);
         let rupeeHtml = '<span class="im-change-value im-change-neutral">—</span>';
-        if (Number.isFinite(changePercent)) {
+        if (Number.isFinite(changePercent) && changeRupee !== null) {
           const sign = changePercent >= 0 ? "+" : "";
-          const arrow = changePercent >= 0 ? "▲" : "▼";
           const cls = changePercent >= 0 ? "im-change-up" : "im-change-down";
-          pctHtml = `<span class="im-change-value ${cls}">${arrow} ${sign}${changePercent.toFixed(2)}%</span>`;
-          if (changeRupee !== null) {
-            rupeeHtml = `<span class="im-change-value ${cls}">${sign}${formatNumber(changeRupee)}</span>`;
-          }
+          rupeeHtml = `<span class="im-change-value ${cls}">${sign}${formatNumber(changeRupee)}</span>`;
         }
 
         return `
@@ -8925,8 +8921,8 @@ async function fetchWatchlist() {
               </div>
             </td>
             <td class="im-col-price"><span class="im-price-value">${formatNumber(r.last_price)}</span></td>
-            <td class="im-col-change-pct">${pctHtml}</td>
             <td class="im-col-change-rupee">${rupeeHtml}</td>
+            <td class="im-col-change-pct">${pctHtml}</td>
           </tr>
         `;
       })
