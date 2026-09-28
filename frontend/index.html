@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v51">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v52">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -3473,6 +3473,15 @@
     </div>
     <button class="im-action-sheet-cancel" type="button" id="im-tab-menu-cancel-btn">Cancel</button>
   </div>
+
+  <div class="im-action-sheet im-delete-sheet im-commodity-expiry-sheet" id="im-commodity-expiry-sheet" hidden>
+    <div class="im-action-sheet-handle"></div>
+    <p class="im-delete-sheet-text"><strong id="im-commodity-expiry-name">&mdash;</strong> — choose a contract</p>
+    <div class="im-commodity-expiry-list" id="im-commodity-expiry-list">
+      <p class="status-line">Loading contracts…</p>
+    </div>
+    <button class="im-action-sheet-cancel" type="button" id="im-commodity-expiry-cancel-btn">Cancel</button>
+  </div>
 </div>
 
   </div>
@@ -3814,7 +3823,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v32"></script>
+  <script src="/frontend/app.js?v=v20260927v33"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
