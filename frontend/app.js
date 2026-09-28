@@ -12887,7 +12887,7 @@ async function fetchWatchlist() {
 
         if (chartStatusText) {
           chartStatusText.textContent =
-            "No live candles available right now — market may be closed or data hasn't started for today. Retrying every 60 seconds.";
+            "No live candles available right now — market may be closed or data hasn't started for today. Retrying every 2 seconds.";
         }
         if (status) {
           status.textContent = "No data yet";
@@ -12934,7 +12934,7 @@ async function fetchWatchlist() {
         renderLiveChartCandles([]);
 
         if (chartStatusText) {
-          chartStatusText.textContent = `Live candles unavailable: ${error.message}. Retrying every 60 seconds.`;
+          chartStatusText.textContent = `Live candles unavailable: ${error.message}. Retrying every 2 seconds.`;
         }
       }
 
@@ -12954,7 +12954,7 @@ async function fetchWatchlist() {
 
     chartRefreshTimer = window.setInterval(() => {
       refreshLiveChartCandles();
-    }, 60000);
+    }, 2000);
   }
 
   function stopLiveChartPolling() {

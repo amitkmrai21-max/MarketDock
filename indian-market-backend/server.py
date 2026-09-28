@@ -1179,6 +1179,14 @@ WATCHLIST_CACHE_SECONDS = 2
 TOP_MOVER_CACHE_SECONDS = 30
 _top_mover_cache = {}
 
+# Same reasoning as WATCHLIST_CACHE_SECONDS: every viewer of the same
+# market+timeframe (the common case — Live Chart has no per-user state)
+# shares one cached candle set instead of each 2s poll hitting Upstox's
+# historical-candle API directly, which is far heavier per call than a
+# plain LTP quote and more tightly rate-limited.
+LIVE_CANDLES_CACHE_SECONDS = 2
+_live_candles_cache = {}
+
 
 # ===================== Connect your broker (per-user Upstox) =====================
 # Lets a signed-in MarketDock user link their own Upstox account so their
@@ -2368,6 +2376,11 @@ def live_candles(market_key):
     market = UPSTOX_MARKETS[market_key]
     unit, interval = UPSTOX_TIMEFRAMES[timeframe]
 
+    cache_key = f"{market_key}:{timeframe}"
+    cached = _live_candles_cache.get(cache_key)
+    if cached and time.time() - cached["fetched_at"] < LIVE_CANDLES_CACHE_SECONDS:
+        return jsonify(cached["response"])
+
     try:
         candles = fetch_upstox_candles(
             market["instrument_key"], unit, interval,
@@ -2385,24 +2398,24 @@ def live_candles(market_key):
 
         latest = candles[-1]
 
-        return jsonify(
-            {
-                "ok": True,
-                "provider": "live_feed",
-                "mode": "intraday-candle-polling",
-                "market": market["name"],
-                "market_key": market_key,
-                "instrument_key": market["instrument_key"],
-                "timeframe": timeframe,
-                "updated_at": now_utc(),
-                "latest": latest,
-                "candles": candles,
-                "disclaimer": (
-                    "Read-only market data for research and paper trading only. "
-                    "No order placement is available."
-                ),
-            }
-        )
+        response_body = {
+            "ok": True,
+            "provider": "live_feed",
+            "mode": "intraday-candle-polling",
+            "market": market["name"],
+            "market_key": market_key,
+            "instrument_key": market["instrument_key"],
+            "timeframe": timeframe,
+            "updated_at": now_utc(),
+            "latest": latest,
+            "candles": candles,
+            "disclaimer": (
+                "Read-only market data for research and paper trading only. "
+                "No order placement is available."
+            ),
+        }
+        _live_candles_cache[cache_key] = {"response": response_body, "fetched_at": time.time()}
+        return jsonify(response_body)
 
     except requests.RequestException:
         app.logger.exception("Live candle request failed")
