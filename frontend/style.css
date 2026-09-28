@@ -10151,11 +10151,42 @@ body.im-chart-fullscreen-open {
   padding-right: 6px !important;
   text-align: left !important;
 }
-.indian-market-mode #im-scanner .im-watchlist-table .im-th-price-chg,
-.indian-market-mode #im-scanner .im-watchlist-table .im-col-price-chg,
-.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-th-price-chg,
-.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-col-price-chg {
-  width: 130px !important;
-  padding-right: 10px !important;
+/* Price, % change and ₹ change each get their own column here (unlike
+   Watchlist/Commodities' combined price+change cell). */
+.indian-market-mode #im-scanner .im-watchlist-table .im-th-price,
+.indian-market-mode #im-scanner .im-watchlist-table .im-col-price,
+.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-th-price,
+.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-col-price {
+  width: 62px !important;
+  padding-right: 6px !important;
   text-align: right !important;
+}
+.indian-market-mode #im-scanner .im-watchlist-table .im-th-change-pct,
+.indian-market-mode #im-scanner .im-watchlist-table .im-col-change-pct,
+.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-th-change-pct,
+.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-col-change-pct {
+  width: 54px !important;
+  padding-right: 6px !important;
+  text-align: right !important;
+}
+.indian-market-mode #im-scanner .im-watchlist-table .im-th-change-rupee,
+.indian-market-mode #im-scanner .im-watchlist-table .im-col-change-rupee,
+.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-th-change-rupee,
+.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-col-change-rupee {
+  width: 58px !important;
+  padding-right: 8px !important;
+  text-align: right !important;
+}
+.indian-market-mode #im-scanner .im-watchlist-table .im-col-price .im-price-value,
+.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-col-price .im-price-value {
+  font-size: 12px !important;
+}
+.indian-market-mode #im-scanner .im-watchlist-table .im-col-change-pct .im-change-value,
+.indian-market-mode #im-scanner .im-watchlist-table .im-col-change-rupee .im-change-value,
+.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-col-change-pct .im-change-value,
+.indian-market-mode #im-dashboard-movers .im-watchlist-table .im-col-change-rupee .im-change-value {
+  display: inline-flex !important;
+  justify-content: flex-end !important;
+  font-size: 10px !important;
+  white-space: nowrap !important;
 }
