@@ -2100,12 +2100,17 @@ setInterval(loadRrg, 300000);
       drawer?.classList.add("open");
       backdrop?.classList.add("open");
       menuButtons.forEach((button) => button.setAttribute("aria-expanded", "true"));
+      // Locks the page behind the drawer so a scroll gesture inside it
+      // can't also drag the background page to its own scroll top and
+      // trip the WebView's overscroll-refresh gesture there.
+      document.body.classList.add("settings-open-scroll-lock");
     }
 
     function closeSettings() {
       drawer?.classList.remove("open");
       backdrop?.classList.remove("open");
       menuButtons.forEach((button) => button.setAttribute("aria-expanded", "false"));
+      document.body.classList.remove("settings-open-scroll-lock");
     }
 
     applySettings(settings);
