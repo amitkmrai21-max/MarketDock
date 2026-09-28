@@ -2368,6 +2368,7 @@ setInterval(loadRrg, 300000);
 (() => {
   const SUPABASE_URL = "https://qvgfxtjwgrtytjdjcebj.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DRsCPkKaKRYPrQDFtqV0xQ_7QeP4kYh";
+  const BROKER_API_BASE_URL = "https://api.marketdock.in";
 
   if (typeof window.supabase === "undefined") {
     console.error("Supabase client library did not load — account features are unavailable.");
@@ -2395,6 +2396,9 @@ setInterval(loadRrg, 300000);
     const changePasswordStatusEl = document.getElementById("accountChangePasswordStatus");
     const deleteBtn = document.getElementById("accountDeleteBtn");
     const deleteStatusEl = document.getElementById("accountDeleteStatus");
+    const brokerStatusEl = document.getElementById("brokerConnectStatus");
+    const brokerConnectBtn = document.getElementById("brokerConnectUpstoxBtn");
+    const brokerDisconnectBtn = document.getElementById("brokerDisconnectBtn");
     if (!loggedOutGroup || !loggedInGroup || !emailInput || !passwordInput || !loginBtn || !signupBtn || !logoutBtn) return;
 
     const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
@@ -2436,12 +2440,97 @@ setInterval(loadRrg, 300000);
       const email = session?.user?.email || "--";
       if (emailDisplay) emailDisplay.textContent = email;
       if (avatarEl) avatarEl.textContent = email.charAt(0) || "?";
+      refreshBrokerStatus();
     }
 
     function showLoggedOut() {
       loggedOutGroup.hidden = false;
       loggedInGroup.hidden = true;
       setStatus("", false);
+    }
+
+    // ===================== Connect your broker (Upstox) =====================
+    // Lets a signed-in user link their own Upstox account so their personal
+    // Watchlist fetches under their own account instead of the app's one
+    // shared token — see indian-market-backend/server.py's
+    // /api/broker/upstox/* routes for the other half of this.
+    function setBrokerStatus(message, isError) {
+      if (!brokerStatusEl) return;
+      brokerStatusEl.textContent = message || "";
+      brokerStatusEl.style.color = isError ? "#ef4444" : "";
+    }
+
+    async function refreshBrokerStatus() {
+      if (!brokerStatusEl || !brokerConnectBtn || !brokerDisconnectBtn) return;
+      try {
+        const { data } = await supabaseClient.auth.getSession();
+        const accessToken = data?.session?.access_token;
+        if (!accessToken) return;
+
+        const response = await fetch(`${BROKER_API_BASE_URL}/api/broker/upstox/status`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const result = await response.json();
+        if (result.ok && result.connected) {
+          setBrokerStatus("Connected — your Watchlist uses your own Upstox account.", false);
+          brokerConnectBtn.hidden = true;
+          brokerDisconnectBtn.hidden = false;
+        } else {
+          setBrokerStatus("Not connected — your Watchlist uses MarketDock's shared data for now.", false);
+          brokerConnectBtn.hidden = false;
+          brokerDisconnectBtn.hidden = true;
+        }
+      } catch (error) {
+        console.error("Broker status check failed:", error);
+      }
+    }
+
+    brokerConnectBtn?.addEventListener("click", async () => {
+      const { data } = await supabaseClient.auth.getSession();
+      const accessToken = data?.session?.access_token;
+      if (!accessToken) {
+        setBrokerStatus("Please log in first.", true);
+        return;
+      }
+      window.location.href = `${BROKER_API_BASE_URL}/api/broker/upstox/authorize?token=${encodeURIComponent(accessToken)}`;
+    });
+
+    brokerDisconnectBtn?.addEventListener("click", async () => {
+      brokerDisconnectBtn.disabled = true;
+      try {
+        const { data } = await supabaseClient.auth.getSession();
+        const accessToken = data?.session?.access_token;
+        if (!accessToken) throw new Error("No active session.");
+
+        const response = await fetch(`${BROKER_API_BASE_URL}/api/broker/upstox/disconnect`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const result = await response.json();
+        if (!result.ok) throw new Error(result.error || "Could not disconnect.");
+        setBrokerStatus("Disconnected.", false);
+        await refreshBrokerStatus();
+      } catch (error) {
+        setBrokerStatus(error.message || "Could not disconnect right now.", true);
+      } finally {
+        brokerDisconnectBtn.disabled = false;
+      }
+    });
+
+    // After the Upstox login redirect sends the browser back here with
+    // ?broker=connected or ?broker=error, show the result once and drop the
+    // param so refreshing the page doesn't repeat the message.
+    const brokerRedirectResult = new URLSearchParams(window.location.search).get("broker");
+    if (brokerRedirectResult) {
+      setBrokerStatus(
+        brokerRedirectResult === "connected"
+          ? "Connected — your Watchlist now uses your own Upstox account."
+          : "Could not connect your Upstox account. Please try again.",
+        brokerRedirectResult !== "connected"
+      );
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("broker");
+      window.history.replaceState({}, "", cleanUrl.toString());
     }
 
     async function setButtonsBusy(busy) {
@@ -6010,7 +6099,18 @@ async function fetchWatchlist() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${watchlist.symbols.join(",")}`);
+      // A signed-in user with their own connected Upstox account (see the
+      // account settings' "Connect your broker" section) gets their
+      // Watchlist served from their own account instead of MarketDock's
+      // shared one — the backend looks that up from this session token.
+      const fetchHeaders = {};
+      try {
+        const { data } = (await window.marketDockSupabase?.auth.getSession()) || {};
+        const accessToken = data?.session?.access_token;
+        if (accessToken) fetchHeaders.Authorization = `Bearer ${accessToken}`;
+      } catch (sessionError) { /* not logged in — use the shared account */ }
+
+      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${watchlist.symbols.join(",")}`, { headers: fetchHeaders });
       const result = await response.json();
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "Watchlist request failed.");

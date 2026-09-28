@@ -3475,6 +3475,16 @@
         </div>
         <button id="accountLogoutBtn" class="reset-settings-btn" type="button">Log Out</button>
 
+        <div class="settings-subsection" id="brokerConnectSection">
+          <label>Connect your broker</label>
+          <p class="settings-help">Connect your own Upstox account so your personal Watchlist uses your own live data.</p>
+          <p id="brokerConnectStatus" class="settings-help" role="status"></p>
+          <div class="settings-account-actions">
+            <button id="brokerConnectUpstoxBtn" class="account-primary-btn" type="button">Connect Upstox</button>
+            <button id="brokerDisconnectBtn" class="reset-settings-btn" type="button" hidden>Disconnect</button>
+          </div>
+        </div>
+
         <div class="settings-subsection">
           <label for="accountNewPasswordInput">Change password</label>
           <div class="settings-password-field">
@@ -3728,7 +3738,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v20"></script>
+  <script src="/frontend/app.js?v=v20260927v21"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

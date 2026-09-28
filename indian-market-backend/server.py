@@ -5,13 +5,14 @@ import csv
 import io
 import json
 import gzip
+import secrets
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, redirect
 from flask_cors import CORS
 from google import genai
 from google.genai import errors as genai_errors
@@ -29,6 +30,21 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash").strip()
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip()
 UPSTOX_ACCESS_TOKEN = os.environ.get("UPSTOX_ACCESS_TOKEN", "").strip()
+
+# Per-user "Connect your broker" support: lets an individual signed-in
+# MarketDock user link their own Upstox account (OAuth) so their personal
+# Watchlist is fetched under their own account/rate-limit instead of the
+# single shared UPSTOX_ACCESS_TOKEN above. Requires Upstox's multi-user/
+# publisher API access to work for anyone other than this server's own
+# Upstox account — see /api/broker/upstox/authorize below.
+UPSTOX_CLIENT_ID = os.environ.get("UPSTOX_CLIENT_ID", "").strip()
+UPSTOX_CLIENT_SECRET = os.environ.get("UPSTOX_CLIENT_SECRET", "").strip()
+UPSTOX_REDIRECT_URI = os.environ.get("UPSTOX_REDIRECT_URI", "").strip()
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://marketdock.in").strip().rstrip("/")
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
 
 UPSTOX_MARKETS = {
     "nifty": {
@@ -1183,13 +1199,210 @@ TOP_MOVER_CACHE_SECONDS = 30
 _top_mover_cache = {}
 
 
-def fetch_quotes_with_change(symbols, resolver=None):
+# ===================== Connect your broker (per-user Upstox) =====================
+# Lets a signed-in MarketDock user link their own Upstox account so their
+# personal Watchlist is fetched under their own account rather than the one
+# shared UPSTOX_ACCESS_TOKEN above — see the module docstring-style comment
+# next to UPSTOX_CLIENT_ID near the top of this file for why.
+
+# Short-lived mapping from OAuth "state" -> the MarketDock user_id that
+# started the flow, so the callback (which only gets `state` back from
+# Upstox, not the user's own session) knows whose account to store the
+# resulting token against. In-memory and single-process is fine here: state
+# lives for a couple of minutes at most, for the duration of one login.
+_oauth_state_store = {}
+OAUTH_STATE_TTL_SECONDS = 600
+
+
+def _cleanup_oauth_state():
+    now = time.time()
+    expired = [state for state, entry in _oauth_state_store.items() if now - entry["created_at"] > OAUTH_STATE_TTL_SECONDS]
+    for state in expired:
+        _oauth_state_store.pop(state, None)
+
+
+def get_supabase_user_id(access_token):
+    """Verifies a Supabase session access token and returns the user's id,
+    or None if it's missing/invalid. Same lookup main.py's /api/account/delete
+    already uses — kept independent here since this Flask service is a
+    separate deployment from that FastAPI app."""
+    if not access_token or not SUPABASE_URL or not SUPABASE_ANON_KEY:
+        return None
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json().get("id")
+    except Exception as error:
+        app.logger.warning("Supabase user lookup failed: %s", error)
+        return None
+
+
+def get_broker_connection(user_id, provider="upstox"):
+    """Returns the stored {access_token, connected_at} row for this user's
+    connected broker account, or None if they haven't connected one."""
+    if not user_id or not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        return None
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/broker_connections",
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            },
+            params={"user_id": f"eq.{user_id}", "provider": f"eq.{provider}", "select": "access_token,connected_at"},
+            timeout=10,
+        )
+        response.raise_for_status()
+        rows = response.json()
+        return rows[0] if rows else None
+    except Exception as error:
+        app.logger.warning("broker_connections lookup failed: %s", error)
+        return None
+
+
+def save_broker_connection(user_id, access_token, provider="upstox"):
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/broker_connections",
+        headers={
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates",
+        },
+        json={
+            "user_id": user_id,
+            "provider": provider,
+            "access_token": access_token,
+            "connected_at": now_utc(),
+        },
+        timeout=10,
+    ).raise_for_status()
+
+
+def delete_broker_connection(user_id, provider="upstox"):
+    requests.delete(
+        f"{SUPABASE_URL}/rest/v1/broker_connections",
+        headers={
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        },
+        params={"user_id": f"eq.{user_id}", "provider": f"eq.{provider}"},
+        timeout=10,
+    ).raise_for_status()
+
+
+def get_request_user_id():
+    """Reads the signed-in MarketDock user's id from this request's
+    Authorization header, or None if there isn't one / it's invalid — used
+    to look up whether they have their own connected broker account."""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.lower().startswith("bearer "):
+        return None
+    return get_supabase_user_id(auth_header.split(" ", 1)[1].strip())
+
+
+@app.get("/api/broker/upstox/authorize")
+def broker_upstox_authorize():
+    """Step 1 of Connect-your-broker: the frontend navigates the browser
+    here (not a fetch — it's a real redirect to Upstox's own login page),
+    passing the user's Supabase session token as a query param since a
+    redirect can't carry a custom header."""
+    if not UPSTOX_CLIENT_ID or not UPSTOX_REDIRECT_URI:
+        return jsonify({"ok": False, "error": "Broker connect is not configured on the server yet."}), 503
+
+    user_id = get_supabase_user_id(request.args.get("token", ""))
+    if not user_id:
+        return jsonify({"ok": False, "error": "Please log in to your MarketDock account first."}), 401
+
+    _cleanup_oauth_state()
+    state = secrets.token_urlsafe(24)
+    _oauth_state_store[state] = {"user_id": user_id, "created_at": time.time()}
+
+    authorize_url = (
+        "https://api.upstox.com/v2/login/authorization/dialog"
+        f"?response_type=code&client_id={quote(UPSTOX_CLIENT_ID)}"
+        f"&redirect_uri={quote(UPSTOX_REDIRECT_URI, safe='')}"
+        f"&state={quote(state)}"
+    )
+    return redirect(authorize_url)
+
+
+@app.get("/api/broker/upstox/callback")
+def broker_upstox_callback():
+    """Step 2: Upstox redirects the user's browser back here after they log
+    in and approve access, with a one-time `code` plus the `state` we handed
+    it in step 1. Exchanges the code for that user's own access token and
+    stores it against their MarketDock account."""
+    error = request.args.get("error")
+    state = request.args.get("state", "")
+    code = request.args.get("code", "")
+
+    state_entry = _oauth_state_store.pop(state, None)
+    if error or not state_entry or not code:
+        return redirect(f"{FRONTEND_URL}/frontend/index.html?broker=error")
+
+    try:
+        response = requests.post(
+            "https://api.upstox.com/v2/login/authorization/token",
+            headers={"Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "code": code,
+                "client_id": UPSTOX_CLIENT_ID,
+                "client_secret": UPSTOX_CLIENT_SECRET,
+                "redirect_uri": UPSTOX_REDIRECT_URI,
+                "grant_type": "authorization_code",
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        access_token = response.json().get("access_token")
+        if not access_token:
+            raise RuntimeError("Upstox did not return an access token.")
+
+        save_broker_connection(state_entry["user_id"], access_token)
+        return redirect(f"{FRONTEND_URL}/frontend/index.html?broker=connected")
+    except Exception as error:
+        app.logger.warning("Upstox token exchange failed: %s", error)
+        return redirect(f"{FRONTEND_URL}/frontend/index.html?broker=error")
+
+
+@app.get("/api/broker/upstox/status")
+def broker_upstox_status():
+    user_id = get_request_user_id()
+    if not user_id:
+        return jsonify({"ok": False, "error": "Please log in first."}), 401
+    connection = get_broker_connection(user_id)
+    return jsonify({"ok": True, "connected": bool(connection), "connected_at": (connection or {}).get("connected_at")})
+
+
+@app.post("/api/broker/upstox/disconnect")
+def broker_upstox_disconnect():
+    user_id = get_request_user_id()
+    if not user_id:
+        return jsonify({"ok": False, "error": "Please log in first."}), 401
+    try:
+        delete_broker_connection(user_id)
+        return jsonify({"ok": True})
+    except Exception as error:
+        app.logger.warning("broker_connections delete failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not disconnect right now."}), 502
+
+
+def fetch_quotes_with_change(symbols, resolver=None, access_token=None):
     """Resolves symbols to instrument keys (via the given resolver, default
     the stock resolver) and fetches LTP + previous close (via the LTP V3
     endpoint's `cp` field) in one batched call, returning each symbol's
     price and change percent. Resolution requests run in parallel — doing
     them one at a time was the main cause of slow load times for large
-    symbol lists."""
+    symbol lists.
+
+    `access_token` lets a caller fetch under a specific signed-in user's own
+    connected Upstox account instead of this server's shared
+    UPSTOX_ACCESS_TOKEN — see /api/broker/upstox/* below."""
     resolver = resolver or resolve_instrument_key
     key_map = {}
 
@@ -1212,7 +1425,7 @@ def fetch_quotes_with_change(symbols, resolver=None):
     url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={quote(instrument_keys, safe=',')}"
     headers = {
         "Accept": "application/json",
-        "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}",
+        "Authorization": f"Bearer {access_token or UPSTOX_ACCESS_TOKEN}",
     }
 
     response = requests.get(url, headers=headers, timeout=20)
@@ -1764,14 +1977,20 @@ def rrg():
         return jsonify({"ok": False, "error": "Could not build RRG data right now."}), 502
 
 
-def fetch_quotes_cached(symbols):
+def fetch_quotes_cached(symbols, access_token=None):
     """Fetches live quotes for the given symbols, caching per SYMBOL rather
     than per requested combination — so two different personal watchlists
     that both happen to include, say, RELIANCE, always see the exact same
     RELIANCE price and freshness. Caching by the full comma-joined symbol
     list instead would give every distinct combination its own cache
     entry, so the same stock could show a slightly different price to
-    different users purely because their other watchlist picks differed."""
+    different users purely because their other watchlist picks differed.
+
+    `access_token`: when the caller has their own connected broker account,
+    a cache MISS is fetched using their token instead of the shared
+    UPSTOX_ACCESS_TOKEN — the resulting price is still shared into the same
+    cache for everyone, since the price itself doesn't depend on whose
+    token fetched it."""
     now = time.time()
     cached_rows = {}
     stale_symbols = []
@@ -1783,7 +2002,7 @@ def fetch_quotes_cached(symbols):
             stale_symbols.append(symbol)
 
     if stale_symbols:
-        fetched_rows = fetch_quotes_with_change(stale_symbols)
+        fetched_rows = fetch_quotes_with_change(stale_symbols, access_token=access_token)
         fetched_at = time.time()
         for row in fetched_rows:
             score, label = compute_ai_score(row.get("change_percent"))
@@ -1800,7 +2019,14 @@ def fetch_quotes_cached(symbols):
 
 @app.get("/api/watchlist")
 def watchlist():
-    if not UPSTOX_ACCESS_TOKEN:
+    # A signed-in user with their own connected Upstox account fetches under
+    # their own token instead of the shared one below — see
+    # /api/broker/upstox/* for how that connection is made.
+    user_id = get_request_user_id()
+    connection = get_broker_connection(user_id) if user_id else None
+    personal_access_token = (connection or {}).get("access_token")
+
+    if not personal_access_token and not UPSTOX_ACCESS_TOKEN:
         return jsonify(
             {"ok": False, "error": "Live market data is not configured on the server."}
         ), 503
@@ -1809,7 +2035,7 @@ def watchlist():
     symbols = [s.strip().upper() for s in symbols_param.split(",") if s.strip()] or DEFAULT_WATCHLIST_SYMBOLS
 
     try:
-        results, oldest_fetched_at = fetch_quotes_cached(symbols)
+        results, oldest_fetched_at = fetch_quotes_cached(symbols, access_token=personal_access_token)
         updated_at = datetime.fromtimestamp(oldest_fetched_at, tz=timezone.utc).isoformat()
         return jsonify({"ok": True, "updated_at": updated_at, "data": results})
 
