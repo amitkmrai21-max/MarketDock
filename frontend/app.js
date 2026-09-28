@@ -7258,11 +7258,21 @@ async function fetchWatchlist() {
     const sheet = document.getElementById("im-watchlist-action-sheet");
     if (!backdrop || !sheet) return;
 
-    // Commodities (MCX futures) don't have the NSE equity option chain this
-    // app supports, and their chart needs an MCX: TradingView symbol rather
-    // than the default NSE: one — see openCommodityActionSheet() below.
+    // Commodities (MCX futures) need an MCX: TradingView chart symbol
+    // rather than the default NSE: one — see openCommodityContractActionSheet()
+    // below. A single option leg (isOptionLeg, opened by tapping a strike's
+    // Call/Put LTP in the option chain) has neither a chart nor its own
+    // option chain, and carries its own real instrument_key/lot_size
+    // straight from Upstox's chain response rather than being resolved by
+    // symbol — resolving an option's trading symbol the way an
+    // equity/futures one is doesn't work.
     const chartSymbol = options.chartSymbol || `NSE:${symbol}`;
     const isCommodity = !!options.isCommodity;
+    const isOptionLeg = !!options.isOptionLeg;
+    const lotSize = Number.isFinite(Number(options.lotSize)) ? Number(options.lotSize) : null;
+    const instrumentKey = options.instrumentKey || null;
+    const commodityKey = options.commodityKey || null;
+    const commodityName = options.commodityName || null;
 
     const numPrice = Number(price);
     const validPrice = Number.isFinite(numPrice) && numPrice > 0 ? numPrice : 1000;
@@ -7435,33 +7445,50 @@ async function fetchWatchlist() {
     // past the 450ms guard (meant only for that backdrop case) so a fast,
     // decisive tap right after the sheet opens still closes it, instead of
     // leaving it visually stuck open while the app navigates underneath.
+    const orderOptions = { instrumentKey, lotSize, isOptionLeg };
     if (buyBtn) {
       buyBtn.onclick = async () => {
         closeImWatchlistSheets(true);
-        const handledAsRealOrder = typeof placeRealOrderFromWatchlist === "function" && await placeRealOrderFromWatchlist(symbol, "Buy", price);
+        const handledAsRealOrder = typeof placeRealOrderFromWatchlist === "function" && await placeRealOrderFromWatchlist(symbol, "Buy", price, orderOptions);
         if (!handledAsRealOrder) setImPendingStockTrade(symbol, "Buy", price);
       };
     }
     if (sellBtn) {
       sellBtn.onclick = async () => {
         closeImWatchlistSheets(true);
-        const handledAsRealOrder = typeof placeRealOrderFromWatchlist === "function" && await placeRealOrderFromWatchlist(symbol, "Sell", price);
+        const handledAsRealOrder = typeof placeRealOrderFromWatchlist === "function" && await placeRealOrderFromWatchlist(symbol, "Sell", price, orderOptions);
         if (!handledAsRealOrder) setImPendingStockTrade(symbol, "Sell", price);
       };
     }
     if (chartBtn) {
-      chartBtn.onclick = () => {
+      // A single option leg has no chart of its own here.
+      chartBtn.style.display = isOptionLeg ? "none" : "";
+      chartBtn.onclick = isOptionLeg ? null : () => {
         closeImWatchlistSheets(true);
         openImTradingViewChartFor(chartSymbol, symbol, "im-watchlist");
       };
     }
     if (optChainBtn) {
-      // No MCX option chain support — hide rather than open something wrong.
-      optChainBtn.style.display = isCommodity ? "none" : "";
-      optChainBtn.onclick = isCommodity ? null : () => {
-        closeImWatchlistSheets(true);
-        openImStockOptionChainFor(symbol, "im-watchlist");
-      };
+      if (isOptionLeg) {
+        // Already inside a single option contract — nothing to open.
+        optChainBtn.style.display = "none";
+        optChainBtn.onclick = null;
+      } else if (isCommodity) {
+        // Repurposed for commodities: choose an expiry first (options are
+        // listed per contract-month, same as the futures themselves), then
+        // the chosen expiry's option chain opens.
+        optChainBtn.style.display = "";
+        optChainBtn.onclick = () => {
+          closeImWatchlistSheets(true);
+          openCommodityExpirySheet(commodityKey, commodityName);
+        };
+      } else {
+        optChainBtn.style.display = "";
+        optChainBtn.onclick = () => {
+          closeImWatchlistSheets(true);
+          openImStockOptionChainFor(symbol, "im-watchlist");
+        };
+      }
     }
     if (alertBtn) {
       alertBtn.onclick = () => {
@@ -7696,12 +7723,23 @@ async function fetchWatchlist() {
           }
         }
 
+        const callTradable = call.instrument_key && call.trading_symbol;
+        const putTradable = put.instrument_key && put.trading_symbol;
+        const callLtpClass = `im-options-call-side${callTradable ? " im-options-tradable-cell" : ""}`;
+        const putLtpClass = `im-options-put-side${putTradable ? " im-options-tradable-cell" : ""}`;
+        const callDataAttrs = callTradable
+          ? ` data-instrument-key="${escapeHtml(call.instrument_key)}" data-trading-symbol="${escapeHtml(call.trading_symbol)}" data-ltp="${Number.isFinite(Number(call.ltp)) ? call.ltp : ""}" data-lot-size="${Number.isFinite(Number(call.lot_size)) ? call.lot_size : ""}"`
+          : "";
+        const putDataAttrs = putTradable
+          ? ` data-instrument-key="${escapeHtml(put.instrument_key)}" data-trading-symbol="${escapeHtml(put.trading_symbol)}" data-ltp="${Number.isFinite(Number(put.ltp)) ? put.ltp : ""}" data-lot-size="${Number.isFinite(Number(put.lot_size)) ? put.lot_size : ""}"`
+          : "";
+
         return `
           <tr class="${rowClasses}">
             <td class="im-options-call-side"${callStyle}>${formatOptionCompactNumber(call.oi)}</td>
-            <td class="im-options-call-side"${callStyle}>${formatOptionNumber(call.ltp)}</td>
+            <td class="${callLtpClass}"${callStyle}${callDataAttrs}>${formatOptionNumber(call.ltp)}</td>
             <td class="im-options-strike">${formatOptionNumber(row.strike)}</td>
-            <td class="im-options-put-side"${putStyle}>${formatOptionNumber(put.ltp)}</td>
+            <td class="${putLtpClass}"${putStyle}${putDataAttrs}>${formatOptionNumber(put.ltp)}</td>
             <td class="im-options-put-side"${putStyle}>${formatOptionCompactNumber(put.oi)}</td>
           </tr>
         `;
@@ -7821,6 +7859,19 @@ async function fetchWatchlist() {
     loadStockOptionChain();
   });
 
+  // Delegated (not attached per-cell) since renderStockOptionChain() fully
+  // replaces the tbody on every 2s poll — a direct per-cell listener would
+  // be destroyed on the very next render.
+  document.getElementById("im-stock-options-body")?.addEventListener("click", (event) => {
+    const cell = event.target.closest(".im-options-tradable-cell");
+    if (!cell) return;
+    openImWatchlistActionSheet(cell.dataset.tradingSymbol, cell.dataset.ltp, {
+      isOptionLeg: true,
+      instrumentKey: cell.dataset.instrumentKey,
+      lotSize: cell.dataset.lotSize,
+    });
+  });
+
   // ===================== Commodities (MCX) =====================
 
   function renderCommodities(rows) {
@@ -7888,7 +7939,7 @@ async function fetchWatchlist() {
         const chartSymbol = `MCX:${key.toUpperCase()}1!`;
 
         return `
-          <tr class="im-watchlist-row ${rowClass}" data-commodity-key="${escapeHtml(key)}" data-commodity-name="${escapeHtml(row.name || key.toUpperCase())}" data-symbol="${escapeHtml(orderSymbol)}" data-price="${Number.isFinite(Number(row.last_price)) ? row.last_price : ""}" data-chart-symbol="${escapeHtml(chartSymbol)}" data-change-percent="${Number.isFinite(changeNum) ? changeNum : ""}">
+          <tr class="im-watchlist-row ${rowClass}" data-commodity-key="${escapeHtml(key)}" data-commodity-name="${escapeHtml(row.name || key.toUpperCase())}" data-symbol="${escapeHtml(orderSymbol)}" data-price="${Number.isFinite(Number(row.last_price)) ? row.last_price : ""}" data-lot-size="${Number.isFinite(Number(row.lot_size)) ? row.lot_size : ""}" data-chart-symbol="${escapeHtml(chartSymbol)}" data-change-percent="${Number.isFinite(changeNum) ? changeNum : ""}">
             <td class="im-col-symbol">
               <div class="im-stock-brand-cell">
                 <div class="im-stock-avatar" style="background:${meta.bg};color:${meta.color};font-size:16px;">${meta.icon}</div>
@@ -7924,12 +7975,15 @@ async function fetchWatchlist() {
   // commodity's real current contract as the order symbol (not the plain
   // "GOLD"/"SILVER" key), an MCX: chart symbol instead of NSE:, and the
   // option-chain button hidden (no MCX option chain support here).
-  function openCommodityContractActionSheet(row) {
+  function openCommodityContractActionSheet(row, commodityKey, commodityName) {
     const chartSymbol = `MCX:${String(row.trading_symbol || "").replace(/\d{2}[A-Z]{3}FUT$/, "")}1!`;
     openImWatchlistActionSheet(row.trading_symbol, row.last_price, {
       chartSymbol,
       isCommodity: true,
       changePercent: row.change_percent,
+      lotSize: row.lot_size,
+      commodityKey,
+      commodityName,
     });
   }
 
@@ -7999,9 +8053,12 @@ async function fetchWatchlist() {
       listEl.querySelectorAll(".im-commodity-expiry-row").forEach((el) => {
         el.addEventListener("click", () => {
           const chosen = rows[Number(el.dataset.index)];
-          if (!chosen) return;
+          if (!chosen || !chosen.trading_symbol) return;
           closeImWatchlistSheets(true);
-          openCommodityContractActionSheet(chosen);
+          // This picker is reached from the action sheet's Option button —
+          // picking an expiry here opens that contract's option chain
+          // (Call/Put per strike), not the futures Buy/Sell sheet again.
+          openImStockOptionChainFor(chosen.trading_symbol, "im-commodities");
         });
       });
     } catch (error) {
@@ -8016,8 +8073,17 @@ async function fetchWatchlist() {
     if (!body) return;
     body.addEventListener("click", (event) => {
       const row = event.target.closest(".im-watchlist-row");
-      if (!row || !row.dataset.commodityKey) return;
-      openCommodityExpirySheet(row.dataset.commodityKey, row.dataset.commodityName);
+      if (!row || !row.dataset.symbol) return;
+      openCommodityContractActionSheet(
+        {
+          trading_symbol: row.dataset.symbol,
+          last_price: row.dataset.price,
+          change_percent: row.dataset.changePercent,
+          lot_size: row.dataset.lotSize,
+        },
+        row.dataset.commodityKey,
+        row.dataset.commodityName
+      );
     });
   })();
 
@@ -9826,45 +9892,64 @@ async function fetchWatchlist() {
   // Matches resolve_order_instrument_key()'s pattern on the backend.
   const MCX_FUTURES_SYMBOL_PATTERN = /^[A-Z]+\d{2}[A-Z]{3}FUT$/;
 
-  // Real Buy/Sell straight from a Watchlist stock's action sheet, or a
-  // Commodities row's — see openImWatchlistActionSheet()'s buyBtn/sellBtn
-  // below, which call this instead of the Paper Trading hand-off when the
-  // user has a connected Upstox account. Quantity is the only thing asked
-  // for since the sheet already knows the symbol and current price; a
-  // MARKET order covers the common case without a whole form for a quick
-  // tap-to-trade.
-  async function placeRealOrderFromWatchlist(symbol, direction, lastPrice) {
+  // Real Buy/Sell straight from a Watchlist stock's action sheet, a
+  // Commodities row's, or a single option leg tapped in an option chain —
+  // see openImWatchlistActionSheet()'s buyBtn/sellBtn, which call this
+  // instead of the Paper Trading hand-off when the user has a connected
+  // Upstox account. Quantity is the only thing asked for since the sheet
+  // already knows the symbol and current price; a MARKET order covers the
+  // common case without a whole form for a quick tap-to-trade.
+  //
+  // orderOptions:
+  //   instrumentKey — an option leg's exact instrument_key from the option
+  //     chain (see renderStockOptionChain()'s cell click handlers below);
+  //     when set, the backend uses it directly instead of re-resolving by
+  //     symbol, since an option's trading symbol isn't resolvable the way
+  //     an equity/futures one is.
+  //   lotSize — units per lot (commodity futures and every option leg
+  //     trade in whole lots, never a raw share count); when set, the
+  //     quantity prompt asks for a number of LOTS and this multiplies it
+  //     up to the actual unit count Upstox's order API expects.
+  //   isOptionLeg — an option (not a futures contract) also needs the
+  //     NRML product, same as a commodity future.
+  async function placeRealOrderFromWatchlist(symbol, direction, lastPrice, orderOptions = {}) {
     const statusCheck = await brokerApiFetch("/api/broker/upstox/status");
     if (!statusCheck.ok || !statusCheck.connected) return false; // caller falls back to Paper Trading
 
+    const { instrumentKey, isOptionLeg } = orderOptions;
+    const lotSize = Number.isFinite(Number(orderOptions.lotSize)) && Number(orderOptions.lotSize) > 0 ? Number(orderOptions.lotSize) : null;
     const isCommodityFuture = MCX_FUTURES_SYMBOL_PATTERN.test(symbol.toUpperCase());
-    const product = isCommodityFuture ? "NRML" : "D";
-    const productLabel = isCommodityFuture ? "Carryforward" : "Delivery";
-    const unitLabel = isCommodityFuture ? "lots" : "shares";
+    const isDerivative = isCommodityFuture || isOptionLeg;
+    const product = isDerivative ? "NRML" : "D";
+    const productLabel = isDerivative ? "Carryforward" : "Delivery";
+    const unitLabel = lotSize ? "lots" : "shares";
 
-    const quantityInput = window.prompt(`${direction.toUpperCase()} ${symbol} — how many ${unitLabel} (${productLabel}, Market order)?`, "1");
-    if (!quantityInput) return true; // connected, but user cancelled — don't fall back to Paper Trading
-    const quantity = Number(quantityInput);
-    if (!Number.isFinite(quantity) || quantity <= 0) {
+    const lotsInput = window.prompt(`${direction.toUpperCase()} ${symbol} — how many ${unitLabel} (${productLabel}, Market order)?`, "1");
+    if (!lotsInput) return true; // connected, but user cancelled — don't fall back to Paper Trading
+    const lots = Number(lotsInput);
+    if (!Number.isFinite(lots) || lots <= 0) {
       window.alert("Enter a valid quantity.");
       return true;
     }
+    const quantity = lotSize ? Math.round(lots * lotSize) : lots;
 
+    const instrumentKeyParam = instrumentKey ? `&instrument_key=${encodeURIComponent(instrumentKey)}` : "";
     const chargesResult = await brokerApiFetch(
-      `/api/broker/upstox/brokerage?symbol=${encodeURIComponent(symbol)}&quantity=${quantity}&price=${encodeURIComponent(lastPrice || 0)}&product=${product}&transaction_type=${direction.toUpperCase()}`
+      `/api/broker/upstox/brokerage?symbol=${encodeURIComponent(symbol)}&quantity=${quantity}&price=${encodeURIComponent(lastPrice || 0)}&product=${product}&transaction_type=${direction.toUpperCase()}${instrumentKeyParam}`
     );
     const estimatedCharges = chargesResult.ok ? Number(chargesResult.data?.charges?.total) : null;
     const chargesLine = Number.isFinite(estimatedCharges) ? `\nEstimated charges: ₹${estimatedCharges.toFixed(2)}` : "";
+    const quantityLine = lotSize ? `${lots} lot${lots === 1 ? "" : "s"} (${quantity} qty)` : `${quantity}`;
 
     const confirmed = window.confirm(
-      `Place a REAL ${direction.toUpperCase()} order for ${quantity} × ${symbol} (Market, ${productLabel})?${chargesLine}\n\nThis uses real money in your own Upstox account.`
+      `Place a REAL ${direction.toUpperCase()} order for ${quantityLine} × ${symbol} (Market, ${productLabel})?${chargesLine}\n\nThis uses real money in your own Upstox account.`
     );
     if (!confirmed) return true;
 
     const result = await brokerApiFetch("/api/broker/upstox/place-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol, quantity, product, order_type: "MARKET", transaction_type: direction.toUpperCase(), price: 0 })
+      body: JSON.stringify({ symbol, quantity, product, order_type: "MARKET", transaction_type: direction.toUpperCase(), price: 0, instrument_key: instrumentKey || undefined })
     });
     window.alert(result.ok ? "Order placed successfully." : (result.error || "Order could not be placed."));
     return true;

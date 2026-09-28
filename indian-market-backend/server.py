@@ -1471,11 +1471,16 @@ def broker_upstox_brokerage():
     product = request.args.get("product", "D").strip()
     transaction_type = request.args.get("transaction_type", "BUY").strip().upper()
     price = request.args.get("price", "").strip()
+    # An option leg's exact instrument_key (from /api/options/chain/...) —
+    # when given, used directly instead of re-resolving by symbol, since an
+    # option's trading symbol isn't resolvable the way an equity/futures
+    # symbol is.
+    instrument_key_override = request.args.get("instrument_key", "").strip()
     if not symbol or not quantity or not price:
         return jsonify({"ok": False, "error": "symbol, quantity and price are required."}), 400
 
     try:
-        instrument_key = resolve_order_instrument_key(symbol)
+        instrument_key = instrument_key_override or resolve_order_instrument_key(symbol)
         data = upstox_get(
             "/v2/charges/brokerage",
             access_token,
@@ -1514,6 +1519,9 @@ def broker_upstox_place_order():
     product = str(body.get("product", "D")).strip().upper()
     price = body.get("price", 0)
     validity = str(body.get("validity", "DAY")).strip().upper()
+    # See broker_upstox_brokerage()'s instrument_key_override above — same
+    # reasoning, for the actual order this time.
+    instrument_key_override = str(body.get("instrument_key", "")).strip()
 
     if not symbol or not quantity or transaction_type not in ("BUY", "SELL"):
         return jsonify({"ok": False, "error": "symbol, quantity and a valid transaction_type (BUY/SELL) are required."}), 400
@@ -1521,7 +1529,7 @@ def broker_upstox_place_order():
         return jsonify({"ok": False, "error": "price is required for a LIMIT order."}), 400
 
     try:
-        instrument_key = resolve_order_instrument_key(symbol)
+        instrument_key = instrument_key_override or resolve_order_instrument_key(symbol)
         response = requests.post(
             "https://api-hft.upstox.com/v3/order/place",
             headers={
@@ -1783,6 +1791,24 @@ def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
 # /api/commodities returns it (e.g. GOLD25DECFUT) — see
 # find_current_mcx_future() below, which resolves these in the first place.
 MCX_FUTURES_SYMBOL_PATTERN = re.compile(r"^[A-Z]+\d{2}[A-Z]{3}FUT$")
+
+
+def find_lot_size_by_trading_symbol(trading_symbol):
+    """Fallback lot-size lookup by exact trading symbol, across any
+    exchange/segment in the instrument master — used when a caller (e.g.
+    the option chain) didn't already have it from the API response it
+    otherwise reads its instrument_key from."""
+    for row in get_instrument_master_rows():
+        if row.get("tradingsymbol", "").upper() == trading_symbol.upper():
+            return _parse_int(row.get("lot_size"))
+    return None
+
+
+def _parse_int(value):
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
 
 
 def resolve_order_instrument_key(symbol):
@@ -2429,6 +2455,12 @@ def resolve_options_underlying(market_key):
     if not symbol:
         return None, None
     try:
+        # MCX commodity options are options on that month's futures
+        # contract, not a separate spot/index instrument — the Commodities
+        # page passes a specific contract's own trading symbol (e.g.
+        # CRUDEOIL26OCTFUT) here as market_key once a user picks it.
+        if MCX_FUTURES_SYMBOL_PATTERN.match(symbol):
+            return resolve_mcx_instrument_key(symbol), symbol
         return resolve_instrument_key(symbol), symbol
     except Exception:
         return None, None
@@ -2575,17 +2607,43 @@ def option_chain(market_key):
                         "oi": call_market.get("oi"),
                         "volume": call_market.get("volume"),
                         "iv": call_greeks.get("iv"),
+                        # Carried straight through from Upstox rather than
+                        # re-resolved by symbol, so Buy/Sell on a specific
+                        # strike (see /api/broker/upstox/place-order's
+                        # instrument_key param) always hits the exact
+                        # contract shown here.
+                        "instrument_key": call.get("instrument_key"),
+                        "trading_symbol": call.get("trading_symbol") or call.get("tradingsymbol"),
+                        "lot_size": _parse_int(call.get("lot_size")),
                     },
                     "put": {
                         "ltp": put_market.get("ltp"),
                         "oi": put_market.get("oi"),
                         "volume": put_market.get("volume"),
                         "iv": put_greeks.get("iv"),
+                        "instrument_key": put.get("instrument_key"),
+                        "trading_symbol": put.get("trading_symbol") or put.get("tradingsymbol"),
+                        "lot_size": _parse_int(put.get("lot_size")),
                     },
                 }
             )
 
         rows.sort(key=lambda row: row["strike"] if row["strike"] is not None else 0)
+
+        # Every strike/leg of the same underlying+expiry shares one lot
+        # size, so if Upstox's chain response didn't carry it directly
+        # (not guaranteed across segments), one instrument-master lookup
+        # for any single leg's trading symbol covers the whole chain.
+        if rows and rows[0]["call"].get("lot_size") is None:
+            sample_symbol = rows[0]["call"].get("trading_symbol") or rows[0]["put"].get("trading_symbol")
+            if sample_symbol:
+                fallback_lot_size = find_lot_size_by_trading_symbol(sample_symbol)
+                if fallback_lot_size is not None:
+                    for row in rows:
+                        if row["call"].get("lot_size") is None:
+                            row["call"]["lot_size"] = fallback_lot_size
+                        if row["put"].get("lot_size") is None:
+                            row["put"]["lot_size"] = fallback_lot_size
 
         total_call_oi = sum((row["call"].get("oi") or 0) for row in rows)
         total_put_oi = sum((row["put"].get("oi") or 0) for row in rows)
@@ -3381,6 +3439,7 @@ def find_all_mcx_futures(prefix):
             "instrument_key": row.get("instrument_key"),
             "trading_symbol": row.get("tradingsymbol"),
             "expiry": expiry_date.isoformat(),
+            "lot_size": _parse_int(row.get("lot_size")),
         }
         for expiry_date, row in candidates
     ]
@@ -3494,6 +3553,7 @@ def commodities():
                     "name": MCX_COMMODITIES[commodity_key]["name"],
                     "trading_symbol": contracts[commodity_key]["trading_symbol"],
                     "expiry": contracts[commodity_key]["expiry"],
+                    "lot_size": contracts[commodity_key].get("lot_size"),
                     "last_price": last_price,
                     "change_percent": change_percent,
                 }
@@ -3556,6 +3616,7 @@ def commodity_expiries(commodity_key):
                 {
                     "trading_symbol": contract["trading_symbol"],
                     "expiry": contract["expiry"],
+                    "lot_size": contract.get("lot_size"),
                     "last_price": last_price,
                     "change_percent": change_percent,
                 }
