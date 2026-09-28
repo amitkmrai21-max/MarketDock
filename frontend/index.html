@@ -3232,7 +3232,7 @@
             <input type="text" id="im-pos-search-input" class="im-pos-search-input" placeholder="Search positions" autocomplete="off" />
           </div>
 
-          <div class="im-pos-filter-row">
+          <div class="im-pos-filter-row" id="im-pos-segment-filter-row">
             <button type="button" class="im-pos-filter-pill active" data-segment="ALL">All</button>
             <button type="button" class="im-pos-filter-pill" data-segment="EQ">Equity</button>
             <button type="button" class="im-pos-filter-pill" data-segment="FO">F&amp;O</button>
@@ -3244,6 +3244,12 @@
 
           <article class="card section-card">
             <h3 class="im-section-label">Order Book</h3>
+            <div class="im-pos-filter-row" id="im-broker-orders-filter-row">
+              <button class="im-pos-filter-pill active" type="button" data-order-filter="all">All</button>
+              <button class="im-pos-filter-pill" type="button" data-order-filter="open">Open</button>
+              <button class="im-pos-filter-pill" type="button" data-order-filter="executed">Executed</button>
+              <button class="im-pos-filter-pill" type="button" data-order-filter="cancelled">Cancelled</button>
+            </div>
             <div class="table-wrap im-watchlist-table-wrap">
               <table class="im-watchlist-table" style="width:100%;">
                 <thead><tr><th class="im-th-symbol">STOCK</th><th class="im-th-price">QTY</th><th class="im-th-change-pct">STATUS</th></tr></thead>
@@ -3808,7 +3814,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v30"></script>
+  <script src="/frontend/app.js?v=v20260927v31"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
