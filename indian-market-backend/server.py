@@ -1392,6 +1392,186 @@ def broker_upstox_disconnect():
         return jsonify({"ok": False, "error": "Could not disconnect right now."}), 502
 
 
+def require_connected_broker():
+    """Common guard for every real-money route below: the caller must be a
+    signed-in MarketDock user with their own connected Upstox account. On
+    success returns their personal access token; on failure returns a
+    (jsonify(...), status) tuple the route should return as-is."""
+    user_id = get_request_user_id()
+    if not user_id:
+        return None, (jsonify({"ok": False, "error": "Please log in to your MarketDock account first."}), 401)
+    connection = get_broker_connection(user_id)
+    if not connection or not connection.get("access_token"):
+        return None, (jsonify({"ok": False, "error": "Please connect your Upstox account first."}), 403)
+    return connection["access_token"], None
+
+
+def upstox_get(path, access_token, params=None, base="https://api.upstox.com"):
+    response = requests.get(
+        f"{base}{path}",
+        headers={"Accept": "application/json", "Authorization": f"Bearer {access_token}"},
+        params=params,
+        timeout=15,
+    )
+    if not response.ok:
+        raise RuntimeError(f"Upstox request to {path} failed: status={response.status_code}, body={response.text[:300]}")
+    return response.json()
+
+
+@app.get("/api/broker/upstox/funds")
+def broker_upstox_funds():
+    """Available balance/margin — read-only, no static IP needed."""
+    access_token, error_response = require_connected_broker()
+    if error_response:
+        return error_response
+    try:
+        data = upstox_get("/v2/user/get-funds-and-margin", access_token).get("data") or {}
+        return jsonify({"ok": True, "data": data})
+    except Exception as error:
+        app.logger.warning("Funds fetch failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not fetch funds right now."}), 502
+
+
+@app.get("/api/broker/upstox/positions")
+def broker_upstox_positions():
+    """Today's open intraday/delivery positions — read-only, no static IP needed."""
+    access_token, error_response = require_connected_broker()
+    if error_response:
+        return error_response
+    try:
+        data = upstox_get("/v2/portfolio/short-term-positions", access_token).get("data") or []
+        return jsonify({"ok": True, "data": data})
+    except Exception as error:
+        app.logger.warning("Positions fetch failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not fetch positions right now."}), 502
+
+
+@app.get("/api/broker/upstox/holdings")
+def broker_upstox_holdings():
+    """Stocks already held from previous sessions — read-only, no static IP needed."""
+    access_token, error_response = require_connected_broker()
+    if error_response:
+        return error_response
+    try:
+        data = upstox_get("/v2/portfolio/long-term-holdings", access_token).get("data") or []
+        return jsonify({"ok": True, "data": data})
+    except Exception as error:
+        app.logger.warning("Holdings fetch failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not fetch holdings right now."}), 502
+
+
+@app.get("/api/broker/upstox/orders")
+def broker_upstox_orders():
+    """Today's order book (pending/executed/rejected) — read-only, no static IP needed."""
+    access_token, error_response = require_connected_broker()
+    if error_response:
+        return error_response
+    try:
+        data = upstox_get("/v2/order/retrieve-all", access_token).get("data") or []
+        return jsonify({"ok": True, "data": data})
+    except Exception as error:
+        app.logger.warning("Order book fetch failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not fetch orders right now."}), 502
+
+
+@app.get("/api/broker/upstox/brokerage")
+def broker_upstox_brokerage():
+    """Estimated brokerage + charges for an order the user hasn't placed
+    yet, shown before they confirm Buy/Sell — read-only, no static IP
+    needed. Takes a trading symbol rather than a raw instrument_token so
+    the frontend can reuse the same symbols it already shows everywhere
+    else."""
+    access_token, error_response = require_connected_broker()
+    if error_response:
+        return error_response
+
+    symbol = request.args.get("symbol", "").strip().upper()
+    quantity = request.args.get("quantity", "").strip()
+    product = request.args.get("product", "D").strip()
+    transaction_type = request.args.get("transaction_type", "BUY").strip().upper()
+    price = request.args.get("price", "").strip()
+    if not symbol or not quantity or not price:
+        return jsonify({"ok": False, "error": "symbol, quantity and price are required."}), 400
+
+    try:
+        instrument_key = resolve_instrument_key(symbol)
+        data = upstox_get(
+            "/v2/charges/brokerage",
+            access_token,
+            params={
+                "instrument_token": instrument_key,
+                "quantity": quantity,
+                "product": product,
+                "transaction_type": transaction_type,
+                "price": price,
+            },
+        ).get("data") or {}
+        return jsonify({"ok": True, "data": data})
+    except Exception as error:
+        app.logger.warning("Brokerage estimate failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not estimate charges right now."}), 502
+
+
+@app.post("/api/broker/upstox/place-order")
+def broker_upstox_place_order():
+    """Places a REAL order under the signed-in user's own connected Upstox
+    account. Manual only — this is triggered by the user clicking Buy/Sell
+    for a specific, exact order in the app; nothing here decides on its own
+    when or what to trade. Requires Upstox's order-placement API calls to
+    originate from a static IP registered against this server per SEBI's
+    2025 algo-trading rules — until that's configured, Upstox will reject
+    these calls even though the code path itself is ready."""
+    access_token, error_response = require_connected_broker()
+    if error_response:
+        return error_response
+
+    body = request.get_json(silent=True) or {}
+    symbol = str(body.get("symbol", "")).strip().upper()
+    quantity = body.get("quantity")
+    transaction_type = str(body.get("transaction_type", "")).strip().upper()
+    order_type = str(body.get("order_type", "MARKET")).strip().upper()
+    product = str(body.get("product", "D")).strip().upper()
+    price = body.get("price", 0)
+    validity = str(body.get("validity", "DAY")).strip().upper()
+
+    if not symbol or not quantity or transaction_type not in ("BUY", "SELL"):
+        return jsonify({"ok": False, "error": "symbol, quantity and a valid transaction_type (BUY/SELL) are required."}), 400
+    if order_type == "LIMIT" and not price:
+        return jsonify({"ok": False, "error": "price is required for a LIMIT order."}), 400
+
+    try:
+        instrument_key = resolve_instrument_key(symbol)
+        response = requests.post(
+            "https://api-hft.upstox.com/v3/order/place",
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {access_token}",
+            },
+            json={
+                "quantity": int(quantity),
+                "product": product,
+                "validity": validity,
+                "price": float(price or 0),
+                "instrument_token": instrument_key,
+                "order_type": order_type,
+                "transaction_type": transaction_type,
+                "disclosed_quantity": 0,
+                "trigger_price": 0,
+                "is_amo": False,
+            },
+            timeout=15,
+        )
+        result = response.json()
+        if not response.ok:
+            error_message = (result.get("errors") or [{}])[0].get("message") or "Order was rejected by Upstox."
+            return jsonify({"ok": False, "error": error_message}), 502
+        return jsonify({"ok": True, "data": result.get("data") or {}})
+    except Exception as error:
+        app.logger.warning("Order placement failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not place the order right now."}), 502
+
+
 def fetch_quotes_with_change(symbols, resolver=None, access_token=None):
     """Resolves symbols to instrument keys (via the given resolver, default
     the stock resolver) and fetches LTP + previous close (via the LTP V3
