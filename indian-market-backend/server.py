@@ -1764,6 +1764,40 @@ def rrg():
         return jsonify({"ok": False, "error": "Could not build RRG data right now."}), 502
 
 
+def fetch_quotes_cached(symbols):
+    """Fetches live quotes for the given symbols, caching per SYMBOL rather
+    than per requested combination — so two different personal watchlists
+    that both happen to include, say, RELIANCE, always see the exact same
+    RELIANCE price and freshness. Caching by the full comma-joined symbol
+    list instead would give every distinct combination its own cache
+    entry, so the same stock could show a slightly different price to
+    different users purely because their other watchlist picks differed."""
+    now = time.time()
+    cached_rows = {}
+    stale_symbols = []
+    for symbol in symbols:
+        cached = _watchlist_cache.get(symbol)
+        if cached and now - cached["fetched_at"] < WATCHLIST_CACHE_SECONDS:
+            cached_rows[symbol] = cached
+        else:
+            stale_symbols.append(symbol)
+
+    if stale_symbols:
+        fetched_rows = fetch_quotes_with_change(stale_symbols)
+        fetched_at = time.time()
+        for row in fetched_rows:
+            score, label = compute_ai_score(row.get("change_percent"))
+            row["ai_score"] = score
+            row["ai_label"] = label
+            entry = {"row": row, "fetched_at": fetched_at}
+            _watchlist_cache[row["symbol"]] = entry
+            cached_rows[row["symbol"]] = entry
+
+    ordered = [cached_rows[s]["row"] for s in symbols if s in cached_rows]
+    oldest_fetched_at = min((cached_rows[s]["fetched_at"] for s in symbols if s in cached_rows), default=now)
+    return ordered, oldest_fetched_at
+
+
 @app.get("/api/watchlist")
 def watchlist():
     if not UPSTOX_ACCESS_TOKEN:
@@ -1773,22 +1807,10 @@ def watchlist():
 
     symbols_param = request.args.get("symbols", "")
     symbols = [s.strip().upper() for s in symbols_param.split(",") if s.strip()] or DEFAULT_WATCHLIST_SYMBOLS
-    cache_key = ",".join(symbols)
-
-    cached = _watchlist_cache.get(cache_key)
-    if cached and time.time() - cached["fetched_at"] < WATCHLIST_CACHE_SECONDS:
-        return jsonify({"ok": True, "updated_at": cached["updated_at"], "data": cached["data"]})
 
     try:
-        results = fetch_quotes_with_change(symbols)
-        for row in results:
-            score, label = compute_ai_score(row.get("change_percent"))
-            row["ai_score"] = score
-            row["ai_label"] = label
-        results.sort(key=lambda item: symbols.index(item["symbol"]) if item["symbol"] in symbols else 999)
-
-        updated_at = now_utc()
-        _watchlist_cache[cache_key] = {"data": results, "fetched_at": time.time(), "updated_at": updated_at}
+        results, oldest_fetched_at = fetch_quotes_cached(symbols)
+        updated_at = datetime.fromtimestamp(oldest_fetched_at, tz=timezone.utc).isoformat()
         return jsonify({"ok": True, "updated_at": updated_at, "data": results})
 
     except Exception as error:
