@@ -1635,7 +1635,11 @@ def fetch_index_constituents(index_name):
 @app.get("/api/index-constituents")
 def index_constituents():
     index_name = request.args.get("index", "").strip()
-    if index_name not in RRG_AVAILABLE_SYMBOLS:
+    # "Nifty 50" is deliberately absent from RRG_AVAILABLE_SYMBOLS (it's the
+    # RRG benchmark, not a valid rotation target against itself), but the
+    # Scanner page has its own "NIFTY 50" universe button that needs this
+    # same endpoint — allow it explicitly rather than treating it as unknown.
+    if index_name not in RRG_AVAILABLE_SYMBOLS and index_name != "Nifty 50":
         return jsonify({"ok": False, "error": "Unknown index."}), 404
 
     constituents = fetch_index_constituents(index_name)
