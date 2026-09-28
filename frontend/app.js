@@ -4522,6 +4522,10 @@ function clearLiveChartAiOverlay() {
     "im-paper-trading": {
       title: "Paper Trading Journal",
       subtitle: "Record research setups only. No real-money order execution."
+    },
+    "im-broker-account": {
+      title: "My Broker",
+      subtitle: "Your connected Upstox account — funds, positions, holdings, and manual order placement."
     }
   };
 
@@ -4690,6 +4694,10 @@ function clearLiveChartAiOverlay() {
       if (typeof startDashboardMoversPolling === "function") startDashboardMoversPolling();
     } else if (typeof stopDashboardMoversPolling === "function") {
       stopDashboardMoversPolling();
+    }
+
+    if (pageId === "im-broker-account" && typeof loadBrokerAccountPage === "function") {
+      loadBrokerAccountPage();
     }
 
     if (pageId === "im-news" && typeof loadImMarketNews === "function") {
@@ -9269,6 +9277,185 @@ async function fetchWatchlist() {
       imDashboardMoversTimer = null;
     }
   }
+
+  // ===================== My Broker (real account, real orders) =====================
+  // Everything here acts on the signed-in user's OWN connected Upstox
+  // account (see the "Connect your broker" section in Account settings) —
+  // never MarketDock's shared account, and never Paper Trading's virtual
+  // portfolio. Every order is the user's own explicit Buy/Sell click; the
+  // app never decides on its own to place, time, or size a trade.
+
+  let imBrokerTxnType = "BUY";
+
+  async function getSupabaseAccessTokenForBroker() {
+    try {
+      const { data } = (await window.marketDockSupabase?.auth.getSession()) || {};
+      return data?.session?.access_token || null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function brokerApiFetch(path, options = {}) {
+    const token = await getSupabaseAccessTokenForBroker();
+    if (!token) return { ok: false, error: "Please log in to your MarketDock account first." };
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` }
+    });
+    return response.json();
+  }
+
+  function renderBrokerRows(bodyId, rows, mapRow) {
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="3">Nothing to show right now.</td></tr>`;
+      return;
+    }
+    body.innerHTML = rows.map(mapRow).join("");
+  }
+
+  async function loadBrokerFunds() {
+    const statusEl = document.getElementById("im-broker-funds-status");
+    const valueEl = document.getElementById("im-broker-funds-value");
+    const result = await brokerApiFetch("/api/broker/upstox/funds");
+    if (!result.ok) {
+      if (statusEl) statusEl.textContent = result.error || "Could not load funds.";
+      return;
+    }
+    const equity = result.data?.equity || {};
+    if (valueEl) valueEl.textContent = formatNumber(equity.available_margin ?? 0);
+    if (statusEl) statusEl.textContent = "Available margin (Equity)";
+  }
+
+  async function loadBrokerPositions() {
+    const result = await brokerApiFetch("/api/broker/upstox/positions");
+    if (!result.ok) {
+      renderBrokerRows("im-broker-positions-body", [], () => "");
+      document.getElementById("im-broker-positions-body").innerHTML = `<tr><td colspan="3">${escapeHtml(result.error || "Could not load positions.")}</td></tr>`;
+      return;
+    }
+    renderBrokerRows("im-broker-positions-body", result.data || [], (row) => {
+      const pnl = Number(row.pnl ?? 0);
+      const cls = pnl >= 0 ? "im-change-up" : "im-change-down";
+      return `<tr><td class="im-col-symbol">${escapeHtml(row.trading_symbol || row.tradingsymbol || "--")}</td><td class="im-col-price">${formatNumber(row.quantity)}</td><td class="im-col-change-pct"><span class="im-change-value ${cls}">${formatNumber(pnl)}</span></td></tr>`;
+    });
+  }
+
+  async function loadBrokerHoldings() {
+    const result = await brokerApiFetch("/api/broker/upstox/holdings");
+    if (!result.ok) {
+      document.getElementById("im-broker-holdings-body").innerHTML = `<tr><td colspan="3">${escapeHtml(result.error || "Could not load holdings.")}</td></tr>`;
+      return;
+    }
+    renderBrokerRows("im-broker-holdings-body", result.data || [], (row) => {
+      const pnl = Number(row.pnl ?? 0);
+      const cls = pnl >= 0 ? "im-change-up" : "im-change-down";
+      return `<tr><td class="im-col-symbol">${escapeHtml(row.trading_symbol || row.tradingsymbol || "--")}</td><td class="im-col-price">${formatNumber(row.quantity)}</td><td class="im-col-change-pct"><span class="im-change-value ${cls}">${formatNumber(pnl)}</span></td></tr>`;
+    });
+  }
+
+  async function loadBrokerOrders() {
+    const result = await brokerApiFetch("/api/broker/upstox/orders");
+    if (!result.ok) {
+      document.getElementById("im-broker-orders-body").innerHTML = `<tr><td colspan="3">${escapeHtml(result.error || "Could not load orders.")}</td></tr>`;
+      return;
+    }
+    renderBrokerRows("im-broker-orders-body", result.data || [], (row) => {
+      return `<tr><td class="im-col-symbol">${escapeHtml(row.trading_symbol || row.tradingsymbol || "--")}</td><td class="im-col-price">${formatNumber(row.quantity)}</td><td class="im-col-change-pct">${escapeHtml(row.status || "--")}</td></tr>`;
+    });
+  }
+
+  async function loadBrokerAccountPage() {
+    const notConnectedEl = document.getElementById("im-broker-not-connected");
+    const connectedContentEl = document.getElementById("im-broker-connected-content");
+    if (!notConnectedEl || !connectedContentEl) return;
+
+    const statusResult = await brokerApiFetch("/api/broker/upstox/status");
+    if (!statusResult.ok || !statusResult.connected) {
+      notConnectedEl.hidden = false;
+      connectedContentEl.hidden = true;
+      return;
+    }
+    notConnectedEl.hidden = true;
+    connectedContentEl.hidden = false;
+
+    loadBrokerFunds();
+    loadBrokerPositions();
+    loadBrokerHoldings();
+    loadBrokerOrders();
+  }
+
+  function getBrokerOrderFormValues() {
+    return {
+      symbol: (document.getElementById("im-broker-order-symbol")?.value || "").trim().toUpperCase(),
+      quantity: document.getElementById("im-broker-order-qty")?.value,
+      product: document.getElementById("im-broker-order-product")?.value || "D",
+      orderType: document.getElementById("im-broker-order-type")?.value || "MARKET",
+      price: document.getElementById("im-broker-order-price")?.value || "0"
+    };
+  }
+
+  document.getElementById("im-broker-order-type")?.addEventListener("change", (event) => {
+    const priceInput = document.getElementById("im-broker-order-price");
+    if (priceInput) priceInput.disabled = event.target.value !== "LIMIT";
+  });
+
+  document.querySelectorAll(".im-broker-txn-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      imBrokerTxnType = btn.dataset.txn;
+      document.querySelectorAll(".im-broker-txn-btn").forEach((b) => b.classList.toggle("active", b === btn));
+    });
+  });
+
+  document.getElementById("im-broker-check-charges-btn")?.addEventListener("click", async () => {
+    const statusEl = document.getElementById("im-broker-order-status");
+    const { symbol, quantity, product, price } = getBrokerOrderFormValues();
+    if (!symbol || !quantity || !price) {
+      if (statusEl) statusEl.textContent = "Enter symbol, quantity and price to check charges.";
+      return;
+    }
+    if (statusEl) statusEl.textContent = "Checking charges…";
+    const result = await brokerApiFetch(
+      `/api/broker/upstox/brokerage?symbol=${encodeURIComponent(symbol)}&quantity=${encodeURIComponent(quantity)}&price=${encodeURIComponent(price)}&product=${encodeURIComponent(product)}&transaction_type=${imBrokerTxnType}`
+    );
+    if (!result.ok) {
+      if (statusEl) statusEl.textContent = result.error || "Could not estimate charges.";
+      return;
+    }
+    const total = result.data?.charges?.total;
+    if (statusEl) statusEl.textContent = Number.isFinite(Number(total)) ? `Estimated charges: ${formatNumber(total)}` : "Charges estimate unavailable for this order.";
+  });
+
+  document.getElementById("im-broker-place-order-btn")?.addEventListener("click", async () => {
+    const statusEl = document.getElementById("im-broker-order-status");
+    const { symbol, quantity, product, orderType, price } = getBrokerOrderFormValues();
+    if (!symbol || !quantity) {
+      if (statusEl) statusEl.textContent = "Enter symbol and quantity first.";
+      return;
+    }
+    if (orderType === "LIMIT" && !price) {
+      if (statusEl) statusEl.textContent = "Enter a price for a Limit order.";
+      return;
+    }
+    const confirmed = window.confirm(`Place a REAL ${imBrokerTxnType} order for ${quantity} × ${symbol} (${orderType})? This uses real money in your own Upstox account.`);
+    if (!confirmed) return;
+
+    if (statusEl) statusEl.textContent = "Placing order…";
+    const result = await brokerApiFetch("/api/broker/upstox/place-order", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ symbol, quantity: Number(quantity), product, order_type: orderType, transaction_type: imBrokerTxnType, price: Number(price || 0) })
+    });
+    if (!result.ok) {
+      if (statusEl) statusEl.textContent = result.error || "Order could not be placed.";
+      return;
+    }
+    if (statusEl) statusEl.textContent = "Order placed successfully.";
+    loadBrokerPositions();
+    loadBrokerOrders();
+  });
 
   // ===================== AI Chart Scanner =====================
   // Pick any NSE stock, get an instant AI-written technical summary. Reuses

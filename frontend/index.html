@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v45">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v46">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1341,6 +1341,11 @@
         <button class="nav-button" data-page="im-paper-trading" type="button">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 19h16M7 19V9m5 10V5m5 14v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
           Paper Trading
+        </button>
+
+        <button class="nav-button" data-page="im-broker-account" type="button">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 10l9-6 9 6M5 10v9h14v-9M9 19v-5h6v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          My Broker
         </button>
 
         <button class="nav-button website-settings-nav" data-open-settings type="button">
@@ -3204,6 +3209,83 @@
         </div>
       </section>
 
+      <section class="page" id="im-broker-account">
+        <article class="card section-card" id="im-broker-not-connected" hidden>
+          <p class="settings-help">Connect your Upstox account (Settings → Connect your broker) to see your funds, positions, holdings and place real orders here.</p>
+        </article>
+
+        <div id="im-broker-connected-content" hidden>
+          <article class="card section-card">
+            <h3 class="im-section-label">Available Funds</h3>
+            <p id="im-broker-funds-status" class="status-line">Loading…</p>
+            <p class="im-broker-funds-value" id="im-broker-funds-value">--</p>
+          </article>
+
+          <article class="card section-card">
+            <h3 class="im-section-label">Place Order</h3>
+            <p class="settings-help">Manual only — you confirm the exact order before it's sent. MarketDock never places or times an order on its own.</p>
+            <div class="im-broker-order-form">
+              <div class="settings-name-row">
+                <input id="im-broker-order-symbol" type="text" placeholder="Symbol (e.g. RELIANCE)" autocomplete="off" />
+              </div>
+              <div class="im-broker-order-row">
+                <input id="im-broker-order-qty" type="number" min="1" step="1" placeholder="Quantity" />
+                <select id="im-broker-order-product">
+                  <option value="D">Delivery</option>
+                  <option value="I">Intraday</option>
+                </select>
+              </div>
+              <div class="im-broker-order-row">
+                <select id="im-broker-order-type">
+                  <option value="MARKET">Market</option>
+                  <option value="LIMIT">Limit</option>
+                </select>
+                <input id="im-broker-order-price" type="number" min="0" step="0.05" placeholder="Price (for Limit)" disabled />
+              </div>
+              <div class="im-broker-order-row im-broker-txn-toggle">
+                <button type="button" class="im-broker-txn-btn im-broker-txn-buy active" data-txn="BUY">BUY</button>
+                <button type="button" class="im-broker-txn-btn im-broker-txn-sell" data-txn="SELL">SELL</button>
+              </div>
+              <div class="settings-account-actions">
+                <button id="im-broker-check-charges-btn" type="button" class="reset-settings-btn">Check Charges</button>
+                <button id="im-broker-place-order-btn" type="button" class="account-primary-btn">Place Order</button>
+              </div>
+              <p id="im-broker-order-status" class="settings-help" role="status"></p>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <h3 class="im-section-label">Positions</h3>
+            <div class="table-wrap im-watchlist-table-wrap">
+              <table class="im-watchlist-table" style="width:100%;">
+                <thead><tr><th class="im-th-symbol">STOCK</th><th class="im-th-price">QTY</th><th class="im-th-change-pct">P&amp;L</th></tr></thead>
+                <tbody id="im-broker-positions-body"><tr><td colspan="3">Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <h3 class="im-section-label">Holdings</h3>
+            <div class="table-wrap im-watchlist-table-wrap">
+              <table class="im-watchlist-table" style="width:100%;">
+                <thead><tr><th class="im-th-symbol">STOCK</th><th class="im-th-price">QTY</th><th class="im-th-change-pct">P&amp;L</th></tr></thead>
+                <tbody id="im-broker-holdings-body"><tr><td colspan="3">Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="card section-card">
+            <h3 class="im-section-label">Order Book</h3>
+            <div class="table-wrap im-watchlist-table-wrap">
+              <table class="im-watchlist-table" style="width:100%;">
+                <thead><tr><th class="im-th-symbol">STOCK</th><th class="im-th-price">QTY</th><th class="im-th-change-pct">STATUS</th></tr></thead>
+                <tbody id="im-broker-orders-body"><tr><td colspan="3">Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
       <p class="tv-attribution im-page-bottom-attribution">Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a>.</p>
     </main>
   </div>
@@ -3738,7 +3820,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v21"></script>
+  <script src="/frontend/app.js?v=v20260927v22"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
