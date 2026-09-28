@@ -18,6 +18,16 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Deep link the OAuth flow (Google Sign-In) returns to after
+                 completing in the system browser, so the session lands back
+                 in the app's own WebView instead of staying in Chrome. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.marketdock.app" android:host="auth-callback" />
+            </intent-filter>
         </activity>
 
         <provider
