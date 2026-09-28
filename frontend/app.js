@@ -12815,7 +12815,17 @@ async function fetchWatchlist() {
     renderImBacktestResults();
   }
 
-  function renderLiveChartCandles(candles) {
+  // Tracks which market+timeframe imLiveSeries currently holds a full
+  // setData() for, so a 2s poll (see refreshLiveChartCandles()) only
+  // updates the one live/latest bar via the cheap update() call instead of
+  // rebuilding the whole series from scratch every time — setData() on the
+  // full history is the expensive part (re-parses and re-lays-out every
+  // candle), and doing that every 2s instead of every 60s was real added
+  // jank/battery cost on weaker phones for no visual benefit, since only
+  // the last bar actually changes between one poll and the next.
+  let imLiveSeriesLoadedFor = null;
+
+  function renderLiveChartCandles(candles, seriesKey) {
     const legend = document.querySelector(".indian-market-mode .chart-legend");
 
     if (!imLiveSeries || !Array.isArray(candles) || !candles.length) {
@@ -12836,7 +12846,17 @@ async function fetchWatchlist() {
       .filter((point) => Number.isFinite(point.time))
       .sort((a, b) => a.time - b.time);
 
-    imLiveSeries.setData(chartPoints);
+    if (seriesKey && seriesKey === imLiveSeriesLoadedFor && chartPoints.length) {
+      // Same market/timeframe as last render: update() both refreshes the
+      // still-forming candle in place and appends a newly-started one
+      // (lightweight-charts creates a new bar automatically when the
+      // given time is later than every existing one) — either way, no
+      // full rebuild.
+      imLiveSeries.update(chartPoints[chartPoints.length - 1]);
+    } else {
+      imLiveSeries.setData(chartPoints);
+      imLiveSeriesLoadedFor = seriesKey || null;
+    }
 
     imLiveCandleRawData = candles
       .map((candle) => ({
@@ -12896,7 +12916,7 @@ async function fetchWatchlist() {
       }
 
       latestLiveCandleData = result;
-      renderLiveChartCandles(result.candles);
+      renderLiveChartCandles(result.candles, `${requestedMarket}:${requestedTimeframe}`);
       const chartDecision = document.getElementById("im-chart-decision");
 
       if (chartDecision) {
