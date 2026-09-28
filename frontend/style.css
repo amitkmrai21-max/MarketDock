@@ -7758,6 +7758,13 @@ body.im-chart-fullscreen-open {
   color: var(--im-red);
 }
 
+.indian-market-mode .im-options-table .im-options-tradable-cell {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
 .indian-market-mode .im-journal-heading-actions {
   display: flex;
   flex-direction: column;
