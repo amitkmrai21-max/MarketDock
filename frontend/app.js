@@ -8889,7 +8889,7 @@ async function fetchWatchlist() {
     const body = document.getElementById(bodyId);
     if (!body) return;
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="3">No matching stocks right now.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="5">No matching stocks right now.</td></tr>`;
       return;
     }
     body.innerHTML = rows
@@ -8900,13 +8900,16 @@ async function fetchWatchlist() {
           ? r.last_price - r.previous_close
           : null;
 
-        let changeHtml = '<span class="im-change-value im-change-neutral">— 0.00%</span>';
+        let pctHtml = '<span class="im-change-value im-change-neutral">0.00%</span>';
+        let rupeeHtml = '<span class="im-change-value im-change-neutral">—</span>';
         if (Number.isFinite(changePercent)) {
           const sign = changePercent >= 0 ? "+" : "";
           const arrow = changePercent >= 0 ? "▲" : "▼";
           const cls = changePercent >= 0 ? "im-change-up" : "im-change-down";
-          const rupeeText = changeRupee !== null ? `${sign}${formatNumber(changeRupee)} · ` : "";
-          changeHtml = `<span class="im-change-value ${cls}">${arrow} ${rupeeText}${sign}${changePercent.toFixed(2)}%</span>`;
+          pctHtml = `<span class="im-change-value ${cls}">${arrow} ${sign}${changePercent.toFixed(2)}%</span>`;
+          if (changeRupee !== null) {
+            rupeeHtml = `<span class="im-change-value ${cls}">${sign}${formatNumber(changeRupee)}</span>`;
+          }
         }
 
         return `
@@ -8921,12 +8924,9 @@ async function fetchWatchlist() {
                 </div>
               </div>
             </td>
-            <td class="im-col-price-chg">
-              <div class="im-price-block">
-                <span class="im-price-value">${formatNumber(r.last_price)}</span>
-                ${changeHtml}
-              </div>
-            </td>
+            <td class="im-col-price"><span class="im-price-value">${formatNumber(r.last_price)}</span></td>
+            <td class="im-col-change-pct">${pctHtml}</td>
+            <td class="im-col-change-rupee">${rupeeHtml}</td>
           </tr>
         `;
       })
