@@ -1169,25 +1169,6 @@ DEFAULT_WATCHLIST_SYMBOLS = [
     "SBIN", "BHARTIARTL", "ITC", "KOTAKBANK", "LT",
 ]
 
-# Not the complete official 50/12 — Upstox does not provide an index
-# constituents API, so this is a well-known, stable subset of large,
-# long-standing constituents used only to find a representative "biggest
-# mover" for each index. Reviewed twice a year by NSE (Mar/Sep), so this
-# list can drift slightly out of date over time.
-NIFTY50_TOP_MOVER_SYMBOLS = [
-    "RELIANCE", "TCS", "INFY", "HDFCBANK", "ICICIBANK", "SBIN",
-    "BHARTIARTL", "ITC", "KOTAKBANK", "LT", "HINDUNILVR", "TITAN",
-    "SUNPHARMA", "BAJFINANCE", "MARUTI", "ASIANPAINT", "AXISBANK",
-    "NTPC", "ULTRACEMCO", "WIPRO", "ADANIENT", "TATAMOTORS",
-    "TATASTEEL", "POWERGRID", "ONGC",
-]
-
-BANKNIFTY_TOP_MOVER_SYMBOLS = [
-    "HDFCBANK", "ICICIBANK", "SBIN", "KOTAKBANK", "AXISBANK",
-    "INDUSINDBK", "BANKBARODA", "PNB", "FEDERALBNK", "IDFCFIRSTB",
-    "AUBANK", "CANBK",
-]
-
 _instrument_key_cache = {}
 _watchlist_cache = {}
 # Short on purpose: every request for the same symbol set (e.g. all users
@@ -1720,9 +1701,15 @@ def compute_ai_score(change_percent):
 @app.get("/api/top-mover/<index_key>")
 def top_mover(index_key):
     index_key = index_key.lower().strip()
-    symbol_lists = {"nifty": NIFTY50_TOP_MOVER_SYMBOLS, "banknifty": BANKNIFTY_TOP_MOVER_SYMBOLS}
+    # Matches the same "Nifty 50" / "Nifty Bank" names the Dashboard's
+    # Top Gainers/Losers drill-down page passes to /api/index-constituents,
+    # so this card and that full list always agree on who's actually
+    # biggest — this used to run against a small fixed basket of
+    # heavyweight stocks instead, which could (and did) pick a different,
+    # less-moved stock than the real biggest mover across the full index.
+    index_names = {"nifty": "Nifty 50", "banknifty": "Nifty Bank"}
 
-    if index_key not in symbol_lists:
+    if index_key not in index_names:
         return jsonify({"ok": False, "error": "Unknown index. Use: nifty or banknifty."}), 404
 
     if not UPSTOX_ACCESS_TOKEN:
@@ -1733,7 +1720,12 @@ def top_mover(index_key):
         return jsonify({"ok": True, "data": cached["data"]})
 
     try:
-        quotes = fetch_quotes_with_change(symbol_lists[index_key])
+        constituents = fetch_index_constituents(index_names[index_key])
+        if not constituents:
+            return jsonify({"ok": False, "error": "Constituent list not available right now."}), 502
+
+        symbols = [c["symbol"] for c in constituents if c.get("symbol")]
+        quotes = fetch_quotes_with_change(symbols)
         rated = [q for q in quotes if q["change_percent"] is not None]
         if not rated:
             return jsonify({"ok": False, "error": "No quote data available right now."}), 502
