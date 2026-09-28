@@ -1572,6 +1572,61 @@ def broker_upstox_place_order():
         return jsonify({"ok": False, "error": "Could not place the order right now."}), 502
 
 
+@app.get("/api/broker/upstox/payout-modes")
+def broker_upstox_payout_modes():
+    """Which withdrawal modes (NEFT/IMPS) this user is currently eligible
+    for — read-only, no static IP needed. There is no equivalent "add
+    funds" API: Upstox only supports depositing money from inside their own
+    app (UPI/bank transfer), so that side has to stay a link out to Upstox
+    rather than a MarketDock button."""
+    access_token, error_response = require_connected_broker()
+    if error_response:
+        return error_response
+    try:
+        data = upstox_get("/v2/user/payments/payout/modes", access_token).get("data") or {}
+        return jsonify({"ok": True, "data": data})
+    except Exception as error:
+        app.logger.warning("Payout modes fetch failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not check withdrawal eligibility right now."}), 502
+
+
+@app.post("/api/broker/upstox/withdraw")
+def broker_upstox_withdraw():
+    """Initiates a REAL withdrawal from the user's own Upstox account to
+    their own registered bank account — never anywhere else. Manual only,
+    same as order placement: the user enters an amount and confirms it
+    themselves."""
+    access_token, error_response = require_connected_broker()
+    if error_response:
+        return error_response
+
+    body = request.get_json(silent=True) or {}
+    mode = str(body.get("mode", "IMPS")).strip().upper()
+    amount = body.get("amount")
+    if mode not in ("NEFT", "IMPS") or not amount or float(amount) < 100:
+        return jsonify({"ok": False, "error": "Enter an amount of at least ₹100 and a valid mode (NEFT/IMPS)."}), 400
+
+    try:
+        response = requests.post(
+            "https://api.upstox.com/v2/user/payments/payout",
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {access_token}",
+            },
+            json={"mode": mode, "amount": float(amount)},
+            timeout=15,
+        )
+        result = response.json()
+        if not response.ok:
+            error_message = (result.get("errors") or [{}])[0].get("message") or "Withdrawal request was rejected by Upstox."
+            return jsonify({"ok": False, "error": error_message}), 502
+        return jsonify({"ok": True, "data": result.get("data") or {}})
+    except Exception as error:
+        app.logger.warning("Withdrawal failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not process the withdrawal right now."}), 502
+
+
 def fetch_quotes_with_change(symbols, resolver=None, access_token=None):
     """Resolves symbols to instrument keys (via the given resolver, default
     the stock resolver) and fetches LTP + previous close (via the LTP V3
