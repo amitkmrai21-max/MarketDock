@@ -105,10 +105,22 @@ body[data-privacy-mode="on"] .privacy-sensitive {
   font-weight: 600;
 }
 
+/* Neither this SPA nor the Android WebView it runs in has a real
+   "pull down to refresh" feature — but without this, dragging down past
+   the top of a scrollable area (easy to do by accident, e.g. scrolling
+   inside the Settings drawer while the page behind it is also at its
+   scroll top) triggers the browser/WebView's own overscroll-refresh
+   gesture, reloading the whole page: every open overlay (Settings
+   included) and all in-memory state is gone the moment that happens. */
+html {
+  overscroll-behavior-y: none;
+}
+
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  overscroll-behavior-y: none;
   color: var(--text);
   font-family: 'Manrope', system-ui, sans-serif;
   background:
@@ -3506,6 +3518,20 @@ body.mode-indian-live-status .market-status-badge {
 
 html.capacitor-app .settings-backdrop {
   display: none !important;
+}
+
+/* Applied to body while the Settings drawer is open (openSettings() in
+   app.js) so the page behind it can't also be scrolled — see the
+   overscroll-behavior comment above body for why that scroll bleeding
+   through mattered. The drawer itself keeps its own overflow-y: auto and
+   scrolls independently of this. */
+body.settings-open-scroll-lock {
+  overflow: hidden;
+  touch-action: none;
+}
+
+body.settings-open-scroll-lock .settings-drawer {
+  touch-action: pan-y;
 }
 
 /* The drawer sits flush against the screen's right edge in the native app
