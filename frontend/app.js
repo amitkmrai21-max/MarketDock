@@ -7246,11 +7246,17 @@ async function fetchWatchlist() {
       `;
     }
   }
-  function openImWatchlistActionSheet(symbol, price) {
+  function openImWatchlistActionSheet(symbol, price, options = {}) {
     imSheetOpenedAt = Date.now();
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const sheet = document.getElementById("im-watchlist-action-sheet");
     if (!backdrop || !sheet) return;
+
+    // Commodities (MCX futures) don't have the NSE equity option chain this
+    // app supports, and their chart needs an MCX: TradingView symbol rather
+    // than the default NSE: one — see openCommodityActionSheet() below.
+    const chartSymbol = options.chartSymbol || `NSE:${symbol}`;
+    const isCommodity = !!options.isCommodity;
 
     const numPrice = Number(price);
     const validPrice = Number.isFinite(numPrice) && numPrice > 0 ? numPrice : 1000;
@@ -7261,10 +7267,14 @@ async function fetchWatchlist() {
     if (symEl) symEl.textContent = symbol;
     if (priceEl) priceEl.textContent = Number.isFinite(Number(price)) ? "₹" + formatNumber(Number(price)) : "--";
 
-    // Find row in imWatchlistLastRows if available
+    // Find row in imWatchlistLastRows if available — commodity rows aren't
+    // in that equity-only cache, so isCommodity passes the change% straight
+    // through from the Commodities table instead.
     let changePct = 0;
     let volumeStr = "1.24M";
-    if (Array.isArray(imWatchlistLastRows)) {
+    if (isCommodity && Number.isFinite(Number(options.changePercent))) {
+      changePct = Number(options.changePercent);
+    } else if (Array.isArray(imWatchlistLastRows)) {
       const match = imWatchlistLastRows.find((r) => r.symbol === symbol || r.trading_symbol === symbol);
       if (match) {
         if (Number.isFinite(Number(match.change_percent))) {
@@ -7436,11 +7446,13 @@ async function fetchWatchlist() {
     if (chartBtn) {
       chartBtn.onclick = () => {
         closeImWatchlistSheets(true);
-        openImTradingViewChartFor(`NSE:${symbol}`, symbol, "im-watchlist");
+        openImTradingViewChartFor(chartSymbol, symbol, "im-watchlist");
       };
     }
     if (optChainBtn) {
-      optChainBtn.onclick = () => {
+      // No MCX option chain support — hide rather than open something wrong.
+      optChainBtn.style.display = isCommodity ? "none" : "";
+      optChainBtn.onclick = isCommodity ? null : () => {
         closeImWatchlistSheets(true);
         openImStockOptionChainFor(symbol, "im-watchlist");
       };
@@ -7866,8 +7878,11 @@ async function fetchWatchlist() {
 
         const contractSub = `${escapeHtml(String(row.name || key.toUpperCase()).toUpperCase())} FUT`;
 
+        const orderSymbol = row.trading_symbol || "";
+        const chartSymbol = `MCX:${key.toUpperCase()}1!`;
+
         return `
-          <tr class="im-watchlist-row ${rowClass}">
+          <tr class="im-watchlist-row ${rowClass}" data-symbol="${escapeHtml(orderSymbol)}" data-price="${Number.isFinite(Number(row.last_price)) ? row.last_price : ""}" data-chart-symbol="${escapeHtml(chartSymbol)}" data-change-percent="${Number.isFinite(changeNum) ? changeNum : ""}">
             <td class="im-col-symbol">
               <div class="im-stock-brand-cell">
                 <div class="im-stock-avatar" style="background:${meta.bg};color:${meta.color};font-size:16px;">${meta.icon}</div>
@@ -7898,6 +7913,24 @@ async function fetchWatchlist() {
 
     if (status) status.hidden = true;
   }
+
+  // Opens the same Buy/Sell action sheet the Watchlist uses, but with the
+  // commodity's real current contract as the order symbol (not the plain
+  // "GOLD"/"SILVER" key), an MCX: chart symbol instead of NSE:, and the
+  // option-chain button hidden (no MCX option chain support here).
+  (function setupCommoditiesRowClicks() {
+    const body = document.getElementById("im-commodities-body");
+    if (!body) return;
+    body.addEventListener("click", (event) => {
+      const row = event.target.closest(".im-watchlist-row");
+      if (!row || !row.dataset.symbol) return;
+      openImWatchlistActionSheet(row.dataset.symbol, row.dataset.price, {
+        chartSymbol: row.dataset.chartSymbol,
+        isCommodity: true,
+        changePercent: row.dataset.changePercent,
+      });
+    });
+  })();
 
   async function fetchCommodities() {
     const status = document.getElementById("im-commodities-status");
@@ -9698,17 +9731,29 @@ async function fetchWatchlist() {
     loadBrokerOrders();
   }
 
-  // Real Buy/Sell straight from a Watchlist stock's action sheet — see
-  // openImWatchlistActionSheet()'s buyBtn/sellBtn below, which call this
-  // instead of the Paper Trading hand-off when the user has a connected
-  // Upstox account. Quantity is the only thing asked for since the sheet
-  // already knows the symbol and current price; a MARKET order at Delivery
-  // covers the common case without a whole form for a quick tap-to-trade.
+  // MCX commodity futures (e.g. GOLD25DECFUT, as the Commodities page's
+  // rows are keyed) can't be bought "Delivery" like an equity — Upstox
+  // requires the NRML (carryforward) product for derivatives/commodities.
+  // Matches resolve_order_instrument_key()'s pattern on the backend.
+  const MCX_FUTURES_SYMBOL_PATTERN = /^[A-Z]+\d{2}[A-Z]{3}FUT$/;
+
+  // Real Buy/Sell straight from a Watchlist stock's action sheet, or a
+  // Commodities row's — see openImWatchlistActionSheet()'s buyBtn/sellBtn
+  // below, which call this instead of the Paper Trading hand-off when the
+  // user has a connected Upstox account. Quantity is the only thing asked
+  // for since the sheet already knows the symbol and current price; a
+  // MARKET order covers the common case without a whole form for a quick
+  // tap-to-trade.
   async function placeRealOrderFromWatchlist(symbol, direction, lastPrice) {
     const statusCheck = await brokerApiFetch("/api/broker/upstox/status");
     if (!statusCheck.ok || !statusCheck.connected) return false; // caller falls back to Paper Trading
 
-    const quantityInput = window.prompt(`${direction.toUpperCase()} ${symbol} — how many shares (Delivery, Market order)?`, "1");
+    const isCommodityFuture = MCX_FUTURES_SYMBOL_PATTERN.test(symbol.toUpperCase());
+    const product = isCommodityFuture ? "NRML" : "D";
+    const productLabel = isCommodityFuture ? "Carryforward" : "Delivery";
+    const unitLabel = isCommodityFuture ? "lots" : "shares";
+
+    const quantityInput = window.prompt(`${direction.toUpperCase()} ${symbol} — how many ${unitLabel} (${productLabel}, Market order)?`, "1");
     if (!quantityInput) return true; // connected, but user cancelled — don't fall back to Paper Trading
     const quantity = Number(quantityInput);
     if (!Number.isFinite(quantity) || quantity <= 0) {
@@ -9717,20 +9762,20 @@ async function fetchWatchlist() {
     }
 
     const chargesResult = await brokerApiFetch(
-      `/api/broker/upstox/brokerage?symbol=${encodeURIComponent(symbol)}&quantity=${quantity}&price=${encodeURIComponent(lastPrice || 0)}&product=D&transaction_type=${direction.toUpperCase()}`
+      `/api/broker/upstox/brokerage?symbol=${encodeURIComponent(symbol)}&quantity=${quantity}&price=${encodeURIComponent(lastPrice || 0)}&product=${product}&transaction_type=${direction.toUpperCase()}`
     );
     const estimatedCharges = chargesResult.ok ? Number(chargesResult.data?.charges?.total) : null;
     const chargesLine = Number.isFinite(estimatedCharges) ? `\nEstimated charges: ₹${estimatedCharges.toFixed(2)}` : "";
 
     const confirmed = window.confirm(
-      `Place a REAL ${direction.toUpperCase()} order for ${quantity} × ${symbol} (Market, Delivery)?${chargesLine}\n\nThis uses real money in your own Upstox account.`
+      `Place a REAL ${direction.toUpperCase()} order for ${quantity} × ${symbol} (Market, ${productLabel})?${chargesLine}\n\nThis uses real money in your own Upstox account.`
     );
     if (!confirmed) return true;
 
     const result = await brokerApiFetch("/api/broker/upstox/place-order", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol, quantity, product: "D", order_type: "MARKET", transaction_type: direction.toUpperCase(), price: 0 })
+      body: JSON.stringify({ symbol, quantity, product, order_type: "MARKET", transaction_type: direction.toUpperCase(), price: 0 })
     });
     window.alert(result.ok ? "Order placed successfully." : (result.error || "Order could not be placed."));
     return true;
