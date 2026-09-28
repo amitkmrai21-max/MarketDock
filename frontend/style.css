@@ -3508,6 +3508,16 @@ html.capacitor-app .settings-backdrop {
   display: none !important;
 }
 
+/* The drawer sits flush against the screen's right edge in the native app
+   (no backdrop/margin around it there), which puts its right-column
+   buttons — the Light theme swatch among them — right inside Android's
+   edge-swipe-back gesture zone. A tap that starts there can be read as an
+   edge swipe instead of a plain tap, firing a real back-navigation. Extra
+   right-side padding here pushes that content further from the true edge. */
+html.capacitor-app .settings-drawer {
+  padding-right: 40px;
+}
+
 html:not(.capacitor-app) .settings-drawer {
   top: 50%;
   left: 50%;
