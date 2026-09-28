@@ -5,7 +5,8 @@
   "server": {
     "url": "https://marketdock.in",
     "cleartext": false,
-    "androidScheme": "https"
+    "androidScheme": "https",
+    "allowNavigation": ["api.marketdock.in", "api.upstox.com"]
   },
   "android": {
     "backgroundColor": "#0c0a14"

@@ -2590,9 +2590,28 @@ setInterval(loadRrg, 300000);
       signupBtn.disabled = busy;
     }
 
+    // Inside the native app, Google refuses to show its login screen inside
+    // an embedded WebView, so Capacitor kicks the whole navigation out to
+    // the system browser — and a plain redirectTo would then land the
+    // finished login back in that browser tab, not the app. Route this case
+    // through Capacitor's Browser plugin plus a custom-scheme deep link
+    // (registered in AndroidManifest.xml) so the app gets control back.
+    const APP_OAUTH_REDIRECT = "com.marketdock.app://auth-callback";
+    const isNativeApp = () => !!window.Capacitor?.isNativePlatform?.();
+
     googleBtn?.addEventListener("click", async () => {
       setStatus("Redirecting to Google...", false);
       try {
+        if (isNativeApp() && window.Capacitor?.Plugins?.Browser) {
+          const { data, error } = await supabaseClient.auth.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: APP_OAUTH_REDIRECT, skipBrowserRedirect: true }
+          });
+          if (error) throw error;
+          if (data?.url) await window.Capacitor.Plugins.Browser.open({ url: data.url });
+          return;
+        }
+
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: "google",
           options: { redirectTo: window.location.href }
@@ -2602,6 +2621,31 @@ setInterval(loadRrg, 300000);
         // more to do here — it comes back to this page already signed in.
       } catch (error) {
         setStatus(friendlyAuthError(error), true);
+      }
+    });
+
+    // Catches the app reopening via the com.marketdock.app://auth-callback
+    // deep link once Google Sign-In finishes in the system browser tab.
+    window.Capacitor?.Plugins?.App?.addListener("appUrlOpen", async (event) => {
+      const url = event?.url || "";
+      if (!url.startsWith(APP_OAUTH_REDIRECT)) return;
+      try {
+        const fragment = url.split("#")[1] || url.split("?")[1] || "";
+        const params = new URLSearchParams(fragment);
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+        const code = params.get("code");
+        if (accessToken && refreshToken) {
+          await supabaseClient.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+        } else if (code) {
+          await supabaseClient.auth.exchangeCodeForSession(code);
+        } else {
+          throw new Error(params.get("error_description") || "Google sign-in did not return a session.");
+        }
+      } catch (error) {
+        setStatus(friendlyAuthError(error), true);
+      } finally {
+        window.Capacitor?.Plugins?.Browser?.close?.().catch(() => {});
       }
     });
 
