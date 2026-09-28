@@ -2383,6 +2383,7 @@ setInterval(loadRrg, 300000);
     const loggedInGroup = document.getElementById("accountLoggedInGroup");
     const emailInput = document.getElementById("accountEmailInput");
     const passwordInput = document.getElementById("accountPasswordInput");
+    const googleBtn = document.getElementById("accountGoogleBtn");
     const loginBtn = document.getElementById("accountLoginBtn");
     const signupBtn = document.getElementById("accountSignupBtn");
     const logoutBtn = document.getElementById("accountLogoutBtn");
@@ -2588,6 +2589,21 @@ setInterval(loadRrg, 300000);
       loginBtn.disabled = busy;
       signupBtn.disabled = busy;
     }
+
+    googleBtn?.addEventListener("click", async () => {
+      setStatus("Redirecting to Google...", false);
+      try {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: window.location.href }
+        });
+        if (error) throw error;
+        // On success the browser navigates to Google now; there's nothing
+        // more to do here — it comes back to this page already signed in.
+      } catch (error) {
+        setStatus(friendlyAuthError(error), true);
+      }
+    });
 
     loginBtn.addEventListener("click", async () => {
       const email = emailInput.value.trim();
