@@ -4931,8 +4931,21 @@ function clearLiveChartAiOverlay() {
   // closes the app. This listener fully replaces Capacitor's built-in
   // handling once registered.
   const capacitorApp = window.Capacitor?.Plugins?.App;
+  let lastBackButtonHandledAt = 0;
+  const BACK_BUTTON_DEBOUNCE_MS = 400;
   if (capacitorApp?.addListener) {
     capacitorApp.addListener("backButton", () => {
+      // On some devices/Android versions (notably gesture-navigation ones)
+      // a single physical back press or edge-swipe can fire this event
+      // twice in quick succession. Without a guard, the first fire closes
+      // whatever's open (e.g. Settings) and the second — now finding
+      // nothing left open — falls through to the "go to Dashboard" branch,
+      // which read as "Settings closed and the app jumped to another page
+      // by itself" even though nothing was actually double-tapped.
+      const firedAt = Date.now();
+      if (firedAt - lastBackButtonHandledAt < BACK_BUTTON_DEBOUNCE_MS) return;
+      lastBackButtonHandledAt = firedAt;
+
       // Both can be true together (a focused search box with its dropdown
       // open) — run both so a single back press clears the whole thing.
       const blurredInput = blurAnyFocusedImInput();
