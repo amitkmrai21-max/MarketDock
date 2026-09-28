@@ -7888,14 +7888,19 @@ async function fetchWatchlist() {
       return;
     }
 
+    // Solid backgrounds (not the low-opacity tints this used to have) —
+    // Watchlist's per-stock avatars (getStockMeta()) are solid, fully
+    // opaque colors, and the same washed-out translucent look here read as
+    // a visibly different, weaker icon style next to Watchlist's bold one
+    // even though the box itself was already the same size.
     const COMMODITY_METAS = {
-      gold: { icon: "🪙", name: "Gold Futures", bg: "rgba(234, 179, 8, 0.16)", color: "#eab308" },
-      silver: { icon: "🥈", name: "Silver Futures", bg: "rgba(148, 163, 184, 0.16)", color: "#cbd5e1" },
-      crudeoil: { icon: "🛢️", name: "Crude Oil Futures", bg: "rgba(239, 68, 68, 0.16)", color: "#f87171" },
-      naturalgas: { icon: "⚡", name: "Natural Gas Futures", bg: "rgba(59, 130, 246, 0.16)", color: "#60a5fa" },
-      copper: { icon: "🔶", name: "Copper Futures", bg: "rgba(249, 115, 22, 0.16)", color: "#fb923c" },
-      zinc: { icon: "⚙️", name: "Zinc Futures", bg: "rgba(168, 85, 247, 0.16)", color: "#c084fc" },
-      aluminium: { icon: "🪨", name: "Aluminium Futures", bg: "rgba(45, 212, 191, 0.16)", color: "#2dd4bf" },
+      gold: { icon: "🪙", name: "Gold Futures", bg: "#b45309", color: "#ffffff" },
+      silver: { icon: "🥈", name: "Silver Futures", bg: "#475569", color: "#ffffff" },
+      crudeoil: { icon: "🛢️", name: "Crude Oil Futures", bg: "#991b1b", color: "#ffffff" },
+      naturalgas: { icon: "⚡", name: "Natural Gas Futures", bg: "#1d4ed8", color: "#ffffff" },
+      copper: { icon: "🔶", name: "Copper Futures", bg: "#c2410c", color: "#ffffff" },
+      zinc: { icon: "⚙️", name: "Zinc Futures", bg: "#6d28d9", color: "#ffffff" },
+      aluminium: { icon: "🪨", name: "Aluminium Futures", bg: "#0f766e", color: "#ffffff" },
     };
 
     body.innerHTML = rows
@@ -7904,8 +7909,8 @@ async function fetchWatchlist() {
         const meta = COMMODITY_METAS[key] || {
           icon: "📦",
           name: row.name || "Commodity",
-          bg: "rgba(100, 116, 139, 0.16)",
-          color: "#94a3b8"
+          bg: "#334155",
+          color: "#ffffff"
         };
 
         const changeNum = Number(row.change_percent);
