@@ -2096,6 +2096,26 @@ setInterval(loadRrg, 300000);
       }
     }
 
+    // CSS alone (overscroll-behavior / touch-action) turned out not to be
+    // enough to stop the background page from scrolling behind the open
+    // drawer on the native app's WebView — it doesn't reliably honor those
+    // properties. Blocking the touch at the JS level instead is the more
+    // dependable way to actually stop it: any touchmove that didn't start
+    // inside the drawer is cancelled outright while Settings is open, so it
+    // can never reach the background page's own scroll/overscroll-refresh
+    // gesture in the first place. Registered once; gated by isSettingsOpen
+    // rather than added/removed per open/close.
+    let isSettingsOpen = false;
+    document.addEventListener(
+      "touchmove",
+      (event) => {
+        if (!isSettingsOpen) return;
+        if (drawer && event.target instanceof Node && drawer.contains(event.target)) return;
+        event.preventDefault();
+      },
+      { passive: false }
+    );
+
     function openSettings() {
       drawer?.classList.add("open");
       backdrop?.classList.add("open");
@@ -2104,6 +2124,7 @@ setInterval(loadRrg, 300000);
       // can't also drag the background page to its own scroll top and
       // trip the WebView's overscroll-refresh gesture there.
       document.body.classList.add("settings-open-scroll-lock");
+      isSettingsOpen = true;
     }
 
     function closeSettings() {
@@ -2111,6 +2132,7 @@ setInterval(loadRrg, 300000);
       backdrop?.classList.remove("open");
       menuButtons.forEach((button) => button.setAttribute("aria-expanded", "false"));
       document.body.classList.remove("settings-open-scroll-lock");
+      isSettingsOpen = false;
     }
 
     applySettings(settings);
