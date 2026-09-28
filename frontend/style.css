@@ -6020,6 +6020,21 @@ body.im-chart-fullscreen-open {
   transform: translateY(0);
 }
 
+.indian-market-mode .im-mover-card[data-mover-universe] {
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.indian-market-mode .im-mover-card[data-mover-universe]:hover,
+.indian-market-mode .im-mover-card[data-mover-universe]:focus-visible {
+  border-color: var(--im-blue);
+  transform: translateY(-1px);
+}
+
+.indian-market-mode .im-mover-card[data-mover-universe]:active {
+  transform: translateY(0);
+}
+
 .indian-market-mode .stat-label,
 .indian-market-mode .stat-value,
 .indian-market-mode .stat-change {
@@ -9238,7 +9253,8 @@ body.im-chart-fullscreen-open {
 }
 
 .indian-market-mode #im-watchlist .table-wrap,
-.indian-market-mode #im-commodities .table-wrap {
+.indian-market-mode #im-commodities .table-wrap,
+.indian-market-mode #im-scanner .table-wrap {
   overflow-x: hidden !important;
   width: 100% !important;
   max-width: 100% !important;
@@ -9248,7 +9264,8 @@ body.im-chart-fullscreen-open {
 }
 
 .indian-market-mode #im-watchlist .im-watchlist-table,
-.indian-market-mode #im-commodities .im-watchlist-table {
+.indian-market-mode #im-commodities .im-watchlist-table,
+.indian-market-mode #im-scanner .im-watchlist-table {
   width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
@@ -10101,4 +10118,33 @@ body.im-chart-fullscreen-open {
    filter row sat glued to the subtitle above it. */
 .indian-market-mode #im-heatmap .section-card {
   padding-top: 10px;
+}
+
+/* Scanner table: reuses the same compact avatar+stacked-price/change
+   row styling already built for Watchlist/Commodities, plus a slim
+   serial-number column (which they don't have). Symbol column is
+   auto-width (absorbs whatever the fixed num/price-chg columns leave
+   over) so this fits one screen on mobile with no horizontal scroll,
+   same as Watchlist/Commodities already do. */
+.indian-market-mode #im-scanner .im-watchlist-table .im-th-num,
+.indian-market-mode #im-scanner .im-watchlist-table .im-col-num {
+  width: 22px !important;
+  padding-left: 6px !important;
+  padding-right: 0 !important;
+  text-align: center !important;
+  color: var(--im-muted);
+  font-size: 12px;
+}
+.indian-market-mode #im-scanner .im-watchlist-table .im-th-symbol,
+.indian-market-mode #im-scanner .im-watchlist-table .im-col-symbol {
+  width: auto !important;
+  padding-left: 8px !important;
+  padding-right: 6px !important;
+  text-align: left !important;
+}
+.indian-market-mode #im-scanner .im-watchlist-table .im-th-price-chg,
+.indian-market-mode #im-scanner .im-watchlist-table .im-col-price-chg {
+  width: 130px !important;
+  padding-right: 10px !important;
+  text-align: right !important;
 }

@@ -4782,6 +4782,27 @@ function clearLiveChartAiOverlay() {
     });
   });
 
+  // Dashboard's Top Gainer/Loser tiles (NIFTY 50 + Bank Nifty) jump to
+  // Scanner with that index/direction pre-selected, so tapping "NIFTY 50 ·
+  // TOP GAINER" shows the full serial-ranked gainers list, not just #1.
+  root.querySelectorAll(".im-mover-card[data-mover-universe]").forEach((card) => {
+    const openInScanner = () => {
+      const universeBtn = document.querySelector(`.im-scanner-universe-btn[data-scanner-universe="${card.dataset.moverUniverse}"]`);
+      const filterBtn = document.querySelector(`.im-scanner-filter-btn[data-scanner-filter="${card.dataset.moverFilter}"]`);
+      if (filterBtn) filterBtn.click();
+      if (universeBtn) universeBtn.click();
+      pushImDrilldown("im-dashboard");
+      showPage("im-scanner");
+    };
+    card.addEventListener("click", openInScanner);
+    card.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openInScanner();
+      }
+    });
+  });
+
   const storageKey = "indianMarketPaperTrades";
   const IM_TRADE_MARKET_LABELS = { nifty: "NIFTY 50", banknifty: "Bank Nifty", finnifty: "FINNIFTY", sensex: "Sensex" };
   const form = document.getElementById("im-paper-trade-form");
@@ -8866,18 +8887,44 @@ async function fetchWatchlist() {
     const body = document.getElementById("im-scanner-body");
     if (!body) return;
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="4">No matching stocks right now.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="3">No matching stocks right now.</td></tr>`;
       return;
     }
     body.innerHTML = rows
       .map((r, i) => {
+        const meta = getStockMeta(r.symbol);
+        const changePercent = Number(r.change_percent);
+        const changeRupee = Number.isFinite(changePercent) && Number.isFinite(r.previous_close) && Number.isFinite(r.last_price)
+          ? r.last_price - r.previous_close
+          : null;
+
+        let changeHtml = '<span class="im-change-value im-change-neutral">— 0.00%</span>';
+        if (Number.isFinite(changePercent)) {
+          const sign = changePercent >= 0 ? "+" : "";
+          const arrow = changePercent >= 0 ? "▲" : "▼";
+          const cls = changePercent >= 0 ? "im-change-up" : "im-change-down";
+          const rupeeText = changeRupee !== null ? `${sign}${formatNumber(changeRupee)} · ` : "";
+          changeHtml = `<span class="im-change-value ${cls}">${arrow} ${rupeeText}${sign}${changePercent.toFixed(2)}%</span>`;
+        }
+
         return `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${escapeHtml(r.symbol)}</td>
-            <td>${escapeHtml(r.name || "")}</td>
-            <td>${formatNumber(r.last_price)}</td>
-            <td>${changePillHtml(r.change_percent)}</td>
+          <tr class="im-watchlist-row" data-symbol="${escapeHtml(r.symbol)}">
+            <td class="im-col-num">${i + 1}</td>
+            <td class="im-col-symbol">
+              <div class="im-stock-brand-cell">
+                <div class="im-stock-avatar" style="background:${meta.bg};color:${meta.color};">${meta.icon}</div>
+                <div class="im-stock-text-col">
+                  <span class="im-stock-symbol-text">${escapeHtml(r.symbol)}</span>
+                  <span class="im-stock-name-text">${escapeHtml(r.name || meta.name)}</span>
+                </div>
+              </div>
+            </td>
+            <td class="im-col-price-chg">
+              <div class="im-price-block">
+                <span class="im-price-value">${formatNumber(r.last_price)}</span>
+                ${changeHtml}
+              </div>
+            </td>
           </tr>
         `;
       })
@@ -8955,6 +9002,7 @@ async function fetchWatchlist() {
                   symbol: q.symbol,
                   name: nameBySymbol[q.symbol] || q.symbol,
                   last_price: q.last_price,
+                  previous_close: q.previous_close,
                   change_percent: Number(q.change_percent),
                   ai_label: q.ai_label
                 });
