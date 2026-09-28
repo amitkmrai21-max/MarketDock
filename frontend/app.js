@@ -7154,6 +7154,7 @@ async function fetchWatchlist() {
     const actionSheet = document.getElementById("im-watchlist-action-sheet");
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
     const tabMenuSheet = document.getElementById("im-watchlist-tab-menu-sheet");
+    const commodityExpirySheet = document.getElementById("im-commodity-expiry-sheet");
     if (backdrop) {
       backdrop.hidden = true;
       backdrop.style.display = "none";
@@ -7171,6 +7172,11 @@ async function fetchWatchlist() {
       tabMenuSheet.hidden = true;
       tabMenuSheet.style.display = "none";
       tabMenuSheet.classList.remove("im-sheet-open");
+    }
+    if (commodityExpirySheet) {
+      commodityExpirySheet.hidden = true;
+      commodityExpirySheet.style.display = "none";
+      commodityExpirySheet.classList.remove("im-sheet-open");
     }
   }
 
@@ -7882,7 +7888,7 @@ async function fetchWatchlist() {
         const chartSymbol = `MCX:${key.toUpperCase()}1!`;
 
         return `
-          <tr class="im-watchlist-row ${rowClass}" data-symbol="${escapeHtml(orderSymbol)}" data-price="${Number.isFinite(Number(row.last_price)) ? row.last_price : ""}" data-chart-symbol="${escapeHtml(chartSymbol)}" data-change-percent="${Number.isFinite(changeNum) ? changeNum : ""}">
+          <tr class="im-watchlist-row ${rowClass}" data-commodity-key="${escapeHtml(key)}" data-commodity-name="${escapeHtml(row.name || key.toUpperCase())}" data-symbol="${escapeHtml(orderSymbol)}" data-price="${Number.isFinite(Number(row.last_price)) ? row.last_price : ""}" data-chart-symbol="${escapeHtml(chartSymbol)}" data-change-percent="${Number.isFinite(changeNum) ? changeNum : ""}">
             <td class="im-col-symbol">
               <div class="im-stock-brand-cell">
                 <div class="im-stock-avatar" style="background:${meta.bg};color:${meta.color};font-size:16px;">${meta.icon}</div>
@@ -7918,17 +7924,100 @@ async function fetchWatchlist() {
   // commodity's real current contract as the order symbol (not the plain
   // "GOLD"/"SILVER" key), an MCX: chart symbol instead of NSE:, and the
   // option-chain button hidden (no MCX option chain support here).
+  function openCommodityContractActionSheet(row) {
+    const chartSymbol = `MCX:${String(row.trading_symbol || "").replace(/\d{2}[A-Z]{3}FUT$/, "")}1!`;
+    openImWatchlistActionSheet(row.trading_symbol, row.last_price, {
+      chartSymbol,
+      isCommodity: true,
+      changePercent: row.change_percent,
+    });
+  }
+
+  function formatCommodityExpiry(isoDate) {
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) return isoDate;
+    return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  }
+
+  // A commodity's row on the list is just its nearest-expiry contract —
+  // Gold, say, usually has several months trading at once. Tapping the row
+  // opens a picker over every live expiry (via /api/commodities/<key>/
+  // expiries) so the user chooses the exact contract before Buy/Sell,
+  // rather than always trading the nearest one silently.
+  async function openCommodityExpirySheet(commodityKey, commodityName) {
+    imSheetOpenedAt = Date.now();
+    const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
+    const sheet = document.getElementById("im-commodity-expiry-sheet");
+    const nameEl = document.getElementById("im-commodity-expiry-name");
+    const listEl = document.getElementById("im-commodity-expiry-list");
+    if (!backdrop || !sheet || !listEl) return;
+
+    if (nameEl) nameEl.textContent = commodityName;
+    listEl.innerHTML = `<p class="status-line">Loading contracts…</p>`;
+
+    backdrop.hidden = false;
+    backdrop.style.display = "block";
+    sheet.hidden = false;
+    sheet.style.display = "flex";
+    sheet.classList.add("im-sheet-open");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/commodities/${encodeURIComponent(commodityKey)}/expiries`);
+      const result = await response.json();
+      if (!response.ok || !result.ok) throw new Error(result.error || "Could not load contracts.");
+
+      const rows = result.data || [];
+      if (!rows.length) {
+        listEl.innerHTML = `<p class="status-line">No live contracts available right now.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = rows
+        .map((row, i) => {
+          const changeNum = Number(row.change_percent);
+          let changeHtml = "";
+          if (Number.isFinite(changeNum)) {
+            const sign = changeNum >= 0 ? "+" : "";
+            const cls = changeNum >= 0 ? "im-commodity-expiry-row-change-up" : "im-commodity-expiry-row-change-down";
+            changeHtml = `<span class="${cls}">${sign}${changeNum.toFixed(2)}%</span>`;
+          }
+          return `
+            <div class="im-commodity-expiry-row" data-index="${i}">
+              <div class="im-commodity-expiry-row-left">
+                <span class="im-commodity-expiry-row-expiry">${escapeHtml(formatCommodityExpiry(row.expiry))}</span>
+                <span class="im-commodity-expiry-row-symbol">${escapeHtml(row.trading_symbol || "")}</span>
+              </div>
+              <div class="im-commodity-expiry-row-right">
+                <span class="im-commodity-expiry-row-price">${Number.isFinite(Number(row.last_price)) ? "₹" + formatNumber(Number(row.last_price)) : "--"}</span>
+                ${changeHtml}
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      listEl.querySelectorAll(".im-commodity-expiry-row").forEach((el) => {
+        el.addEventListener("click", () => {
+          const chosen = rows[Number(el.dataset.index)];
+          if (!chosen) return;
+          closeImWatchlistSheets(true);
+          openCommodityContractActionSheet(chosen);
+        });
+      });
+    } catch (error) {
+      listEl.innerHTML = `<p class="status-line">${escapeHtml(error.message || "Could not load contracts.")}</p>`;
+    }
+  }
+
+  document.getElementById("im-commodity-expiry-cancel-btn")?.addEventListener("click", () => closeImWatchlistSheets(true));
+
   (function setupCommoditiesRowClicks() {
     const body = document.getElementById("im-commodities-body");
     if (!body) return;
     body.addEventListener("click", (event) => {
       const row = event.target.closest(".im-watchlist-row");
-      if (!row || !row.dataset.symbol) return;
-      openImWatchlistActionSheet(row.dataset.symbol, row.dataset.price, {
-        chartSymbol: row.dataset.chartSymbol,
-        isCommodity: true,
-        changePercent: row.dataset.changePercent,
-      });
+      if (!row || !row.dataset.commodityKey) return;
+      openCommodityExpirySheet(row.dataset.commodityKey, row.dataset.commodityName);
     });
   })();
 

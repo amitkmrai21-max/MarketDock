@@ -4735,6 +4735,68 @@ body[data-accent="green"] .settings-choice.active {
   text-align: center;
 }
 
+.im-commodity-expiry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.im-commodity-expiry-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 14px;
+  border-radius: 11px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  cursor: pointer;
+}
+
+.im-commodity-expiry-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.im-commodity-expiry-row-expiry {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--im-text);
+}
+
+.im-commodity-expiry-row-symbol {
+  font-size: 11px;
+  color: var(--im-muted);
+}
+
+.im-commodity-expiry-row-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.im-commodity-expiry-row-price {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--im-text);
+}
+
+.im-commodity-expiry-row-change-up {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--im-green);
+}
+
+.im-commodity-expiry-row-change-down {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--im-red);
+}
+
 #im-tab-menu-actions {
   grid-template-columns: 1fr 1fr;
 }

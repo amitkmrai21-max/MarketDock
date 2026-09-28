@@ -3352,12 +3352,13 @@ def get_instrument_master_rows():
     return rows
 
 
-def find_current_mcx_future(prefix):
-    """Finds the nearest-expiry, standard-lot MCX future for the given
-    commodity prefix (GOLD/SILVER/CRUDEOIL/NATURALGAS) — matching the trading
-    symbol exactly against PREFIX + 2-digit-year + 3-letter-month + FUT, which
-    excludes mini/guinea/petal/other variant contracts that share the same
-    instrument `name` but trade as separate, smaller-lot contracts."""
+def find_all_mcx_futures(prefix):
+    """Finds every not-yet-expired, standard-lot MCX future for the given
+    commodity prefix (GOLD/SILVER/CRUDEOIL/...), nearest expiry first —
+    matching the trading symbol exactly against PREFIX + 2-digit-year +
+    3-letter-month + FUT, which excludes mini/guinea/petal/other variant
+    contracts that share the same instrument `name` but trade as separate,
+    smaller-lot contracts."""
     pattern = re.compile(rf"^{re.escape(prefix)}\d{{2}}[A-Z]{{3}}FUT$")
     today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
 
@@ -3374,16 +3375,22 @@ def find_current_mcx_future(prefix):
         if expiry_date >= today:
             candidates.append((expiry_date, row))
 
-    if not candidates:
-        return None
-
     candidates.sort(key=lambda pair: pair[0])
-    _, nearest_row = candidates[0]
-    return {
-        "instrument_key": nearest_row.get("instrument_key"),
-        "trading_symbol": nearest_row.get("tradingsymbol"),
-        "expiry": candidates[0][0].isoformat(),
-    }
+    return [
+        {
+            "instrument_key": row.get("instrument_key"),
+            "trading_symbol": row.get("tradingsymbol"),
+            "expiry": expiry_date.isoformat(),
+        }
+        for expiry_date, row in candidates
+    ]
+
+
+def find_current_mcx_future(prefix):
+    """The nearest-expiry contract from find_all_mcx_futures() — what the
+    Commodities list itself quotes, before a specific expiry is chosen."""
+    all_futures = find_all_mcx_futures(prefix)
+    return all_futures[0] if all_futures else None
 
 
 def resolve_mcx_instrument_key(trading_symbol):
@@ -3488,6 +3495,65 @@ def commodities():
         return jsonify(
             {"ok": False, "error": "Could not fetch commodity prices right now."}
         ), 502
+
+
+@app.get("/api/commodities/<commodity_key>/expiries")
+def commodity_expiries(commodity_key):
+    """Every currently tradable expiry for one commodity (e.g. all of
+    Gold's live monthly contracts), each with its own live quote — lets the
+    user pick a specific contract before Buy/Sell, instead of only ever
+    trading the nearest-expiry one /api/commodities shows on the list."""
+    commodity_key = commodity_key.lower().strip()
+    if commodity_key not in MCX_COMMODITIES:
+        return jsonify({"ok": False, "error": "Unknown commodity."}), 404
+
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
+
+    try:
+        contracts = find_all_mcx_futures(MCX_COMMODITIES[commodity_key]["prefix"])
+        if not contracts:
+            return jsonify({"ok": False, "error": "No live contracts found for this commodity."}), 502
+
+        instrument_keys = ",".join(c["instrument_key"] for c in contracts)
+        url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={quote(instrument_keys, safe=',')}"
+        headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
+
+        response = requests.get(url, headers=headers, timeout=20)
+        response.raise_for_status()
+        quote_data = (response.json().get("data") or {})
+        quote_by_instrument = {info.get("instrument_token", ""): info for info in quote_data.values()}
+
+        results = []
+        for contract in contracts:
+            info = quote_by_instrument.get(contract["instrument_key"], {})
+            last_price = info.get("last_price")
+            previous_close = info.get("cp")
+            change_percent = None
+            if last_price is not None and previous_close:
+                change_percent = round(((last_price - previous_close) / previous_close) * 100, 2)
+
+            results.append(
+                {
+                    "trading_symbol": contract["trading_symbol"],
+                    "expiry": contract["expiry"],
+                    "last_price": last_price,
+                    "change_percent": change_percent,
+                }
+            )
+
+        return jsonify(
+            {
+                "ok": True,
+                "key": commodity_key,
+                "name": MCX_COMMODITIES[commodity_key]["name"],
+                "data": results,
+                "updated_at": now_utc(),
+            }
+        )
+    except Exception as error:
+        app.logger.warning("Commodity expiries fetch failed for %s: %s", commodity_key, error)
+        return jsonify({"ok": False, "error": "Could not fetch commodity expiries right now."}), 502
 
 
 # ===================== NSE stock search (for building watchlists) =====================
