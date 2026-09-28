@@ -1174,7 +1174,11 @@ BANKNIFTY_TOP_MOVER_SYMBOLS = [
 
 _instrument_key_cache = {}
 _watchlist_cache = {}
-WATCHLIST_CACHE_SECONDS = 20
+# Short on purpose: every request for the same symbol set (e.g. all users
+# viewing the "Nifty 50" Scanner filter) shares this one cached snapshot
+# instead of each triggering its own Upstox call, so a low value here keeps
+# quotes fresh without the per-user request count ever reaching Upstox.
+WATCHLIST_CACHE_SECONDS = 2
 TOP_MOVER_CACHE_SECONDS = 30
 _top_mover_cache = {}
 
@@ -1938,7 +1942,7 @@ def resolve_options_underlying(market_key):
 _option_expiry_cache = {}
 OPTION_EXPIRY_CACHE_SECONDS = 3600
 _option_chain_cache = {}
-OPTION_CHAIN_CACHE_SECONDS = 15
+OPTION_CHAIN_CACHE_SECONDS = 2
 
 
 @app.get("/api/options/expiries/<market_key>")
@@ -2834,7 +2838,7 @@ _instrument_master_cache = {"rows": None, "fetched_at": 0}
 COMMODITY_CONTRACT_CACHE_SECONDS = 12 * 60 * 60
 _commodity_contract_cache = {}
 
-COMMODITY_QUOTE_CACHE_SECONDS = 20
+COMMODITY_QUOTE_CACHE_SECONDS = 2
 _commodity_quote_cache = {"data": None, "fetched_at": 0}
 
 

@@ -7307,7 +7307,7 @@ async function fetchWatchlist() {
   function startFoWatchlistPolling() {
     if (foWatchlistTimer) return;
     fetchFoWatchlist();
-    foWatchlistTimer = window.setInterval(fetchFoWatchlist, 5000);
+    foWatchlistTimer = window.setInterval(fetchFoWatchlist, 2000);
   }
 
   function stopFoWatchlistPolling() {
@@ -7499,7 +7499,7 @@ async function fetchWatchlist() {
   function startStockOptionsPolling() {
     stopStockOptionsPolling();
     loadStockOptionExpiries();
-    imStockOptionsTimer = window.setInterval(loadStockOptionChain, 5000);
+    imStockOptionsTimer = window.setInterval(loadStockOptionChain, 2000);
   }
 
   function openImStockOptionChainFor(symbol, returnPage) {
@@ -7651,7 +7651,7 @@ async function fetchWatchlist() {
   function startCommoditiesPolling() {
     if (commoditiesTimer) return;
     fetchCommodities();
-    commoditiesTimer = window.setInterval(fetchCommodities, 5000);
+    commoditiesTimer = window.setInterval(fetchCommodities, 2000);
   }
 
   function stopCommoditiesPolling() {
@@ -8844,12 +8844,12 @@ async function fetchWatchlist() {
     loadHeatmap(imHeatmapIndex);
     if (imHeatmapTimer) return;
     // "All NSE Stocks" is refreshed manually only — auto-polling 5000+
-    // symbols every 20 seconds would repeatedly hammer the backend and
-    // Upstox for a view that's already a heavy one-off load.
+    // symbols this often would repeatedly hammer the backend and Upstox
+    // for a view that's already a heavy one-off load.
     imHeatmapTimer = window.setInterval(() => {
       if (imHeatmapIndex === "ALL") return;
       loadHeatmap(imHeatmapIndex);
-    }, 20000);
+    }, 2000);
   }
 
   function stopHeatmapPolling() {
@@ -9073,7 +9073,7 @@ async function fetchWatchlist() {
     imScannerTimer = window.setInterval(() => {
       if (imScannerUniverse === "ALL") return;
       loadScanner();
-    }, 20000);
+    }, 2000);
   }
 
   function stopScannerPolling() {
@@ -9160,7 +9160,7 @@ async function fetchWatchlist() {
   function startDashboardMoversPolling() {
     loadDashboardMovers();
     if (imDashboardMoversTimer) return;
-    imDashboardMoversTimer = window.setInterval(loadDashboardMovers, 20000);
+    imDashboardMoversTimer = window.setInterval(loadDashboardMovers, 2000);
   }
 
   function stopDashboardMoversPolling() {
@@ -9913,7 +9913,7 @@ async function fetchWatchlist() {
   function startWatchlistPolling() {
     if (watchlistTimer) return;
     fetchWatchlist();
-    watchlistTimer = window.setInterval(fetchWatchlist, 5000);
+    watchlistTimer = window.setInterval(fetchWatchlist, 2000);
   }
 
   function stopWatchlistPolling() {
