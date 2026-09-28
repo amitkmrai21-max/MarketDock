@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v42">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v43">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -2147,6 +2147,26 @@
         </article>
       </section>
 
+      <section class="page" id="im-dashboard-movers">
+        <article class="card section-card">
+          <p id="im-dashboard-movers-status-text" class="status-line">Loading…</p>
+          <div class="table-wrap im-watchlist-table-wrap">
+            <table class="im-watchlist-table" style="width:100%;">
+              <thead>
+                <tr>
+                  <th class="im-th-num">#</th>
+                  <th class="im-th-symbol">STOCK</th>
+                  <th class="im-th-price-chg">PRICE</th>
+                </tr>
+              </thead>
+              <tbody id="im-dashboard-movers-body">
+                <tr><td colspan="3">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
       <section class="page" id="im-ai-scanner">
         <article class="card section-card">
           <div class="im-watchlist-search-wrap im-ai-scanner-search-wrap">
@@ -3704,7 +3724,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v17"></script>
+  <script src="/frontend/app.js?v=v20260927v18"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

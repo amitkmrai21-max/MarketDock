@@ -4597,6 +4597,12 @@ function clearLiveChartAiOverlay() {
       stopScannerPolling();
     }
 
+    if (pageId === "im-dashboard-movers") {
+      if (typeof startDashboardMoversPolling === "function") startDashboardMoversPolling();
+    } else if (typeof stopDashboardMoversPolling === "function") {
+      stopDashboardMoversPolling();
+    }
+
     if (pageId === "im-news" && typeof loadImMarketNews === "function") {
       loadImMarketNews();
     }
@@ -4782,17 +4788,13 @@ function clearLiveChartAiOverlay() {
     });
   });
 
-  // Dashboard's Top Gainer/Loser tiles (NIFTY 50 + Bank Nifty) jump to
-  // Scanner with that index/direction pre-selected, so tapping "NIFTY 50 ·
-  // TOP GAINER" shows the full serial-ranked gainers list, not just #1.
+  // Dashboard's Top Gainer/Loser tiles (NIFTY 50 + Bank Nifty) open a
+  // focused drill-down — actual gainers only / actual losers only for
+  // that index — not the full Scanner page with its own universe picker
+  // and other filters.
   root.querySelectorAll(".im-mover-card[data-mover-universe]").forEach((card) => {
     const openInScanner = () => {
-      const universeBtn = document.querySelector(`.im-scanner-universe-btn[data-scanner-universe="${card.dataset.moverUniverse}"]`);
-      const filterBtn = document.querySelector(`.im-scanner-filter-btn[data-scanner-filter="${card.dataset.moverFilter}"]`);
-      if (filterBtn) filterBtn.click();
-      if (universeBtn) universeBtn.click();
-      pushImDrilldown("im-dashboard");
-      showPage("im-scanner");
+      openDashboardMovers(card.dataset.moverUniverse, card.dataset.moverFilter);
     };
     card.addEventListener("click", openInScanner);
     card.addEventListener("keydown", (event) => {
@@ -8883,8 +8885,8 @@ async function fetchWatchlist() {
     fill.style.width = `${Math.min(100, Math.round((loaded / total) * 100))}%`;
   }
 
-  function renderScannerTable(rows) {
-    const body = document.getElementById("im-scanner-body");
+  function renderScannerTable(rows, bodyId = "im-scanner-body") {
+    const body = document.getElementById(bodyId);
     if (!body) return;
     if (!rows.length) {
       body.innerHTML = `<tr><td colspan="3">No matching stocks right now.</td></tr>`;
@@ -9082,6 +9084,93 @@ async function fetchWatchlist() {
     if (imScannerTimer) {
       window.clearInterval(imScannerTimer);
       imScannerTimer = null;
+    }
+  }
+
+  // ===================== Dashboard Top Gainers/Losers drill-down =====================
+  // Reached only from the Dashboard's "NIFTY 50 · TOP GAINER" style tiles —
+  // a focused, filtered view (actual gainers only / actual losers only),
+  // not the full Scanner page with its universe picker and other filters.
+  // NIFTY 50 / Bank Nifty are small (~50 stocks), so this fetches quotes in
+  // one batched call rather than Scanner's chunked-concurrency approach.
+
+  let imDashboardMoversUniverse = "Nifty 50";
+  let imDashboardMoversFilter = "gainers";
+  let imDashboardMoversTimer = null;
+
+  async function loadDashboardMovers() {
+    const universe = imDashboardMoversUniverse;
+    const filter = imDashboardMoversFilter;
+    const statusText = document.getElementById("im-dashboard-movers-status-text");
+    const body = document.getElementById("im-dashboard-movers-body");
+
+    try {
+      if (!imScannerConstituentsCache[universe]) {
+        const cRes = await fetch(`${API_BASE_URL}/api/index-constituents?index=${encodeURIComponent(universe)}`).then((r) => r.json());
+        if (!cRes.ok || !cRes.available) throw new Error(cRes.error || "Constituent list not available.");
+        imScannerConstituentsCache[universe] = cRes.constituents;
+      }
+      const stocks = imScannerConstituentsCache[universe];
+      const nameBySymbol = {};
+      stocks.forEach((s) => { nameBySymbol[s.symbol] = s.name; });
+      const symbols = stocks.map((s) => s.symbol);
+
+      const qRes = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(symbols.join(","))}`).then((r) => r.json());
+      if (!qRes.ok) throw new Error(qRes.error || "Could not fetch quotes.");
+
+      let quotes = (qRes.data || [])
+        .filter((q) => q.change_percent !== null && q.change_percent !== undefined)
+        .map((q) => ({
+          symbol: q.symbol,
+          name: nameBySymbol[q.symbol] || q.symbol,
+          last_price: q.last_price,
+          previous_close: q.previous_close,
+          change_percent: Number(q.change_percent)
+        }));
+
+      if (filter === "losers") {
+        quotes = quotes.filter((q) => q.change_percent < 0).sort((a, b) => a.change_percent - b.change_percent);
+      } else {
+        quotes = quotes.filter((q) => q.change_percent > 0).sort((a, b) => b.change_percent - a.change_percent);
+      }
+
+      renderScannerTable(quotes, "im-dashboard-movers-body");
+      if (statusText) {
+        statusText.textContent = `${universe} · ${quotes.length} ${filter === "losers" ? "losers" : "gainers"}`;
+      }
+    } catch (error) {
+      console.error("Dashboard movers load failed:", error);
+      if (statusText) statusText.textContent = "Could not load data right now.";
+      if (body) body.innerHTML = `<tr><td colspan="3">Could not load data right now.</td></tr>`;
+    }
+  }
+
+  function openDashboardMovers(universe, filter) {
+    imDashboardMoversUniverse = universe;
+    imDashboardMoversFilter = filter;
+    const titleEl = document.getElementById("im-page-title");
+    const subtitleEl = document.getElementById("im-page-subtitle");
+    if (titleEl) titleEl.textContent = `${universe} — ${filter === "losers" ? "Top Losers" : "Top Gainers"}`;
+    if (subtitleEl) {
+      subtitleEl.textContent = filter === "losers"
+        ? `Every ${universe} stock currently down today, biggest fall first.`
+        : `Every ${universe} stock currently up today, biggest gain first.`;
+      subtitleEl.hidden = false;
+    }
+    pushImDrilldown("im-dashboard");
+    showPage("im-dashboard-movers");
+  }
+
+  function startDashboardMoversPolling() {
+    loadDashboardMovers();
+    if (imDashboardMoversTimer) return;
+    imDashboardMoversTimer = window.setInterval(loadDashboardMovers, 20000);
+  }
+
+  function stopDashboardMoversPolling() {
+    if (imDashboardMoversTimer) {
+      window.clearInterval(imDashboardMoversTimer);
+      imDashboardMoversTimer = null;
     }
   }
 
