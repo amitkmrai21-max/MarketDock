@@ -3412,6 +3412,25 @@ def resolve_mcx_instrument_key(trading_symbol):
     raise RuntimeError(f"No MCX instrument found for {trading_symbol}")
 
 
+def resolve_mcx_instrument_key(trading_symbol):
+    """Looks up an MCX futures contract's instrument_key by its exact
+    trading symbol (e.g. GOLD25DECFUT) from Upstox's instrument master —
+    the same source find_current_mcx_future() above already resolves
+    quotes from, so this always agrees with what /api/commodities shows."""
+    cache_key = f"MCX_FO:{trading_symbol.upper()}"
+    if cache_key in _instrument_key_cache:
+        return _instrument_key_cache[cache_key]
+
+    for row in get_instrument_master_rows():
+        if row.get("exchange") == "MCX_FO" and row.get("tradingsymbol", "").upper() == trading_symbol.upper():
+            instrument_key = row.get("instrument_key")
+            if instrument_key:
+                _instrument_key_cache[cache_key] = instrument_key
+                return instrument_key
+
+    raise RuntimeError(f"No MCX instrument found for {trading_symbol}")
+
+
 def get_current_commodity_contract(commodity_key):
     cached = _commodity_contract_cache.get(commodity_key)
     now = time.time()
