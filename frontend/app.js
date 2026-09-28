@@ -2096,15 +2096,12 @@ setInterval(loadRrg, 300000);
       }
     }
 
-    // CSS alone (overscroll-behavior / touch-action) turned out not to be
-    // enough to stop the background page from scrolling behind the open
-    // drawer on the native app's WebView — it doesn't reliably honor those
-    // properties. Blocking the touch at the JS level instead is the more
-    // dependable way to actually stop it: any touchmove that didn't start
-    // inside the drawer is cancelled outright while Settings is open, so it
-    // can never reach the background page's own scroll/overscroll-refresh
-    // gesture in the first place. Registered once; gated by isSettingsOpen
-    // rather than added/removed per open/close.
+    // Secondary hardening, not the main fix (see setupPullToRefresh() far
+    // below for the actual bug this whole thing traced back to): stops the
+    // background page from visibly scrolling behind the open drawer by
+    // cancelling any touchmove that didn't start inside the drawer itself.
+    // Registered once; gated by isSettingsOpen rather than added/removed
+    // per open/close.
     let isSettingsOpen = false;
     document.addEventListener(
       "touchmove",
@@ -4553,8 +4550,22 @@ function clearLiveChartAiOverlay() {
     window.setTimeout(() => { indicator.style.transition = ""; }, 260);
   }
 
+  // This listener sits on `document`, with no idea the Settings drawer (or
+  // any other fixed-position overlay) exists — it only ever checked
+  // window.scrollY, which the drawer's own scroll-lock (see openSettings())
+  // pins at 0 for as long as it's open. That made *every* touch starting
+  // anywhere, including inside the open drawer, look like a page pulled to
+  // its very top: scrolling back up inside the drawer (finger dragging
+  // down — the same direction as a real pull-to-refresh) reliably armed
+  // this and, past the threshold, reloaded the whole page out from under
+  // Settings. Bailing out whenever the drawer is open fixes it at the
+  // source instead of fighting it from the Settings side.
+  function isSettingsDrawerOpen() {
+    return document.getElementById("settingsDrawer")?.classList.contains("open") ?? false;
+  }
+
   document.addEventListener("touchstart", (event) => {
-    if (window.scrollY > 0 || event.touches.length !== 1) return;
+    if (window.scrollY > 0 || event.touches.length !== 1 || isSettingsDrawerOpen()) return;
     startY = event.touches[0].clientY;
     pulling = true;
     indicator.style.transition = "";
@@ -4562,6 +4573,7 @@ function clearLiveChartAiOverlay() {
 
   document.addEventListener("touchmove", (event) => {
     if (!pulling) return;
+    if (isSettingsDrawerOpen()) { pulling = false; setPull(0); return; }
     const deltaY = event.touches[0].clientY - startY;
     if (deltaY <= 0) { setPull(0); return; }
     if (window.scrollY > 0) { pulling = false; setPull(0); return; }
