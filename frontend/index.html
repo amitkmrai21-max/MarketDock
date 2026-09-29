@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v67">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v68">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -2720,67 +2720,47 @@
       </section>
 
       <section class="page" id="im-stock-options">
-        <article class="card section-card">
-          <div class="section-heading">
-            <div>
-              <h2 id="im-stock-options-title">Option Chain</h2>
-              <p>Research view only — no order placement.</p>
-            </div>
-            <button class="chart-control-button" id="im-stock-options-back-btn" type="button">&larr; Back</button>
-          </div>
-
-          <div class="chart-controls">
-            <div class="chart-control-group">
-              <span class="chart-control-label">Expiry</span>
-              <select id="im-stock-options-expiry" aria-label="Expiry date"></select>
-            </div>
-
-            <div class="chart-control-group">
-              <span class="chart-control-label">Strike Range</span>
-              <select id="im-stock-options-strike-range" aria-label="Strike range">
-                <option value="5">&plusmn; 5 Strikes</option>
-                <option value="10" selected>&plusmn; 10 Strikes</option>
-                <option value="20">&plusmn; 20 Strikes</option>
-                <option value="all">All Strikes</option>
-              </select>
+        <article class="card section-card oc-page oc-mode-oi" id="im-stock-options-card">
+          <div class="oc-header">
+            <button class="oc-back" id="im-stock-options-back-btn" type="button" aria-label="Back">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+            </button>
+            <div class="oc-tabs" role="tablist" aria-label="Columns">
+              <button type="button" class="oc-tab active" data-oc-mode="oi" role="tab" aria-selected="true">OI</button>
+              <button type="button" class="oc-tab" data-oc-mode="greeks" role="tab" aria-selected="false">Greeks</button>
             </div>
           </div>
 
-          <p id="im-stock-options-meta" class="im-chart-status">Loading expiries…</p>
-
-          <div class="im-options-summary" id="im-stock-options-summary">
-            <div class="im-options-summary-card">
-              <span class="im-options-summary-label">PCR (Put/Call OI)</span>
-              <strong id="im-stock-options-pcr">--</strong>
-              <span id="im-stock-options-pcr-bias" class="im-options-summary-note">--</span>
-            </div>
-            <div class="im-options-summary-card">
-              <span class="im-options-summary-label">Max Pain</span>
-              <strong id="im-stock-options-max-pain">--</strong>
-              <span class="im-options-summary-note">Strike where option writers pay out least at expiry</span>
-            </div>
+          <div class="oc-search im-watchlist-search-wrap">
+            <svg class="oc-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+            <input id="im-stock-options-search" type="text" autocomplete="off" spellcheck="false" aria-label="Search another stock's option chain" />
+            <span class="oc-search-quote">
+              <strong id="im-stock-options-spot">--</strong>
+              <span id="im-stock-options-spot-change"></span>
+            </span>
+            <div id="im-stock-options-search-results" class="im-watchlist-search-results" hidden></div>
           </div>
 
-          <div class="table-wrap im-options-table-wrap">
-            <table class="im-options-table im-options-table-compact">
-              <thead>
-                <tr>
-                  <th colspan="2">CALL</th>
-                  <th>STRIKE</th>
-                  <th colspan="2">PUT</th>
-                </tr>
-                <tr>
-                  <th>OI</th>
-                  <th>LTP</th>
-                  <th></th>
-                  <th>LTP</th>
-                  <th>OI</th>
-                </tr>
-              </thead>
-              <tbody id="im-stock-options-body">
-                <tr><td colspan="5">Loading option chain…</td></tr>
-              </tbody>
-            </table>
+          <div class="oc-expiries" id="im-stock-options-expiries" role="tablist" aria-label="Expiry"></div>
+
+          <p id="im-stock-options-meta" class="oc-status">Loading expiries…</p>
+
+          <div class="oc-table">
+            <div class="oc-row oc-colnames">
+              <span class="oc-cell oc-call oc-oi"><span class="oc-when-oi">OI (lakh)</span><span class="oc-when-greeks">IV / Δ</span></span>
+              <span class="oc-cell oc-call oc-ltp">Call LTP</span>
+              <span class="oc-cell oc-strike">Strike</span>
+              <span class="oc-cell oc-put oc-ltp">Put LTP</span>
+              <span class="oc-cell oc-put oc-oi"><span class="oc-when-oi">OI (lakh)</span><span class="oc-when-greeks">IV / Δ</span></span>
+            </div>
+            <div class="oc-body" id="im-stock-options-body"></div>
+          </div>
+
+          <div class="oc-footer">
+            <div><span>PCR</span><strong id="im-stock-options-pcr">--</strong></div>
+            <div><span>Max Pain</span><strong id="im-stock-options-max-pain">--</strong></div>
+            <div><span>ATM IV</span><strong id="im-stock-options-atm-iv">--</strong></div>
+            <div><span>Lot size</span><strong id="im-stock-options-lot">--</strong></div>
           </div>
         </article>
       </section>
@@ -3864,7 +3844,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v59"></script>
+  <script src="/frontend/app.js?v=v20260927v60"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
