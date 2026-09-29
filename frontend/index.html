@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v66">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v67">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1300,12 +1300,6 @@
           Commodities
         </button>
 
-        <button class="nav-button" data-page="im-fo" type="button">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 4l8 5-8 5-8-5 8-5z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M4 14l8 5 8-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-          F&amp;O
-        </button>
-
-
         <button class="nav-button" data-page="im-scanner" type="button">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="10" cy="10" r="6" stroke="currentColor" stroke-width="2"/><path d="M15 15l5 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
           Scanner
@@ -2235,26 +2229,6 @@
           </div>
 
           <p class="im-chart-status">Educational data only. Not financial advice.</p>
-        </article>
-      </section>
-
-      <section class="page" id="im-fo">
-        <article class="card section-card">
-          <div class="setup-badge" id="im-fo-status" hidden>Loading…</div>
-
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Symbol</th>
-                  <th>Last Price</th>
-                </tr>
-              </thead>
-              <tbody id="im-fo-body">
-                <tr><td colspan="2">Loading F&amp;O watchlist…</td></tr>
-              </tbody>
-            </table>
-          </div>
         </article>
       </section>
 
@@ -3890,7 +3864,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v58"></script>
+  <script src="/frontend/app.js?v=v20260927v59"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
