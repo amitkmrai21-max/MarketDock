@@ -11103,3 +11103,19 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-available {
 body[data-theme="light"] .indian-market-mode #im-pos-funds-used .im-funds-used-amount {
   color: #dc2626;
 }
+
+/* Positions closed today stay listed at qty 0 with their realized P&L. */
+.im-pos-card.im-pos-card-closed {
+  cursor: default;
+  opacity: 0.72;
+}
+.im-pos-card.im-pos-card-closed:hover {
+  border-color: var(--im-border, #232d45);
+}
+.im-pos-badge-closed {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+.im-pos-card-closed .im-pos-pnl-pct {
+  color: var(--im-muted, #8b93a8);
+}
