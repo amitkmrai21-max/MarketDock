@@ -4544,16 +4544,35 @@ function clearLiveChartAiOverlay() {
   const pageSubtitle = document.getElementById("im-page-subtitle");
 
   const LAST_PAGE_STORAGE_KEY = "indianMarketLastPage";
-  // Charts open on TradingView itself (its app if installed, otherwise its
-  // website) rather than in an embedded widget: TradingView's embeddable
-  // widgets can't show NSE symbols ("only available on TradingView"), while
-  // tradingview.com shows them under TradingView's own data licence. In the
-  // Android app, Capacitor hands any link to another site to the system,
-  // which opens the TradingView app when it's installed.
+  // Charts open on TradingView itself rather than in an embedded widget:
+  // TradingView's embeddable widgets can't show NSE symbols ("only available
+  // on TradingView"), while TradingView's own app/website shows them under
+  // its own data licence.
+  //
+  // On Android (Chrome, and the MarketDock app via MainActivity) an
+  // intent:// link opens the TradingView app when it's installed and falls
+  // back to tradingview.com when it isn't — no setup needed either way.
+  // Everywhere else it's a plain tradingview.com link (iOS hands that to the
+  // TradingView app itself when installed).
+  const TRADINGVIEW_ANDROID_PACKAGE = "com.tradingview.tradingviewapp";
+
   function openImChartOnTradingView(chartSymbol) {
     if (!chartSymbol) return;
-    const url = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(chartSymbol)}`;
-    window.open(url, "_blank", "noopener");
+    const path = `www.tradingview.com/chart/?symbol=${encodeURIComponent(chartSymbol)}`;
+    const webUrl = `https://${path}`;
+    const isAndroid = /Android/i.test(navigator.userAgent || "");
+    if (!isAndroid) {
+      window.open(webUrl, "_blank", "noopener");
+      return;
+    }
+    const intentUrl = `intent://${path}#Intent;scheme=https;package=${TRADINGVIEW_ANDROID_PACKAGE};` +
+      `S.browser_fallback_url=${encodeURIComponent(webUrl)};end`;
+    if (window.Capacitor?.isNativePlatform?.()) {
+      // The native side intercepts this and never leaves the page.
+      window.location.href = intentUrl;
+    } else {
+      window.open(intentUrl, "_blank", "noopener");
+    }
   }
 
   function showPage(pageId) {
