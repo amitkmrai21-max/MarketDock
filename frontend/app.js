@@ -7007,6 +7007,7 @@ async function fetchWatchlist() {
     if (!force && (Date.now() - imSheetOpenedAt < 450)) {
       return;
     }
+    stopImActionSheetLiveQuote();
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const actionSheet = document.getElementById("im-watchlist-action-sheet");
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
@@ -7109,60 +7110,17 @@ async function fetchWatchlist() {
       `;
     }
   }
-  function openImWatchlistActionSheet(symbol, price, options = {}) {
-    imSheetOpenedAt = Date.now();
-    const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
-    const sheet = document.getElementById("im-watchlist-action-sheet");
-    if (!backdrop || !sheet) return;
-
-    // Commodities (MCX futures) need an MCX: TradingView chart symbol
-    // rather than the default NSE: one — see openCommodityContractActionSheet()
-    // below. A single option leg (isOptionLeg, opened by tapping a strike's
-    // Call/Put LTP in the option chain) has neither a chart nor its own
-    // option chain, and carries its own real instrument_key/lot_size
-    // straight from Upstox's chain response rather than being resolved by
-    // symbol — resolving an option's trading symbol the way an
-    // equity/futures one is doesn't work.
-    const chartSymbol = options.chartSymbol || `NSE:${symbol}`;
-    const isCommodity = !!options.isCommodity;
-    const isOptionLeg = !!options.isOptionLeg;
-    const lotSize = Number.isFinite(Number(options.lotSize)) ? Number(options.lotSize) : null;
-    const instrumentKey = options.instrumentKey || null;
-    const commodityKey = options.commodityKey || null;
-    const commodityName = options.commodityName || null;
-
+  // Header price/change plus everything on the sheet derived from price
+  // (depth ladder, day/52-week ranges, stats grid). Called once on open and
+  // again on every live tick while the sheet stays open.
+  function renderImActionSheetQuote(price, changePct) {
     const numPrice = Number(price);
     const validPrice = Number.isFinite(numPrice) && numPrice > 0 ? numPrice : 1000;
-
-    // Header info
-    const symEl = document.getElementById("im-action-sheet-symbol");
-    const priceEl = document.getElementById("im-action-sheet-price");
-    if (symEl) symEl.textContent = symbol;
-    if (priceEl) priceEl.textContent = Number.isFinite(Number(price)) ? "₹" + formatNumber(Number(price)) : "--";
-
-    // Find row in imWatchlistLastRows if available — commodity rows aren't
-    // in that equity-only cache, so isCommodity passes the change% straight
-    // through from the Commodities table instead.
-    let changePct = 0;
-    let volumeStr = "1.24M";
-    if (isCommodity && Number.isFinite(Number(options.changePercent))) {
-      changePct = Number(options.changePercent);
-    } else if (Array.isArray(imWatchlistLastRows)) {
-      const match = imWatchlistLastRows.find((r) => r.symbol === symbol || r.trading_symbol === symbol);
-      if (match) {
-        if (Number.isFinite(Number(match.change_percent))) {
-          changePct = Number(match.change_percent);
-        }
-        if (match.volume) {
-          const v = Number(match.volume);
-          volumeStr = v > 10000000 ? (v / 10000000).toFixed(2) + " Cr" : (v > 100000 ? (v / 100000).toFixed(2) + " L" : v.toLocaleString());
-        }
-      }
-    }
-    const volEl = document.getElementById("im-action-sheet-volume");
-    if (volEl) volEl.textContent = volumeStr;
-
     const changeAmt = validPrice * (changePct / 100);
+
+    const priceEl = document.getElementById("im-action-sheet-price");
+    if (priceEl) priceEl.textContent = Number.isFinite(numPrice) ? "₹" + formatNumber(numPrice) : "--";
+
     const changeEl = document.getElementById("im-action-sheet-change");
     if (changeEl) {
       const sign = changePct >= 0 ? "+" : "";
@@ -7170,26 +7128,7 @@ async function fetchWatchlist() {
       changeEl.classList.toggle("negative", changePct < 0);
     }
 
-    // Mini Chart render
-    generateTerminalSvgChart(changePct, "1D");
-
-    // Timeframe filter buttons
-    const tfBtns = document.querySelectorAll("#im-terminal-tf-buttons .im-tf-btn");
-    tfBtns.forEach((btn) => {
-      btn.onclick = (e) => {
-        tfBtns.forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
-        const tf = btn.dataset.tf || "1D";
-        let simulatedPct = changePct;
-        if (tf === "1H") simulatedPct = changePct * 0.45;
-        else if (tf === "1W") simulatedPct = changePct * 1.8 + 1.2;
-        else if (tf === "1M") simulatedPct = changePct * 3.4 - 2.1;
-        else if (tf === "1Y") simulatedPct = changePct * 6.5 + 18.5;
-        generateTerminalSvgChart(simulatedPct, tf);
-      };
-    });
-
-        // Market Depth (Strictly proportional volume pill bars)
+    // Market Depth (Strictly proportional volume pill bars)
     const depthRowsEl = document.getElementById("im-kite-depth-rows");
     if (depthRowsEl) {
       let bidTotal = 0;
@@ -7286,6 +7225,121 @@ async function fetchWatchlist() {
     if (pcEl) pcEl.textContent = "₹" + Number(prevClose).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     if (ucEl) ucEl.textContent = "₹" + Number(upperCirc).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     if (lcEl) lcEl.textContent = "₹" + Number(lowerCirc).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  }
+
+  let imActionSheetLiveTimer = null;
+
+  function stopImActionSheetLiveQuote() {
+    if (imActionSheetLiveTimer) {
+      window.clearInterval(imActionSheetLiveTimer);
+      imActionSheetLiveTimer = null;
+    }
+  }
+
+  // Keeps an open sheet's price live (2s, same cadence as the Watchlist and
+  // Commodities lists behind it) — previously it froze at whatever price the
+  // row showed at the moment it was tapped. A single option leg is left
+  // static here; its live LTP is the option chain itself.
+  function startImActionSheetLiveQuote(symbol, { isCommodity, isOptionLeg }) {
+    stopImActionSheetLiveQuote();
+    if (isOptionLeg) return;
+
+    const tick = async () => {
+      const sheet = document.getElementById("im-watchlist-action-sheet");
+      if (!sheet || sheet.hidden || document.getElementById("im-action-sheet-symbol")?.textContent !== symbol) {
+        stopImActionSheetLiveQuote();
+        return;
+      }
+      try {
+        const url = isCommodity
+          ? `${API_BASE_URL}/api/commodities`
+          : `${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(symbol)}`;
+        const result = await (await fetch(url)).json();
+        const row = (result?.data || []).find((r) => r.symbol === symbol || r.trading_symbol === symbol);
+        if (!row || !Number.isFinite(Number(row.last_price))) return;
+        if (document.getElementById("im-action-sheet-symbol")?.textContent !== symbol) return;
+        const pct = Number.isFinite(Number(row.change_percent)) ? Number(row.change_percent) : 0;
+        renderImActionSheetQuote(row.last_price, pct);
+      } catch (error) {
+        // Keep showing the last good quote; the next tick retries.
+      }
+    };
+
+    imActionSheetLiveTimer = window.setInterval(tick, 2000);
+  }
+
+  function openImWatchlistActionSheet(symbol, price, options = {}) {
+    imSheetOpenedAt = Date.now();
+    const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
+    const sheet = document.getElementById("im-watchlist-action-sheet");
+    if (!backdrop || !sheet) return;
+
+    // Commodities (MCX futures) need an MCX: TradingView chart symbol
+    // rather than the default NSE: one — see openCommodityContractActionSheet()
+    // below. A single option leg (isOptionLeg, opened by tapping a strike's
+    // Call/Put LTP in the option chain) has neither a chart nor its own
+    // option chain, and carries its own real instrument_key/lot_size
+    // straight from Upstox's chain response rather than being resolved by
+    // symbol — resolving an option's trading symbol the way an
+    // equity/futures one is doesn't work.
+    const chartSymbol = options.chartSymbol || `NSE:${symbol}`;
+    const isCommodity = !!options.isCommodity;
+    const isOptionLeg = !!options.isOptionLeg;
+    const lotSize = Number.isFinite(Number(options.lotSize)) ? Number(options.lotSize) : null;
+    const instrumentKey = options.instrumentKey || null;
+    const commodityKey = options.commodityKey || null;
+    const commodityName = options.commodityName || null;
+
+    const numPrice = Number(price);
+    const validPrice = Number.isFinite(numPrice) && numPrice > 0 ? numPrice : 1000;
+
+    const symEl = document.getElementById("im-action-sheet-symbol");
+    if (symEl) symEl.textContent = symbol;
+
+    // Find row in imWatchlistLastRows if available — commodity rows aren't
+    // in that equity-only cache, so isCommodity passes the change% straight
+    // through from the Commodities table instead.
+    let changePct = 0;
+    let volumeStr = "1.24M";
+    if (isCommodity && Number.isFinite(Number(options.changePercent))) {
+      changePct = Number(options.changePercent);
+    } else if (Array.isArray(imWatchlistLastRows)) {
+      const match = imWatchlistLastRows.find((r) => r.symbol === symbol || r.trading_symbol === symbol);
+      if (match) {
+        if (Number.isFinite(Number(match.change_percent))) {
+          changePct = Number(match.change_percent);
+        }
+        if (match.volume) {
+          const v = Number(match.volume);
+          volumeStr = v > 10000000 ? (v / 10000000).toFixed(2) + " Cr" : (v > 100000 ? (v / 100000).toFixed(2) + " L" : v.toLocaleString());
+        }
+      }
+    }
+    const volEl = document.getElementById("im-action-sheet-volume");
+    if (volEl) volEl.textContent = volumeStr;
+
+    renderImActionSheetQuote(price, changePct);
+    startImActionSheetLiveQuote(symbol, { isCommodity, isOptionLeg });
+
+    // Mini Chart render
+    generateTerminalSvgChart(changePct, "1D");
+
+    // Timeframe filter buttons
+    const tfBtns = document.querySelectorAll("#im-terminal-tf-buttons .im-tf-btn");
+    tfBtns.forEach((btn) => {
+      btn.onclick = (e) => {
+        tfBtns.forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        const tf = btn.dataset.tf || "1D";
+        let simulatedPct = changePct;
+        if (tf === "1H") simulatedPct = changePct * 0.45;
+        else if (tf === "1W") simulatedPct = changePct * 1.8 + 1.2;
+        else if (tf === "1M") simulatedPct = changePct * 3.4 - 2.1;
+        else if (tf === "1Y") simulatedPct = changePct * 6.5 + 18.5;
+        generateTerminalSvgChart(simulatedPct, tf);
+      };
+    });
+
 
     // Single Main Bottom BUY / SELL Buttons & Actions
     const buyBtn = document.getElementById("im-action-sheet-buy-btn");
