@@ -2120,6 +2120,168 @@ _option_chain_cache = {}
 OPTION_CHAIN_CACHE_SECONDS = 2
 
 
+# ---- MCX commodity options -------------------------------------------------
+# Upstox's put/call option-chain and option-contract APIs don't cover MCX, so
+# a commodity's chain is assembled here instead: its option contracts come
+# from the instrument master (same source the futures already use), and
+# their live LTP / OI / day change from the full market-quote API.
+
+MCX_OPTION_CONTRACTS_CACHE_SECONDS = 60 * 60
+_mcx_option_contracts_cache = {}
+MCX_OPTION_QUOTE_BATCH = 100
+
+
+def _parse_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_master_date(value):
+    try:
+        return datetime.strptime(str(value or "")[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def find_mcx_option_contracts(future_symbol):
+    """Every live option contract written on one MCX futures contract (e.g.
+    GOLD26OCTFUT). MCX options sit on a specific futures month and expire
+    shortly before it, so an option belongs to this future when it's on the
+    same commodity (instrument-master `name`) and expires after the previous
+    futures month but no later than this one."""
+    future_symbol = future_symbol.upper()
+    cached = _mcx_option_contracts_cache.get(future_symbol)
+    if cached and time.time() - cached["fetched_at"] < MCX_OPTION_CONTRACTS_CACHE_SECONDS:
+        return cached["data"]
+
+    rows = get_instrument_master_rows()
+    future_row = next(
+        (r for r in rows if r.get("exchange") == "MCX_FO" and r.get("tradingsymbol", "").upper() == future_symbol),
+        None,
+    )
+    if not future_row:
+        return []
+    future_expiry = _parse_master_date(future_row.get("expiry"))
+    if not future_expiry:
+        return []
+    commodity_name = (future_row.get("name") or "").strip().upper()
+    prefix = re.sub(r"\d{2}[A-Z]{3}FUT$", "", future_symbol)
+    earlier = [
+        _parse_master_date(f["expiry"])
+        for f in find_all_mcx_futures(prefix)
+        if _parse_master_date(f["expiry"]) and _parse_master_date(f["expiry"]) < future_expiry
+    ]
+    window_start = max(earlier) if earlier else None
+    today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
+    symbol_pattern = re.compile(rf"^{re.escape(prefix)}\d")
+
+    contracts = []
+    for row in rows:
+        if row.get("exchange") != "MCX_FO":
+            continue
+        symbol = row.get("tradingsymbol", "").upper()
+        option_type = (row.get("option_type") or "").upper()
+        if option_type not in ("CE", "PE"):
+            if "OPT" in (row.get("instrument_type") or "").upper() and symbol[-2:] in ("CE", "PE"):
+                option_type = symbol[-2:]
+            else:
+                continue
+        name = (row.get("name") or "").strip().upper()
+        if commodity_name and name:
+            if name != commodity_name:
+                continue
+        elif not symbol_pattern.match(symbol):
+            continue
+        expiry = _parse_master_date(row.get("expiry"))
+        if not expiry or expiry < today or expiry > future_expiry:
+            continue
+        if window_start and expiry <= window_start:
+            continue
+        strike = _parse_float(row.get("strike"))
+        if strike is None:
+            continue
+        contracts.append(
+            {
+                "instrument_key": row.get("instrument_key"),
+                "trading_symbol": row.get("tradingsymbol"),
+                "option_type": option_type,
+                "strike": int(strike) if strike.is_integer() else strike,
+                "expiry": expiry.isoformat(),
+                "lot_size": _parse_int(row.get("lot_size")),
+            }
+        )
+
+    _mcx_option_contracts_cache[future_symbol] = {"data": contracts, "fetched_at": time.time()}
+    return contracts
+
+
+def fetch_full_quotes(instrument_keys):
+    """Full market quotes (LTP, OI, volume, net change) keyed by
+    instrument_key, fetched in parallel batches."""
+    headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
+    batches = [instrument_keys[i:i + MCX_OPTION_QUOTE_BATCH] for i in range(0, len(instrument_keys), MCX_OPTION_QUOTE_BATCH)]
+
+    def _fetch(batch):
+        url = f"https://api.upstox.com/v2/market-quote/quotes?instrument_key={quote(','.join(batch), safe=',')}"
+        response = requests.get(url, headers=headers, timeout=20)
+        response.raise_for_status()
+        return (response.json() or {}).get("data") or {}
+
+    result = {}
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        for data in executor.map(_fetch, batches):
+            for info in data.values():
+                token = info.get("instrument_token")
+                if token:
+                    result[token] = info
+    return result
+
+
+def build_mcx_option_chain(future_symbol, expiry):
+    contracts = [c for c in find_mcx_option_contracts(future_symbol) if c["expiry"] == expiry]
+    if not contracts:
+        return None
+    future_key = resolve_mcx_instrument_key(future_symbol)
+    quotes = fetch_full_quotes([c["instrument_key"] for c in contracts] + [future_key])
+
+    by_strike = {}
+    for contract in contracts:
+        info = quotes.get(contract["instrument_key"]) or {}
+        ltp = info.get("last_price")
+        net_change = info.get("net_change")
+        close_price = round(ltp - net_change, 2) if ltp is not None and net_change is not None else None
+        leg = {
+            "ltp": ltp,
+            "close_price": close_price,
+            "oi": info.get("oi"),
+            "prev_oi": None,
+            "volume": info.get("volume"),
+            "iv": None,
+            "delta": None,
+            "instrument_key": contract["instrument_key"],
+            "trading_symbol": contract["trading_symbol"],
+            "lot_size": contract["lot_size"],
+        }
+        row = by_strike.setdefault(contract["strike"], {"strike": contract["strike"], "call": {}, "put": {}})
+        row["call" if contract["option_type"] == "CE" else "put"] = leg
+
+    rows = sorted(by_strike.values(), key=lambda row: row["strike"])
+    total_call_oi = sum((row["call"].get("oi") or 0) for row in rows)
+    total_put_oi = sum((row["put"].get("oi") or 0) for row in rows)
+    return {
+        "market": future_symbol,
+        "expiry": expiry,
+        "underlying_spot_price": (quotes.get(future_key) or {}).get("last_price"),
+        "rows": rows,
+        "total_call_oi": total_call_oi,
+        "total_put_oi": total_put_oi,
+        "pcr": round(total_put_oi / total_call_oi, 2) if total_call_oi else None,
+        "max_pain": compute_max_pain(rows),
+    }
+
+
 @app.get("/api/options/expiries/<market_key>")
 def option_expiries(market_key):
     cache_key = market_key.lower().strip()
@@ -2132,6 +2294,17 @@ def option_expiries(market_key):
     cached = _option_expiry_cache.get(cache_key)
     if cached and time.time() - cached["fetched_at"] < OPTION_EXPIRY_CACHE_SECONDS:
         return jsonify({"ok": True, "expiries": cached["data"]})
+
+    if MCX_FUTURES_SYMBOL_PATTERN.match(market_key.strip().upper()):
+        try:
+            expiries = sorted({c["expiry"] for c in find_mcx_option_contracts(market_key)})
+        except Exception as error:
+            app.logger.warning("MCX option expiries failed for %s: %s", market_key, error)
+            return jsonify({"ok": False, "error": "Could not fetch option expiries right now."}), 502
+        if not expiries:
+            return jsonify({"ok": False, "error": "No options are listed on this commodity contract."}), 404
+        _option_expiry_cache[cache_key] = {"data": expiries, "fetched_at": time.time()}
+        return jsonify({"ok": True, "expiries": expiries})
 
     instrument_key, _name = resolve_options_underlying(market_key)
     if not instrument_key:
@@ -2211,6 +2384,18 @@ def option_chain(market_key):
     cached = _option_chain_cache.get(cache_key)
     if cached and time.time() - cached["fetched_at"] < OPTION_CHAIN_CACHE_SECONDS:
         return jsonify({"ok": True, "updated_at": cached["updated_at"], "data": cached["data"]})
+
+    if MCX_FUTURES_SYMBOL_PATTERN.match(market_key.strip().upper()):
+        try:
+            result = build_mcx_option_chain(market_key.strip().upper(), expiry)
+        except Exception as error:
+            app.logger.warning("MCX option chain failed for %s %s: %s", market_key, expiry, error)
+            return jsonify({"ok": False, "error": "Could not fetch the option chain right now."}), 502
+        if not result:
+            return jsonify({"ok": False, "error": "No options are listed for this expiry."}), 404
+        updated_at = now_utc()
+        _option_chain_cache[cache_key] = {"data": result, "fetched_at": time.time(), "updated_at": updated_at}
+        return jsonify({"ok": True, "updated_at": updated_at, "data": result})
 
     instrument_key, display_name = resolve_options_underlying(market_key)
     if not instrument_key:
