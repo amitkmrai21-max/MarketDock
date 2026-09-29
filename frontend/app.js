@@ -11360,62 +11360,18 @@ async function fetchWatchlist() {
 
   function getDemoMarketProfile(marketKey) {
     if (marketKey === "banknifty") {
-      return {
-        name: "Bank Nifty",
-        price: 55112.4,
-        support: 54920,
-        resistance: 55250,
-        decision: "BUY SETUP",
-        entry: "55,112.40 - 55,149.60",
-        stop: "54,833.20",
-        target1: "55,391.60",
-        target2: "55,670.80",
-        exit: "Exit if stop-loss is hit, price loses VWAP and EMA 21, or an opposite confirmed signal appears."
-      };
+      return { name: "Bank Nifty", price: 55112.4, support: 54920, resistance: 55250, decision: "BUY SETUP" };
     }
 
     if (marketKey === "finnifty") {
-      return {
-        name: "Nifty Financial Services",
-        price: 25076.65,
-        support: 24900,
-        resistance: 25150,
-        decision: "BUY SETUP",
-        entry: "25,076.65 - 25,094.50",
-        stop: "24,932.80",
-        target1: "25,220.30",
-        target2: "25,364.00",
-        exit: "Exit if stop-loss is hit, price loses VWAP and EMA 21, or an opposite confirmed signal appears."
-      };
+      return { name: "Nifty Financial Services", price: 25076.65, support: 24900, resistance: 25150, decision: "BUY SETUP" };
     }
 
     if (marketKey === "sensex") {
-      return {
-        name: "SENSEX",
-        price: 74003.82,
-        support: 73500,
-        resistance: 74250,
-        decision: "BUY SETUP",
-        entry: "74,003.82 - 74,050.20",
-        stop: "73,640.90",
-        target1: "74,366.60",
-        target2: "74,729.40",
-        exit: "Exit if stop-loss is hit, price loses VWAP and EMA 21, or an opposite confirmed signal appears."
-      };
+      return { name: "SENSEX", price: 74003.82, support: 73500, resistance: 74250, decision: "BUY SETUP" };
     }
 
-    return {
-      name: "NIFTY 50",
-      price: 24680.55,
-      support: 24580,
-      resistance: 24760,
-      decision: "BUY SETUP",
-      entry: "24,680.55 - 24,698.25",
-      stop: "24,538.70",
-      target1: "24,822.40",
-      target2: "24,964.25",
-      exit: "Exit if stop-loss is hit, price loses VWAP and EMA 21, or an opposite confirmed signal appears."
-    };
+    return { name: "NIFTY 50", price: 24680.55, support: 24580, resistance: 24760, decision: "BUY SETUP" };
   }
 
   function createDemoCandles(marketKey, timeframe) {
@@ -13088,53 +13044,23 @@ async function fetchWatchlist() {
 
   const MARKET_API_BASE = "https://api.marketdock.in";
 
-  function formatPriceRange(from, to) {
-    if (from === null || from === undefined || to === null || to === undefined) {
-      return "Wait for confirmation";
-    }
-
-    return `${formatNumber(from)} - ${formatNumber(to)}`;
-  }
-
-  function formatPlanValue(value) {
-    if (value === null || value === undefined) {
-      return "Not active";
-    }
-
-    return formatNumber(value);
-  }
-
   function updateChartWithBackendData(data) {
     const profile = getDemoMarketProfile(selectedChartMarket);
     const decisionLabel = data.decision?.label || "WAIT";
-    const tradePlan = data.trade_plan || {};
     const levels = data.levels || {};
 
     profile.price = data.price ?? profile.price;
     profile.support = levels.support ?? profile.support;
     profile.resistance = levels.resistance ?? profile.resistance;
     profile.decision = decisionLabel;
-    profile.entry = formatPriceRange(
-      tradePlan.entry_zone?.from,
-      tradePlan.entry_zone?.to
-    );
-    profile.stop = formatPlanValue(tradePlan.stop_loss);
-    profile.target1 = formatPlanValue(tradePlan.target_1);
-    profile.target2 = formatPlanValue(tradePlan.target_2);
-    profile.exit = tradePlan.exit_rule || profile.exit;
 
     const title = document.getElementById("im-chart-market-title");
     const subtitle = document.getElementById("im-chart-market-subtitle");
     const status = document.getElementById("im-chart-data-status");
     const price = document.getElementById("im-chart-last-price");
     const decision = document.getElementById("im-chart-decision");
-    const entry = document.getElementById("im-chart-entry-value");
-    const stop = document.getElementById("im-chart-stop-value");
-    const target1 = document.getElementById("im-chart-target-1-value");
-    const target2 = document.getElementById("im-chart-target-2-value");
-    const exit = document.getElementById("im-chart-exit-value");
-    const buyMarker = document.getElementById("im-chart-buy-marker");
-    const sellMarker = document.getElementById("im-chart-sell-marker");
+    const support = document.getElementById("im-chart-support-value");
+    const resistance = document.getElementById("im-chart-resistance-value");
 
     if (!title) {
       return;
@@ -13151,16 +13077,8 @@ async function fetchWatchlist() {
       decision.className = `chart-decision ${decisionClass(profile.decision)}`;
     }
 
-    if (entry) entry.textContent = profile.entry;
-    if (stop) stop.textContent = profile.stop;
-    if (target1) target1.textContent = profile.target1;
-    if (target2) target2.textContent = profile.target2;
-    if (exit) exit.textContent = profile.exit;
-
-    if (buyMarker) buyMarker.style.display = profile.decision.includes("BUY") ? "block" : "none";
-    if (sellMarker) sellMarker.style.display = profile.decision.includes("SELL") ? "block" : "none";
-
-    setChartLevelLabels(profile);
+    if (support) support.textContent = formatNumber(profile.support);
+    if (resistance) resistance.textContent = formatNumber(profile.resistance);
 
     if (!latestLiveCandleData) {
       renderChartCandles(selectedChartMarket, selectedChartTimeframe);
