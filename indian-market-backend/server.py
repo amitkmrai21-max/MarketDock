@@ -1886,6 +1886,48 @@ def index_quotes():
         return jsonify({"ok": False, "error": "Could not fetch index quotes right now."}), 502
 
 
+# LTP by exact Upstox instrument_key — for paper positions in contracts that
+# can't be looked up by a plain symbol (option legs, whose key comes straight
+# from the option chain). Rows come back with `symbol` set to the key itself.
+LTP_BY_KEY_CACHE_SECONDS = 2
+_ltp_by_key_cache = {}
+
+
+@app.get("/api/ltp")
+def ltp_by_instrument_key():
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
+
+    keys = [k.strip() for k in request.args.get("instrument_keys", "").split(",") if k.strip()][:50]
+    if not keys:
+        return jsonify({"ok": False, "error": "Pass one or more instrument_keys."}), 400
+
+    now = time.time()
+    rows = {}
+    stale = []
+    for key in keys:
+        cached = _ltp_by_key_cache.get(key)
+        if cached and now - cached["fetched_at"] < LTP_BY_KEY_CACHE_SECONDS:
+            rows[key] = cached["row"]
+        else:
+            stale.append(key)
+
+    if stale:
+        try:
+            fetched = fetch_quotes_with_change(stale, resolver=lambda key: key)
+        except Exception as error:
+            app.logger.warning("LTP by key fetch failed: %s", error)
+            if not rows:
+                return jsonify({"ok": False, "error": "Could not fetch prices right now."}), 502
+            fetched = []
+        fetched_at = time.time()
+        for row in fetched:
+            _ltp_by_key_cache[row["symbol"]] = {"row": row, "fetched_at": fetched_at}
+            rows[row["symbol"]] = row
+
+    return jsonify({"ok": True, "data": [rows[k] for k in keys if k in rows]})
+
+
 @app.get("/api/live/status")
 def live_status():
     return jsonify(

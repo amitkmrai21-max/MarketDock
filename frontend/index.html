@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v56">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v57">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1341,11 +1341,6 @@
         <button class="nav-button" data-page="im-alerts" type="button">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 4a5 5 0 00-5 5v3.5L5 16h14l-2-3.5V9a5 5 0 00-5-5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 18a2 2 0 004 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
           Alerts
-        </button>
-
-        <button class="nav-button" data-page="im-paper-trading" type="button">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 19h16M7 19V9m5 10V5m5 14v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>
-          Paper Trading
         </button>
 
         <button class="nav-button website-settings-nav" data-open-settings type="button">
@@ -3206,6 +3201,11 @@
               <span class="im-pos-summary-value" id="im-pos-day-pnl">--</span>
               <span class="im-pos-summary-pct" id="im-pos-day-pnl-pct"></span>
             </div>
+            <div class="im-pos-summary-card im-pos-funds-card">
+              <span class="im-pos-summary-label">Available Funds</span>
+              <span class="im-pos-summary-value im-pos-funds-value" id="im-pos-funds-available">--</span>
+              <span class="im-pos-summary-pct" id="im-pos-funds-used"></span>
+            </div>
           </div>
 
           <div class="im-pos-search-row">
@@ -3215,7 +3215,8 @@
           <div class="im-pos-filter-row" id="im-pos-segment-filter-row">
             <button type="button" class="im-pos-filter-pill active" data-segment="ALL">All</button>
             <button type="button" class="im-pos-filter-pill" data-segment="EQ">Equity</button>
-            <button type="button" class="im-pos-filter-pill" data-segment="FO">Index</button>
+            <button type="button" class="im-pos-filter-pill" data-segment="FO">F&amp;O</button>
+            <button type="button" class="im-pos-filter-pill" data-segment="MCX">Commodity</button>
           </div>
 
           <p id="im-broker-positions-status" class="status-line"></p>
@@ -3229,12 +3230,8 @@
               <button class="im-pos-filter-pill" type="button" data-order-filter="executed">Executed</button>
               <button class="im-pos-filter-pill" type="button" data-order-filter="cancelled">Cancelled</button>
             </div>
-            <div class="table-wrap im-watchlist-table-wrap">
-              <table class="im-watchlist-table" style="width:100%;">
-                <thead><tr><th class="im-th-symbol">STOCK</th><th class="im-th-price">QTY</th><th class="im-th-change-pct">STATUS</th></tr></thead>
-                <tbody id="im-broker-orders-body"><tr><td colspan="3">Loading…</td></tr></tbody>
-              </table>
-            </div>
+            <div class="im-ob-head"><span>Order</span><span>Qty</span><span>Status</span></div>
+            <div class="im-ob-list" id="im-broker-orders-body"><p class="settings-help">Loading…</p></div>
           </article>
         </div>
       </section>
@@ -3417,6 +3414,94 @@
       </div>
     </div>
 
+    <!-- Paper order form: replaces the details body above when Buy/Sell is tapped -->
+    <div class="im-order-form" id="im-order-form">
+      <div class="im-order-seg im-order-side-seg" id="im-order-side-seg">
+        <button type="button" data-side="Buy">Buy</button>
+        <button type="button" data-side="Sell">Sell</button>
+      </div>
+
+      <div class="im-order-seg im-order-type-seg" id="im-order-type-seg">
+        <button type="button" data-type="market">Market</button>
+        <button type="button" data-type="limit">Limit</button>
+        <button type="button" data-type="sl">SL</button>
+        <button type="button" data-type="slm">SL-M</button>
+      </div>
+
+      <div class="im-order-row-head">
+        <span class="im-order-label" id="im-order-qty-label">Quantity</span>
+        <span class="im-order-sub" id="im-order-lot-size">Lot size: 1</span>
+      </div>
+      <div class="im-order-qty-row">
+        <div class="im-order-stepper">
+          <button type="button" id="im-order-qty-minus" aria-label="Decrease quantity">&minus;</button>
+          <input id="im-order-qty" type="number" inputmode="numeric" min="1" step="1" value="1" aria-label="Quantity" />
+          <button type="button" id="im-order-qty-plus" aria-label="Increase quantity">+</button>
+        </div>
+        <div class="im-order-quick" id="im-order-quick">
+          <button type="button" data-qty="1">1</button>
+          <button type="button" data-qty="5">5</button>
+          <button type="button" data-qty="10">10</button>
+          <button type="button" data-qty="25">25</button>
+        </div>
+      </div>
+
+      <div class="im-order-row-head"><span class="im-order-label">Product</span></div>
+      <div class="im-order-product-row" id="im-order-product-row"></div>
+
+      <div class="im-order-row-head"><span class="im-order-label">Order details</span></div>
+      <div class="im-order-field">
+        <span>Price</span>
+        <div class="im-order-input-wrap">
+          <input id="im-order-price" type="number" inputmode="decimal" step="0.05" min="0" placeholder="Market" />
+          <span class="im-order-suffix" id="im-order-price-lock" aria-hidden="true">&#128274;</span>
+        </div>
+      </div>
+      <div class="im-order-field">
+        <span>Trigger price</span>
+        <div class="im-order-input-wrap">
+          <input id="im-order-trigger" type="number" inputmode="decimal" step="0.05" min="0" placeholder="Only for SL / SL-M" />
+        </div>
+      </div>
+      <div class="im-order-field">
+        <span>Stop loss</span>
+        <div class="im-order-input-wrap">
+          <input id="im-order-sl" type="number" inputmode="decimal" step="0.05" min="0" placeholder="Optional" />
+          <button type="button" class="im-order-unit-btn" id="im-order-sl-unit" data-unit="pct">%</button>
+        </div>
+      </div>
+      <div class="im-order-field">
+        <span>Target</span>
+        <div class="im-order-input-wrap">
+          <input id="im-order-target" type="number" inputmode="decimal" step="0.05" min="0" placeholder="Optional" />
+          <button type="button" class="im-order-unit-btn" id="im-order-target-unit" data-unit="pct">%</button>
+        </div>
+      </div>
+      <div class="im-order-field">
+        <span>Validity</span>
+        <div class="im-order-seg im-order-validity-seg" id="im-order-validity-seg">
+          <button type="button" data-validity="DAY">Day</button>
+          <button type="button" data-validity="IOC">IOC</button>
+          <button type="button" data-validity="GTT">GTT</button>
+        </div>
+      </div>
+
+      <div class="im-order-margin-box">
+        <span>Approx. required margin</span>
+        <strong id="im-order-margin">&#8377;0.00</strong>
+      </div>
+      <p class="im-order-available">Available funds: <strong id="im-order-available">--</strong></p>
+      <p class="im-order-error" id="im-order-error" role="alert" hidden></p>
+    </div>
+
+    <div class="im-order-swipe-dock" id="im-order-swipe-dock">
+      <div class="im-order-swipe-track" id="im-order-swipe-track">
+        <div class="im-order-swipe-fill" id="im-order-swipe-fill"></div>
+        <span class="im-order-swipe-text" id="im-order-swipe-text">Swipe to Buy</span>
+        <div class="im-order-swipe-knob" id="im-order-swipe-knob" role="button" tabindex="0" aria-label="Swipe to place order">&rarr;</div>
+      </div>
+    </div>
+
     <!-- Main Large Bottom BUY and SELL Dock (Only 1 pair!) -->
     <div class="im-terminal-dock-footer">
       <button class="im-terminal-btn im-terminal-buy" type="button" id="im-action-sheet-buy-btn">
@@ -3543,6 +3628,39 @@
           <p class="settings-help">Deleting your account permanently removes your MarketDock login. This can't be undone.</p>
           <button id="accountDeleteBtn" class="reset-settings-btn" type="button">Delete Account</button>
           <p id="accountDeleteStatus" class="settings-help" role="status"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="settings-section">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path><path d="M16 15h2"></path></svg>
+        </span>
+        <div>
+          <h3>Funds</h3>
+        </div>
+      </div>
+
+      <div class="settings-group settings-group--plain">
+        <p class="settings-help">Virtual paper-trading money. Every order uses these funds; they can't be added to or withdrawn.</p>
+        <div class="im-funds-grid">
+          <div class="im-funds-cell">
+            <span>Available</span>
+            <strong id="settingsPaperFundsAvailable">--</strong>
+          </div>
+          <div class="im-funds-cell">
+            <span>Used margin</span>
+            <strong id="settingsPaperFundsUsed">--</strong>
+          </div>
+          <div class="im-funds-cell">
+            <span>Realized P&amp;L</span>
+            <strong id="settingsPaperFundsRealized">--</strong>
+          </div>
+          <div class="im-funds-cell">
+            <span>Opening balance</span>
+            <strong id="settingsPaperFundsOpening">--</strong>
+          </div>
         </div>
       </div>
     </section>
@@ -3778,7 +3896,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v48"></script>
+  <script src="/frontend/app.js?v=v20260927v49"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
