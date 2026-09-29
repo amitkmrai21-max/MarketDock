@@ -8188,12 +8188,18 @@ async function fetchWatchlist() {
     if (active) wrap.scrollLeft = Math.max(0, active.offsetLeft - 12);
   }
 
-  function optionLegCells(leg, side, itm) {
-    const tradable = leg.instrument_key && leg.trading_symbol;
+  function optionLegCells(leg, side, itm, strike) {
+    // The instrument_key is what identifies the contract; if the chain came
+    // without a trading symbol, name it "TCS 2040 CE" rather than leaving
+    // the leg untappable.
+    const tradingSymbol = leg.trading_symbol || (leg.instrument_key && Number.isFinite(strike)
+      ? `${imStockOptionsSymbol} ${formatStrike(strike)} ${side === "call" ? "CE" : "PE"}`
+      : "");
+    const tradable = Boolean(leg.instrument_key && tradingSymbol);
     const itmCls = itm ? " oc-itm" : "";
     // Either cell of a side (OI or LTP) opens that contract's Buy/Sell sheet.
     const tradeAttrs = tradable
-      ? ` data-instrument-key="${escapeHtml(leg.instrument_key)}" data-trading-symbol="${escapeHtml(leg.trading_symbol)}" data-ltp="${Number.isFinite(Number(leg.ltp)) ? leg.ltp : ""}" data-lot-size="${Number.isFinite(Number(leg.lot_size)) ? leg.lot_size : ""}"`
+      ? ` data-instrument-key="${escapeHtml(leg.instrument_key)}" data-trading-symbol="${escapeHtml(tradingSymbol)}" data-ltp="${Number.isFinite(Number(leg.ltp)) ? leg.ltp : ""}" data-lot-size="${Number.isFinite(Number(leg.lot_size)) ? leg.lot_size : ""}"`
       : "";
     const iv = Number(leg.iv);
     const delta = Number(leg.delta);
@@ -8205,7 +8211,7 @@ async function fetchWatchlist() {
       : `<div class="oc-cell oc-${side} oc-oi${itmCls}">${outer}</div>`;
     const ltpInner = `<span class="oc-main">${formatOptionPrice(leg.ltp)}</span>${optionChangeHtml(leg.ltp, leg.close_price)}`;
     const ltpCell = tradable
-      ? `<button type="button" class="oc-cell oc-${side} oc-ltp oc-tradable${itmCls}"${tradeAttrs} aria-label="${escapeHtml(leg.trading_symbol)} ${formatOptionPrice(leg.ltp)}">${ltpInner}</button>`
+      ? `<button type="button" class="oc-cell oc-${side} oc-ltp oc-tradable${itmCls}"${tradeAttrs} aria-label="${escapeHtml(tradingSymbol)} ${formatOptionPrice(leg.ltp)}">${ltpInner}</button>`
       : `<div class="oc-cell oc-${side} oc-ltp${itmCls}">${ltpInner}</div>`;
     return side === "call" ? outerCell + ltpCell : ltpCell + outerCell;
   }
@@ -8252,13 +8258,13 @@ async function fetchWatchlist() {
       const callShare = callOi + putOi > 0 ? Math.round((callOi / (callOi + putOi)) * 100) : 50;
       return `
         <div class="oc-row${strike === atmStrike ? " oc-atm" : ""}"${strike === atmStrike ? ' id="im-stock-options-atm"' : ""}>
-          ${optionLegCells(call, "call", hasSpot && strike < spot)}
+          ${optionLegCells(call, "call", hasSpot && strike < spot, strike)}
           <div class="oc-cell oc-strike">
             <span class="oc-strike-num">${formatStrike(row.strike)}</span>
             ${strike === maxPainStrike ? `<span class="oc-mp" title="Max pain">MP</span>` : ""}
             <span class="oc-oi-split" aria-hidden="true"><i style="width:${callShare}%"></i><b style="width:${100 - callShare}%"></b></span>
           </div>
-          ${optionLegCells(put, "put", hasSpot && strike > spot)}
+          ${optionLegCells(put, "put", hasSpot && strike > spot, strike)}
         </div>`;
     }).join("");
 

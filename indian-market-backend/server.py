@@ -1378,27 +1378,6 @@ def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
 MCX_FUTURES_SYMBOL_PATTERN = re.compile(r"^[A-Z]+\d{2}[A-Z]{3}FUT$")
 
 
-def find_lot_size_by_instrument_key(instrument_key):
-    """Lot size by exact instrument_key — stable across Upstox's two trading
-    symbol formats (the option-chain API's "HINDUNILVR 1860 CE 28 OCT 25"
-    vs the instrument master's compact form), unlike a symbol lookup."""
-    for row in get_instrument_master_rows():
-        if row.get("instrument_key") == instrument_key:
-            return _parse_int(row.get("lot_size"))
-    return None
-
-
-def find_lot_size_by_trading_symbol(trading_symbol):
-    """Fallback lot-size lookup by exact trading symbol, across any
-    exchange/segment in the instrument master — used when a caller (e.g.
-    the option chain) didn't already have it from the API response it
-    otherwise reads its instrument_key from."""
-    for row in get_instrument_master_rows():
-        if row.get("tradingsymbol", "").upper() == trading_symbol.upper():
-            return _parse_int(row.get("lot_size"))
-    return None
-
-
 def _parse_int(value):
     try:
         return int(float(value))
@@ -2478,27 +2457,27 @@ def option_chain(market_key):
 
         rows.sort(key=lambda row: row["strike"] if row["strike"] is not None else 0)
 
-        # Every strike/leg of the same underlying+expiry shares one lot
-        # size, so if Upstox's chain response didn't carry it directly
-        # (not guaranteed across segments), one instrument-master lookup
-        # for any single leg's trading symbol covers the whole chain.
-        if rows and rows[0]["call"].get("lot_size") is None:
-            sample_key = rows[0]["call"].get("instrument_key") or rows[0]["put"].get("instrument_key")
-            sample_symbol = rows[0]["call"].get("trading_symbol") or rows[0]["put"].get("trading_symbol")
-            fallback_lot_size = None
+        # Upstox's option-chain legs carry an instrument_key but not always a
+        # trading symbol or lot size. Both are needed to trade a leg from
+        # the chain (the sheet is keyed by symbol; the order by lot), so any
+        # gap is filled from the instrument master by instrument_key.
+        missing = [
+            leg for row in rows for leg in (row["call"], row["put"])
+            if leg.get("instrument_key") and (not leg.get("trading_symbol") or leg.get("lot_size") is None)
+        ]
+        if missing:
             try:
-                if sample_key:
-                    fallback_lot_size = find_lot_size_by_instrument_key(sample_key)
-                if fallback_lot_size is None and sample_symbol:
-                    fallback_lot_size = find_lot_size_by_trading_symbol(sample_symbol)
+                index = get_instrument_master_index()
+                for leg in missing:
+                    master_row = index.get(leg["instrument_key"])
+                    if not master_row:
+                        continue
+                    if not leg.get("trading_symbol"):
+                        leg["trading_symbol"] = master_row.get("tradingsymbol")
+                    if leg.get("lot_size") is None:
+                        leg["lot_size"] = _parse_int(master_row.get("lot_size"))
             except Exception as error:
-                app.logger.warning("Lot size fallback failed for %s: %s", market_key, error)
-            if fallback_lot_size is not None:
-                for row in rows:
-                    if row["call"].get("lot_size") is None:
-                        row["call"]["lot_size"] = fallback_lot_size
-                    if row["put"].get("lot_size") is None:
-                        row["put"]["lot_size"] = fallback_lot_size
+                app.logger.warning("Option leg fill from instrument master failed for %s: %s", market_key, error)
 
         total_call_oi = sum((row["call"].get("oi") or 0) for row in rows)
         total_put_oi = sum((row["put"].get("oi") or 0) for row in rows)
@@ -3262,6 +3241,18 @@ def get_instrument_master_rows():
     _instrument_master_cache["rows"] = rows
     _instrument_master_cache["fetched_at"] = now
     return rows
+
+
+_instrument_master_index = {"source": None, "by_key": {}}
+
+
+def get_instrument_master_index():
+    """instrument_key -> master row, rebuilt whenever the master reloads."""
+    rows = get_instrument_master_rows()
+    if _instrument_master_index["source"] is not rows:
+        _instrument_master_index["by_key"] = {r.get("instrument_key"): r for r in rows if r.get("instrument_key")}
+        _instrument_master_index["source"] = rows
+    return _instrument_master_index["by_key"]
 
 
 def find_all_mcx_futures(prefix):
