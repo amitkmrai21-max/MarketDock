@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v65">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v66">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -2201,7 +2201,10 @@
 
             <div class="im-ai-scanner-indicator-grid" id="im-stock-detail-indicators"></div>
 
-            <button class="primary-button" id="im-stock-detail-ai-btn" type="button">Get AI Analysis</button>
+            <div class="im-stock-detail-actions">
+              <button class="primary-button" id="im-stock-detail-ai-btn" type="button">Get AI Analysis</button>
+              <button class="chart-control-button im-tv-open-btn" id="im-stock-detail-tv-btn" type="button">Chart on TradingView <span aria-hidden="true">&#8599;</span></button>
+            </div>
 
             <p id="im-stock-detail-ai-status" class="im-chart-status" hidden></p>
 
@@ -2742,23 +2745,6 @@
         </div>
       </section>
 
-      <section class="page" id="im-tradingview-chart">
-        <article class="card section-card">
-          <div class="section-heading">
-            <div>
-              <h2 id="im-tv-chart-title">TradingView Chart</h2>
-              <p>The real TradingView chart widget — 100+ built-in indicators, 80+ drawing tools, full symbol search.</p>
-            </div>
-            <button class="chart-control-button" id="im-tv-chart-back-btn" type="button">&larr; Back to Watchlist</button>
-          </div>
-
-          <div id="im-tradingview-widget-container" class="tradingview-widget-container" style="width:100%">
-            <div class="tradingview-widget-container__widget"></div>
-          </div>
-          <p class="im-chart-status">If the symbol looks wrong, use the widget's own symbol search (top-left of the chart) to pick the exact contract.</p>
-        </article>
-      </section>
-
       <section class="page" id="im-stock-options">
         <article class="card section-card">
           <div class="section-heading">
@@ -3280,7 +3266,7 @@
       <div class="im-terminal-action-bar">
         <button class="im-term-pill-btn" type="button" id="im-action-sheet-chart-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-          <span>Chart</span>
+          <span>Chart <span aria-hidden="true">&#8599;</span></span>
         </button>
         <button class="im-term-pill-btn" type="button" id="im-action-sheet-option-chain-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
@@ -3904,7 +3890,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v56"></script>
+  <script src="/frontend/app.js?v=v20260927v57"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
