@@ -11153,3 +11153,322 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-used .im-funds-used-a
   padding: 0 16px;
   font-weight: 700;
 }
+
+/* ===================== Option chain (Kite-style) ===================== */
+.indian-market-mode.im-oc-active .topbar {
+  display: none;
+}
+.indian-market-mode #im-stock-options {
+  --oc-itm: rgba(255, 255, 255, 0.05);
+  --oc-strike-bg: rgba(0, 0, 0, 0.28);
+  --oc-atm-bg: rgba(148, 163, 184, 0.28);
+  --oc-line: rgba(148, 163, 184, 0.12);
+  --oc-field: rgba(148, 163, 184, 0.12);
+}
+body[data-theme="light"] .indian-market-mode #im-stock-options {
+  --oc-itm: rgba(250, 204, 21, 0.13);
+  --oc-strike-bg: rgba(15, 23, 42, 0.045);
+  --oc-atm-bg: rgba(15, 23, 42, 0.12);
+  --oc-line: rgba(15, 23, 42, 0.08);
+  --oc-field: rgba(15, 23, 42, 0.06);
+}
+.indian-market-mode .oc-page {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 !important;
+}
+.oc-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 6px 2px 10px;
+}
+.oc-back {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--im-text);
+  cursor: pointer;
+}
+.oc-back:hover {
+  background: var(--oc-field);
+}
+.oc-tabs {
+  display: flex;
+  gap: 22px;
+}
+.oc-tab {
+  padding: 6px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--im-muted);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.oc-tab.active {
+  color: #4c8dff;
+  border-bottom-color: #4c8dff;
+}
+.oc-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 12px;
+  padding: 0 14px;
+  min-height: 50px;
+  border-radius: 10px;
+  background: var(--oc-field);
+}
+.oc-search-icon {
+  flex: none;
+  color: var(--im-muted);
+}
+#im-stock-options-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--im-text);
+  font-size: 17px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0;
+  box-shadow: none;
+}
+.oc-search-quote {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.oc-search-quote strong {
+  font-weight: 700;
+}
+#im-stock-options-spot-change {
+  color: var(--im-muted);
+}
+.oc-search .im-watchlist-search-results {
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+}
+.oc-expiries {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 0 12px;
+  border-bottom: 1px solid var(--oc-line);
+}
+.oc-expiries::-webkit-scrollbar {
+  display: none;
+}
+.oc-expiry {
+  flex: none;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--im-text);
+  font-size: 15px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.oc-expiry.active {
+  background: rgba(76, 141, 255, 0.16);
+  color: #4c8dff;
+}
+.oc-status {
+  margin: 14px 4px;
+  color: var(--im-muted);
+  font-size: 14px;
+}
+.oc-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.95fr 1fr 1fr;
+  align-items: stretch;
+  border-bottom: 1px solid var(--oc-line);
+}
+.oc-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 4px;
+  text-align: center;
+  font: inherit;
+  color: var(--im-text);
+}
+button.oc-cell {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.oc-cell.oc-itm {
+  background: var(--oc-itm);
+}
+.oc-tradable:hover .oc-main,
+.oc-tradable:focus-visible .oc-main {
+  color: #4c8dff;
+}
+.oc-main {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.oc-sub {
+  font-size: 12.5px;
+  color: var(--im-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#im-stock-options .oc-up {
+  color: var(--im-green);
+}
+#im-stock-options .oc-down {
+  color: var(--im-red);
+}
+.oc-strike {
+  position: relative;
+  background: var(--oc-strike-bg);
+}
+.oc-strike-num {
+  padding: 5px 9px;
+  border-radius: 6px;
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.oc-atm .oc-strike-num {
+  background: var(--oc-atm-bg);
+}
+.oc-mp {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--im-yellow);
+}
+.oc-oi-split {
+  display: flex;
+  width: 62%;
+  height: 2px;
+  margin-top: 6px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--oc-line);
+}
+.oc-oi-split i {
+  background: var(--im-red);
+}
+.oc-oi-split b {
+  background: var(--im-green);
+}
+.oc-colnames .oc-cell {
+  padding: 12px 4px;
+  font-size: 14px;
+  color: var(--im-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+.oc-colnames .oc-strike {
+  color: var(--im-text);
+  font-weight: 600;
+}
+.oc-mode-oi .oc-when-greeks,
+.oc-mode-greeks .oc-when-oi {
+  display: none;
+}
+.oc-empty {
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--im-muted);
+}
+.oc-body {
+  position: relative;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.oc-footer {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+  padding: 12px 10px;
+  border-radius: 12px 12px 0 0;
+  background: var(--im-panel);
+  border-top: 1px solid var(--oc-line);
+  box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.25);
+}
+.oc-footer div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.oc-footer span {
+  font-size: 13px;
+  color: var(--im-muted);
+  white-space: nowrap;
+}
+.oc-footer strong {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .oc-main,
+  .oc-strike-num {
+    font-size: 15.5px;
+  }
+  .oc-sub {
+    font-size: 11.5px;
+  }
+  .oc-colnames .oc-cell {
+    font-size: 12.5px;
+  }
+  .oc-search-quote {
+    font-size: 13.5px;
+  }
+}
+@media (max-width: 370px) {
+  .oc-main,
+  .oc-strike-num {
+    font-size: 14px;
+  }
+  .oc-sub {
+    font-size: 10.5px;
+  }
+}
+#im-stock-options-search.oc-search-long {
+  font-size: 14px;
+}
+@media (max-width: 420px) {
+  #im-stock-options-search.oc-search-long {
+    font-size: 12.5px;
+  }
+  .oc-search-long ~ .oc-search-quote {
+    font-size: 12px;
+    gap: 5px;
+  }
+}

@@ -2252,9 +2252,12 @@ def option_chain(market_key):
                     "strike": item.get("strike_price"),
                     "call": {
                         "ltp": call_market.get("ltp"),
+                        "close_price": call_market.get("close_price"),
                         "oi": call_market.get("oi"),
+                        "prev_oi": call_market.get("prev_oi"),
                         "volume": call_market.get("volume"),
                         "iv": call_greeks.get("iv"),
+                        "delta": call_greeks.get("delta"),
                         # Carried straight through from Upstox rather than
                         # re-resolved by symbol, so a paper trade recorded
                         # against a specific strike always identifies the
@@ -2265,9 +2268,12 @@ def option_chain(market_key):
                     },
                     "put": {
                         "ltp": put_market.get("ltp"),
+                        "close_price": put_market.get("close_price"),
                         "oi": put_market.get("oi"),
+                        "prev_oi": put_market.get("prev_oi"),
                         "volume": put_market.get("volume"),
                         "iv": put_greeks.get("iv"),
+                        "delta": put_greeks.get("delta"),
                         "instrument_key": put.get("instrument_key"),
                         "trading_symbol": put.get("trading_symbol") or put.get("tradingsymbol"),
                         "lot_size": _parse_int(put.get("lot_size")),

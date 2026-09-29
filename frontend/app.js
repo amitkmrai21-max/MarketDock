@@ -4592,6 +4592,8 @@ function clearLiveChartAiOverlay() {
     }
 
     const info = pageInfo[pageId];
+    // The option chain is a full-screen, broker-style view with its own header.
+    root.classList.toggle("im-oc-active", pageId === "im-stock-options");
 
     if (info && pageTitle && pageSubtitle) {
       pageTitle.textContent = info.title;
@@ -8074,10 +8076,14 @@ async function fetchWatchlist() {
 
   let imStockOptionsSymbol = null;
   let imStockOptionsExpiry = null;
-  let imStockOptionsStrikeRange = "10";
+  let imStockOptionsExpiries = [];
   let imStockOptionsLastData = null;
   let imStockOptionsReturnPage = "im-watchlist";
   let imStockOptionsTimer = null;
+  let imStockOptionsMode = "oi"; // "oi" | "greeks" — what the outer columns show
+  // Scroll the ATM strike into view once per symbol/expiry, not on every 2s
+  // re-render (that would fight the user's own scrolling).
+  let imStockOptionsNeedsScroll = false;
 
   function formatOptionNumber(value) {
     if (value === null || value === undefined) return "--";
@@ -8095,6 +8101,82 @@ async function fetchWatchlist() {
     return number.toLocaleString("en-IN");
   }
 
+  // Broker-style price: up to 2 decimals, no padded zeros (65.3, 0.1, 171.95).
+  function formatOptionPrice(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "--";
+  }
+
+  // Strikes read like Kite: plain number, no thousands separators (2480, 146500).
+  function formatStrike(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? String(Math.round(number * 100) / 100) : "--";
+  }
+
+  function formatOiLakhs(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? (number / 1e5).toFixed(2) : "--";
+  }
+
+  // "1,436.47%" / "-50.49%" under a value, coloured by direction.
+  function optionChangeHtml(current, base) {
+    const now = Number(current);
+    const prev = Number(base);
+    if (!Number.isFinite(now) || !Number.isFinite(prev) || prev <= 0) return `<span class="oc-sub">0.00%</span>`;
+    const pct = ((now - prev) / prev) * 100;
+    const cls = pct > 0.004 ? "oc-up" : pct < -0.004 ? "oc-down" : "";
+    const text = Math.abs(pct).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `<span class="oc-sub ${cls}">${pct < -0.004 ? "-" : ""}${text}%</span>`;
+  }
+
+  function expiryDate(expiry) {
+    const date = new Date(`${expiry}T00:00:00+05:30`);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  // "29 Sep (Today)", "27 Oct (4 Weeks)", "23 Nov (2 Months)" — like Kite.
+  function formatExpiryChip(expiry) {
+    const date = expiryDate(expiry);
+    if (!date) return expiry;
+    const ist = new Date(date.getTime() + 5.5 * 3600e3);
+    const label = `${String(ist.getUTCDate()).padStart(2, "0")} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][ist.getUTCMonth()]}`;
+    const todayKey = new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
+    const days = Math.round((date.getTime() - new Date(`${todayKey}T00:00:00+05:30`).getTime()) / 86400000);
+    let rel;
+    if (days <= 0) rel = "Today";
+    else if (days === 1) rel = "Tomorrow";
+    else if (days < 7) rel = `${days} Days`;
+    else if (days < 35) { const w = Math.round(days / 7); rel = `${w} Week${w === 1 ? "" : "s"}`; }
+    else { const m = Math.round(days / 30); rel = `${m} Month${m === 1 ? "" : "s"}`; }
+    return `${label} (${rel})`;
+  }
+
+  function renderStockOptionExpiries() {
+    const wrap = document.getElementById("im-stock-options-expiries");
+    if (!wrap) return;
+    wrap.innerHTML = imStockOptionsExpiries
+      .map((expiry) => `<button type="button" role="tab" class="oc-expiry${expiry === imStockOptionsExpiry ? " active" : ""}" data-expiry="${escapeHtml(expiry)}" aria-selected="${expiry === imStockOptionsExpiry}">${escapeHtml(formatExpiryChip(expiry))}</button>`)
+      .join("");
+    const active = wrap.querySelector(".oc-expiry.active");
+    if (active) wrap.scrollLeft = Math.max(0, active.offsetLeft - 12);
+  }
+
+  function optionLegCells(leg, side, itm) {
+    const tradable = leg.instrument_key && leg.trading_symbol;
+    const itmCls = itm ? " oc-itm" : "";
+    const iv = Number(leg.iv);
+    const delta = Number(leg.delta);
+    const outer = imStockOptionsMode === "greeks"
+      ? `<span class="oc-main">${Number.isFinite(iv) && iv > 0 ? iv.toFixed(2) : "--"}</span><span class="oc-sub">Δ ${Number.isFinite(delta) ? delta.toFixed(2) : "--"}</span>`
+      : `<span class="oc-main">${formatOiLakhs(leg.oi)}</span>${optionChangeHtml(leg.oi, leg.prev_oi)}`;
+    const outerCell = `<div class="oc-cell oc-${side} oc-oi${itmCls}">${outer}</div>`;
+    const ltpInner = `<span class="oc-main">${formatOptionPrice(leg.ltp)}</span>${optionChangeHtml(leg.ltp, leg.close_price)}`;
+    const ltpCell = tradable
+      ? `<button type="button" class="oc-cell oc-${side} oc-ltp oc-tradable${itmCls}" data-instrument-key="${escapeHtml(leg.instrument_key)}" data-trading-symbol="${escapeHtml(leg.trading_symbol)}" data-ltp="${Number.isFinite(Number(leg.ltp)) ? leg.ltp : ""}" data-lot-size="${Number.isFinite(Number(leg.lot_size)) ? leg.lot_size : ""}" aria-label="${escapeHtml(leg.trading_symbol)} ${formatOptionPrice(leg.ltp)}">${ltpInner}</button>`
+      : `<div class="oc-cell oc-${side} oc-ltp${itmCls}">${ltpInner}</div>`;
+    return side === "call" ? outerCell + ltpCell : ltpCell + outerCell;
+  }
+
   function renderStockOptionChain(data) {
     const body = document.getElementById("im-stock-options-body");
     const meta = document.getElementById("im-stock-options-meta");
@@ -8102,113 +8184,133 @@ async function fetchWatchlist() {
 
     const rows = Array.isArray(data.rows) ? data.rows : [];
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="5">No option chain data available for this expiry.</td></tr>`;
+      body.innerHTML = `<div class="oc-empty">No option chain data for this expiry.</div>`;
       return;
     }
+    if (meta) meta.hidden = true;
 
     const spot = Number(data.underlying_spot_price);
-    let atmStrike = null;
-    if (Number.isFinite(spot)) {
-      atmStrike = rows.reduce((closest, row) => {
-        const strike = Number(row.strike);
-        if (!Number.isFinite(strike)) return closest;
-        if (closest === null || Math.abs(strike - spot) < Math.abs(closest - spot)) return strike;
-        return closest;
-      }, null);
-    }
-
+    const hasSpot = Number.isFinite(spot) && spot > 0;
     const maxPainStrike = Number.isFinite(Number(data.max_pain)) ? Number(data.max_pain) : null;
-    const atmIndex = atmStrike !== null ? rows.findIndex((row) => Number(row.strike) === atmStrike) : -1;
 
-    let sliceStart = 0;
-    let visibleRows = rows;
-    if (imStockOptionsStrikeRange !== "all" && atmIndex >= 0) {
-      const range = Number(imStockOptionsStrikeRange) || 10;
-      sliceStart = Math.max(0, atmIndex - range);
-      visibleRows = rows.slice(sliceStart, atmIndex + range + 1);
-    }
-
-    const ITM_FADE_ROWS = 8;
-
-    body.innerHTML = visibleRows
-      .map((row, i) => {
-        const index = sliceStart + i;
+    // Nearest strike to spot is ATM (boxed, like Kite).
+    let atmRow = null;
+    if (hasSpot) {
+      rows.forEach((row) => {
         const strike = Number(row.strike);
-        const isAtm = atmStrike !== null && strike === atmStrike;
-        const isMaxPain = maxPainStrike !== null && strike === maxPainStrike;
-        const call = row.call || {};
-        const put = row.put || {};
-        const rowClasses = [isAtm ? "im-options-atm" : "", isMaxPain ? "im-options-max-pain" : ""].filter(Boolean).join(" ");
-
-        let callStyle = "";
-        let putStyle = "";
-        if (atmIndex >= 0 && Number.isFinite(strike) && atmStrike !== null) {
-          const distance = Math.abs(index - atmIndex);
-          const intensity = Math.max(0, 1 - distance / ITM_FADE_ROWS);
-          const alpha = (0.03 + intensity * 0.15).toFixed(3);
-          if (strike < atmStrike) {
-            callStyle = ` style="background: rgba(34, 197, 94, ${alpha});"`;
-          } else if (strike > atmStrike) {
-            putStyle = ` style="background: rgba(239, 68, 68, ${alpha});"`;
-          }
-        }
-
-        const callTradable = call.instrument_key && call.trading_symbol;
-        const putTradable = put.instrument_key && put.trading_symbol;
-        const callLtpClass = `im-options-call-side${callTradable ? " im-options-tradable-cell" : ""}`;
-        const putLtpClass = `im-options-put-side${putTradable ? " im-options-tradable-cell" : ""}`;
-        const callDataAttrs = callTradable
-          ? ` data-instrument-key="${escapeHtml(call.instrument_key)}" data-trading-symbol="${escapeHtml(call.trading_symbol)}" data-ltp="${Number.isFinite(Number(call.ltp)) ? call.ltp : ""}" data-lot-size="${Number.isFinite(Number(call.lot_size)) ? call.lot_size : ""}"`
-          : "";
-        const putDataAttrs = putTradable
-          ? ` data-instrument-key="${escapeHtml(put.instrument_key)}" data-trading-symbol="${escapeHtml(put.trading_symbol)}" data-ltp="${Number.isFinite(Number(put.ltp)) ? put.ltp : ""}" data-lot-size="${Number.isFinite(Number(put.lot_size)) ? put.lot_size : ""}"`
-          : "";
-
-        return `
-          <tr class="${rowClasses}">
-            <td class="im-options-call-side"${callStyle}>${formatOptionCompactNumber(call.oi)}</td>
-            <td class="${callLtpClass}"${callStyle}${callDataAttrs}>${formatOptionNumber(call.ltp)}</td>
-            <td class="im-options-strike">${formatOptionNumber(row.strike)}</td>
-            <td class="${putLtpClass}"${putStyle}${putDataAttrs}>${formatOptionNumber(put.ltp)}</td>
-            <td class="im-options-put-side"${putStyle}>${formatOptionCompactNumber(put.oi)}</td>
-          </tr>
-        `;
-      })
-      .join("");
-
-    if (meta) {
-      meta.textContent = `${data.market} · Expiry ${data.expiry} · Spot ${Number.isFinite(spot) ? formatNumber(spot) : "--"}`;
+        if (Number.isFinite(strike) && (!atmRow || Math.abs(strike - spot) < Math.abs(Number(atmRow.strike) - spot))) atmRow = row;
+      });
     }
+    const atmStrike = atmRow ? Number(atmRow.strike) : null;
 
-    const pcrEl = document.getElementById("im-stock-options-pcr");
-    const pcrBiasEl = document.getElementById("im-stock-options-pcr-bias");
-    const maxPainEl = document.getElementById("im-stock-options-max-pain");
+    body.innerHTML = rows.map((row) => {
+      const strike = Number(row.strike);
+      const call = row.call || {};
+      const put = row.put || {};
+      // Thin bar under the strike: call OI share in red, put OI share in green.
+      const callOi = Math.max(0, Number(call.oi) || 0);
+      const putOi = Math.max(0, Number(put.oi) || 0);
+      const callShare = callOi + putOi > 0 ? Math.round((callOi / (callOi + putOi)) * 100) : 50;
+      return `
+        <div class="oc-row${strike === atmStrike ? " oc-atm" : ""}"${strike === atmStrike ? ' id="im-stock-options-atm"' : ""}>
+          ${optionLegCells(call, "call", hasSpot && strike < spot)}
+          <div class="oc-cell oc-strike">
+            <span class="oc-strike-num">${formatStrike(row.strike)}</span>
+            ${strike === maxPainStrike ? `<span class="oc-mp" title="Max pain">MP</span>` : ""}
+            <span class="oc-oi-split" aria-hidden="true"><i style="width:${callShare}%"></i><b style="width:${100 - callShare}%"></b></span>
+          </div>
+          ${optionLegCells(put, "put", hasSpot && strike > spot)}
+        </div>`;
+    }).join("");
+
     const pcr = Number(data.pcr);
-    if (pcrEl) pcrEl.textContent = Number.isFinite(pcr) ? pcr.toFixed(2) : "--";
-    if (pcrBiasEl) {
-      if (!Number.isFinite(pcr)) {
-        pcrBiasEl.textContent = "--";
-      } else if (pcr > 1.2) {
-        pcrBiasEl.textContent = "More puts written — often read as bullish bias";
-      } else if (pcr < 0.8) {
-        pcrBiasEl.textContent = "More calls written — often read as bearish bias";
-      } else {
-        pcrBiasEl.textContent = "Balanced — no strong bias either way";
-      }
+    const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    setText("im-stock-options-pcr", Number.isFinite(pcr) ? pcr.toFixed(2) : "--");
+    setText("im-stock-options-max-pain", maxPainStrike !== null ? formatStrike(maxPainStrike) : "--");
+    const atmIvs = atmRow ? [Number(atmRow.call?.iv), Number(atmRow.put?.iv)].filter((v) => Number.isFinite(v) && v > 0) : [];
+    setText("im-stock-options-atm-iv", atmIvs.length ? (atmIvs.reduce((a, b) => a + b, 0) / atmIvs.length).toFixed(2) : "--");
+    const lotRow = rows.find((row) => Number(row.call?.lot_size) > 0 || Number(row.put?.lot_size) > 0);
+    const lot = lotRow ? Number(lotRow.call?.lot_size) || Number(lotRow.put?.lot_size) : null;
+    setText("im-stock-options-lot", lot ? lot.toLocaleString("en-IN") : "--");
+
+    // Chain spot is the fallback until the live quote lands.
+    const spotEl = document.getElementById("im-stock-options-spot");
+    if (spotEl && spotEl.dataset.live !== "1" && hasSpot) spotEl.textContent = formatOptionPrice(spot);
+
+    if (imStockOptionsNeedsScroll && document.getElementById("im-stock-options")?.classList.contains("active")) {
+      imStockOptionsNeedsScroll = false;
+      sizeImStockOptionsBody();
+      const atm = document.getElementById("im-stock-options-atm");
+      if (atm) body.scrollTop = Math.max(0, atm.offsetTop - body.clientHeight / 2 + atm.offsetHeight / 2);
     }
-    if (maxPainEl) maxPainEl.textContent = maxPainStrike !== null ? formatNumber(maxPainStrike) : "--";
+  }
+
+  // Like Kite, the header, expiries and column names stay put and only the
+  // strikes scroll: size the rows' own scroll area to the space left on
+  // screen above the footer (and the app's bottom nav on phones).
+  function sizeImStockOptionsBody() {
+    const body = document.getElementById("im-stock-options-body");
+    const footer = document.querySelector("#im-stock-options .oc-footer");
+    if (!body || !document.getElementById("im-stock-options")?.classList.contains("active")) return;
+    const nav = document.querySelector(".indian-market-mode .sidebar");
+    const navCovers = nav && getComputedStyle(nav).position === "fixed" && nav.getBoundingClientRect().top > window.innerHeight / 2;
+    const reserved = (footer?.offsetHeight || 0) + (navCovers ? nav.offsetHeight : 0) + 16;
+    const top = body.getBoundingClientRect().top + window.scrollY;
+    body.style.maxHeight = `${Math.max(240, window.innerHeight - top - reserved)}px`;
+  }
+  window.addEventListener("resize", sizeImStockOptionsBody);
+
+  // Live spot price + day change for the search bar, from the same quote
+  // endpoints the rest of the app polls (both cached 2s server-side).
+  async function loadStockOptionUnderlyingQuote() {
+    const symbol = imStockOptionsSymbol;
+    if (!symbol) return;
+    try {
+      let row = null;
+      if (IM_MCX_FUTURES_PATTERN.test(symbol)) {
+        const res = await fetch(`${API_BASE_URL}/api/commodities`).then((r) => r.json());
+        row = (res?.data || []).find((item) => item.trading_symbol === symbol) || null;
+      } else {
+        const res = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(symbol)}`).then((r) => r.json());
+        row = (res?.data || []).find((item) => item.symbol === symbol) || null;
+      }
+      if (!row || symbol !== imStockOptionsSymbol) return;
+      const price = Number(row.last_price);
+      const pct = Number(row.change_percent);
+      const spotEl = document.getElementById("im-stock-options-spot");
+      const changeEl = document.getElementById("im-stock-options-spot-change");
+      if (spotEl && price > 0) {
+        spotEl.textContent = price.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        spotEl.dataset.live = "1";
+        spotEl.className = Number.isFinite(pct) ? (pct >= 0 ? "oc-up" : "oc-down") : "";
+      }
+      if (changeEl) {
+        if (Number.isFinite(pct) && price > 0) {
+          const abs = price - price / (1 + pct / 100);
+          changeEl.textContent = `${abs >= 0 ? "" : "-"}${formatOptionPrice(Math.abs(abs))} (${Math.abs(pct).toFixed(2)}%)`;
+        } else {
+          changeEl.textContent = "";
+        }
+      }
+    } catch {
+      // Search bar keeps the chain's own spot price.
+    }
   }
 
   async function loadStockOptionChain() {
     if (!imStockOptionsSymbol || !imStockOptionsExpiry) return;
+    const symbol = imStockOptionsSymbol;
+    const expiry = imStockOptionsExpiry;
     const meta = document.getElementById("im-stock-options-meta");
     const body = document.getElementById("im-stock-options-body");
+    loadStockOptionUnderlyingQuote();
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/options/chain/${encodeURIComponent(imStockOptionsSymbol)}?expiry=${encodeURIComponent(imStockOptionsExpiry)}`
+        `${API_BASE_URL}/api/options/chain/${encodeURIComponent(symbol)}?expiry=${encodeURIComponent(expiry)}`
       );
       const result = await response.json();
+      if (symbol !== imStockOptionsSymbol || expiry !== imStockOptionsExpiry) return; // switched meanwhile
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "Option chain request failed.");
       }
@@ -8216,35 +8318,39 @@ async function fetchWatchlist() {
       renderStockOptionChain(result.data);
     } catch (error) {
       console.error("Stock option chain fetch failed:", error);
-      if (meta) meta.textContent = error.message || "Could not load the option chain.";
-      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load the option chain.")}</td></tr>`;
+      if (imStockOptionsLastData) return; // keep the last good chain on a blip
+      if (meta) { meta.hidden = false; meta.textContent = error.message || "Could not load the option chain."; }
+      if (body) body.innerHTML = "";
     }
   }
 
   async function loadStockOptionExpiries() {
-    const select = document.getElementById("im-stock-options-expiry");
     const meta = document.getElementById("im-stock-options-meta");
     const body = document.getElementById("im-stock-options-body");
-    if (!select || !imStockOptionsSymbol) return;
+    if (!imStockOptionsSymbol) return;
+    const symbol = imStockOptionsSymbol;
 
-    meta && (meta.textContent = "Loading expiries...");
-    select.innerHTML = "";
+    if (meta) { meta.hidden = false; meta.textContent = "Loading expiries…"; }
+    imStockOptionsExpiries = [];
+    renderStockOptionExpiries();
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/options/expiries/${encodeURIComponent(imStockOptionsSymbol)}`);
+      const response = await fetch(`${API_BASE_URL}/api/options/expiries/${encodeURIComponent(symbol)}`);
       const result = await response.json();
+      if (symbol !== imStockOptionsSymbol) return;
       if (!response.ok || !result.ok || !Array.isArray(result.expiries) || !result.expiries.length) {
-        throw new Error(result.error || `${imStockOptionsSymbol} does not have listed options.`);
+        throw new Error(result.error || `${symbol} does not have listed options.`);
       }
-
-      select.innerHTML = result.expiries.map((expiry) => `<option value="${escapeHtml(expiry)}">${escapeHtml(expiry)}</option>`).join("");
+      imStockOptionsExpiries = result.expiries;
       imStockOptionsExpiry = result.expiries[0];
-      select.value = imStockOptionsExpiry;
+      imStockOptionsNeedsScroll = true;
+      renderStockOptionExpiries();
+      if (meta) meta.textContent = "Loading option chain…";
       await loadStockOptionChain();
     } catch (error) {
       console.error("Stock option expiries fetch failed:", error);
-      if (meta) meta.textContent = error.message || "Could not load option expiries.";
-      if (body) body.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || "Could not load option expiries.")}</td></tr>`;
+      if (meta) { meta.hidden = false; meta.textContent = error.message || "Could not load option expiries."; }
+      if (body) body.innerHTML = "";
     }
   }
 
@@ -8261,16 +8367,51 @@ async function fetchWatchlist() {
     imStockOptionsTimer = window.setInterval(loadStockOptionChain, 2000);
   }
 
-  function openImStockOptionChainFor(symbol, returnPage) {
+  // Point the page at a symbol and (re)load it — used both when arriving
+  // from a stock sheet and when switching stock from the page's own search.
+  function setImStockOptionSymbol(symbol) {
     imStockOptionsSymbol = symbol;
     imStockOptionsExpiry = null;
+    imStockOptionsExpiries = [];
     imStockOptionsLastData = null;
+    const input = document.getElementById("im-stock-options-search");
+    if (input) {
+      input.value = symbol;
+      // Long contract names (GOLD26DECFUT) shrink instead of being cut off.
+      input.classList.toggle("oc-search-long", symbol.length > 9);
+    }
+    const spotEl = document.getElementById("im-stock-options-spot");
+    const changeEl = document.getElementById("im-stock-options-spot-change");
+    if (spotEl) { spotEl.textContent = "--"; spotEl.className = ""; delete spotEl.dataset.live; }
+    if (changeEl) changeEl.textContent = "";
+    ["im-stock-options-pcr", "im-stock-options-max-pain", "im-stock-options-atm-iv", "im-stock-options-lot"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = "--";
+    });
+    const body = document.getElementById("im-stock-options-body");
+    if (body) body.innerHTML = "";
+    startStockOptionsPolling();
+  }
+
+  function openImStockOptionChainFor(symbol, returnPage) {
     imStockOptionsReturnPage = returnPage || "im-watchlist";
-    const titleEl = document.getElementById("im-stock-options-title");
-    if (titleEl) titleEl.textContent = `${symbol} Options`;
     pushImDrilldown(imStockOptionsReturnPage);
     showPage("im-stock-options");
-    startStockOptionsPolling();
+    window.scrollTo(0, 0);
+    setImStockOptionSymbol(symbol);
+  }
+
+  function setImStockOptionsMode(mode) {
+    imStockOptionsMode = mode === "greeks" ? "greeks" : "oi";
+    const card = document.getElementById("im-stock-options-card");
+    card?.classList.toggle("oc-mode-greeks", imStockOptionsMode === "greeks");
+    card?.classList.toggle("oc-mode-oi", imStockOptionsMode === "oi");
+    document.querySelectorAll("#im-stock-options .oc-tab").forEach((tab) => {
+      const on = tab.dataset.ocMode === imStockOptionsMode;
+      tab.classList.toggle("active", on);
+      tab.setAttribute("aria-selected", String(on));
+    });
+    if (imStockOptionsLastData) renderStockOptionChain(imStockOptionsLastData);
   }
 
   document.getElementById("im-stock-options-back-btn")?.addEventListener("click", () => {
@@ -8279,21 +8420,79 @@ async function fetchWatchlist() {
     showPage(imStockOptionsReturnPage);
   });
 
-  document.getElementById("im-stock-options-strike-range")?.addEventListener("change", (event) => {
-    imStockOptionsStrikeRange = event.target.value;
-    if (imStockOptionsLastData) renderStockOptionChain(imStockOptionsLastData);
+  document.querySelectorAll("#im-stock-options .oc-tab").forEach((tab) => {
+    tab.addEventListener("click", () => setImStockOptionsMode(tab.dataset.ocMode));
   });
 
-  document.getElementById("im-stock-options-expiry")?.addEventListener("change", (event) => {
-    imStockOptionsExpiry = event.target.value;
+  document.getElementById("im-stock-options-expiries")?.addEventListener("click", (event) => {
+    const chip = event.target.closest(".oc-expiry");
+    if (!chip || chip.dataset.expiry === imStockOptionsExpiry) return;
+    imStockOptionsExpiry = chip.dataset.expiry;
+    imStockOptionsLastData = null;
+    imStockOptionsNeedsScroll = true;
+    renderStockOptionExpiries();
+    const body = document.getElementById("im-stock-options-body");
+    const meta = document.getElementById("im-stock-options-meta");
+    if (body) body.innerHTML = "";
+    if (meta) { meta.hidden = false; meta.textContent = "Loading option chain…"; }
     loadStockOptionChain();
   });
 
+  // Search bar: type another stock to switch the chain to it.
+  (function setupImStockOptionsSearch() {
+    const input = document.getElementById("im-stock-options-search");
+    const resultsEl = document.getElementById("im-stock-options-search-results");
+    if (!input || !resultsEl) return;
+    let debounce = null;
+    let results = [];
+    const hide = () => { resultsEl.hidden = true; resultsEl.innerHTML = ""; results = []; };
+    const pick = (symbol) => {
+      hide();
+      input.blur();
+      if (symbol && symbol !== imStockOptionsSymbol) setImStockOptionSymbol(symbol);
+      else input.value = imStockOptionsSymbol || "";
+    };
+    input.addEventListener("focus", () => input.select());
+    input.addEventListener("input", () => {
+      const query = input.value.trim();
+      window.clearTimeout(debounce);
+      if (!query) { hide(); return; }
+      debounce = window.setTimeout(async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=10`).then((r) => r.json());
+          results = Array.isArray(res?.data) ? res.data : [];
+          resultsEl.innerHTML = results.length
+            ? results.map((item, i) => `<div class="im-watchlist-search-item" data-index="${i}"><strong>${escapeHtml(item.symbol)}</strong><span>${escapeHtml(item.name || "")}</span></div>`).join("")
+            : `<div class="im-watchlist-search-empty">No matching NSE stocks found.</div>`;
+          resultsEl.hidden = false;
+        } catch {
+          hide();
+        }
+      }, 250);
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        pick(results[0]?.symbol || input.value.trim().toUpperCase());
+      } else if (event.key === "Escape") {
+        pick(null);
+      }
+    });
+    input.addEventListener("blur", () => window.setTimeout(() => {
+      if (!resultsEl.matches(":hover")) { hide(); input.value = imStockOptionsSymbol || ""; }
+    }, 150));
+    resultsEl.addEventListener("mousedown", (event) => event.preventDefault());
+    resultsEl.addEventListener("click", (event) => {
+      const item = event.target.closest(".im-watchlist-search-item");
+      if (item) pick(results[Number(item.dataset.index)]?.symbol);
+    });
+  })();
+
   // Delegated (not attached per-cell) since renderStockOptionChain() fully
-  // replaces the tbody on every 2s poll — a direct per-cell listener would
+  // replaces the rows on every 2s poll — a direct per-cell listener would
   // be destroyed on the very next render.
   document.getElementById("im-stock-options-body")?.addEventListener("click", (event) => {
-    const cell = event.target.closest(".im-options-tradable-cell");
+    const cell = event.target.closest(".oc-tradable");
     if (!cell) return;
     openImWatchlistActionSheet(cell.dataset.tradingSymbol, cell.dataset.ltp, {
       isOptionLeg: true,
