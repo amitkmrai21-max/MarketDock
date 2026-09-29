@@ -4328,6 +4328,13 @@ function clearLiveChartAiOverlay() {
   const brandSubtitle = document.getElementById("brandSubtitle");
   const statusBadge = document.getElementById("topMarketStatus");
   const statusText = document.getElementById("topMarketStatusText");
+  if (indianRoot) {
+    indianRoot.hidden = false;
+    document.body.classList.add("mode-indian-live-status");
+    if (window.IndianMarketMode) window.IndianMarketMode.start();
+    if (typeof window.loadImDashboardSparklines === "function") window.loadImDashboardSparklines();
+    if (typeof window.redrawMoverSparklines === "function") window.redrawMoverSparklines();
+  }
   if (!btcRoot || !indianRoot || !slider) return;
 
   function setMode(mode) {
