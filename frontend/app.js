@@ -5688,14 +5688,11 @@ function clearLiveChartAiOverlay() {
 
     plan.innerHTML = rows
       .map(([label, value]) => {
-        const valueHtml =
-          label === "Decision"
-            ? `<span class="${decisionClass(String(value))}">${escapeHtml(value)}</span>`
-            : escapeHtml(value);
+        const strongClass = label === "Decision" ? decisionClass(String(value)) : "";
         return `
           <div class="trade-plan-row">
             <span>${escapeHtml(label)}</span>
-            <strong>${valueHtml}</strong>
+            <strong class="${strongClass}">${escapeHtml(value)}</strong>
           </div>
         `;
       })
