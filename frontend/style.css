@@ -11129,3 +11129,16 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-used .im-funds-used-a
   font-size: 1em;
   color: #a78bfa;
 }
+
+/* Stock Detail: AI write-up appears inline under "Get AI Analysis". */
+#im-stock-detail-ai-status {
+  margin-top: 12px;
+}
+.im-stock-detail-ai {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--im-border, rgba(255, 255, 255, 0.08));
+}
+#im-stock-detail-news {
+  margin-top: 22px;
+}
