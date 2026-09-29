@@ -4535,7 +4535,11 @@ function clearLiveChartAiOverlay() {
     },
     "im-broker-account": {
       title: "Positions",
-      subtitle: "Your paper-trading portfolio's open positions and order book. No real money, no broker account."
+      subtitle: "Intraday, F&O and commodity positions plus the order book. Paper trading — no real money."
+    },
+    "im-holdings": {
+      title: "Holdings",
+      subtitle: "Longterm (CNC) and MTF stocks you hold. Today's buys move here after the market closes."
     }
   };
 
@@ -4706,7 +4710,7 @@ function clearLiveChartAiOverlay() {
       stopDashboardMoversPolling();
     }
 
-    if (pageId === "im-broker-account" && typeof loadBrokerAccountPage === "function") {
+    if ((pageId === "im-broker-account" || pageId === "im-holdings") && typeof loadBrokerAccountPage === "function") {
       loadBrokerAccountPage();
     }
 
@@ -5460,13 +5464,23 @@ function clearLiveChartAiOverlay() {
 
       if (trade.status !== "open") return;
 
-      if (trade.product === "MIS" && now >= imIstCutoff(trade.createdAt || trade.filledAt || now, 15, 20)) {
-        imCloseTrade(trade, price, "Auto square-off (Intraday)");
-        recordImSystemExit(trades, trade, price, "Auto square-off (Intraday)");
+      // Intraday (MIS) square-off: 3:20 PM IST for NSE, 11:25 PM for MCX
+      // (its evening session runs later). If the app wasn't open at that
+      // moment, the square-off happens on the next tick — at the session's
+      // closing price if a new trading day has started since, not today's
+      // live price.
+      const isMcx = trade.segment === "MCX" || IM_MCX_FUTURES_PATTERN.test(String(trade.index || ""));
+      const squareOffAt = imIstCutoff(trade.createdAt || trade.filledAt || now, isMcx ? 23 : 15, isMcx ? 25 : 20);
+      if (trade.product === "MIS" && now >= squareOffAt) {
+        const previousClose = Number(data.previousClose);
+        const newSession = imIstDayKey(now) !== imIstDayKey(squareOffAt);
+        const exitPrice = newSession && previousClose > 0 ? previousClose : price;
+        imCloseTrade(trade, exitPrice, "Auto square-off (Intraday)");
+        recordImSystemExit(trades, trade, exitPrice, "Auto square-off (Intraday)");
         changed = true;
         notifications.push({
           title: `${imTradeMarketLabel(marketKey)} Intraday Square-off`,
-          body: `${trade.direction} ${trade.qty} squared off at ${formatNumber(price)}. P&L: ${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}.`,
+          body: `${trade.direction} ${trade.qty} squared off at ${formatNumber(exitPrice)}. P&L: ${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}.`,
           tag: `im-paper-sqoff-${trade.createdAt || trade.entry}-${trade.qty}`
         });
         return;
@@ -10160,14 +10174,27 @@ async function fetchWatchlist() {
   // One row per symbol + product + side, like a broker's net position:
   // several Buy orders of the same stock show as one position at their
   // weighted average price.
+  // A delivery buy (Longterm CNC / MTF) is a position on the day it's
+  // bought and becomes a holding once that day's 3:30 PM IST close passes,
+  // the way a broker settles it into Holdings.
+  function isImSettledHolding(trade, now = Date.now()) {
+    const product = trade.product || "";
+    if (trade.direction !== "Buy" || (product !== "CNC" && product !== "MTF")) return false;
+    const boughtAt = trade.filledAt || trade.createdAt;
+    if (!Number.isFinite(boughtAt)) return true;
+    return now >= imIstCutoff(boughtAt, 15, 30);
+  }
+
   function getOpenPositionRows() {
     const groups = new Map();
+    const now = Date.now();
     loadTrades().forEach((trade) => {
       if (trade.status !== "open") return;
       const product = trade.product || "";
-      const key = `${trade.index}|${product}|${trade.direction}`;
+      const holding = isImSettledHolding(trade, now);
+      const key = `${trade.index}|${product}|${trade.direction}|${holding ? "H" : "P"}`;
       const qty = Number(trade.qty) || 0;
-      const group = groups.get(key) || { key, trade, product, qty: 0, cost: 0 };
+      const group = groups.get(key) || { key, trade, product, holding, qty: 0, cost: 0 };
       group.qty += qty;
       group.cost += Number(trade.entry) * qty;
       groups.set(key, group);
@@ -10185,10 +10212,7 @@ async function fetchWatchlist() {
       const productCode = group.product || "MIS";
       return {
         key: group.key,
-        // Delivery buys (Longterm CNC / MTF) are Holdings; intraday and
-        // F&O/commodity carryforward are Positions — the same split a
-        // broker app makes.
-        isHolding: isBuy && (productCode === "CNC" || productCode === "MTF"),
+        isHolding: group.holding,
         symbolKey: trade.index,
         symbol: imTradeMarketLabel(trade.index),
         productCode,
@@ -10261,7 +10285,11 @@ async function fetchWatchlist() {
     const countSubEl = document.getElementById("im-pos-day-pnl-pct");
     const totalCls = totalPnl >= 0 ? "im-change-up" : "im-change-down";
 
-    if (totalEl) { totalEl.textContent = `${totalPnl >= 0 ? "+" : ""}${formatNumber(totalPnl)}`; totalEl.className = `im-pos-summary-value ${totalCls}`; }
+    // Big figures drop the paise so they fit the card on one line.
+    const totalText = Math.abs(totalPnl) >= 10000
+      ? Math.round(totalPnl).toLocaleString("en-IN")
+      : formatNumber(totalPnl);
+    if (totalEl) { totalEl.textContent = `${totalPnl >= 0 ? "+" : ""}${totalText}`; totalEl.className = `im-pos-summary-value ${totalCls}`; }
 
     const invested = rows.reduce((sum, r) => sum + r.avgPrice * r.quantity, 0);
     const totalPct = invested ? (totalPnl / invested) * 100 : null;
@@ -10275,16 +10303,16 @@ async function fetchWatchlist() {
   }
 
   // Which part of the Positions page is on screen, from the filter pills:
-  // ALL shows positions, holdings and the order book together; EQ/FO/MCX
-  // show just that segment's positions; HOLDINGS / ORDERS show only that.
+  // ALL shows positions and the order book together; EQ/FO/MCX show just
+  // that segment's positions; ORDERS shows only the order book. Holdings
+  // has its own page (im-holdings).
   function applyImPosView() {
     const view = imPosActiveSegment;
     const show = (id, visible) => {
       const el = document.getElementById(id);
       if (el) el.hidden = !visible;
     };
-    show("im-pos-positions-section", view === "ALL" || view === "EQ" || view === "FO" || view === "MCX");
-    show("im-pos-holdings-section", view === "ALL" || view === "HOLDINGS");
+    show("im-pos-positions-section", view !== "ORDERS");
     show("im-pos-orders-section", view === "ALL" || view === "ORDERS");
   }
 
@@ -10339,11 +10367,12 @@ async function fetchWatchlist() {
     const segmentView = imPosActiveSegment === "EQ" || imPosActiveSegment === "FO" || imPosActiveSegment === "MCX";
 
     const positions = rows.filter((r) => !r.isHolding && matchesSearch(r) && (!segmentView || r.segment === imPosActiveSegment));
-    const holdings = rows.filter((r) => r.isHolding && matchesSearch(r));
+    const holdingsSearch = (document.getElementById("im-holdings-search-input")?.value || "").trim().toUpperCase();
+    const holdings = rows.filter((r) => r.isHolding && (!holdingsSearch || r.symbol.toUpperCase().includes(holdingsSearch)));
     const allClosedToday = getClosedTodayRows(rows);
     const closedToday = allClosedToday.filter((r) => matchesSearch(r) && (!segmentView || r.segment === imPosActiveSegment));
 
-    renderPositionsSummary(rows, allClosedToday);
+    renderPositionsSummary(rows.filter((r) => !r.isHolding), allClosedToday);
     renderImHoldings(rows.filter((r) => r.isHolding));
     applyImPosView();
 
@@ -10374,7 +10403,7 @@ async function fetchWatchlist() {
     if (holdingsEl) {
       holdingsEl.innerHTML = holdings.length
         ? holdings.map(imPositionCardHtml).join("")
-        : `<p class="settings-help">No holdings yet. Buy with Longterm (CNC) or MTF and the stock shows up here.</p>`;
+        : `<p class="settings-help">No holdings yet. Buy with Longterm (CNC) or MTF — the stock moves here after the market closes (3:30 PM).</p>`;
     }
   }
 
@@ -10420,6 +10449,7 @@ async function fetchWatchlist() {
     });
   });
 
+  document.getElementById("im-holdings-search-input")?.addEventListener("input", renderPositionsList);
   document.getElementById("im-pos-search-input")?.addEventListener("input", () => {
     renderPositionsList();
     renderBrokerOrdersList();
@@ -10532,7 +10562,8 @@ async function fetchWatchlist() {
   // Refreshes the Positions list's live P&L on every price tick, but only
   // while that page is actually on screen.
   function refreshBrokerPositionsIfVisible() {
-    if (document.getElementById("im-broker-account")?.classList.contains("active")) {
+    const isActive = (id) => document.getElementById(id)?.classList.contains("active");
+    if (isActive("im-broker-account") || isActive("im-holdings")) {
       renderPositionsList();
       renderBrokerOrdersList();
     }
@@ -10579,25 +10610,25 @@ async function fetchWatchlist() {
     if (stockSymbols.size) {
       jobs.push(getJson(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent([...stockSymbols].join(","))}`)
         .then((res) => (res?.ok ? res.data || [] : []).forEach((row) => {
-          if (stockSymbols.has(row.symbol)) checkImPaperTrades(row.symbol, { price: row.last_price });
+          if (stockSymbols.has(row.symbol)) checkImPaperTrades(row.symbol, { price: row.last_price, previousClose: row.previous_close });
         })));
     }
     if (indexKeys.size) {
       jobs.push(getJson(`${API_BASE_URL}/api/index-quotes`)
         .then((res) => (res?.ok ? res.data || [] : []).forEach((row) => {
-          if (indexKeys.has(row.symbol)) checkImPaperTrades(row.symbol, { price: row.last_price });
+          if (indexKeys.has(row.symbol)) checkImPaperTrades(row.symbol, { price: row.last_price, previousClose: row.previous_close });
         })));
     }
     if (symbolsByInstrumentKey.size) {
       jobs.push(getJson(`${API_BASE_URL}/api/ltp?instrument_keys=${encodeURIComponent([...symbolsByInstrumentKey.keys()].join(","))}`)
         .then((res) => (res?.ok ? res.data || [] : []).forEach((row) => {
-          (symbolsByInstrumentKey.get(row.symbol) || []).forEach((symbol) => checkImPaperTrades(symbol, { price: row.last_price }));
+          (symbolsByInstrumentKey.get(row.symbol) || []).forEach((symbol) => checkImPaperTrades(symbol, { price: row.last_price, previousClose: row.previous_close }));
         })));
     }
     if (mcxSymbols.size) {
       jobs.push(getJson(`${API_BASE_URL}/api/commodities`)
         .then((res) => (res?.ok ? res.data || [] : []).forEach((row) => {
-          if (mcxSymbols.has(row.trading_symbol)) checkImPaperTrades(row.trading_symbol, { price: row.last_price });
+          if (mcxSymbols.has(row.trading_symbol)) checkImPaperTrades(row.trading_symbol, { price: row.last_price, previousClose: row.previous_close });
         })));
     }
 
