@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v61">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v62">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1288,6 +1288,11 @@
         <button class="nav-button" data-page="im-broker-account" type="button">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 10l9-6 9 6M5 10v9h14v-9M9 19v-5h6v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           Positions
+        </button>
+
+        <button class="nav-button" data-page="im-holdings" type="button">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2M3 12h18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          Holdings
         </button>
 
         <button class="nav-button" data-page="im-fo" type="button">
@@ -3188,6 +3193,18 @@
         </div>
       </section>
 
+      <section class="page" id="im-holdings">
+        <div class="im-holdings-summary">
+          <div><span>Invested</span><strong id="im-holdings-invested">--</strong></div>
+          <div><span>Current value</span><strong id="im-holdings-current">--</strong></div>
+          <div><span>Total P&amp;L</span><strong id="im-holdings-pnl">--</strong></div>
+        </div>
+        <div class="im-pos-search-row">
+          <input type="text" id="im-holdings-search-input" class="im-pos-search-input" placeholder="Search holdings" autocomplete="off" />
+        </div>
+        <div id="im-holdings-list" class="im-pos-list"></div>
+      </section>
+
       <section class="page" id="im-broker-account">
         <div id="im-broker-connected-content">
           <div class="im-pos-summary-row">
@@ -3217,7 +3234,6 @@
             <button type="button" class="im-pos-filter-pill" data-segment="EQ">Equity</button>
             <button type="button" class="im-pos-filter-pill" data-segment="FO">F&amp;O</button>
             <button type="button" class="im-pos-filter-pill" data-segment="MCX">Commodity</button>
-            <button type="button" class="im-pos-filter-pill" data-segment="HOLDINGS">Holdings</button>
             <button type="button" class="im-pos-filter-pill" data-segment="ORDERS">Order Book</button>
           </div>
 
@@ -3226,16 +3242,6 @@
           <section class="im-pos-view-section" id="im-pos-positions-section">
             <h3 class="im-section-label">Positions</h3>
             <div id="im-pos-list" class="im-pos-list"></div>
-          </section>
-
-          <section class="im-pos-view-section" id="im-pos-holdings-section">
-            <h3 class="im-section-label">Holdings</h3>
-            <div class="im-holdings-summary">
-              <div><span>Invested</span><strong id="im-holdings-invested">--</strong></div>
-              <div><span>Current value</span><strong id="im-holdings-current">--</strong></div>
-              <div><span>Total P&amp;L</span><strong id="im-holdings-pnl">--</strong></div>
-            </div>
-            <div id="im-holdings-list" class="im-pos-list"></div>
           </section>
 
           <article class="card section-card im-pos-view-section" id="im-pos-orders-section">
@@ -3912,7 +3918,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v52"></script>
+  <script src="/frontend/app.js?v=v20260927v53"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

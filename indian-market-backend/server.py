@@ -3170,6 +3170,7 @@ def commodities():
                     "expiry": contracts[commodity_key]["expiry"],
                     "lot_size": contracts[commodity_key].get("lot_size"),
                     "last_price": last_price,
+                    "previous_close": previous_close,
                     "change_percent": change_percent,
                 }
             )

@@ -11081,6 +11081,9 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-available {
   font-size: clamp(14px, 4.1vw, 20px);
   overflow-wrap: anywhere;
 }
+.indian-market-mode #im-pos-total-pnl {
+  white-space: nowrap;
+}
 #im-broker-orders-filter-row {
   flex-wrap: wrap;
   overflow-x: visible;
@@ -11118,4 +11121,9 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-used .im-funds-used-a
 }
 .im-pos-card-closed .im-pos-pnl-pct {
   color: var(--im-muted, #8b93a8);
+}
+
+/* Holdings page: summary sits at the top of the page itself now. */
+#im-holdings .im-holdings-summary {
+  margin: 4px 0 12px;
 }
