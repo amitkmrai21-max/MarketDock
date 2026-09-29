@@ -7005,6 +7005,16 @@ body.im-chart-fullscreen-open {
 .indian-market-mode .trade-plan-list {
   display: grid;
   gap: 10px;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+/* Live decision has dropped back to plain WAIT: still showing the last
+   confirmed BUY/SELL plan (see renderTradePlan), just faded to signal it
+   is no longer an active setup. Snaps back to full opacity the moment a
+   fresh confirmed setup arrives. */
+.indian-market-mode .trade-plan-list.trade-plan-stale {
+  opacity: 0.45;
 }
 
 .indian-market-mode .trade-plan-row {
