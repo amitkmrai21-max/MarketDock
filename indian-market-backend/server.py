@@ -1378,6 +1378,16 @@ def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
 MCX_FUTURES_SYMBOL_PATTERN = re.compile(r"^[A-Z]+\d{2}[A-Z]{3}FUT$")
 
 
+def find_lot_size_by_instrument_key(instrument_key):
+    """Lot size by exact instrument_key — stable across Upstox's two trading
+    symbol formats (the option-chain API's "HINDUNILVR 1860 CE 28 OCT 25"
+    vs the instrument master's compact form), unlike a symbol lookup."""
+    for row in get_instrument_master_rows():
+        if row.get("instrument_key") == instrument_key:
+            return _parse_int(row.get("lot_size"))
+    return None
+
+
 def find_lot_size_by_trading_symbol(trading_symbol):
     """Fallback lot-size lookup by exact trading symbol, across any
     exchange/segment in the instrument master — used when a caller (e.g.
@@ -2473,15 +2483,22 @@ def option_chain(market_key):
         # (not guaranteed across segments), one instrument-master lookup
         # for any single leg's trading symbol covers the whole chain.
         if rows and rows[0]["call"].get("lot_size") is None:
+            sample_key = rows[0]["call"].get("instrument_key") or rows[0]["put"].get("instrument_key")
             sample_symbol = rows[0]["call"].get("trading_symbol") or rows[0]["put"].get("trading_symbol")
-            if sample_symbol:
-                fallback_lot_size = find_lot_size_by_trading_symbol(sample_symbol)
-                if fallback_lot_size is not None:
-                    for row in rows:
-                        if row["call"].get("lot_size") is None:
-                            row["call"]["lot_size"] = fallback_lot_size
-                        if row["put"].get("lot_size") is None:
-                            row["put"]["lot_size"] = fallback_lot_size
+            fallback_lot_size = None
+            try:
+                if sample_key:
+                    fallback_lot_size = find_lot_size_by_instrument_key(sample_key)
+                if fallback_lot_size is None and sample_symbol:
+                    fallback_lot_size = find_lot_size_by_trading_symbol(sample_symbol)
+            except Exception as error:
+                app.logger.warning("Lot size fallback failed for %s: %s", market_key, error)
+            if fallback_lot_size is not None:
+                for row in rows:
+                    if row["call"].get("lot_size") is None:
+                        row["call"]["lot_size"] = fallback_lot_size
+                    if row["put"].get("lot_size") is None:
+                        row["put"]["lot_size"] = fallback_lot_size
 
         total_call_oi = sum((row["call"].get("oi") or 0) for row in rows)
         total_put_oi = sum((row["put"].get("oi") or 0) for row in rows)

@@ -8188,7 +8188,7 @@ async function fetchWatchlist() {
     const iv = Number(leg.iv);
     const delta = Number(leg.delta);
     const outer = imStockOptionsMode === "greeks"
-      ? `<span class="oc-main">${Number.isFinite(iv) && iv > 0 ? iv.toFixed(2) : "--"}</span><span class="oc-sub">Δ ${Number.isFinite(delta) ? delta.toFixed(2) : "--"}</span>`
+      ? `<span class="oc-main">${Number.isFinite(iv) && iv > 0 && iv < 300 ? iv.toFixed(2) : "--"}</span><span class="oc-sub">Δ ${Number.isFinite(delta) ? delta.toFixed(2) : "--"}</span>`
       : `<span class="oc-main">${formatOiLakhs(leg.oi)}</span>${optionChangeHtml(leg.oi, leg.prev_oi)}`;
     const outerCell = `<div class="oc-cell oc-${side} oc-oi${itmCls}">${outer}</div>`;
     const ltpInner = `<span class="oc-main">${formatOptionPrice(leg.ltp)}</span>${optionChangeHtml(leg.ltp, leg.close_price)}`;
@@ -8248,7 +8248,9 @@ async function fetchWatchlist() {
     const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
     setText("im-stock-options-pcr", Number.isFinite(pcr) ? pcr.toFixed(2) : "--");
     setText("im-stock-options-max-pain", maxPainStrike !== null ? formatStrike(maxPainStrike) : "--");
-    const atmIvs = atmRow ? [Number(atmRow.call?.iv), Number(atmRow.put?.iv)].filter((v) => Number.isFinite(v) && v > 0) : [];
+    // Upstox reports placeholder IVs (0, or hundreds) for illiquid legs —
+    // only a plausible IV counts towards the ATM figure.
+    const atmIvs = atmRow ? [Number(atmRow.call?.iv), Number(atmRow.put?.iv)].filter((v) => Number.isFinite(v) && v > 0 && v < 300) : [];
     setText("im-stock-options-atm-iv", atmIvs.length ? (atmIvs.reduce((a, b) => a + b, 0) / atmIvs.length).toFixed(2) : "--");
     const lotRow = rows.find((row) => Number(row.call?.lot_size) > 0 || Number(row.put?.lot_size) > 0);
     const lot = lotRow ? Number(lotRow.call?.lot_size) || Number(lotRow.put?.lot_size) : null;
