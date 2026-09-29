@@ -9407,13 +9407,13 @@ async function fetchWatchlist() {
 
   function computeScannerFiltered(quotes) {
     if (imScannerFilter === "losers") {
-      return quotes.slice().sort((a, b) => a.change_percent - b.change_percent);
+      return quotes.filter((q) => q.change_percent < 0).sort((a, b) => a.change_percent - b.change_percent);
     } else if (imScannerFilter === "strong_bullish") {
       return quotes.filter((q) => q.ai_label === "Strong Bullish").sort((a, b) => b.change_percent - a.change_percent);
     } else if (imScannerFilter === "strong_bearish") {
       return quotes.filter((q) => q.ai_label === "Strong Bearish").sort((a, b) => a.change_percent - b.change_percent);
     }
-    return quotes.slice().sort((a, b) => b.change_percent - a.change_percent);
+    return quotes.filter((q) => q.change_percent > 0).sort((a, b) => b.change_percent - a.change_percent);
   }
 
   function applyScannerFilterAndRender(quotes, forceResort = false) {
@@ -9560,21 +9560,6 @@ async function fetchWatchlist() {
       loadScanner();
     });
   });
-
-  const imScannerRefreshBtn = document.getElementById("im-scanner-refresh-btn");
-  if (imScannerRefreshBtn) {
-    imScannerRefreshBtn.hidden = false;
-    imScannerRefreshBtn.addEventListener("click", () => {
-      if (imScannerUniverse === "ALL") {
-        loadScanner();
-      } else if (imScannerLastQuotes.length) {
-        // Non-ALL universes already have fresh-within-2s data from the
-        // background poll — a manual refresh just needs to re-rank it
-        // immediately rather than waiting for the 25s auto-resort.
-        applyScannerFilterAndRender(imScannerLastQuotes, true);
-      }
-    });
-  }
 
   function startScannerPolling() {
     loadScanner();
