@@ -11127,3 +11127,11 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-used .im-funds-used-a
 #im-holdings .im-holdings-summary {
   margin: 4px 0 12px;
 }
+
+/* Small arrow in front of the AI summary disclaimer. */
+.disclaimer-arrow {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 1em;
+  color: #a78bfa;
+}
