@@ -4493,10 +4493,6 @@ function clearLiveChartAiOverlay() {
       title: "Stock Detail",
       subtitle: "Live chart, technicals, and recent news for any NSE stock in one place."
     },
-    "im-fo": {
-      title: "F&O Watchlist",
-      subtitle: "Live last-traded price for liquid, derivatives-eligible NSE stocks."
-    },
     "im-commodities": {
       title: "Commodities (MCX)",
       subtitle: "Current-month MCX futures for Gold, Silver, Crude Oil, Natural Gas, Copper, Zinc, and Aluminium."
@@ -4618,12 +4614,6 @@ function clearLiveChartAiOverlay() {
       if (typeof startWatchlistPolling === "function") startWatchlistPolling();
     } else if (typeof stopWatchlistPolling === "function") {
       stopWatchlistPolling();
-    }
-
-    if (pageId === "im-fo") {
-      if (typeof startFoWatchlistPolling === "function") startFoWatchlistPolling();
-    } else if (typeof stopFoWatchlistPolling === "function") {
-      stopFoWatchlistPolling();
     }
 
     if (pageId !== "im-stock-options" && typeof stopStockOptionsPolling === "function") {
@@ -8074,78 +8064,6 @@ async function fetchWatchlist() {
   })();
 
   setupImWatchlistControls();
-
-  // A curated, liquid subset of NSE F&O-eligible stocks across sectors (not the
-  // complete ~180-stock F&O universe) — reuses the existing /api/watchlist
-  // endpoint's ?symbols= parameter, same as the plain Watchlist page.
-  const FO_WATCHLIST_SYMBOLS = [
-    "RELIANCE", "HDFCBANK", "ICICIBANK", "INFY", "TCS", "SBIN", "AXISBANK",
-    "KOTAKBANK", "BHARTIARTL", "ITC", "LT", "HINDUNILVR", "BAJFINANCE",
-    "MARUTI", "TATAMOTORS", "TATASTEEL", "SUNPHARMA", "TITAN", "ADANIENT",
-    "ULTRACEMCO", "WIPRO", "ONGC", "NTPC", "POWERGRID", "ASIANPAINT",
-    "HDFCLIFE", "JSWSTEEL", "HINDALCO", "COALINDIA", "BAJAJFINSV"
-  ];
-
-  function renderFoWatchlist(rows) {
-    const body = document.getElementById("im-fo-body");
-    const status = document.getElementById("im-fo-status");
-    if (!body) return;
-
-    if (!Array.isArray(rows) || !rows.length) {
-      body.innerHTML = `<tr><td colspan="2">No F&amp;O watchlist data available right now.</td></tr>`;
-      if (status) {
-        status.hidden = false;
-        status.textContent = "Unavailable";
-      }
-      return;
-    }
-
-    body.innerHTML = rows
-      .map(
-        (row) => `
-          <tr>
-            <td>${escapeHtml(row.symbol)}</td>
-            <td>${formatNumber(row.last_price)}</td>
-          </tr>
-        `
-      )
-      .join("");
-
-    if (status) status.hidden = true;
-  }
-
-  async function fetchFoWatchlist() {
-    const status = document.getElementById("im-fo-status");
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${FO_WATCHLIST_SYMBOLS.join(",")}`);
-      const result = await response.json();
-      if (!response.ok || !result.ok) {
-        throw new Error(result.error || "F&O watchlist request failed.");
-      }
-      renderFoWatchlist(result.data);
-    } catch (error) {
-      console.error("F&O watchlist fetch failed:", error);
-      if (status) {
-        status.hidden = false;
-        status.textContent = "Unavailable";
-      }
-    }
-  }
-
-  let foWatchlistTimer = null;
-
-  function startFoWatchlistPolling() {
-    if (foWatchlistTimer) return;
-    fetchFoWatchlist();
-    foWatchlistTimer = window.setInterval(fetchFoWatchlist, 2000);
-  }
-
-  function stopFoWatchlistPolling() {
-    if (foWatchlistTimer) {
-      window.clearInterval(foWatchlistTimer);
-      foWatchlistTimer = null;
-    }
-  }
 
   // ===================== Per-stock Option Chain (drill-down from Watchlist) =====================
   // Reached only via the watchlist row action sheet's "Option" button, for
@@ -13984,7 +13902,6 @@ async function fetchWatchlist() {
       stopTechnicalEnginePolling();
       stopLiveChartPolling();
       stopWatchlistPolling();
-      stopFoWatchlistPolling();
       stopCommoditiesPolling();
       stopStockOptionsPolling();
       pauseImReplay();
