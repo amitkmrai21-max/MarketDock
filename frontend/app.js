@@ -9395,31 +9395,63 @@ async function fetchWatchlist() {
       .join("");
   }
 
-  function applyScannerFilterAndRender(quotes) {
-    let filtered;
+  // The ranking itself (row order / which stocks qualify for Strong
+  // Bullish etc.) is locked between resorts — every 2s price tick used to
+  // re-sort too, which made the whole list visually reshuffle every 2
+  // seconds instead of just the numbers updating in place. A resort only
+  // happens on open, a filter/universe change, a manual refresh, or this
+  // interval elapsing in the background.
+  let imScannerSortedOrder = null;
+  let imScannerLastSortAt = 0;
+  const SCANNER_SORT_INTERVAL_MS = 25000;
+
+  function computeScannerFiltered(quotes) {
     if (imScannerFilter === "losers") {
-      filtered = quotes.slice().sort((a, b) => a.change_percent - b.change_percent);
+      return quotes.slice().sort((a, b) => a.change_percent - b.change_percent);
     } else if (imScannerFilter === "strong_bullish") {
-      filtered = quotes.filter((q) => q.ai_label === "Strong Bullish").sort((a, b) => b.change_percent - a.change_percent);
+      return quotes.filter((q) => q.ai_label === "Strong Bullish").sort((a, b) => b.change_percent - a.change_percent);
     } else if (imScannerFilter === "strong_bearish") {
-      filtered = quotes.filter((q) => q.ai_label === "Strong Bearish").sort((a, b) => a.change_percent - b.change_percent);
-    } else {
-      filtered = quotes.slice().sort((a, b) => b.change_percent - a.change_percent);
+      return quotes.filter((q) => q.ai_label === "Strong Bearish").sort((a, b) => a.change_percent - b.change_percent);
     }
-    renderScannerTable(filtered);
+    return quotes.slice().sort((a, b) => b.change_percent - a.change_percent);
   }
 
-  async function loadScanner() {
+  function applyScannerFilterAndRender(quotes, forceResort = false) {
+    const now = Date.now();
+    const needsResort = forceResort || !imScannerSortedOrder || (now - imScannerLastSortAt >= SCANNER_SORT_INTERVAL_MS);
+
+    let rows;
+    if (needsResort) {
+      rows = computeScannerFiltered(quotes);
+      imScannerSortedOrder = rows.map((q) => q.symbol);
+      imScannerLastSortAt = now;
+    } else {
+      const bySymbol = {};
+      quotes.forEach((q) => { bySymbol[q.symbol] = q; });
+      rows = imScannerSortedOrder.map((symbol) => bySymbol[symbol]).filter(Boolean);
+    }
+    renderScannerTable(rows);
+  }
+
+  // isBackgroundPoll: a silent 2s price refresh behind whatever's already
+  // on screen — no "Loading…" wipe (that was flashing the whole table
+  // blank every 2 seconds) and no forced resort (see applyScannerFilterAndRender).
+  // A real (non-background) load — first open, universe/filter change, or
+  // the manual refresh button — still shows the loading state and always
+  // resorts immediately.
+  async function loadScanner(isBackgroundPoll = false) {
     const myToken = ++imScannerLoadToken;
     const statusText = document.getElementById("im-scanner-status-text");
     const liveBadge = document.getElementById("im-scanner-live-badge");
     const body = document.getElementById("im-scanner-body");
     const isAll = imScannerUniverse === "ALL";
 
-    setScannerProgress(0, isAll ? 1 : 0);
-    if (statusText) statusText.textContent = isAll ? "Loading full NSE stock list…" : `Loading ${imScannerUniverse}…`;
-    if (liveBadge) liveBadge.hidden = true;
-    if (body) body.innerHTML = `<tr><td colspan="4">Loading…</td></tr>`;
+    if (!isBackgroundPoll) {
+      setScannerProgress(0, isAll ? 1 : 0);
+      if (statusText) statusText.textContent = isAll ? "Loading full NSE stock list…" : `Loading ${imScannerUniverse}…`;
+      if (liveBadge) liveBadge.hidden = true;
+      if (body) body.innerHTML = `<tr><td colspan="4">Loading…</td></tr>`;
+    }
 
     try {
       let stocks;
@@ -9489,7 +9521,7 @@ async function fetchWatchlist() {
       if (myToken !== imScannerLoadToken) return;
 
       imScannerLastQuotes = allQuotes;
-      applyScannerFilterAndRender(allQuotes);
+      applyScannerFilterAndRender(allQuotes, !isBackgroundPoll);
       setScannerProgress(0, 0);
       if (statusText) {
         statusText.textContent = isAll
@@ -9499,8 +9531,13 @@ async function fetchWatchlist() {
       if (liveBadge) liveBadge.hidden = false;
     } catch (error) {
       console.error("Scanner load failed:", error);
-      if (statusText) statusText.textContent = "Could not load scanner data right now.";
-      if (body) body.innerHTML = `<tr><td colspan="4">Could not load scanner data right now.</td></tr>`;
+      // A background poll failing shouldn't blank out already-good data on
+      // screen with an error message — just skip this tick and try again
+      // on the next one.
+      if (!isBackgroundPoll) {
+        if (statusText) statusText.textContent = "Could not load scanner data right now.";
+        if (body) body.innerHTML = `<tr><td colspan="4">Could not load scanner data right now.</td></tr>`;
+      }
       setScannerProgress(0, 0);
     }
   }
@@ -9510,7 +9547,7 @@ async function fetchWatchlist() {
       document.querySelectorAll(".im-scanner-filter-btn").forEach((b) => b.classList.remove("active"));
       button.classList.add("active");
       imScannerFilter = button.dataset.scannerFilter;
-      if (imScannerLastQuotes.length) applyScannerFilterAndRender(imScannerLastQuotes);
+      if (imScannerLastQuotes.length) applyScannerFilterAndRender(imScannerLastQuotes, true);
     });
   });
 
@@ -9519,16 +9556,23 @@ async function fetchWatchlist() {
       document.querySelectorAll(".im-scanner-universe-btn").forEach((b) => b.classList.remove("active"));
       button.classList.add("active");
       imScannerUniverse = button.dataset.scannerUniverse;
-      const refreshBtn = document.getElementById("im-scanner-refresh-btn");
-      if (refreshBtn) refreshBtn.hidden = imScannerUniverse !== "ALL";
+      imScannerSortedOrder = null;
       loadScanner();
     });
   });
 
   const imScannerRefreshBtn = document.getElementById("im-scanner-refresh-btn");
   if (imScannerRefreshBtn) {
+    imScannerRefreshBtn.hidden = false;
     imScannerRefreshBtn.addEventListener("click", () => {
-      if (imScannerUniverse === "ALL") loadScanner();
+      if (imScannerUniverse === "ALL") {
+        loadScanner();
+      } else if (imScannerLastQuotes.length) {
+        // Non-ALL universes already have fresh-within-2s data from the
+        // background poll — a manual refresh just needs to re-rank it
+        // immediately rather than waiting for the 25s auto-resort.
+        applyScannerFilterAndRender(imScannerLastQuotes, true);
+      }
     });
   }
 
@@ -9538,7 +9582,7 @@ async function fetchWatchlist() {
     // Same reasoning as the heatmap: never auto-poll "All NSE Stocks".
     imScannerTimer = window.setInterval(() => {
       if (imScannerUniverse === "ALL") return;
-      loadScanner();
+      loadScanner(true);
     }, 2000);
   }
 
