@@ -5315,6 +5315,36 @@ function clearLiveChartAiOverlay() {
     trade.pnl = isBuy ? (price - trade.entry) * trade.qty : (trade.entry - price) * trade.qty;
   }
 
+  // An automatic exit (stop-loss, target, intraday square-off) shows up in
+  // the Order Book as its own executed order, the way a broker records the
+  // SL/target order that fired — otherwise a position just vanishes with no
+  // trace of why.
+  function recordImSystemExit(trades, trade, price, reason) {
+    const isStop = /stop/i.test(reason);
+    trades.unshift({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      index: trade.index,
+      direction: trade.direction === "Buy" ? "Sell" : "Buy",
+      orderType: isStop ? "slm" : reason === "Target" ? "limit" : "market",
+      product: trade.product || "",
+      validity: "DAY",
+      segment: trade.segment,
+      instrumentKey: trade.instrumentKey || null,
+      lotSize: trade.lotSize || 1,
+      qty: trade.qty,
+      orderQty: trade.qty,
+      entry: price,
+      triggerPrice: isStop ? trade.currentStop : null,
+      margin: 0,
+      status: "filled",
+      systemExit: reason,
+      createdAt: Date.now(),
+      pnl: null,
+      exitPrice: null,
+      exitReason: null
+    });
+  }
+
   // Open quantity of `symbol`/`product` held on the side opposite `side` —
   // i.e. how much a `side` order would square off rather than open fresh.
   function imOppositeOpenQty(trades, symbol, product, side) {
@@ -5432,6 +5462,7 @@ function clearLiveChartAiOverlay() {
 
       if (trade.product === "MIS" && now >= imIstCutoff(trade.createdAt || trade.filledAt || now, 15, 20)) {
         imCloseTrade(trade, price, "Auto square-off (Intraday)");
+        recordImSystemExit(trades, trade, price, "Auto square-off (Intraday)");
         changed = true;
         notifications.push({
           title: `${imTradeMarketLabel(marketKey)} Intraday Square-off`,
@@ -5461,6 +5492,7 @@ function clearLiveChartAiOverlay() {
 
       if (exitReason) {
         imCloseTrade(trade, price, exitReason);
+        recordImSystemExit(trades, trade, price, exitReason);
         changed = true;
         notifications.push({
           title: `${imTradeMarketLabel(marketKey)} Paper Trade Closed`,
@@ -10177,8 +10209,52 @@ async function fetchWatchlist() {
     });
   }
 
-  function renderPositionsSummary(rows) {
-    const totalPnl = rows.reduce((sum, r) => sum + r.pnl, 0);
+  function imIstDayKey(ts) {
+    return new Date(ts + IST_OFFSET_MS).toISOString().slice(0, 10);
+  }
+
+  // Positions closed today (by stop-loss, target, square-off or Exit), one
+  // row per symbol + product with the day's realized P&L — like a broker's
+  // Positions tab, which keeps a closed position at qty 0 until the day
+  // ends instead of making it disappear.
+  function getClosedTodayRows(openRows) {
+    const today = imIstDayKey(Date.now());
+    const stillOpen = new Set(openRows.map((r) => `${r.symbolKey}|${r.productCode}`));
+    const groups = new Map();
+    loadTrades().forEach((trade) => {
+      if (trade.status !== "closed" || !Number.isFinite(trade.pnl) || !Number.isFinite(trade.closedAt)) return;
+      if (imIstDayKey(trade.closedAt) !== today) return;
+      const productCode = trade.product || "MIS";
+      const key = `${trade.index}|${productCode}`;
+      if (stillOpen.has(key)) return;
+      const group = groups.get(key) || { key, trade, productCode, pnl: 0, closedAt: 0, reason: "", exitPrice: null };
+      group.pnl += trade.pnl;
+      if (trade.closedAt >= group.closedAt) {
+        group.closedAt = trade.closedAt;
+        group.reason = trade.exitReason || "";
+        group.exitPrice = trade.exitPrice;
+      }
+      groups.set(key, group);
+    });
+    return [...groups.values()]
+      .sort((a, b) => b.closedAt - a.closedAt)
+      .map((group) => {
+        const segment = classifyTradeSegment(group.trade);
+        return {
+          symbol: imTradeMarketLabel(group.trade.index),
+          product: IM_PRODUCT_LABELS[group.productCode] || group.productCode,
+          segment,
+          segmentLabel: brokerSegmentLabel(group.trade, segment),
+          pnl: group.pnl,
+          exitPrice: group.exitPrice,
+          reason: group.reason
+        };
+      });
+  }
+
+  function renderPositionsSummary(rows, closedRows = []) {
+    const realizedToday = closedRows.reduce((sum, r) => sum + r.pnl, 0);
+    const totalPnl = rows.reduce((sum, r) => sum + r.pnl, 0) + realizedToday;
     const totalEl = document.getElementById("im-pos-total-pnl");
     const totalPctEl = document.getElementById("im-pos-total-pnl-pct");
     const countEl = document.getElementById("im-pos-day-pnl");
@@ -10264,13 +10340,36 @@ async function fetchWatchlist() {
 
     const positions = rows.filter((r) => !r.isHolding && matchesSearch(r) && (!segmentView || r.segment === imPosActiveSegment));
     const holdings = rows.filter((r) => r.isHolding && matchesSearch(r));
+    const allClosedToday = getClosedTodayRows(rows);
+    const closedToday = allClosedToday.filter((r) => matchesSearch(r) && (!segmentView || r.segment === imPosActiveSegment));
 
-    renderPositionsSummary(rows);
+    renderPositionsSummary(rows, allClosedToday);
     renderImHoldings(rows.filter((r) => r.isHolding));
     applyImPosView();
 
-    listEl.innerHTML = positions.length
-      ? positions.map(imPositionCardHtml).join("")
+    const closedHtml = closedToday.map((r) => {
+      const cls = r.pnl >= 0 ? "im-change-up" : "im-change-down";
+      const how = r.reason ? ` · ${escapeHtml(r.reason)}` : "";
+      return `
+        <div class="im-pos-row im-pos-card im-pos-card-closed" data-segment="${r.segment}">
+          <div class="im-pos-card-left">
+            <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
+            <div class="im-pos-badges">
+              <span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span>
+              <span class="im-pos-badge im-pos-badge-closed">CLOSED</span>
+            </div>
+            <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
+            <div class="im-pos-row-meta">Qty. 0 · Exit ${formatNumber(r.exitPrice)}${how}</div>
+          </div>
+          <div class="im-pos-card-pnl">
+            <span class="im-pos-pnl ${cls}">${r.pnl >= 0 ? "+" : ""}${formatNumber(r.pnl)}</span>
+            <span class="im-pos-pnl-pct">Realized</span>
+          </div>
+        </div>
+      `;
+    }).join("");
+    listEl.innerHTML = positions.length || closedToday.length
+      ? positions.map(imPositionCardHtml).join("") + closedHtml
       : `<p class="settings-help">No open positions right now. Tap a stock or commodity, then Buy or Sell to place a paper order.</p>`;
     if (holdingsEl) {
       holdingsEl.innerHTML = holdings.length
@@ -10355,7 +10454,9 @@ async function fetchWatchlist() {
     const executed = trade.status === "open" || trade.status === "closed" || trade.status === "filled";
     if (executed && trade.orderType !== "limit" && trade.orderType !== "sl" && Number.isFinite(trade.entry)) priceText = ` @ ${formatNumber(trade.entry)}`;
     const product = trade.product ? ` · ${trade.product}` : "";
-    const reason = trade.status === "cancelled" && trade.cancelReason ? ` · ${trade.cancelReason}` : "";
+    const reason = trade.status === "cancelled" && trade.cancelReason
+      ? ` · ${trade.cancelReason}`
+      : trade.systemExit ? ` · ${trade.systemExit}` : "";
     return `${String(trade.direction || "").toUpperCase()} · ${type}${priceText}${product}${reason}`;
   }
 
