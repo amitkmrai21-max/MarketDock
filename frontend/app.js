@@ -4535,7 +4535,7 @@ function clearLiveChartAiOverlay() {
     },
     "im-broker-account": {
       title: "Positions",
-      subtitle: "Your connected Upstox account's open positions, holdings, and today's order book."
+      subtitle: "Your paper-trading portfolio's open positions and order book. No real money, no broker account."
     }
   };
 
@@ -5269,6 +5269,9 @@ function clearLiveChartAiOverlay() {
   function checkImPaperTrades(marketKey, data) {
     const price = Number(data.price);
     if (!Number.isFinite(price)) return;
+
+    imLastKnownPrice[marketKey] = price;
+    if (typeof refreshBrokerPositionsIfVisible === "function") refreshBrokerPositionsIfVisible();
 
     const trades = loadTrades();
     let changed = false;
@@ -9516,135 +9519,94 @@ async function fetchWatchlist() {
     }
   }
 
-  // ===================== My Broker (real account, real orders) =====================
-  // Everything here acts on the signed-in user's OWN connected Upstox
-  // account (see the "Connect your broker" section in Account settings) —
-  // never MarketDock's shared account, and never Paper Trading's virtual
-  // portfolio. Every order is the user's own explicit Buy/Sell click; the
-  // app never decides on its own to place, time, or size a trade.
+  // ===================== Positions / Order Book (paper trading) =====================
+  // Everything here reads the same virtual portfolio as the Paper Trading
+  // Journal (indianMarketPaperTrades in localStorage) — no broker account,
+  // no real money — just presented as a Positions-style list and Order
+  // Book instead of the journal's row-per-trade table. Holdings isn't a
+  // separate view: the app's own pre-existing convention (see the removed
+  // normalizeBrokerRow) already merged Positions+Holdings into one list.
 
-  async function getSupabaseAccessTokenForBroker() {
-    try {
-      const { data } = (await window.marketDockSupabase?.auth.getSession()) || {};
-      return data?.session?.access_token || null;
-    } catch (error) {
-      return null;
-    }
-  }
+  // Populated by checkImPaperTrades() on every live price tick (indices
+  // every 60s, Watchlist stocks every 2s) — the same ticks that already
+  // drive stop/target/trailing-stop checks — so open positions here show
+  // live unrealized P&L without any extra polling of their own.
+  const imLastKnownPrice = {};
 
-  async function brokerApiFetch(path, options = {}) {
-    const token = await getSupabaseAccessTokenForBroker();
-    if (!token) return { ok: false, error: "Please log in to your MarketDock account first." };
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
-      headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` }
-    });
-    return response.json();
-  }
-
-  function renderBrokerRows(bodyId, rows, mapRow) {
-    const body = document.getElementById(bodyId);
-    if (!body) return;
-    if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="3">Nothing to show right now.</td></tr>`;
-      return;
-    }
-    body.innerHTML = rows.map(mapRow).join("");
-  }
-
-  // ---- Positions page: merges live Positions + Holdings into one
-  // searchable, filterable list (matches how a trader actually wants to
-  // scan them together, rather than as two separate tables). ----
-  let imPosAllRows = [];
-  let imPosActiveSegment = "ALL";
-
-  function classifyPositionSegment(exchange, tradingSymbol) {
-    const ex = String(exchange || "").toUpperCase();
-    const sym = String(tradingSymbol || "").toUpperCase();
-    if (ex.includes("FO")) return /(CE|PE)$/.test(sym) ? "OPT" : "FO";
-    return "EQ";
+  function classifyPositionSegment(indexKey) {
+    return IM_TRADE_MARKET_LABELS[indexKey] ? "FO" : "EQ";
   }
 
   function brokerSegmentLabel(segment) {
-    if (segment === "OPT") return "F&O · Options";
-    if (segment === "FO") return "F&O · Futures";
-    return "NSE · Equity";
+    return segment === "FO" ? "Index · Paper" : "NSE · Equity Paper";
   }
 
-  function brokerProductLabel(product) {
-    const p = String(product || "").toUpperCase();
-    if (p === "I") return "MIS";
-    if (p === "D") return "CNC";
-    return p || "--";
-  }
+  let imPosActiveSegment = "ALL";
 
-  function normalizeBrokerRow(row, kind) {
-    const quantity = Number(row.quantity ?? 0);
-    const direction = kind === "holding" ? "BUY" : (quantity < 0 ? "SELL" : "BUY");
-    const segment = classifyPositionSegment(row.exchange, row.trading_symbol || row.tradingsymbol);
-    const pnl = Number(row.pnl ?? 0);
-    const lastPrice = Number(row.last_price ?? 0);
-    const avgPrice = Number(row.average_price ?? 0);
-    const investedValue = Math.abs(avgPrice * quantity) || null;
-    const pnlPct = investedValue ? (pnl / investedValue) * 100 : null;
-    // Holdings carry an explicit per-share day_change from Upstox; a
-    // position opened intraday has no prior-day carry, so its total pnl
-    // already IS today's pnl in the common retail case.
-    const dayPnl = kind === "holding" && Number.isFinite(Number(row.day_change))
-      ? Number(row.day_change) * Math.abs(quantity)
-      : pnl;
+  function getOpenPositionRows() {
+    return loadTrades()
+      .filter((trade) => trade.status === "open")
+      .map((trade) => {
+        const direction = String(trade.direction || "Buy").toUpperCase();
+        const isBuy = direction === "BUY";
+        const segment = classifyPositionSegment(trade.index);
+        const lastPrice = Number.isFinite(imLastKnownPrice[trade.index]) ? imLastKnownPrice[trade.index] : trade.entry;
+        const qty = Number(trade.qty) || 0;
+        const pnl = isBuy ? (lastPrice - trade.entry) * qty : (trade.entry - lastPrice) * qty;
+        const investedValue = Math.abs(trade.entry * qty) || null;
+        const pnlPct = investedValue ? (pnl / investedValue) * 100 : null;
 
-    return {
-      symbol: row.trading_symbol || row.tradingsymbol || "--",
-      direction,
-      product: brokerProductLabel(row.product),
-      segment,
-      segmentLabel: brokerSegmentLabel(segment),
-      quantity: Math.abs(quantity),
-      lastPrice,
-      pnl,
-      pnlPct,
-      dayPnl
-    };
+        return {
+          symbol: imTradeMarketLabel(trade.index),
+          direction,
+          product: trade.orderType === "limit" ? "Limit" : "Market",
+          segment,
+          segmentLabel: brokerSegmentLabel(segment),
+          quantity: qty,
+          lastPrice,
+          pnl,
+          pnlPct
+        };
+      });
   }
 
   function renderPositionsSummary(rows) {
     const totalPnl = rows.reduce((sum, r) => sum + r.pnl, 0);
-    const dayPnl = rows.reduce((sum, r) => sum + r.dayPnl, 0);
-    const invested = rows.reduce((sum, r) => sum + r.lastPrice * r.quantity, 0);
-
     const totalEl = document.getElementById("im-pos-total-pnl");
     const totalPctEl = document.getElementById("im-pos-total-pnl-pct");
     const dayEl = document.getElementById("im-pos-day-pnl");
     const dayPctEl = document.getElementById("im-pos-day-pnl-pct");
     const totalCls = totalPnl >= 0 ? "im-change-up" : "im-change-down";
-    const dayCls = dayPnl >= 0 ? "im-change-up" : "im-change-down";
 
     if (totalEl) { totalEl.textContent = `${totalPnl >= 0 ? "+" : ""}${formatNumber(totalPnl)}`; totalEl.className = `im-pos-summary-value ${totalCls}`; }
-    if (dayEl) { dayEl.textContent = `${dayPnl >= 0 ? "+" : ""}${formatNumber(dayPnl)}`; dayEl.className = `im-pos-summary-value ${dayCls}`; }
 
+    const invested = rows.reduce((sum, r) => sum + r.lastPrice * r.quantity, 0);
     const totalPct = invested ? (totalPnl / invested) * 100 : null;
-    const dayPct = invested ? (dayPnl / invested) * 100 : null;
     if (totalPctEl) { totalPctEl.textContent = Number.isFinite(totalPct) ? `(${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(2)}%)` : ""; totalPctEl.className = `im-pos-summary-pct ${totalCls}`; }
-    if (dayPctEl) { dayPctEl.textContent = Number.isFinite(dayPct) ? `(${dayPct >= 0 ? "+" : ""}${dayPct.toFixed(2)}%)` : ""; dayPctEl.className = `im-pos-summary-pct ${dayCls}`; }
+
+    // No real "day boundary" in the paper-trade journal (trades carry no
+    // timestamp) — this card shows the open-position count instead of a
+    // faked Day P&L.
+    if (dayEl) { dayEl.textContent = String(rows.length); dayEl.className = "im-pos-summary-value"; }
+    if (dayPctEl) { dayPctEl.textContent = rows.length === 1 ? "open position" : "open positions"; dayPctEl.className = "im-pos-summary-pct"; }
   }
 
   function renderPositionsList() {
     const listEl = document.getElementById("im-pos-list");
     if (!listEl) return;
     const searchTerm = (document.getElementById("im-pos-search-input")?.value || "").trim().toUpperCase();
+    const rows = getOpenPositionRows();
 
-    const filtered = imPosAllRows.filter((r) => {
-      // "F&O" is the broader bucket (futures + options); "Options" narrows
-      // to just the CE/PE contracts within it.
-      if (imPosActiveSegment === "FO" && r.segment !== "FO" && r.segment !== "OPT") return false;
-      if (imPosActiveSegment !== "ALL" && imPosActiveSegment !== "FO" && r.segment !== imPosActiveSegment) return false;
+    const filtered = rows.filter((r) => {
+      if (imPosActiveSegment !== "ALL" && r.segment !== imPosActiveSegment) return false;
       if (searchTerm && !r.symbol.toUpperCase().includes(searchTerm)) return false;
       return true;
     });
 
+    renderPositionsSummary(rows);
+
     if (!filtered.length) {
-      listEl.innerHTML = `<p class="settings-help">No positions to show.</p>`;
+      listEl.innerHTML = `<p class="settings-help">No open paper-trade positions right now. Tap Buy/Sell on a Watchlist stock, or add one from the Paper Trading Journal.</p>`;
       return;
     }
 
@@ -9688,50 +9650,33 @@ async function fetchWatchlist() {
     });
   });
 
-  async function loadBrokerPositionsAndHoldings() {
-    const statusEl = document.getElementById("im-broker-positions-status");
-    const [positionsResult, holdingsResult] = await Promise.all([
-      brokerApiFetch("/api/broker/upstox/positions"),
-      brokerApiFetch("/api/broker/upstox/holdings")
-    ]);
-
-    const rows = [];
-    if (positionsResult.ok) (positionsResult.data || []).forEach((r) => rows.push(normalizeBrokerRow(r, "position")));
-    if (holdingsResult.ok) (holdingsResult.data || []).forEach((r) => rows.push(normalizeBrokerRow(r, "holding")));
-    imPosAllRows = rows;
-
-    if (statusEl) statusEl.textContent = (!positionsResult.ok && !holdingsResult.ok) ? (positionsResult.error || holdingsResult.error || "Could not load positions.") : "";
-
-    renderPositionsSummary(rows);
-    renderPositionsList();
-  }
-
-  // Upstox's own status strings, bucketed into the three tabs the Order
-  // Book filters by. Anything not recognized as executed or cancelled
-  // (e.g. "open", "trigger pending", "modify pending", an AMO awaiting the
-  // market to open) is treated as still-open — a pending order waiting for
-  // its price, which is what "Open" means here.
+  // A paper trade's own status already maps directly onto the three Order
+  // Book tabs: "pending" (limit order placed, not yet filled) is Open;
+  // "open" or "closed" (entry filled, whether or not the position has
+  // since closed) is Executed. There's no distinct Cancelled state today
+  // (deleting a pending trade removes it outright) — that tab stays empty.
   function classifyOrderStatus(status) {
-    const normalized = String(status || "").toLowerCase();
-    if (normalized === "complete") return "executed";
-    if (normalized === "cancelled" || normalized === "rejected") return "cancelled";
-    return "open";
+    if (status === "pending") return "open";
+    if (status === "open" || status === "closed") return "executed";
+    return "cancelled";
   }
 
-  let imBrokerOrdersAllRows = [];
   let imBrokerOrdersActiveFilter = "all";
 
   function renderBrokerOrdersList() {
+    const allRows = loadTrades();
     const rows = imBrokerOrdersActiveFilter === "all"
-      ? imBrokerOrdersAllRows
-      : imBrokerOrdersAllRows.filter((row) => classifyOrderStatus(row.status) === imBrokerOrdersActiveFilter);
+      ? allRows
+      : allRows.filter((row) => classifyOrderStatus(row.status) === imBrokerOrdersActiveFilter);
+    const body = document.getElementById("im-broker-orders-body");
+    if (!body) return;
     if (!rows.length) {
-      document.getElementById("im-broker-orders-body").innerHTML = `<tr><td colspan="3">No ${imBrokerOrdersActiveFilter === "all" ? "" : imBrokerOrdersActiveFilter + " "}orders.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="3">No ${imBrokerOrdersActiveFilter === "all" ? "" : imBrokerOrdersActiveFilter + " "}paper orders.</td></tr>`;
       return;
     }
-    renderBrokerRows("im-broker-orders-body", rows, (row) => {
-      return `<tr><td class="im-col-symbol">${escapeHtml(row.trading_symbol || row.tradingsymbol || "--")}</td><td class="im-col-price">${formatNumber(row.quantity)}</td><td class="im-col-change-pct">${escapeHtml(row.status || "--")}</td></tr>`;
-    });
+    body.innerHTML = rows.map((row) => {
+      return `<tr><td class="im-col-symbol">${escapeHtml(imTradeMarketLabel(row.index))}</td><td class="im-col-price">${escapeHtml(String(row.qty ?? "--"))}</td><td class="im-col-change-pct">${escapeHtml(String(row.status || "--").toUpperCase())}</td></tr>`;
+    }).join("");
   }
 
   const imBrokerOrdersFilterPills = document.querySelectorAll("#im-broker-orders-filter-row .im-pos-filter-pill");
@@ -9743,32 +9688,20 @@ async function fetchWatchlist() {
     });
   });
 
-  async function loadBrokerOrders() {
-    const result = await brokerApiFetch("/api/broker/upstox/orders");
-    if (!result.ok) {
-      document.getElementById("im-broker-orders-body").innerHTML = `<tr><td colspan="3">${escapeHtml(result.error || "Could not load orders.")}</td></tr>`;
-      return;
-    }
-    imBrokerOrdersAllRows = result.data || [];
+  function loadBrokerAccountPage() {
+    const statusEl = document.getElementById("im-broker-positions-status");
+    if (statusEl) statusEl.textContent = "";
+    renderPositionsList();
     renderBrokerOrdersList();
   }
 
-  async function loadBrokerAccountPage() {
-    const notConnectedEl = document.getElementById("im-broker-not-connected");
-    const connectedContentEl = document.getElementById("im-broker-connected-content");
-    if (!notConnectedEl || !connectedContentEl) return;
-
-    const statusResult = await brokerApiFetch("/api/broker/upstox/status");
-    if (!statusResult.ok || !statusResult.connected) {
-      notConnectedEl.hidden = false;
-      connectedContentEl.hidden = true;
-      return;
+  // Refreshes the Positions list's live P&L on every price tick, but only
+  // while that page is actually on screen — same guard pattern used
+  // elsewhere for page-scoped polling side effects.
+  function refreshBrokerPositionsIfVisible() {
+    if (document.getElementById("im-broker-account")?.classList.contains("active")) {
+      renderPositionsList();
     }
-    notConnectedEl.hidden = true;
-    connectedContentEl.hidden = false;
-
-    loadBrokerPositionsAndHoldings();
-    loadBrokerOrders();
   }
 
   // ===================== AI Chart Scanner =====================

@@ -3194,11 +3194,7 @@
       </section>
 
       <section class="page" id="im-broker-account">
-        <article class="card section-card" id="im-broker-not-connected" hidden>
-          <p class="settings-help">Connect your Upstox account (Settings → Connect your broker) to see your positions, holdings and order book here.</p>
-        </article>
-
-        <div id="im-broker-connected-content" hidden>
+        <div id="im-broker-connected-content">
           <div class="im-pos-summary-row">
             <div class="im-pos-summary-card">
               <span class="im-pos-summary-label">Total P&amp;L</span>
@@ -3206,7 +3202,7 @@
               <span class="im-pos-summary-pct" id="im-pos-total-pnl-pct"></span>
             </div>
             <div class="im-pos-summary-card">
-              <span class="im-pos-summary-label">Day P&amp;L</span>
+              <span class="im-pos-summary-label">Open Positions</span>
               <span class="im-pos-summary-value" id="im-pos-day-pnl">--</span>
               <span class="im-pos-summary-pct" id="im-pos-day-pnl-pct"></span>
             </div>
@@ -3219,8 +3215,7 @@
           <div class="im-pos-filter-row" id="im-pos-segment-filter-row">
             <button type="button" class="im-pos-filter-pill active" data-segment="ALL">All</button>
             <button type="button" class="im-pos-filter-pill" data-segment="EQ">Equity</button>
-            <button type="button" class="im-pos-filter-pill" data-segment="FO">F&amp;O</button>
-            <button type="button" class="im-pos-filter-pill" data-segment="OPT">Options</button>
+            <button type="button" class="im-pos-filter-pill" data-segment="FO">Index</button>
           </div>
 
           <p id="im-broker-positions-status" class="status-line"></p>
@@ -3783,7 +3778,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v45"></script>
+  <script src="/frontend/app.js?v=v20260927v46"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
