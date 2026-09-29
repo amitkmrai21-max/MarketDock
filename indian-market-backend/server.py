@@ -2136,72 +2136,98 @@ def _parse_master_date(value):
 
 def find_mcx_option_contracts(future_symbol):
     """Every live option contract written on one MCX futures contract (e.g.
-    GOLD26OCTFUT). MCX options sit on a specific futures month and expire
-    shortly before it, so an option belongs to this future when it's on the
-    same commodity (instrument-master `name`) and expires after the previous
-    futures month but no later than this one."""
+    GOLD26OCTFUT). MCX labels each option series with the contract month of
+    the future it belongs to (GOLD26OCT...CE), so an option belongs to this
+    future when it shares the future's contract-month token and is on the
+    same commodity (instrument-master `name`).
+
+    Some months have no live options of their own left (a Sep contract whose
+    Sep options have already expired, for instance), so when the future's own
+    month has no active options the nearest later option month of the same
+    commodity is used instead — the same strikes traders actually see on the
+    exchange. Contracts carry `underlying_future` so the chain can quote the
+    right underlying when that fallback kicks in."""
     future_symbol = future_symbol.upper()
     cached = _mcx_option_contracts_cache.get(future_symbol)
     if cached and time.time() - cached["fetched_at"] < MCX_OPTION_CONTRACTS_CACHE_SECONDS:
         return cached["data"]
 
     rows = get_instrument_master_rows()
+    month_match = re.match(r"^([A-Z]+)(\d{2}[A-Z]{3})FUT$", future_symbol)
+    if not month_match:
+        return []
+    prefix, month_token = month_match.groups()
     future_row = next(
         (r for r in rows if r.get("exchange") == "MCX_FO" and r.get("tradingsymbol", "").upper() == future_symbol),
         None,
     )
     if not future_row:
         return []
-    future_expiry = _parse_master_date(future_row.get("expiry"))
-    if not future_expiry:
-        return []
     commodity_name = (future_row.get("name") or "").strip().upper()
-    prefix = re.sub(r"\d{2}[A-Z]{3}FUT$", "", future_symbol)
-    earlier = [
-        _parse_master_date(f["expiry"])
-        for f in find_all_mcx_futures(prefix)
-        if _parse_master_date(f["expiry"]) and _parse_master_date(f["expiry"]) < future_expiry
-    ]
-    window_start = max(earlier) if earlier else None
     today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
-    # Exact commodity only: CRUDEOIL options, not CRUDEOILM (mini) ones, which
-    # can share the same instrument `name` but trade a much smaller lot.
-    symbol_pattern = re.compile(rf"^{re.escape(prefix)}(?=\d|\s)")
 
-    contracts = []
-    for row in rows:
-        if row.get("exchange") != "MCX_FO":
-            continue
-        symbol = row.get("tradingsymbol", "").upper()
-        option_type = (row.get("option_type") or "").upper()
-        if option_type not in ("CE", "PE"):
-            if "OPT" in (row.get("instrument_type") or "").upper() and symbol[-2:] in ("CE", "PE"):
-                option_type = symbol[-2:]
-            else:
+    def _contracts_for_month_token(token):
+        # Exact commodity only: CRUDEOIL options, not CRUDEOILM (mini) ones,
+        # which can share the same instrument `name` but trade a much
+        # smaller lot.
+        symbol_pattern = re.compile(rf"^{re.escape(prefix)}\s*{re.escape(token)}\d+(?:CE|PE)$")
+        matched = []
+        for row in rows:
+            if row.get("exchange") != "MCX_FO":
                 continue
-        if not symbol_pattern.match(symbol):
-            continue
-        name = (row.get("name") or "").strip().upper()
-        if commodity_name and name and name != commodity_name:
-            continue
-        expiry = _parse_master_date(row.get("expiry"))
-        if not expiry or expiry < today or expiry > future_expiry:
-            continue
-        if window_start and expiry <= window_start:
-            continue
-        strike = _parse_float(row.get("strike"))
-        if strike is None:
-            continue
-        contracts.append(
-            {
-                "instrument_key": row.get("instrument_key"),
-                "trading_symbol": row.get("tradingsymbol"),
-                "option_type": option_type,
-                "strike": int(strike) if strike.is_integer() else strike,
-                "expiry": expiry.isoformat(),
-                "lot_size": _parse_int(row.get("lot_size")),
-            }
-        )
+            symbol = row.get("tradingsymbol", "").upper()
+            if not symbol_pattern.match(symbol):
+                continue
+            name = (row.get("name") or "").strip().upper()
+            if commodity_name and name and name != commodity_name:
+                continue
+            option_type = (row.get("option_type") or "").upper()
+            if option_type not in ("CE", "PE"):
+                if "OPT" in (row.get("instrument_type") or "").upper() and symbol[-2:] in ("CE", "PE"):
+                    option_type = symbol[-2:]
+                else:
+                    continue
+            expiry = _parse_master_date(row.get("expiry"))
+            if not expiry or expiry < today:
+                continue
+            strike = _parse_float(row.get("strike"))
+            if strike is None:
+                continue
+            matched.append(
+                {
+                    "instrument_key": row.get("instrument_key"),
+                    "trading_symbol": row.get("tradingsymbol"),
+                    "option_type": option_type,
+                    "strike": int(strike) if strike.is_integer() else strike,
+                    "expiry": expiry.isoformat(),
+                    "lot_size": _parse_int(row.get("lot_size")),
+                    "underlying_future": f"{prefix}{token}FUT",
+                }
+            )
+        return matched
+
+    contracts = _contracts_for_month_token(month_token)
+    if not contracts:
+        # The future's own option month is gone (expired out). Fall back to
+        # the nearest still-active option month of the same commodity.
+        token_pattern = re.compile(rf"^{re.escape(prefix)}\s*(\d{{2}}[A-Z]{{3}})\d+(?:CE|PE)$")
+        active_months = []
+        for row in rows:
+            if row.get("exchange") != "MCX_FO":
+                continue
+            month_hit = token_pattern.match(row.get("tradingsymbol", "").upper())
+            if not month_hit:
+                continue
+            name = (row.get("name") or "").strip().upper()
+            if commodity_name and name and name != commodity_name:
+                continue
+            expiry = _parse_master_date(row.get("expiry"))
+            if not expiry or expiry < today:
+                continue
+            active_months.append((expiry, month_hit.group(1)))
+        if active_months:
+            nearest_token = min(active_months, key=lambda item: item[0])[1]
+            contracts = _contracts_for_month_token(nearest_token)
 
     _mcx_option_contracts_cache[future_symbol] = {"data": contracts, "fetched_at": time.time()}
     return contracts
@@ -2233,7 +2259,16 @@ def build_mcx_option_chain(future_symbol, expiry):
     contracts = [c for c in find_mcx_option_contracts(future_symbol) if c["expiry"] == expiry]
     if not contracts:
         return None
-    future_key = resolve_mcx_instrument_key(future_symbol)
+    # When the chain fell back to a later option month (e.g. a Sep copper
+    # future whose Sep options have expired), the strikes are written on
+    # that later future — quote it as the underlying so spot stays
+    # meaningful next to them.
+    underlying_symbol = contracts[0].get("underlying_future") or future_symbol
+    try:
+        future_key = resolve_mcx_instrument_key(underlying_symbol)
+    except Exception:
+        future_key = resolve_mcx_instrument_key(future_symbol)
+        underlying_symbol = future_symbol
     quotes = fetch_full_quotes([c["instrument_key"] for c in contracts] + [future_key])
 
     by_strike = {}
@@ -2262,6 +2297,7 @@ def build_mcx_option_chain(future_symbol, expiry):
     total_put_oi = sum((row["put"].get("oi") or 0) for row in rows)
     return {
         "market": future_symbol,
+        "underlying": underlying_symbol,
         "expiry": expiry,
         "underlying_spot_price": (quotes.get(future_key) or {}).get("last_price"),
         "rows": rows,
@@ -2292,6 +2328,24 @@ def option_expiries(market_key):
             app.logger.warning("MCX option expiries failed for %s: %s", market_key, error)
             return jsonify({"ok": False, "error": "Could not fetch option expiries right now."}), 502
         if not expiries:
+            # Futures-only commodities (Aluminium has no listed options on
+            # MCX) get an explicit message instead of a generic error.
+            prefix_hit = re.match(r"^([A-Z]+)\d{2}[A-Z]{3}FUT$", market_key.strip().upper())
+            commodity_name = next(
+                (
+                    cfg["name"]
+                    for cfg in MCX_COMMODITIES.values()
+                    if prefix_hit and cfg["prefix"] == prefix_hit.group(1)
+                ),
+                None,
+            )
+            if commodity_name:
+                return jsonify(
+                    {
+                        "ok": False,
+                        "error": f"Options are not listed for {commodity_name} on MCX — only futures trade on it.",
+                    }
+                ), 404
             return jsonify({"ok": False, "error": "No options are listed on this commodity contract."}), 404
         _option_expiry_cache[cache_key] = {"data": expiries, "fetched_at": time.time()}
         return jsonify({"ok": True, "expiries": expiries})
