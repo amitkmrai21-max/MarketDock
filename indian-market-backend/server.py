@@ -31,21 +31,6 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "").strip()
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b").strip()
 UPSTOX_ACCESS_TOKEN = os.environ.get("UPSTOX_ACCESS_TOKEN", "").strip()
 
-# Per-user "Connect your broker" support: lets an individual signed-in
-# MarketDock user link their own Upstox account (OAuth) so their personal
-# Watchlist is fetched under their own account/rate-limit instead of the
-# single shared UPSTOX_ACCESS_TOKEN above. Requires Upstox's multi-user/
-# publisher API access to work for anyone other than this server's own
-# Upstox account — see /api/broker/upstox/authorize below.
-UPSTOX_CLIENT_ID = os.environ.get("UPSTOX_CLIENT_ID", "").strip()
-UPSTOX_CLIENT_SECRET = os.environ.get("UPSTOX_CLIENT_SECRET", "").strip()
-UPSTOX_REDIRECT_URI = os.environ.get("UPSTOX_REDIRECT_URI", "").strip()
-FRONTEND_URL = os.environ.get("FRONTEND_URL", "https://marketdock.in").strip().rstrip("/")
-
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
-SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "").strip()
-SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()
-
 UPSTOX_MARKETS = {
     "nifty": {
         "name": "NIFTY 50",
@@ -1188,453 +1173,13 @@ LIVE_CANDLES_CACHE_SECONDS = 2
 _live_candles_cache = {}
 
 
-# ===================== Connect your broker (per-user Upstox) =====================
-# Lets a signed-in MarketDock user link their own Upstox account so their
-# personal Watchlist is fetched under their own account rather than the one
-# shared UPSTOX_ACCESS_TOKEN above — see the module docstring-style comment
-# next to UPSTOX_CLIENT_ID near the top of this file for why.
-
-# Short-lived mapping from OAuth "state" -> the MarketDock user_id that
-# started the flow, so the callback (which only gets `state` back from
-# Upstox, not the user's own session) knows whose account to store the
-# resulting token against. In-memory and single-process is fine here: state
-# lives for a couple of minutes at most, for the duration of one login.
-_oauth_state_store = {}
-OAUTH_STATE_TTL_SECONDS = 600
-
-
-def _cleanup_oauth_state():
-    now = time.time()
-    expired = [state for state, entry in _oauth_state_store.items() if now - entry["created_at"] > OAUTH_STATE_TTL_SECONDS]
-    for state in expired:
-        _oauth_state_store.pop(state, None)
-
-
-def get_supabase_user_id(access_token):
-    """Verifies a Supabase session access token and returns the user's id,
-    or None if it's missing/invalid. Same lookup main.py's /api/account/delete
-    already uses — kept independent here since this Flask service is a
-    separate deployment from that FastAPI app."""
-    if not access_token or not SUPABASE_URL or not SUPABASE_ANON_KEY:
-        return None
-    try:
-        response = requests.get(
-            f"{SUPABASE_URL}/auth/v1/user",
-            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {access_token}"},
-            timeout=10,
-        )
-        response.raise_for_status()
-        return response.json().get("id")
-    except Exception as error:
-        app.logger.warning("Supabase user lookup failed: %s", error)
-        return None
-
-
-def get_broker_connection(user_id, provider="upstox"):
-    """Returns the stored {access_token, connected_at} row for this user's
-    connected broker account, or None if they haven't connected one."""
-    if not user_id or not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-        return None
-    try:
-        response = requests.get(
-            f"{SUPABASE_URL}/rest/v1/broker_connections",
-            headers={
-                "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            },
-            params={"user_id": f"eq.{user_id}", "provider": f"eq.{provider}", "select": "access_token,connected_at"},
-            timeout=10,
-        )
-        response.raise_for_status()
-        rows = response.json()
-        return rows[0] if rows else None
-    except Exception as error:
-        app.logger.warning("broker_connections lookup failed: %s", error)
-        return None
-
-
-def save_broker_connection(user_id, access_token, provider="upstox"):
-    requests.post(
-        f"{SUPABASE_URL}/rest/v1/broker_connections",
-        headers={
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates",
-        },
-        json={
-            "user_id": user_id,
-            "provider": provider,
-            "access_token": access_token,
-            "connected_at": now_utc(),
-        },
-        timeout=10,
-    ).raise_for_status()
-
-
-def delete_broker_connection(user_id, provider="upstox"):
-    requests.delete(
-        f"{SUPABASE_URL}/rest/v1/broker_connections",
-        headers={
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        },
-        params={"user_id": f"eq.{user_id}", "provider": f"eq.{provider}"},
-        timeout=10,
-    ).raise_for_status()
-
-
-def get_request_user_id():
-    """Reads the signed-in MarketDock user's id from this request's
-    Authorization header, or None if there isn't one / it's invalid — used
-    to look up whether they have their own connected broker account."""
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.lower().startswith("bearer "):
-        return None
-    return get_supabase_user_id(auth_header.split(" ", 1)[1].strip())
-
-
-@app.get("/api/broker/upstox/authorize")
-def broker_upstox_authorize():
-    """Step 1 of Connect-your-broker: the frontend navigates the browser
-    here (not a fetch — it's a real redirect to Upstox's own login page),
-    passing the user's Supabase session token as a query param since a
-    redirect can't carry a custom header."""
-    if not UPSTOX_CLIENT_ID or not UPSTOX_REDIRECT_URI:
-        return jsonify({"ok": False, "error": "Broker connect is not configured on the server yet."}), 503
-
-    user_id = get_supabase_user_id(request.args.get("token", ""))
-    if not user_id:
-        return jsonify({"ok": False, "error": "Please log in to your MarketDock account first."}), 401
-
-    _cleanup_oauth_state()
-    state = secrets.token_urlsafe(24)
-    _oauth_state_store[state] = {"user_id": user_id, "created_at": time.time()}
-
-    authorize_url = (
-        "https://api.upstox.com/v2/login/authorization/dialog"
-        f"?response_type=code&client_id={quote(UPSTOX_CLIENT_ID)}"
-        f"&redirect_uri={quote(UPSTOX_REDIRECT_URI, safe='')}"
-        f"&state={quote(state)}"
-    )
-    return redirect(authorize_url)
-
-
-@app.get("/api/broker/upstox/callback")
-def broker_upstox_callback():
-    """Step 2: Upstox redirects the user's browser back here after they log
-    in and approve access, with a one-time `code` plus the `state` we handed
-    it in step 1. Exchanges the code for that user's own access token and
-    stores it against their MarketDock account."""
-    error = request.args.get("error")
-    state = request.args.get("state", "")
-    code = request.args.get("code", "")
-
-    state_entry = _oauth_state_store.pop(state, None)
-    if error or not state_entry or not code:
-        return redirect(f"{FRONTEND_URL}/frontend/index.html?broker=error")
-
-    try:
-        response = requests.post(
-            "https://api.upstox.com/v2/login/authorization/token",
-            headers={"Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded"},
-            data={
-                "code": code,
-                "client_id": UPSTOX_CLIENT_ID,
-                "client_secret": UPSTOX_CLIENT_SECRET,
-                "redirect_uri": UPSTOX_REDIRECT_URI,
-                "grant_type": "authorization_code",
-            },
-            timeout=15,
-        )
-        response.raise_for_status()
-        access_token = response.json().get("access_token")
-        if not access_token:
-            raise RuntimeError("Upstox did not return an access token.")
-
-        save_broker_connection(state_entry["user_id"], access_token)
-        return redirect(f"{FRONTEND_URL}/frontend/index.html?broker=connected")
-    except Exception as error:
-        app.logger.warning("Upstox token exchange failed: %s", error)
-        return redirect(f"{FRONTEND_URL}/frontend/index.html?broker=error")
-
-
-@app.get("/api/broker/upstox/status")
-def broker_upstox_status():
-    user_id = get_request_user_id()
-    if not user_id:
-        return jsonify({"ok": False, "error": "Please log in first."}), 401
-    connection = get_broker_connection(user_id)
-    return jsonify({"ok": True, "connected": bool(connection), "connected_at": (connection or {}).get("connected_at")})
-
-
-@app.post("/api/broker/upstox/disconnect")
-def broker_upstox_disconnect():
-    user_id = get_request_user_id()
-    if not user_id:
-        return jsonify({"ok": False, "error": "Please log in first."}), 401
-    try:
-        delete_broker_connection(user_id)
-        return jsonify({"ok": True})
-    except Exception as error:
-        app.logger.warning("broker_connections delete failed: %s", error)
-        return jsonify({"ok": False, "error": "Could not disconnect right now."}), 502
-
-
-def require_connected_broker():
-    """Common guard for every real-money route below: the caller must be a
-    signed-in MarketDock user with their own connected Upstox account. On
-    success returns their personal access token; on failure returns a
-    (jsonify(...), status) tuple the route should return as-is."""
-    user_id = get_request_user_id()
-    if not user_id:
-        return None, (jsonify({"ok": False, "error": "Please log in to your MarketDock account first."}), 401)
-    connection = get_broker_connection(user_id)
-    if not connection or not connection.get("access_token"):
-        return None, (jsonify({"ok": False, "error": "Please connect your Upstox account first."}), 403)
-    return connection["access_token"], None
-
-
-def upstox_get(path, access_token, params=None, base="https://api.upstox.com"):
-    response = requests.get(
-        f"{base}{path}",
-        headers={"Accept": "application/json", "Authorization": f"Bearer {access_token}"},
-        params=params,
-        timeout=15,
-    )
-    if not response.ok:
-        raise RuntimeError(f"Upstox request to {path} failed: status={response.status_code}, body={response.text[:300]}")
-    return response.json()
-
-
-@app.get("/api/broker/upstox/funds")
-def broker_upstox_funds():
-    """Available balance/margin — read-only, no static IP needed."""
-    access_token, error_response = require_connected_broker()
-    if error_response:
-        return error_response
-    try:
-        data = upstox_get("/v2/user/get-funds-and-margin", access_token).get("data") or {}
-        return jsonify({"ok": True, "data": data})
-    except Exception as error:
-        app.logger.warning("Funds fetch failed: %s", error)
-        return jsonify({"ok": False, "error": "Could not fetch funds right now."}), 502
-
-
-@app.get("/api/broker/upstox/positions")
-def broker_upstox_positions():
-    """Today's open intraday/delivery positions — read-only, no static IP needed."""
-    access_token, error_response = require_connected_broker()
-    if error_response:
-        return error_response
-    try:
-        data = upstox_get("/v2/portfolio/short-term-positions", access_token).get("data") or []
-        return jsonify({"ok": True, "data": data})
-    except Exception as error:
-        app.logger.warning("Positions fetch failed: %s", error)
-        return jsonify({"ok": False, "error": "Could not fetch positions right now."}), 502
-
-
-@app.get("/api/broker/upstox/holdings")
-def broker_upstox_holdings():
-    """Stocks already held from previous sessions — read-only, no static IP needed."""
-    access_token, error_response = require_connected_broker()
-    if error_response:
-        return error_response
-    try:
-        data = upstox_get("/v2/portfolio/long-term-holdings", access_token).get("data") or []
-        return jsonify({"ok": True, "data": data})
-    except Exception as error:
-        app.logger.warning("Holdings fetch failed: %s", error)
-        return jsonify({"ok": False, "error": "Could not fetch holdings right now."}), 502
-
-
-@app.get("/api/broker/upstox/orders")
-def broker_upstox_orders():
-    """Today's order book (pending/executed/rejected) — read-only, no static IP needed."""
-    access_token, error_response = require_connected_broker()
-    if error_response:
-        return error_response
-    try:
-        data = upstox_get("/v2/order/retrieve-all", access_token).get("data") or []
-        return jsonify({"ok": True, "data": data})
-    except Exception as error:
-        app.logger.warning("Order book fetch failed: %s", error)
-        return jsonify({"ok": False, "error": "Could not fetch orders right now."}), 502
-
-
-@app.get("/api/broker/upstox/brokerage")
-def broker_upstox_brokerage():
-    """Estimated brokerage + charges for an order the user hasn't placed
-    yet, shown before they confirm Buy/Sell — read-only, no static IP
-    needed. Takes a trading symbol rather than a raw instrument_token so
-    the frontend can reuse the same symbols it already shows everywhere
-    else."""
-    access_token, error_response = require_connected_broker()
-    if error_response:
-        return error_response
-
-    symbol = request.args.get("symbol", "").strip().upper()
-    quantity = request.args.get("quantity", "").strip()
-    product = request.args.get("product", "D").strip()
-    transaction_type = request.args.get("transaction_type", "BUY").strip().upper()
-    price = request.args.get("price", "").strip()
-    # An option leg's exact instrument_key (from /api/options/chain/...) —
-    # when given, used directly instead of re-resolving by symbol, since an
-    # option's trading symbol isn't resolvable the way an equity/futures
-    # symbol is.
-    instrument_key_override = request.args.get("instrument_key", "").strip()
-    if not symbol or not quantity or not price:
-        return jsonify({"ok": False, "error": "symbol, quantity and price are required."}), 400
-
-    try:
-        instrument_key = instrument_key_override or resolve_order_instrument_key(symbol)
-        data = upstox_get(
-            "/v2/charges/brokerage",
-            access_token,
-            params={
-                "instrument_token": instrument_key,
-                "quantity": quantity,
-                "product": product,
-                "transaction_type": transaction_type,
-                "price": price,
-            },
-        ).get("data") or {}
-        return jsonify({"ok": True, "data": data})
-    except Exception as error:
-        app.logger.warning("Brokerage estimate failed: %s", error)
-        return jsonify({"ok": False, "error": "Could not estimate charges right now."}), 502
-
-
-@app.post("/api/broker/upstox/place-order")
-def broker_upstox_place_order():
-    """Places a REAL order under the signed-in user's own connected Upstox
-    account. Manual only — this is triggered by the user clicking Buy/Sell
-    for a specific, exact order in the app; nothing here decides on its own
-    when or what to trade. Requires Upstox's order-placement API calls to
-    originate from a static IP registered against this server per SEBI's
-    2025 algo-trading rules — until that's configured, Upstox will reject
-    these calls even though the code path itself is ready."""
-    access_token, error_response = require_connected_broker()
-    if error_response:
-        return error_response
-
-    body = request.get_json(silent=True) or {}
-    symbol = str(body.get("symbol", "")).strip().upper()
-    quantity = body.get("quantity")
-    transaction_type = str(body.get("transaction_type", "")).strip().upper()
-    order_type = str(body.get("order_type", "MARKET")).strip().upper()
-    product = str(body.get("product", "D")).strip().upper()
-    price = body.get("price", 0)
-    validity = str(body.get("validity", "DAY")).strip().upper()
-    # See broker_upstox_brokerage()'s instrument_key_override above — same
-    # reasoning, for the actual order this time.
-    instrument_key_override = str(body.get("instrument_key", "")).strip()
-
-    if not symbol or not quantity or transaction_type not in ("BUY", "SELL"):
-        return jsonify({"ok": False, "error": "symbol, quantity and a valid transaction_type (BUY/SELL) are required."}), 400
-    if order_type == "LIMIT" and not price:
-        return jsonify({"ok": False, "error": "price is required for a LIMIT order."}), 400
-
-    try:
-        instrument_key = instrument_key_override or resolve_order_instrument_key(symbol)
-        response = requests.post(
-            "https://api-hft.upstox.com/v3/order/place",
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {access_token}",
-            },
-            json={
-                "quantity": int(quantity),
-                "product": product,
-                "validity": validity,
-                "price": float(price or 0),
-                "instrument_token": instrument_key,
-                "order_type": order_type,
-                "transaction_type": transaction_type,
-                "disclosed_quantity": 0,
-                "trigger_price": 0,
-                "is_amo": False,
-            },
-            timeout=15,
-        )
-        result = response.json()
-        if not response.ok:
-            error_message = (result.get("errors") or [{}])[0].get("message") or "Order was rejected by Upstox."
-            return jsonify({"ok": False, "error": error_message}), 502
-        return jsonify({"ok": True, "data": result.get("data") or {}})
-    except Exception as error:
-        app.logger.warning("Order placement failed: %s", error)
-        return jsonify({"ok": False, "error": "Could not place the order right now."}), 502
-
-
-@app.get("/api/broker/upstox/payout-modes")
-def broker_upstox_payout_modes():
-    """Which withdrawal modes (NEFT/IMPS) this user is currently eligible
-    for — read-only, no static IP needed. There is no equivalent "add
-    funds" API: Upstox only supports depositing money from inside their own
-    app (UPI/bank transfer), so that side has to stay a link out to Upstox
-    rather than a MarketDock button."""
-    access_token, error_response = require_connected_broker()
-    if error_response:
-        return error_response
-    try:
-        data = upstox_get("/v2/user/payments/payout/modes", access_token).get("data") or {}
-        return jsonify({"ok": True, "data": data})
-    except Exception as error:
-        app.logger.warning("Payout modes fetch failed: %s", error)
-        return jsonify({"ok": False, "error": "Could not check withdrawal eligibility right now."}), 502
-
-
-@app.post("/api/broker/upstox/withdraw")
-def broker_upstox_withdraw():
-    """Initiates a REAL withdrawal from the user's own Upstox account to
-    their own registered bank account — never anywhere else. Manual only,
-    same as order placement: the user enters an amount and confirms it
-    themselves."""
-    access_token, error_response = require_connected_broker()
-    if error_response:
-        return error_response
-
-    body = request.get_json(silent=True) or {}
-    mode = str(body.get("mode", "IMPS")).strip().upper()
-    amount = body.get("amount")
-    if mode not in ("NEFT", "IMPS") or not amount or float(amount) < 100:
-        return jsonify({"ok": False, "error": "Enter an amount of at least ₹100 and a valid mode (NEFT/IMPS)."}), 400
-
-    try:
-        response = requests.post(
-            "https://api.upstox.com/v2/user/payments/payout",
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {access_token}",
-            },
-            json={"mode": mode, "amount": float(amount)},
-            timeout=15,
-        )
-        result = response.json()
-        if not response.ok:
-            error_message = (result.get("errors") or [{}])[0].get("message") or "Withdrawal request was rejected by Upstox."
-            return jsonify({"ok": False, "error": error_message}), 502
-        return jsonify({"ok": True, "data": result.get("data") or {}})
-    except Exception as error:
-        app.logger.warning("Withdrawal failed: %s", error)
-        return jsonify({"ok": False, "error": "Could not process the withdrawal right now."}), 502
-
-
-def fetch_quotes_with_change(symbols, resolver=None, access_token=None):
+def fetch_quotes_with_change(symbols, resolver=None):
     """Resolves symbols to instrument keys (via the given resolver, default
     the stock resolver) and fetches LTP + previous close (via the LTP V3
     endpoint's `cp` field) in one batched call, returning each symbol's
     price and change percent. Resolution requests run in parallel — doing
     them one at a time was the main cause of slow load times for large
-    symbol lists.
-
-    `access_token` lets a caller fetch under a specific signed-in user's own
-    connected Upstox account instead of this server's shared
-    UPSTOX_ACCESS_TOKEN — see /api/broker/upstox/* below."""
+    symbol lists."""
     resolver = resolver or resolve_instrument_key
     key_map = {}
 
@@ -1657,7 +1202,7 @@ def fetch_quotes_with_change(symbols, resolver=None, access_token=None):
     url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={quote(instrument_keys, safe=',')}"
     headers = {
         "Accept": "application/json",
-        "Authorization": f"Bearer {access_token or UPSTOX_ACCESS_TOKEN}",
+        "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}",
     }
 
     response = requests.get(url, headers=headers, timeout=20)
@@ -2258,20 +1803,14 @@ def rrg():
         return jsonify({"ok": False, "error": "Could not build RRG data right now."}), 502
 
 
-def fetch_quotes_cached(symbols, access_token=None):
+def fetch_quotes_cached(symbols):
     """Fetches live quotes for the given symbols, caching per SYMBOL rather
     than per requested combination — so two different personal watchlists
     that both happen to include, say, RELIANCE, always see the exact same
     RELIANCE price and freshness. Caching by the full comma-joined symbol
     list instead would give every distinct combination its own cache
     entry, so the same stock could show a slightly different price to
-    different users purely because their other watchlist picks differed.
-
-    `access_token`: when the caller has their own connected broker account,
-    a cache MISS is fetched using their token instead of the shared
-    UPSTOX_ACCESS_TOKEN — the resulting price is still shared into the same
-    cache for everyone, since the price itself doesn't depend on whose
-    token fetched it."""
+    different users purely because their other watchlist picks differed."""
     now = time.time()
     cached_rows = {}
     stale_symbols = []
@@ -2283,7 +1822,7 @@ def fetch_quotes_cached(symbols, access_token=None):
             stale_symbols.append(symbol)
 
     if stale_symbols:
-        fetched_rows = fetch_quotes_with_change(stale_symbols, access_token=access_token)
+        fetched_rows = fetch_quotes_with_change(stale_symbols)
         fetched_at = time.time()
         for row in fetched_rows:
             score, label = compute_ai_score(row.get("change_percent"))
@@ -2300,14 +1839,7 @@ def fetch_quotes_cached(symbols, access_token=None):
 
 @app.get("/api/watchlist")
 def watchlist():
-    # A signed-in user with their own connected Upstox account fetches under
-    # their own token instead of the shared one below — see
-    # /api/broker/upstox/* for how that connection is made.
-    user_id = get_request_user_id()
-    connection = get_broker_connection(user_id) if user_id else None
-    personal_access_token = (connection or {}).get("access_token")
-
-    if not personal_access_token and not UPSTOX_ACCESS_TOKEN:
+    if not UPSTOX_ACCESS_TOKEN:
         return jsonify(
             {"ok": False, "error": "Live market data is not configured on the server."}
         ), 503
@@ -2316,7 +1848,7 @@ def watchlist():
     symbols = [s.strip().upper() for s in symbols_param.split(",") if s.strip()] or DEFAULT_WATCHLIST_SYMBOLS
 
     try:
-        results, oldest_fetched_at = fetch_quotes_cached(symbols, access_token=personal_access_token)
+        results, oldest_fetched_at = fetch_quotes_cached(symbols)
         updated_at = datetime.fromtimestamp(oldest_fetched_at, tz=timezone.utc).isoformat()
         return jsonify({"ok": True, "updated_at": updated_at, "data": results})
 
@@ -2621,10 +2153,9 @@ def option_chain(market_key):
                         "volume": call_market.get("volume"),
                         "iv": call_greeks.get("iv"),
                         # Carried straight through from Upstox rather than
-                        # re-resolved by symbol, so Buy/Sell on a specific
-                        # strike (see /api/broker/upstox/place-order's
-                        # instrument_key param) always hits the exact
-                        # contract shown here.
+                        # re-resolved by symbol, so a paper trade recorded
+                        # against a specific strike always identifies the
+                        # exact contract shown here.
                         "instrument_key": call.get("instrument_key"),
                         "trading_symbol": call.get("trading_symbol") or call.get("tradingsymbol"),
                         "lot_size": _parse_int(call.get("lot_size")),

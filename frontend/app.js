@@ -2392,7 +2392,6 @@ setInterval(loadRrg, 300000);
 (() => {
   const SUPABASE_URL = "https://qvgfxtjwgrtytjdjcebj.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DRsCPkKaKRYPrQDFtqV0xQ_7QeP4kYh";
-  const BROKER_API_BASE_URL = "https://api.marketdock.in";
 
   if (typeof window.supabase === "undefined") {
     console.error("Supabase client library did not load — account features are unavailable.");
@@ -2421,9 +2420,6 @@ setInterval(loadRrg, 300000);
     const changePasswordStatusEl = document.getElementById("accountChangePasswordStatus");
     const deleteBtn = document.getElementById("accountDeleteBtn");
     const deleteStatusEl = document.getElementById("accountDeleteStatus");
-    const brokerStatusEl = document.getElementById("brokerConnectStatus");
-    const brokerConnectBtn = document.getElementById("brokerConnectUpstoxBtn");
-    const brokerDisconnectBtn = document.getElementById("brokerDisconnectBtn");
     if (!loggedOutGroup || !loggedInGroup || !emailInput || !passwordInput || !loginBtn || !signupBtn || !logoutBtn) return;
 
     const EYE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
@@ -2465,148 +2461,12 @@ setInterval(loadRrg, 300000);
       const email = session?.user?.email || "--";
       if (emailDisplay) emailDisplay.textContent = email;
       if (avatarEl) avatarEl.textContent = email.charAt(0) || "?";
-      refreshBrokerStatus();
     }
 
     function showLoggedOut() {
       loggedOutGroup.hidden = false;
       loggedInGroup.hidden = true;
       setStatus("", false);
-    }
-
-    // ===================== Connect your broker (Upstox) =====================
-    // Lets a signed-in user link their own Upstox account so their personal
-    // Watchlist fetches under their own account instead of the app's one
-    // shared token — see indian-market-backend/server.py's
-    // /api/broker/upstox/* routes for the other half of this.
-    function setBrokerStatus(message, isError) {
-      if (!brokerStatusEl) return;
-      brokerStatusEl.textContent = message || "";
-      brokerStatusEl.style.color = isError ? "#ef4444" : "";
-    }
-
-    async function refreshBrokerStatus() {
-      if (!brokerStatusEl || !brokerConnectBtn || !brokerDisconnectBtn) return;
-      const fundsSection = document.getElementById("brokerFundsSection");
-      try {
-        const { data } = await supabaseClient.auth.getSession();
-        const accessToken = data?.session?.access_token;
-        if (!accessToken) return;
-
-        const response = await fetch(`${BROKER_API_BASE_URL}/api/broker/upstox/status`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const result = await response.json();
-        if (result.ok && result.connected) {
-          setBrokerStatus("Connected — your Watchlist uses your own Upstox account.", false);
-          brokerConnectBtn.hidden = true;
-          brokerDisconnectBtn.hidden = false;
-          if (fundsSection) fundsSection.hidden = false;
-          refreshSettingsFunds(accessToken);
-        } else {
-          setBrokerStatus("Not connected — your Watchlist uses MarketDock's shared data for now.", false);
-          brokerConnectBtn.hidden = false;
-          brokerDisconnectBtn.hidden = true;
-          if (fundsSection) fundsSection.hidden = true;
-        }
-      } catch (error) {
-        console.error("Broker status check failed:", error);
-      }
-    }
-
-    async function refreshSettingsFunds(accessToken) {
-      const valueEl = document.getElementById("settingsFundsValue");
-      if (!valueEl) return;
-      try {
-        const response = await fetch(`${BROKER_API_BASE_URL}/api/broker/upstox/funds`, {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const result = await response.json();
-        const available = result?.data?.equity?.available_margin;
-        valueEl.textContent = result.ok && Number.isFinite(Number(available)) ? `₹${Number(available).toLocaleString("en-IN")}` : "--";
-      } catch (error) {
-        valueEl.textContent = "--";
-      }
-    }
-
-    document.getElementById("settingsWithdrawBtn")?.addEventListener("click", async () => {
-      const statusEl = document.getElementById("settingsWithdrawStatus");
-      const amountInput = document.getElementById("settingsWithdrawAmount");
-      const amount = Number(amountInput?.value);
-      if (!Number.isFinite(amount) || amount < 100) {
-        if (statusEl) statusEl.textContent = "Enter an amount of at least ₹100.";
-        return;
-      }
-      const confirmed = window.confirm(`Withdraw ₹${amount.toLocaleString("en-IN")} from your Upstox account to your own registered bank account?`);
-      if (!confirmed) return;
-
-      try {
-        const { data } = await supabaseClient.auth.getSession();
-        const accessToken = data?.session?.access_token;
-        if (!accessToken) throw new Error("Please log in first.");
-        if (statusEl) statusEl.textContent = "Processing withdrawal…";
-
-        const response = await fetch(`${BROKER_API_BASE_URL}/api/broker/upstox/withdraw`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ amount, mode: "IMPS" })
-        });
-        const result = await response.json();
-        if (!result.ok) throw new Error(result.error || "Withdrawal could not be processed.");
-        if (statusEl) statusEl.textContent = "Withdrawal submitted.";
-        if (amountInput) amountInput.value = "";
-        refreshSettingsFunds(accessToken);
-      } catch (error) {
-        if (statusEl) statusEl.textContent = error.message || "Could not process withdrawal.";
-      }
-    });
-
-    brokerConnectBtn?.addEventListener("click", async () => {
-      const { data } = await supabaseClient.auth.getSession();
-      const accessToken = data?.session?.access_token;
-      if (!accessToken) {
-        setBrokerStatus("Please log in first.", true);
-        return;
-      }
-      window.location.href = `${BROKER_API_BASE_URL}/api/broker/upstox/authorize?token=${encodeURIComponent(accessToken)}`;
-    });
-
-    brokerDisconnectBtn?.addEventListener("click", async () => {
-      brokerDisconnectBtn.disabled = true;
-      try {
-        const { data } = await supabaseClient.auth.getSession();
-        const accessToken = data?.session?.access_token;
-        if (!accessToken) throw new Error("No active session.");
-
-        const response = await fetch(`${BROKER_API_BASE_URL}/api/broker/upstox/disconnect`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const result = await response.json();
-        if (!result.ok) throw new Error(result.error || "Could not disconnect.");
-        setBrokerStatus("Disconnected.", false);
-        await refreshBrokerStatus();
-      } catch (error) {
-        setBrokerStatus(error.message || "Could not disconnect right now.", true);
-      } finally {
-        brokerDisconnectBtn.disabled = false;
-      }
-    });
-
-    // After the Upstox login redirect sends the browser back here with
-    // ?broker=connected or ?broker=error, show the result once and drop the
-    // param so refreshing the page doesn't repeat the message.
-    const brokerRedirectResult = new URLSearchParams(window.location.search).get("broker");
-    if (brokerRedirectResult) {
-      setBrokerStatus(
-        brokerRedirectResult === "connected"
-          ? "Connected — your Watchlist now uses your own Upstox account."
-          : "Could not connect your Upstox account. Please try again.",
-        brokerRedirectResult !== "connected"
-      );
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.searchParams.delete("broker");
-      window.history.replaceState({}, "", cleanUrl.toString());
     }
 
     async function setButtonsBusy(busy) {
@@ -7439,19 +7299,16 @@ async function fetchWatchlist() {
     // past the 450ms guard (meant only for that backdrop case) so a fast,
     // decisive tap right after the sheet opens still closes it, instead of
     // leaving it visually stuck open while the app navigates underneath.
-    const orderOptions = { instrumentKey, lotSize, isOptionLeg };
     if (buyBtn) {
-      buyBtn.onclick = async () => {
+      buyBtn.onclick = () => {
         closeImWatchlistSheets(true);
-        const handledAsRealOrder = typeof placeRealOrderFromWatchlist === "function" && await placeRealOrderFromWatchlist(symbol, "Buy", price, orderOptions);
-        if (!handledAsRealOrder) setImPendingStockTrade(symbol, "Buy", price);
+        setImPendingStockTrade(symbol, "Buy", price);
       };
     }
     if (sellBtn) {
-      sellBtn.onclick = async () => {
+      sellBtn.onclick = () => {
         closeImWatchlistSheets(true);
-        const handledAsRealOrder = typeof placeRealOrderFromWatchlist === "function" && await placeRealOrderFromWatchlist(symbol, "Sell", price, orderOptions);
-        if (!handledAsRealOrder) setImPendingStockTrade(symbol, "Sell", price);
+        setImPendingStockTrade(symbol, "Sell", price);
       };
     }
     if (chartBtn) {
@@ -9912,75 +9769,6 @@ async function fetchWatchlist() {
 
     loadBrokerPositionsAndHoldings();
     loadBrokerOrders();
-  }
-
-  // MCX commodity futures (e.g. GOLD25DECFUT, as the Commodities page's
-  // rows are keyed) can't be bought "Delivery" like an equity — Upstox
-  // requires the NRML (carryforward) product for derivatives/commodities.
-  // Matches resolve_order_instrument_key()'s pattern on the backend.
-  const MCX_FUTURES_SYMBOL_PATTERN = /^[A-Z]+\d{2}[A-Z]{3}FUT$/;
-
-  // Real Buy/Sell straight from a Watchlist stock's action sheet, a
-  // Commodities row's, or a single option leg tapped in an option chain —
-  // see openImWatchlistActionSheet()'s buyBtn/sellBtn, which call this
-  // instead of the Paper Trading hand-off when the user has a connected
-  // Upstox account. Quantity is the only thing asked for since the sheet
-  // already knows the symbol and current price; a MARKET order covers the
-  // common case without a whole form for a quick tap-to-trade.
-  //
-  // orderOptions:
-  //   instrumentKey — an option leg's exact instrument_key from the option
-  //     chain (see renderStockOptionChain()'s cell click handlers below);
-  //     when set, the backend uses it directly instead of re-resolving by
-  //     symbol, since an option's trading symbol isn't resolvable the way
-  //     an equity/futures one is.
-  //   lotSize — units per lot (commodity futures and every option leg
-  //     trade in whole lots, never a raw share count); when set, the
-  //     quantity prompt asks for a number of LOTS and this multiplies it
-  //     up to the actual unit count Upstox's order API expects.
-  //   isOptionLeg — an option (not a futures contract) also needs the
-  //     NRML product, same as a commodity future.
-  async function placeRealOrderFromWatchlist(symbol, direction, lastPrice, orderOptions = {}) {
-    const statusCheck = await brokerApiFetch("/api/broker/upstox/status");
-    if (!statusCheck.ok || !statusCheck.connected) return false; // caller falls back to Paper Trading
-
-    const { instrumentKey, isOptionLeg } = orderOptions;
-    const lotSize = Number.isFinite(Number(orderOptions.lotSize)) && Number(orderOptions.lotSize) > 0 ? Number(orderOptions.lotSize) : null;
-    const isCommodityFuture = MCX_FUTURES_SYMBOL_PATTERN.test(symbol.toUpperCase());
-    const isDerivative = isCommodityFuture || isOptionLeg;
-    const product = isDerivative ? "NRML" : "D";
-    const productLabel = isDerivative ? "Carryforward" : "Delivery";
-    const unitLabel = lotSize ? "lots" : "shares";
-
-    const lotsInput = window.prompt(`${direction.toUpperCase()} ${symbol} — how many ${unitLabel} (${productLabel}, Market order)?`, "1");
-    if (!lotsInput) return true; // connected, but user cancelled — don't fall back to Paper Trading
-    const lots = Number(lotsInput);
-    if (!Number.isFinite(lots) || lots <= 0) {
-      window.alert("Enter a valid quantity.");
-      return true;
-    }
-    const quantity = lotSize ? Math.round(lots * lotSize) : lots;
-
-    const instrumentKeyParam = instrumentKey ? `&instrument_key=${encodeURIComponent(instrumentKey)}` : "";
-    const chargesResult = await brokerApiFetch(
-      `/api/broker/upstox/brokerage?symbol=${encodeURIComponent(symbol)}&quantity=${quantity}&price=${encodeURIComponent(lastPrice || 0)}&product=${product}&transaction_type=${direction.toUpperCase()}${instrumentKeyParam}`
-    );
-    const estimatedCharges = chargesResult.ok ? Number(chargesResult.data?.charges?.total) : null;
-    const chargesLine = Number.isFinite(estimatedCharges) ? `\nEstimated charges: ₹${estimatedCharges.toFixed(2)}` : "";
-    const quantityLine = lotSize ? `${lots} lot${lots === 1 ? "" : "s"} (${quantity} qty)` : `${quantity}`;
-
-    const confirmed = window.confirm(
-      `Place a REAL ${direction.toUpperCase()} order for ${quantityLine} × ${symbol} (Market, ${productLabel})?${chargesLine}\n\nThis uses real money in your own Upstox account.`
-    );
-    if (!confirmed) return true;
-
-    const result = await brokerApiFetch("/api/broker/upstox/place-order", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbol, quantity, product, order_type: "MARKET", transaction_type: direction.toUpperCase(), price: 0, instrument_key: instrumentKey || undefined })
-    });
-    window.alert(result.ok ? "Order placed successfully." : (result.error || "Order could not be placed."));
-    return true;
   }
 
   // ===================== AI Chart Scanner =====================
