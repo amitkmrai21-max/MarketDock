@@ -7564,8 +7564,12 @@ async function fetchWatchlist() {
     renderTrades();
 
     const cancelledIoc = trade.status === "cancelled";
+    // Exiting a holding (holdings are always long, so a Sell) keeps you on
+    // Holdings; anything else — including ADD, which is a fresh buy that sits
+    // in Positions until the close — goes to Positions.
+    const stayOnHoldings = document.getElementById("im-holdings")?.classList.contains("active") && st.side === "Sell";
     closeImWatchlistSheets(true);
-    showPage("im-broker-account");
+    showPage(stayOnHoldings ? "im-holdings" : "im-broker-account");
     if (cancelledIoc) window.alert("IOC order cancelled — the price wasn't available immediately.");
     return true;
   }
