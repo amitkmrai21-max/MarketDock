@@ -5687,14 +5687,18 @@ function clearLiveChartAiOverlay() {
     ];
 
     plan.innerHTML = rows
-      .map(
-        ([label, value]) => `
+      .map(([label, value]) => {
+        const valueHtml =
+          label === "Decision"
+            ? `<span class="${decisionClass(String(value))}">${escapeHtml(value)}</span>`
+            : escapeHtml(value);
+        return `
           <div class="trade-plan-row">
             <span>${escapeHtml(label)}</span>
-            <strong>${escapeHtml(value)}</strong>
+            <strong>${valueHtml}</strong>
           </div>
-        `
-      )
+        `;
+      })
       .join("");
   }
 
@@ -10064,6 +10068,30 @@ async function fetchWatchlist() {
     }
   }
 
+  // Colors a Trend/Supertrend-style word by its meaning (bullish -> green,
+  // bearish -> red, neutral -> muted gray), same convention as every other
+  // bullish/bearish pill in the app — these stat tiles were showing the
+  // word as plain text with no color cue at all. A combined value like
+  // "neutral / bullish / neutral" (Trend 5m/15m/1h) gets each word colored
+  // independently rather than the whole string picking one color.
+  function colorizeTrendWord(word) {
+    const text = String(word ?? "");
+    const normalized = text.trim().toLowerCase();
+    let cls = null;
+    if (normalized.includes("bullish")) cls = "im-stat-value-bullish";
+    else if (normalized.includes("bearish")) cls = "im-stat-value-bearish";
+    else if (normalized.includes("neutral")) cls = "im-stat-value-neutral";
+    return cls ? `<span class="${cls}">${escapeHtml(text)}</span>` : escapeHtml(text);
+  }
+
+  function colorizeStatValue(value) {
+    const str = String(value === undefined || value === null ? "--" : value);
+    if (str.includes(" / ")) {
+      return str.split(" / ").map(colorizeTrendWord).join(' <span class="im-ai-scanner-stat-sep">/</span> ');
+    }
+    return colorizeTrendWord(str);
+  }
+
   function renderAiScannerIndicators(snapshot) {
     const grid = document.getElementById("im-ai-scanner-indicators");
     if (!grid) return;
@@ -10086,7 +10114,7 @@ async function fetchWatchlist() {
         ([label, value]) => `
           <div class="im-ai-scanner-stat">
             <span class="im-ai-scanner-stat-label">${escapeHtml(label)}</span>
-            <span class="im-ai-scanner-stat-value">${escapeHtml(String(value === undefined || value === null ? "--" : value))}</span>
+            <span class="im-ai-scanner-stat-value">${colorizeStatValue(value)}</span>
           </div>
         `
       )
@@ -10510,7 +10538,7 @@ async function fetchWatchlist() {
         ([label, value]) => `
           <div class="im-ai-scanner-stat">
             <span class="im-ai-scanner-stat-label">${escapeHtml(label)}</span>
-            <span class="im-ai-scanner-stat-value">${escapeHtml(String(value === undefined || value === null ? "--" : value))}</span>
+            <span class="im-ai-scanner-stat-value">${colorizeStatValue(value)}</span>
           </div>
         `
       )

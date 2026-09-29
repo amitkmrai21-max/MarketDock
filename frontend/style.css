@@ -8178,6 +8178,11 @@ body.im-chart-fullscreen-open {
   font-variant-numeric: tabular-nums;
 }
 
+.indian-market-mode .im-stat-value-bullish { color: var(--im-green); }
+.indian-market-mode .im-stat-value-bearish { color: var(--im-red); }
+.indian-market-mode .im-stat-value-neutral { color: var(--im-muted); }
+.indian-market-mode .im-ai-scanner-stat-sep { color: var(--im-muted); font-weight: 600; }
+
 .indian-market-mode .im-ai-scanner-analysis {
   padding: 16px 18px;
   border: 1px solid rgba(167, 139, 250, 0.35);
