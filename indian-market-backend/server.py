@@ -240,6 +240,38 @@ def generate_ai_text(prompt, json_mode=False):
     raise RuntimeError("Neither Gemini nor Groq is configured on the server.")
 
 
+# Indian-market AI readouts describe what the indicators show; they must not
+# read as trading advice (SEBI research-analyst territory). The prompts say
+# so, but a model can still slip in "a prudent stop-loss should be placed
+# below support" — so any sentence that talks about stop-losses, targets,
+# entries/exits, position sizing, buying/selling or what the reader should
+# do is dropped from the reply before it reaches the user.
+AI_ADVICE_PATTERN = re.compile(
+    r"\b("
+    r"stop[\s-]?loss\w*|stoploss\w*|trailing\s+stop\w*|targets?|take[\s-]profit|"
+    r"entry|entries|enter|exit|exits|"
+    r"position[\s-]?siz\w*|lot\s+size|risk[\s-]?reward|risk\s+per\s+trade|capital|"
+    r"buy|sell|go\s+long|go\s+short|book\s+profits?|accumulate|"
+    r"should|consider|recommend\w*|advis\w*|prudent|"
+    r"kharid\w*|khareed\w*|bech\w*|lagaye\w*|lagayein|rakhein|karein"
+    r")\b",
+    re.IGNORECASE,
+)
+_SENTENCE_SPLIT = re.compile(r"(?<=[.!?\u0964])\s+")
+
+
+def strip_trading_advice(text):
+    kept_lines = []
+    for line in str(text or "").splitlines():
+        sentences = [part for part in _SENTENCE_SPLIT.split(line) if part.strip()]
+        kept = [part for part in sentences if not AI_ADVICE_PATTERN.search(part)]
+        if kept:
+            kept_lines.append(" ".join(kept))
+        elif not sentences:
+            kept_lines.append(line)
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept_lines)).strip()
+
+
 # ===================== Upstox live data + indicators =====================
 
 CHART_HISTORY_DAYS = {
@@ -2330,38 +2362,31 @@ Data source: {"live market data" if is_live else "demo/reference data (live feed
 
 Current price: {analysis["price"]}
 Open / high / low: {analysis["open"]} / {analysis["high"]} / {analysis["low"]}
-Decision: {analysis["decision"]["label"]}
-Decision reason: {analysis["decision"]["reason"]}
-Weighted score: {analysis["decision"]["weighted_score"]} of {analysis["decision"]["max_score"]}
 RSI 14: {analysis["indicators"]["rsi_14"]}
 EMA 9 / EMA 21 / EMA 50: {analysis["indicators"]["ema_9"]} / {analysis["indicators"]["ema_21"]} / {analysis["indicators"]["ema_50"]}
 VWAP: {analysis["indicators"]["vwap"]}
 MACD histogram: {analysis["indicators"]["macd_histogram"]}
 Volume ratio: {analysis["indicators"]["volume_ratio"]}
 Support / resistance: {analysis["levels"]["support"]} / {analysis["levels"]["resistance"]}
-Entry zone: {analysis["trade_plan"]["entry_zone"]["from"]} to {analysis["trade_plan"]["entry_zone"]["to"]}
-Entry condition: {analysis["trade_plan"]["entry_zone"]["condition"]}
-Stop loss: {analysis["trade_plan"]["stop_loss"]}
-Target 1 / Target 2: {analysis["trade_plan"]["target_1"]} / {analysis["trade_plan"]["target_2"]}
-Exit rule: {analysis["trade_plan"]["exit_rule"]}
 
 Write a concise Hinglish review with exactly these five headings:
-1. Bias
-2. Confirmation
-3. Levels
-4. Invalidation
-5. Risk note
+1. Trend
+2. Momentum
+3. Key Levels
+4. Chart Structure
+5. Volatility
 
 Rules:
-- Write your own independent analysis in your own words. Do not copy the "Decision reason" text above verbatim — you may agree with it, but explain why in your own phrasing, citing the specific numbers.
+- Describe what the indicators show right now and what each reading commonly means in technical analysis, citing the specific numbers. Do not predict where the price will go.
 - Mention the data source (live vs demo) if relevant.
 - Do not invent live news, option-chain data, candle patterns, or unprovided indicators.
-- Do not suggest real-money trading or use imperative execution language.
+- Never tell the reader what to do: no buy/sell, no entry or exit, no stop-loss, no target, no position size, no "should" or "consider" — not even as general guidance.
 - Keep the reply below 220 words.
 """
 
     try:
         review_text, provider = generate_ai_text(prompt)
+        review_text = strip_trading_advice(review_text)
 
         return jsonify(
             {
@@ -2445,18 +2470,21 @@ Write a concise Hinglish summary with exactly these five headings:
 1. Trend
 2. Momentum
 3. Key Levels
-4. Setup
-5. Risk Note
+4. Chart Structure
+5. Volatility
 
 Rules:
 - Base your analysis only on the numbers given above. Do not invent news, fundamentals, or data not shown.
-- For "Setup", describe honestly what the data suggests (Breakout / Pullback / Range / No clear setup) — do not force a setup if the indicators are mixed.
-- Do not use imperative execution language ("buy now", "sell now", "enter here").
+- Describe what the indicators show right now and what each reading commonly means in technical analysis. Do not predict where the price will go.
+- For "Chart Structure", name what the data shows (Trending / Pullback / Range / Near support / Near resistance / Mixed) — do not force a pattern if the indicators are mixed.
+- For "Volatility", describe the ATR and today's range in points only.
+- Never tell the reader what to do: no buy/sell, no entry or exit, no stop-loss, no target, no position size, no "should" or "consider" — not even as general guidance.
 - Keep the reply under 180 words.
 """
 
     try:
         analysis_text, provider = generate_ai_text(prompt)
+        analysis_text = strip_trading_advice(analysis_text)
 
         return jsonify(
             {
@@ -2522,18 +2550,21 @@ Write a concise Hinglish summary with exactly these five headings:
 1. Trend
 2. Momentum
 3. Key Levels
-4. Setup
-5. Risk Note
+4. Chart Structure
+5. Volatility
 
 Rules:
 - Base your analysis only on the numbers given above. Do not invent news, fundamentals, or data not shown.
-- For "Setup", describe honestly what the data suggests (Breakout / Pullback / Range / No clear setup) — do not force a setup if the indicators are mixed.
-- Do not use imperative execution language ("buy now", "sell now", "enter here").
+- Describe what the indicators show right now and what each reading commonly means in technical analysis. Do not predict where the price will go.
+- For "Chart Structure", name what the data shows (Trending / Pullback / Range / Near support / Near resistance / Mixed) — do not force a pattern if the indicators are mixed.
+- For "Volatility", describe the ATR and today's range in points only.
+- Never tell the reader what to do: no buy/sell, no entry or exit, no stop-loss, no target, no position size, no "should" or "consider" — not even as general guidance.
 - Keep the reply under 180 words.
 """
 
     try:
         analysis_text, provider = generate_ai_text(prompt)
+        analysis_text = strip_trading_advice(analysis_text)
 
         return jsonify(
             {
