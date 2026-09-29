@@ -4935,28 +4935,6 @@ function clearLiveChartAiOverlay() {
 
   let imPendingStockTrade = null;
 
-  function setImPendingStockTrade(symbol, direction, price) {
-    imPendingStockTrade = { symbol };
-    pushImDrilldown("im-watchlist");
-    showPage("im-paper-trading");
-
-    const banner = document.getElementById("im-stock-trade-banner");
-    const bannerSymbol = document.getElementById("im-stock-trade-symbol");
-    const indexLabel = document.getElementById("im-trade-index-label");
-    const directionSelect = document.getElementById("im-trade-direction");
-    const entryInput = document.getElementById("im-trade-entry");
-
-    if (banner) banner.hidden = false;
-    if (bannerSymbol) bannerSymbol.textContent = symbol;
-    if (indexLabel) indexLabel.style.display = "none";
-    if (directionSelect) directionSelect.value = direction;
-    if (entryInput) {
-      const numericPrice = Number(price);
-      if (Number.isFinite(numericPrice) && numericPrice > 0) entryInput.value = numericPrice;
-      entryInput.focus();
-    }
-  }
-
   function clearImPendingStockTrade() {
     imPendingStockTrade = null;
     const banner = document.getElementById("im-stock-trade-banner");
@@ -5043,6 +5021,7 @@ function clearLiveChartAiOverlay() {
     }
 
     renderTradeStats(trades);
+    renderImPaperFunds();
   }
 
   let imPerfEquityChart = null;
@@ -5261,75 +5240,231 @@ function clearLiveChartAiOverlay() {
     });
   }
 
-  // Checked from the same 60-second live-refresh tick that already re-renders
-  // the dashboard for the 4 known indices (renderMarketEngine) — no new
-  // polling. Handles limit-order fills, trailing-stop updates, and
-  // stop/target exits, each firing a browser notification like the other
-  // alert types.
+  // ---- Paper portfolio engine ----
+  // One localStorage record per order. An order starts "pending" (limit /
+  // stop orders waiting for their price) or fills immediately; once filled
+  // it is the open position ("open") until it's squared off ("closed").
+  // "filled" marks an order that was used up entirely closing an opposite
+  // position; "cancelled" is a pending order that expired or was withdrawn.
+  const IM_PAPER_STARTING_FUNDS = 20000000;
+  const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+  // Epoch ms of the IST hh:mm cutoff that applies to something created at
+  // `createdAt` — that same day's cutoff, or the next day's if it was
+  // created after it (e.g. an order placed at night belongs to tomorrow).
+  function imIstCutoff(createdAt, hh, mm) {
+    const shifted = new Date(createdAt + IST_OFFSET_MS);
+    let cutoff = Date.UTC(shifted.getUTCFullYear(), shifted.getUTCMonth(), shifted.getUTCDate(), hh, mm) - IST_OFFSET_MS;
+    if (createdAt >= cutoff) cutoff += 24 * 60 * 60 * 1000;
+    return cutoff;
+  }
+
+  function imTradeMargin(trade) {
+    if (Number.isFinite(trade.margin)) return trade.margin;
+    return Math.abs(Number(trade.entry) * Number(trade.qty)) || 0;
+  }
+
+  function computeImPaperFunds(trades = loadTrades()) {
+    let realized = 0;
+    let used = 0;
+    trades.forEach((trade) => {
+      if (trade.status === "closed" && Number.isFinite(trade.pnl)) realized += trade.pnl;
+      if (trade.status === "open" || trade.status === "pending") used += imTradeMargin(trade);
+    });
+    return {
+      opening: IM_PAPER_STARTING_FUNDS,
+      realized,
+      used,
+      available: IM_PAPER_STARTING_FUNDS + realized - used
+    };
+  }
+
+  function formatRupees(value) {
+    const sign = value < 0 ? "-" : "";
+    return `${sign}₹${formatNumber(Math.abs(value))}`;
+  }
+
+  function renderImPaperFunds() {
+    const funds = computeImPaperFunds();
+    const setText = (id, text, cls) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      if (cls !== undefined) el.className = cls;
+    };
+    // Whole rupees for the crore-sized balances so they fit narrow cards;
+    // P&L and margin keep paise.
+    const wholeRupees = (value) => `${value < 0 ? "-" : ""}₹${Math.round(Math.abs(value)).toLocaleString("en-IN")}`;
+    setText("im-pos-funds-available", wholeRupees(funds.available));
+    setText("im-pos-funds-used", `Used ${formatRupees(funds.used)}`);
+    setText("settingsPaperFundsAvailable", wholeRupees(funds.available));
+    setText("settingsPaperFundsUsed", formatRupees(funds.used));
+    setText("settingsPaperFundsRealized", `${funds.realized >= 0 ? "+" : ""}${formatRupees(funds.realized)}`, funds.realized >= 0 ? "im-change-up" : "im-change-down");
+    setText("settingsPaperFundsOpening", wholeRupees(funds.opening));
+    setText("im-order-available", formatRupees(funds.available));
+    return funds;
+  }
+
+  function imCloseTrade(trade, price, reason) {
+    const isBuy = trade.direction === "Buy";
+    trade.status = "closed";
+    trade.exitPrice = price;
+    trade.exitReason = reason;
+    trade.closedAt = Date.now();
+    trade.pnl = isBuy ? (price - trade.entry) * trade.qty : (trade.entry - price) * trade.qty;
+  }
+
+  // Open quantity of `symbol`/`product` held on the side opposite `side` —
+  // i.e. how much a `side` order would square off rather than open fresh.
+  function imOppositeOpenQty(trades, symbol, product, side) {
+    return trades
+      .filter((t) => t.status === "open" && t.index === symbol && (t.product || "MIS") === product && t.direction !== side)
+      .reduce((sum, t) => sum + Number(t.qty || 0), 0);
+  }
+
+  // Fills `trade` at `fillPrice`. Like a real broker's net position, an
+  // order on the opposite side of an existing open position first squares
+  // that position off (oldest first, splitting a partly-closed one), and
+  // only any leftover quantity becomes a new open position.
+  function applyImFill(trades, trade, fillPrice) {
+    const product = trade.product || "MIS";
+    trade.entry = fillPrice;
+    trade.filledAt = Date.now();
+    if (!Number.isFinite(trade.orderQty)) trade.orderQty = trade.qty;
+
+    let remaining = Number(trade.qty) || 0;
+    const opposite = trades
+      .filter((t) => t !== trade && t.status === "open" && t.index === trade.index && (t.product || "MIS") === product && t.direction !== trade.direction)
+      .reverse();
+
+    opposite.forEach((pos) => {
+      if (remaining <= 0) return;
+      const closeQty = Math.min(Number(pos.qty), remaining);
+      if (closeQty >= Number(pos.qty)) {
+        imCloseTrade(pos, fillPrice, "Squared off");
+      } else {
+        const closedPart = { ...pos, qty: closeQty, margin: imTradeMargin(pos) * (closeQty / pos.qty), isSplit: true };
+        imCloseTrade(closedPart, fillPrice, "Squared off");
+        pos.margin = imTradeMargin(pos) * ((pos.qty - closeQty) / pos.qty);
+        pos.qty -= closeQty;
+        trades.splice(trades.indexOf(pos) + 1, 0, closedPart);
+      }
+      remaining -= closeQty;
+    });
+
+    if (remaining <= 0) {
+      trade.status = "filled";
+      trade.margin = 0;
+      return;
+    }
+    // New orders carry their product's margin rate, so the margin blocked
+    // is re-based on the actual fill price and the quantity left open.
+    if (Number.isFinite(trade.marginRate)) trade.margin = fillPrice * remaining * trade.marginRate;
+    else if (remaining < trade.qty) trade.margin = imTradeMargin(trade) * (remaining / trade.qty);
+    trade.qty = remaining;
+    trade.status = "open";
+    trade.currentStop = Number.isFinite(trade.stop) ? trade.stop : null;
+  }
+
+  // Day orders still pending after that session's 3:30 PM close expire,
+  // like an exchange's end-of-day cancellation. Orders saved before
+  // validity existed are treated as good-till-cancelled.
+  function expireImPaperOrders(trades, now = Date.now()) {
+    let changed = false;
+    trades.forEach((trade) => {
+      if (trade.status !== "pending" || trade.validity !== "DAY" || !Number.isFinite(trade.createdAt)) return;
+      if (now >= imIstCutoff(trade.createdAt, 15, 30)) {
+        trade.status = "cancelled";
+        trade.cancelReason = "Day order expired";
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  // Runs on every live price tick for `marketKey` (index key or trading
+  // symbol): fills pending orders whose price/trigger was reached, moves
+  // trailing stops, exits on stop-loss/target, and squares off intraday
+  // (MIS) positions at 3:20 PM IST.
   function checkImPaperTrades(marketKey, data) {
     const price = Number(data.price);
     if (!Number.isFinite(price)) return;
 
     imLastKnownPrice[marketKey] = price;
-    if (typeof refreshBrokerPositionsIfVisible === "function") refreshBrokerPositionsIfVisible();
 
     const trades = loadTrades();
-    let changed = false;
+    const now = Date.now();
+    let changed = expireImPaperOrders(trades, now);
     const notifications = [];
 
-    trades.forEach((trade) => {
+    [...trades].forEach((trade) => {
       if (trade.index !== marketKey || !trade.status) return;
-      if (trade.status === "closed") return;
-
       const isBuy = trade.direction === "Buy";
 
       if (trade.status === "pending") {
-        const filled = isBuy ? price <= trade.entry : price >= trade.entry;
-        if (filled) {
-          trade.status = "open";
+        const type = trade.orderType;
+        let fillPrice = null;
+        if ((type === "sl" || type === "slm") && !trade.triggered) {
+          const triggerHit = isBuy ? price >= trade.triggerPrice : price <= trade.triggerPrice;
+          if (!triggerHit) return;
+          trade.triggered = true;
           changed = true;
-          notifications.push({
-            title: `${imTradeMarketLabel(marketKey)} Limit Order Filled`,
-            body: `${trade.direction} ${trade.qty} at ${trade.entry} filled — live price ${formatNumber(price)}.`,
-            tag: `im-paper-fill-${trade.entry}-${trade.qty}-${trade.stop}`
-          });
+          if (type === "slm") fillPrice = price;
         }
+        if (fillPrice === null && type !== "slm") {
+          const limitHit = isBuy ? price <= trade.entry : price >= trade.entry;
+          if (limitHit) fillPrice = trade.entry;
+        }
+        if (fillPrice === null) return;
+
+        applyImFill(trades, trade, fillPrice);
+        changed = true;
+        notifications.push({
+          title: `${imTradeMarketLabel(marketKey)} Order Executed`,
+          body: `${trade.direction} ${trade.orderQty} at ${formatNumber(fillPrice)} executed — live price ${formatNumber(price)}.`,
+          tag: `im-paper-fill-${trade.createdAt || trade.entry}-${trade.orderQty}`
+        });
         return;
       }
 
-      if (Number.isFinite(trade.trailingDistance) && trade.trailingDistance > 0) {
-        if (isBuy) {
-          const candidateStop = price - trade.trailingDistance;
-          if (candidateStop > trade.currentStop) {
-            trade.currentStop = candidateStop;
-            changed = true;
-          }
-        } else {
-          const candidateStop = price + trade.trailingDistance;
-          if (candidateStop < trade.currentStop) {
-            trade.currentStop = candidateStop;
-            changed = true;
-          }
+      if (trade.status !== "open") return;
+
+      if (trade.product === "MIS" && now >= imIstCutoff(trade.createdAt || trade.filledAt || now, 15, 20)) {
+        imCloseTrade(trade, price, "Auto square-off (Intraday)");
+        changed = true;
+        notifications.push({
+          title: `${imTradeMarketLabel(marketKey)} Intraday Square-off`,
+          body: `${trade.direction} ${trade.qty} squared off at ${formatNumber(price)}. P&L: ${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}.`,
+          tag: `im-paper-sqoff-${trade.createdAt || trade.entry}-${trade.qty}`
+        });
+        return;
+      }
+
+      const hasStop = Number.isFinite(trade.currentStop);
+      if (hasStop && Number.isFinite(trade.trailingDistance) && trade.trailingDistance > 0) {
+        const candidateStop = isBuy ? price - trade.trailingDistance : price + trade.trailingDistance;
+        if (isBuy ? candidateStop > trade.currentStop : candidateStop < trade.currentStop) {
+          trade.currentStop = candidateStop;
+          changed = true;
         }
       }
 
+      const hasTarget = Number.isFinite(trade.target);
       const trailed = Number.isFinite(trade.trailingDistance) && trade.trailingDistance > 0;
       let exitReason = null;
-      if (isBuy && price <= trade.currentStop) exitReason = trailed && trade.currentStop > trade.stop ? "Trailing Stop" : "Stop-Loss";
-      else if (isBuy && price >= trade.target) exitReason = "Target";
-      else if (!isBuy && price >= trade.currentStop) exitReason = trailed && trade.currentStop < trade.stop ? "Trailing Stop" : "Stop-Loss";
-      else if (!isBuy && price <= trade.target) exitReason = "Target";
+      if (hasStop && (isBuy ? price <= trade.currentStop : price >= trade.currentStop)) {
+        exitReason = trailed && trade.currentStop !== trade.stop ? "Trailing Stop" : "Stop-Loss";
+      } else if (hasTarget && (isBuy ? price >= trade.target : price <= trade.target)) {
+        exitReason = "Target";
+      }
 
       if (exitReason) {
-        trade.status = "closed";
-        trade.exitPrice = price;
-        trade.exitReason = exitReason;
-        trade.pnl = isBuy ? (price - trade.entry) * trade.qty : (trade.entry - price) * trade.qty;
+        imCloseTrade(trade, price, exitReason);
         changed = true;
         notifications.push({
           title: `${imTradeMarketLabel(marketKey)} Paper Trade Closed`,
           body: `${trade.direction} ${trade.qty} closed at ${formatNumber(price)} (${exitReason}). P&L: ${trade.pnl >= 0 ? "+" : ""}${trade.pnl.toFixed(2)}.`,
-          tag: `im-paper-close-${trade.entry}-${trade.qty}-${trade.stop}`
+          tag: `im-paper-close-${trade.createdAt || trade.entry}-${trade.qty}`
         });
       }
     });
@@ -5338,6 +5473,7 @@ function clearLiveChartAiOverlay() {
       saveTrades(trades);
       renderTrades();
     }
+    if (typeof refreshBrokerPositionsIfVisible === "function") refreshBrokerPositionsIfVisible();
     notifications.forEach((n) => sendImBrowserAlert(n.title, n.body, n.tag));
   }
 
@@ -7008,6 +7144,7 @@ async function fetchWatchlist() {
       return;
     }
     stopImActionSheetLiveQuote();
+    closeImOrderForm();
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const actionSheet = document.getElementById("im-watchlist-action-sheet");
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
@@ -7110,12 +7247,381 @@ async function fetchWatchlist() {
       `;
     }
   }
+  // ===================== Paper order form (inside the Buy/Sell sheet) =====================
+  // Tapping Buy/Sell swaps the sheet's details body for a broker-style order
+  // ticket; swiping the slider places the order into the paper portfolio
+  // (see applyImFill / checkImPaperTrades) and opens Positions.
+  let imOrderCtx = null;
+  const imOrderState = { side: "Buy", type: "market", product: "MIS", validity: "DAY", slUnit: "pct", targetUnit: "pct", showErrors: false };
+
+  function imOrderProducts(ctx) {
+    if (ctx.isCommodity || ctx.isOptionLeg) {
+      return [
+        { value: "MIS", title: "Intraday", sub: "MIS" },
+        { value: "NRML", title: "Carryforward", sub: "NRML" }
+      ];
+    }
+    return [
+      { value: "MIS", title: "Intraday", sub: "MIS" },
+      { value: "CNC", title: "Longterm", sub: "CNC" },
+      { value: "MTF", title: "MTF", sub: "MTF" }
+    ];
+  }
+
+  // Share of the order value blocked as margin: intraday leverage for MIS,
+  // full value for delivery, MTF's financed buy, roughly exchange-level
+  // margin for commodity futures, and the full premium for an option leg.
+  function imMarginRate(ctx, product) {
+    if (ctx.isOptionLeg) return 1;
+    if (ctx.isCommodity) return product === "MIS" ? 0.05 : 0.1;
+    if (product === "MIS") return 0.2;
+    if (product === "MTF") return 0.25;
+    return 1;
+  }
+
+  function imOrderEl(id) {
+    return document.getElementById(id);
+  }
+
+  function readImOrder() {
+    const ctx = imOrderCtx;
+    const st = imOrderState;
+    const lotSize = ctx.lotSize && ctx.lotSize > 0 ? ctx.lotSize : 1;
+    const lots = Math.floor(Number(imOrderEl("im-order-qty")?.value));
+    const isBuy = st.side === "Buy";
+    const ltp = Number(ctx.ltp);
+    const fail = (error, extra = {}) => ({ ok: false, error, ...extra });
+
+    if (!(lots >= 1)) return fail("Enter a quantity of at least 1.");
+    const qty = lots * lotSize;
+
+    let limitPrice = null;
+    let trigger = null;
+    if (st.type === "limit" || st.type === "sl") {
+      limitPrice = Number(imOrderEl("im-order-price")?.value);
+      if (!(limitPrice > 0)) return fail("Enter a price for this order.");
+    }
+    if (st.type === "sl" || st.type === "slm") {
+      trigger = Number(imOrderEl("im-order-trigger")?.value);
+      if (!(trigger > 0)) return fail("Enter a trigger price for this SL order.");
+      if (!(ltp > 0)) return fail("Live price hasn't loaded yet — try again in a moment.");
+      if (isBuy && !(trigger > ltp)) return fail(`A Buy SL trigger must be above the current price (${formatNumber(ltp)}).`);
+      if (!isBuy && !(trigger < ltp)) return fail(`A Sell SL trigger must be below the current price (${formatNumber(ltp)}).`);
+      if (st.type === "sl" && (isBuy ? limitPrice < trigger : limitPrice > trigger)) {
+        return fail(isBuy ? "For a Buy SL order the price must be at or above the trigger." : "For a Sell SL order the price must be at or below the trigger.");
+      }
+    }
+    if (st.validity === "IOC" && (st.type === "sl" || st.type === "slm")) return fail("IOC works only with Market and Limit orders.");
+
+    const basis = st.type === "market" ? ltp : st.type === "slm" ? trigger : limitPrice;
+    if (!(basis > 0)) return fail("Live price hasn't loaded yet — try again in a moment.");
+
+    const toLevel = (inputId, unit, isStop) => {
+      const raw = imOrderEl(inputId)?.value;
+      if (raw === "" || raw === undefined) return null;
+      const n = Number(raw);
+      if (!(n > 0)) return NaN;
+      if (unit === "abs") return n;
+      const below = isStop ? isBuy : !isBuy;
+      return below ? basis * (1 - n / 100) : basis * (1 + n / 100);
+    };
+    const stop = toLevel("im-order-sl", st.slUnit, true);
+    const target = toLevel("im-order-target", st.targetUnit, false);
+    if (Number.isNaN(stop)) return fail("Stop loss must be a positive number, or left empty.");
+    if (Number.isNaN(target)) return fail("Target must be a positive number, or left empty.");
+    if (stop !== null && (isBuy ? stop >= basis : stop <= basis)) return fail(isBuy ? "Stop loss must be below the buy price." : "Stop loss must be above the sell price.");
+    if (target !== null && (isBuy ? target <= basis : target >= basis)) return fail(isBuy ? "Target must be above the buy price." : "Target must be below the sell price.");
+
+    const trades = loadTrades();
+    const exitableQty = imOppositeOpenQty(trades, ctx.symbol, st.product, st.side);
+    if (!isBuy && (st.product === "CNC" || st.product === "MTF") && exitableQty < qty) {
+      return fail(`${st.product === "CNC" ? "Longterm (CNC)" : "MTF"} sell needs quantity you already hold — use Intraday (MIS) to short-sell.`);
+    }
+
+    const marginRate = imMarginRate(ctx, st.product);
+    const margin = basis * Math.max(0, qty - exitableQty) * marginRate;
+    const funds = computeImPaperFunds(trades);
+    const result = { ok: true, lots, qty, limitPrice, trigger, basis, stop, target, margin, marginRate, available: funds.available };
+    if (margin > funds.available) return fail(`Insufficient funds — needs ${formatRupees(margin)}, available ${formatRupees(funds.available)}.`, { margin, available: funds.available });
+    return result;
+  }
+
+  function updateImOrderSummary() {
+    if (!imOrderCtx) return null;
+    const order = readImOrder();
+    const marginEl = imOrderEl("im-order-margin");
+    if (marginEl) marginEl.textContent = Number.isFinite(order.margin) ? formatRupees(order.margin) : "--";
+    renderImPaperFunds();
+    const errorEl = imOrderEl("im-order-error");
+    const insufficient = !order.ok && Number.isFinite(order.margin);
+    if (errorEl) {
+      const show = !order.ok && (imOrderState.showErrors || insufficient);
+      errorEl.hidden = !show;
+      errorEl.textContent = show ? order.error : "";
+    }
+    imOrderEl("im-order-swipe-track")?.classList.toggle("is-disabled", insufficient);
+    return order;
+  }
+
+  function renderImOrderForm() {
+    const ctx = imOrderCtx;
+    const st = imOrderState;
+    const sheet = imOrderEl("im-watchlist-action-sheet");
+    if (!ctx || !sheet) return;
+    sheet.classList.toggle("im-order-sell", st.side === "Sell");
+
+    const markActive = (containerId, attr, value) => {
+      document.querySelectorAll(`#${containerId} [data-${attr}]`).forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset[attr] === value);
+      });
+    };
+    markActive("im-order-side-seg", "side", st.side);
+    markActive("im-order-type-seg", "type", st.type);
+    markActive("im-order-validity-seg", "validity", st.validity);
+    const iocBtn = document.querySelector('#im-order-validity-seg [data-validity="IOC"]');
+    if (iocBtn) iocBtn.disabled = st.type === "sl" || st.type === "slm";
+
+    const productRow = imOrderEl("im-order-product-row");
+    if (productRow) {
+      productRow.innerHTML = imOrderProducts(ctx).map((p) => `
+        <button type="button" class="im-order-product${p.value === st.product ? " active" : ""}" data-product="${p.value}">
+          <span>${p.title}<small>${p.sub}</small></span>
+        </button>
+      `).join("");
+    }
+
+    const lotSize = ctx.lotSize && ctx.lotSize > 0 ? ctx.lotSize : 1;
+    const qtyLabel = imOrderEl("im-order-qty-label");
+    if (qtyLabel) qtyLabel.textContent = lotSize > 1 ? "Lots" : "Quantity";
+    const lotEl = imOrderEl("im-order-lot-size");
+    if (lotEl) lotEl.textContent = `Lot size: ${lotSize}`;
+
+    const priceInput = imOrderEl("im-order-price");
+    const priceLock = imOrderEl("im-order-price-lock");
+    const priceEditable = st.type === "limit" || st.type === "sl";
+    if (priceInput) {
+      priceInput.disabled = !priceEditable;
+      priceInput.placeholder = priceEditable ? "Price" : "Market";
+      if (!priceEditable) priceInput.value = "";
+      else if (!priceInput.value && ctx.ltp > 0) priceInput.value = Number(ctx.ltp).toFixed(2);
+    }
+    if (priceLock) priceLock.hidden = priceEditable;
+
+    const triggerInput = imOrderEl("im-order-trigger");
+    const triggerEditable = st.type === "sl" || st.type === "slm";
+    if (triggerInput) {
+      triggerInput.disabled = !triggerEditable;
+      triggerInput.placeholder = triggerEditable ? "Trigger price" : "Only for SL / SL-M";
+      if (!triggerEditable) triggerInput.value = "";
+    }
+
+    const slUnit = imOrderEl("im-order-sl-unit");
+    const targetUnit = imOrderEl("im-order-target-unit");
+    if (slUnit) slUnit.textContent = st.slUnit === "pct" ? "%" : "₹";
+    if (targetUnit) targetUnit.textContent = st.targetUnit === "pct" ? "%" : "₹";
+
+    const swipeText = imOrderEl("im-order-swipe-text");
+    if (swipeText) swipeText.textContent = `Swipe to ${st.side}`;
+
+    updateImOrderSummary();
+  }
+
+  function openImOrderForm(side, preset = {}) {
+    const sheet = imOrderEl("im-watchlist-action-sheet");
+    if (!sheet || !imOrderCtx) return;
+    Object.assign(imOrderState, {
+      side,
+      type: preset.type || "market",
+      product: "MIS",
+      validity: preset.validity || "DAY",
+      slUnit: "pct",
+      targetUnit: "pct",
+      showErrors: false
+    });
+    ["im-order-price", "im-order-trigger", "im-order-sl", "im-order-target"].forEach((id) => {
+      const el = imOrderEl(id);
+      if (el) el.value = "";
+    });
+    const qty = imOrderEl("im-order-qty");
+    if (qty) qty.value = "1";
+    resetImOrderSwipe(false);
+    sheet.classList.add("im-order-mode");
+    renderImOrderForm();
+    imOrderEl("im-order-form")?.scrollTo?.(0, 0);
+  }
+
+  function closeImOrderForm() {
+    const sheet = imOrderEl("im-watchlist-action-sheet");
+    if (sheet) sheet.classList.remove("im-order-mode", "im-order-sell");
+    resetImOrderSwipe(false);
+  }
+
+  function submitImOrder() {
+    imOrderState.showErrors = true;
+    const order = updateImOrderSummary();
+    if (!order || !order.ok) return false;
+
+    const ctx = imOrderCtx;
+    const st = imOrderState;
+    const isBuy = st.side === "Buy";
+    const ltp = Number(ctx.ltp);
+    const now = Date.now();
+    const segment = ctx.isCommodity ? "MCX" : ctx.isOptionLeg ? "FO" : "EQ";
+
+    const trade = {
+      id: newImOrderId(),
+      index: ctx.symbol,
+      direction: st.side,
+      orderType: st.type,
+      product: st.product,
+      validity: st.validity,
+      segment,
+      instrumentKey: ctx.isOptionLeg ? ctx.instrumentKey || null : null,
+      lotSize: ctx.lotSize || 1,
+      qty: order.qty,
+      orderQty: order.qty,
+      entry: st.type === "slm" ? order.trigger : st.type === "market" ? ltp : order.limitPrice,
+      triggerPrice: order.trigger,
+      triggered: false,
+      stop: order.stop,
+      currentStop: order.stop,
+      trailingDistance: null,
+      target: order.target,
+      margin: order.margin,
+      marginRate: order.marginRate,
+      status: "pending",
+      createdAt: now,
+      pnl: null,
+      exitPrice: null,
+      exitReason: null
+    };
+
+    const trades = loadTrades();
+    trades.unshift(trade);
+
+    // Market orders fill at the live price; a limit order already at or
+    // better than the market fills straight away at the live price, like
+    // on an exchange. Everything else waits in the Order Book.
+    const marketable = st.type === "market" ||
+      (st.type === "limit" && (isBuy ? order.limitPrice >= ltp : order.limitPrice <= ltp));
+    if (marketable) {
+      applyImFill(trades, trade, ltp);
+    } else if (st.validity === "IOC") {
+      trade.status = "cancelled";
+      trade.cancelReason = "IOC — not filled immediately";
+    }
+
+    if (ltp > 0) imLastKnownPrice[ctx.symbol] = ltp;
+    saveTrades(trades);
+    renderTrades();
+
+    const cancelledIoc = trade.status === "cancelled";
+    closeImWatchlistSheets(true);
+    showPage("im-broker-account");
+    if (cancelledIoc) window.alert("IOC order cancelled — the price wasn't available immediately.");
+    return true;
+  }
+
+  // ---- Swipe-to-confirm slider ----
+  let imSwipeDrag = null;
+
+  function imSwipeMaxX() {
+    const track = imOrderEl("im-order-swipe-track");
+    const knob = imOrderEl("im-order-swipe-knob");
+    if (!track || !knob) return 0;
+    return Math.max(0, track.clientWidth - knob.offsetWidth - 8);
+  }
+
+  function setImSwipeX(x) {
+    const knob = imOrderEl("im-order-swipe-knob");
+    const fill = imOrderEl("im-order-swipe-fill");
+    if (knob) knob.style.transform = `translateX(${x}px)`;
+    if (fill) fill.style.width = `${x + 27}px`;
+  }
+
+  function resetImOrderSwipe(animate = true) {
+    const track = imOrderEl("im-order-swipe-track");
+    if (!track) return;
+    track.classList.toggle("is-resetting", animate);
+    setImSwipeX(0);
+    const fill = imOrderEl("im-order-swipe-fill");
+    if (fill) fill.style.width = "0";
+    if (animate) window.setTimeout(() => track.classList.remove("is-resetting"), 220);
+  }
+
+  function setupImOrderForm() {
+    const form = imOrderEl("im-order-form");
+    const knob = imOrderEl("im-order-swipe-knob");
+    const track = imOrderEl("im-order-swipe-track");
+    if (!form || !knob || !track) return;
+
+    form.addEventListener("click", (event) => {
+      const btn = event.target.closest("button");
+      if (!btn || btn.disabled) return;
+      const d = btn.dataset;
+      if (d.side) imOrderState.side = d.side;
+      else if (d.type) {
+        imOrderState.type = d.type;
+        if ((d.type === "sl" || d.type === "slm") && imOrderState.validity === "IOC") imOrderState.validity = "DAY";
+      } else if (d.validity) imOrderState.validity = d.validity;
+      else if (d.product) imOrderState.product = d.product;
+      else if (d.qty) imOrderEl("im-order-qty").value = d.qty;
+      else if (btn.id === "im-order-qty-minus" || btn.id === "im-order-qty-plus") {
+        const input = imOrderEl("im-order-qty");
+        const current = Math.floor(Number(input.value)) || 1;
+        input.value = String(Math.max(1, current + (btn.id === "im-order-qty-plus" ? 1 : -1)));
+      } else if (btn.id === "im-order-sl-unit") imOrderState.slUnit = imOrderState.slUnit === "pct" ? "abs" : "pct";
+      else if (btn.id === "im-order-target-unit") imOrderState.targetUnit = imOrderState.targetUnit === "pct" ? "abs" : "pct";
+      else return;
+      renderImOrderForm();
+    });
+    form.addEventListener("input", () => updateImOrderSummary());
+
+    knob.addEventListener("pointerdown", (event) => {
+      if (track.classList.contains("is-disabled")) return;
+      imSwipeDrag = { startX: event.clientX, x: 0, max: imSwipeMaxX() };
+      track.classList.remove("is-resetting");
+      knob.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    });
+    knob.addEventListener("pointermove", (event) => {
+      if (!imSwipeDrag) return;
+      imSwipeDrag.x = Math.min(imSwipeDrag.max, Math.max(0, event.clientX - imSwipeDrag.startX));
+      setImSwipeX(imSwipeDrag.x);
+    });
+    const endDrag = () => {
+      if (!imSwipeDrag) return;
+      const done = imSwipeDrag.max > 0 && imSwipeDrag.x >= imSwipeDrag.max * 0.85;
+      imSwipeDrag = null;
+      if (done) {
+        setImSwipeX(imSwipeMaxX());
+        if (!submitImOrder()) resetImOrderSwipe(true);
+      } else {
+        resetImOrderSwipe(true);
+      }
+    };
+    knob.addEventListener("pointerup", endDrag);
+    knob.addEventListener("pointercancel", endDrag);
+    knob.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        if (!track.classList.contains("is-disabled")) submitImOrder();
+      }
+    });
+  }
+
+  setupImOrderForm();
+
   // Header price/change plus everything on the sheet derived from price
   // (depth ladder, day/52-week ranges, stats grid). Called once on open and
   // again on every live tick while the sheet stays open.
   function renderImActionSheetQuote(price, changePct) {
     const numPrice = Number(price);
     const validPrice = Number.isFinite(numPrice) && numPrice > 0 ? numPrice : 1000;
+    if (imOrderCtx && numPrice > 0) {
+      imOrderCtx.ltp = numPrice;
+      if (document.getElementById("im-watchlist-action-sheet")?.classList.contains("im-order-mode")) updateImOrderSummary();
+    }
     const changeAmt = validPrice * (changePct / 100);
 
     const priceEl = document.getElementById("im-action-sheet-price");
@@ -7295,6 +7801,11 @@ async function fetchWatchlist() {
 
     const symEl = document.getElementById("im-action-sheet-symbol");
     if (symEl) symEl.textContent = symbol;
+    const exchangeEl = document.getElementById("im-action-sheet-exchange");
+    if (exchangeEl) exchangeEl.textContent = isOptionLeg ? "F&O OPT" : isCommodity ? "MCX FUT" : "NSE EQ";
+
+    imOrderCtx = { symbol, lotSize, isCommodity, isOptionLeg, instrumentKey, ltp: Number(price) };
+    closeImOrderForm();
 
     // Find row in imWatchlistLastRows if available — commodity rows aren't
     // in that equity-only cache, so isCommodity passes the change% straight
@@ -7356,18 +7867,8 @@ async function fetchWatchlist() {
     // past the 450ms guard (meant only for that backdrop case) so a fast,
     // decisive tap right after the sheet opens still closes it, instead of
     // leaving it visually stuck open while the app navigates underneath.
-    if (buyBtn) {
-      buyBtn.onclick = () => {
-        closeImWatchlistSheets(true);
-        setImPendingStockTrade(symbol, "Buy", price);
-      };
-    }
-    if (sellBtn) {
-      sellBtn.onclick = () => {
-        closeImWatchlistSheets(true);
-        setImPendingStockTrade(symbol, "Sell", price);
-      };
-    }
+    if (buyBtn) buyBtn.onclick = () => openImOrderForm("Buy");
+    if (sellBtn) sellBtn.onclick = () => openImOrderForm("Sell");
     if (chartBtn) {
       // A single option leg has no chart of its own here.
       chartBtn.style.display = isOptionLeg ? "none" : "";
@@ -7410,12 +7911,7 @@ async function fetchWatchlist() {
         if (note) alert(`Note saved for ${symbol}`);
       };
     }
-    if (gttBtn) {
-      gttBtn.onclick = () => {
-        closeImWatchlistSheets(true);
-        setImPendingStockTrade(symbol, "Buy", price);
-      };
-    }
+    if (gttBtn) gttBtn.onclick = () => openImOrderForm("Buy", { type: "limit", validity: "GTT" });
     if (closeBtn) {
       closeBtn.onclick = () => closeImWatchlistSheets(true);
     }
@@ -9574,75 +10070,92 @@ async function fetchWatchlist() {
   }
 
   // ===================== Positions / Order Book (paper trading) =====================
-  // Everything here reads the same virtual portfolio as the Paper Trading
-  // Journal (indianMarketPaperTrades in localStorage) — no broker account,
-  // no real money — just presented as a Positions-style list and Order
-  // Book instead of the journal's row-per-trade table. Holdings isn't a
-  // separate view: the app's own pre-existing convention (see the removed
-  // normalizeBrokerRow) already merged Positions+Holdings into one list.
+  // Everything here reads the virtual portfolio in localStorage
+  // (indianMarketPaperTrades) — no broker account, no real money. Holdings
+  // isn't a separate view: Positions lists every open holding/position
+  // together, the same way the old broker view merged them.
 
-  // Populated by checkImPaperTrades() on every live price tick (indices
-  // every 60s, Watchlist stocks every 2s) — the same ticks that already
-  // drive stop/target/trailing-stop checks — so open positions here show
-  // live unrealized P&L without any extra polling of their own.
+  // Latest live price per index key / trading symbol, filled by
+  // checkImPaperTrades() on every tick.
   const imLastKnownPrice = {};
+  const IM_MCX_FUTURES_PATTERN = /^[A-Z]+\d{2}[A-Z]{3}FUT$/;
 
-  function classifyPositionSegment(indexKey) {
-    return IM_TRADE_MARKET_LABELS[indexKey] ? "FO" : "EQ";
+  function classifyTradeSegment(trade) {
+    if (trade.segment === "MCX" || trade.segment === "EQ" || trade.segment === "FO") return trade.segment;
+    if (IM_TRADE_MARKET_LABELS[trade.index] || trade.instrumentKey) return "FO";
+    if (IM_MCX_FUTURES_PATTERN.test(String(trade.index || ""))) return "MCX";
+    return "EQ";
   }
 
-  function brokerSegmentLabel(segment) {
-    return segment === "FO" ? "Index · Paper" : "NSE · Equity Paper";
+  function brokerSegmentLabel(trade, segment) {
+    if (segment === "MCX") return "MCX · Futures";
+    if (segment === "FO") return IM_TRADE_MARKET_LABELS[trade.index] ? "NSE · Index" : "F&O · Options";
+    return "NSE · Equity";
   }
+
+  const IM_PRODUCT_LABELS = { MIS: "MIS", CNC: "CNC", MTF: "MTF", NRML: "NRML" };
 
   let imPosActiveSegment = "ALL";
 
+  // One row per symbol + product + side, like a broker's net position:
+  // several Buy orders of the same stock show as one position at their
+  // weighted average price.
   function getOpenPositionRows() {
-    return loadTrades()
-      .filter((trade) => trade.status === "open")
-      .map((trade) => {
-        const direction = String(trade.direction || "Buy").toUpperCase();
-        const isBuy = direction === "BUY";
-        const segment = classifyPositionSegment(trade.index);
-        const lastPrice = Number.isFinite(imLastKnownPrice[trade.index]) ? imLastKnownPrice[trade.index] : trade.entry;
-        const qty = Number(trade.qty) || 0;
-        const pnl = isBuy ? (lastPrice - trade.entry) * qty : (trade.entry - lastPrice) * qty;
-        const investedValue = Math.abs(trade.entry * qty) || null;
-        const pnlPct = investedValue ? (pnl / investedValue) * 100 : null;
+    const groups = new Map();
+    loadTrades().forEach((trade) => {
+      if (trade.status !== "open") return;
+      const product = trade.product || "";
+      const key = `${trade.index}|${product}|${trade.direction}`;
+      const qty = Number(trade.qty) || 0;
+      const group = groups.get(key) || { key, trade, product, qty: 0, cost: 0 };
+      group.qty += qty;
+      group.cost += Number(trade.entry) * qty;
+      groups.set(key, group);
+    });
 
-        return {
-          symbol: imTradeMarketLabel(trade.index),
-          direction,
-          product: trade.orderType === "limit" ? "Limit" : "Market",
-          segment,
-          segmentLabel: brokerSegmentLabel(segment),
-          quantity: qty,
-          lastPrice,
-          pnl,
-          pnlPct
-        };
-      });
+    return [...groups.values()].map((group) => {
+      const { trade } = group;
+      const direction = String(trade.direction || "Buy").toUpperCase();
+      const isBuy = direction === "BUY";
+      const avgPrice = group.qty ? group.cost / group.qty : 0;
+      const lastPrice = Number.isFinite(imLastKnownPrice[trade.index]) ? imLastKnownPrice[trade.index] : avgPrice;
+      const pnl = isBuy ? (lastPrice - avgPrice) * group.qty : (avgPrice - lastPrice) * group.qty;
+      const investedValue = Math.abs(avgPrice * group.qty) || null;
+      const segment = classifyTradeSegment(trade);
+      return {
+        key: group.key,
+        symbol: imTradeMarketLabel(trade.index),
+        direction,
+        product: IM_PRODUCT_LABELS[group.product] || (trade.orderType === "limit" ? "Limit" : "Market"),
+        segment,
+        segmentLabel: brokerSegmentLabel(trade, segment),
+        quantity: group.qty,
+        avgPrice,
+        lastPrice,
+        pnl,
+        pnlPct: investedValue ? (pnl / investedValue) * 100 : null
+      };
+    });
   }
 
   function renderPositionsSummary(rows) {
     const totalPnl = rows.reduce((sum, r) => sum + r.pnl, 0);
     const totalEl = document.getElementById("im-pos-total-pnl");
     const totalPctEl = document.getElementById("im-pos-total-pnl-pct");
-    const dayEl = document.getElementById("im-pos-day-pnl");
-    const dayPctEl = document.getElementById("im-pos-day-pnl-pct");
+    const countEl = document.getElementById("im-pos-day-pnl");
+    const countSubEl = document.getElementById("im-pos-day-pnl-pct");
     const totalCls = totalPnl >= 0 ? "im-change-up" : "im-change-down";
 
     if (totalEl) { totalEl.textContent = `${totalPnl >= 0 ? "+" : ""}${formatNumber(totalPnl)}`; totalEl.className = `im-pos-summary-value ${totalCls}`; }
 
-    const invested = rows.reduce((sum, r) => sum + r.lastPrice * r.quantity, 0);
+    const invested = rows.reduce((sum, r) => sum + r.avgPrice * r.quantity, 0);
     const totalPct = invested ? (totalPnl / invested) * 100 : null;
     if (totalPctEl) { totalPctEl.textContent = Number.isFinite(totalPct) ? `(${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(2)}%)` : ""; totalPctEl.className = `im-pos-summary-pct ${totalCls}`; }
 
-    // No real "day boundary" in the paper-trade journal (trades carry no
-    // timestamp) — this card shows the open-position count instead of a
-    // faked Day P&L.
-    if (dayEl) { dayEl.textContent = String(rows.length); dayEl.className = "im-pos-summary-value"; }
-    if (dayPctEl) { dayPctEl.textContent = rows.length === 1 ? "open position" : "open positions"; dayPctEl.className = "im-pos-summary-pct"; }
+    if (countEl) { countEl.textContent = String(rows.length); countEl.className = "im-pos-summary-value"; }
+    if (countSubEl) { countSubEl.textContent = rows.length === 1 ? "open position" : "open positions"; countSubEl.className = "im-pos-summary-pct"; }
+
+    renderImPaperFunds();
   }
 
   function renderPositionsList() {
@@ -9660,7 +10173,7 @@ async function fetchWatchlist() {
     renderPositionsSummary(rows);
 
     if (!filtered.length) {
-      listEl.innerHTML = `<p class="settings-help">No open paper-trade positions right now. Tap Buy/Sell on a Watchlist stock, or add one from the Paper Trading Journal.</p>`;
+      listEl.innerHTML = `<p class="settings-help">No open positions right now. Tap a stock or commodity, then Buy or Sell to place a paper order.</p>`;
       return;
     }
 
@@ -9684,14 +10197,68 @@ async function fetchWatchlist() {
                 <span class="im-pos-pnl ${cls}">${r.pnl >= 0 ? "+" : ""}${formatNumber(r.pnl)}</span>
                 <span class="im-pos-pnl-pct ${cls}">${pctText}</span>
               </div>
-              <span class="im-pos-chevron">&rsaquo;</span>
+              <button type="button" class="im-pos-exit-btn" data-exit-key="${escapeHtml(r.key)}">Exit</button>
             </div>
           </div>
-          <div class="im-pos-row-meta">Qty. ${Math.round(r.quantity).toLocaleString("en-IN")} · LTP ${formatNumber(r.lastPrice)}</div>
+          <div class="im-pos-row-meta">Qty. ${Math.round(r.quantity).toLocaleString("en-IN")} · Avg ${formatNumber(r.avgPrice)} · LTP ${formatNumber(r.lastPrice)}</div>
         </div>
       `;
     }).join("");
   }
+
+  function newImOrderId() {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  // Squares off a whole net position at the latest live price with a
+  // market order on the opposite side (recorded in the Order Book too).
+  function exitImPosition(positionKey) {
+    const [symbol, product, direction] = positionKey.split("|");
+    const trades = loadTrades();
+    const qty = trades
+      .filter((t) => t.status === "open" && t.index === symbol && (t.product || "") === product && t.direction === direction)
+      .reduce((sum, t) => sum + Number(t.qty || 0), 0);
+    const price = imLastKnownPrice[symbol];
+    if (!qty) return;
+    if (!Number.isFinite(price)) {
+      window.alert("Live price for this position hasn't loaded yet — try again in a couple of seconds.");
+      return;
+    }
+    if (!window.confirm(`Exit ${imTradeMarketLabel(symbol)} — ${direction === "Buy" ? "SELL" : "BUY"} ${qty} at market (≈ ${formatNumber(price)})?`)) return;
+
+    const exitOrder = {
+      id: newImOrderId(),
+      index: symbol,
+      direction: direction === "Buy" ? "Sell" : "Buy",
+      orderType: "market",
+      product: product || "MIS",
+      validity: "DAY",
+      qty,
+      orderQty: qty,
+      entry: price,
+      stop: null,
+      currentStop: null,
+      trailingDistance: null,
+      target: null,
+      margin: 0,
+      status: "pending",
+      createdAt: Date.now(),
+      pnl: null,
+      exitPrice: null,
+      exitReason: null
+    };
+    trades.unshift(exitOrder);
+    applyImFill(trades, exitOrder, price);
+    saveTrades(trades);
+    renderTrades();
+    renderPositionsList();
+    renderBrokerOrdersList();
+  }
+
+  document.getElementById("im-pos-list")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-exit-key]");
+    if (button) exitImPosition(button.dataset.exitKey);
+  });
 
   document.getElementById("im-pos-search-input")?.addEventListener("input", renderPositionsList);
 
@@ -9704,34 +10271,79 @@ async function fetchWatchlist() {
     });
   });
 
-  // A paper trade's own status already maps directly onto the three Order
-  // Book tabs: "pending" (limit order placed, not yet filled) is Open;
-  // "open" or "closed" (entry filled, whether or not the position has
-  // since closed) is Executed. There's no distinct Cancelled state today
-  // (deleting a pending trade removes it outright) — that tab stays empty.
+  // Order status → Order Book tab: pending is Open; anything that filled
+  // (still-open position, since-closed position, or an order used up
+  // squaring one off) is Executed; expired/withdrawn is Cancelled.
   function classifyOrderStatus(status) {
     if (status === "pending") return "open";
-    if (status === "open" || status === "closed") return "executed";
+    if (status === "open" || status === "closed" || status === "filled") return "executed";
     return "cancelled";
+  }
+
+  const IM_ORDER_STATUS_LABELS = { open: "OPEN", executed: "EXECUTED", cancelled: "CANCELLED" };
+  const IM_ORDER_TYPE_LABELS = { market: "MARKET", limit: "LIMIT", sl: "SL", slm: "SL-M" };
+
+  function describeImOrder(trade) {
+    const type = IM_ORDER_TYPE_LABELS[trade.orderType] || "MARKET";
+    let priceText = "";
+    if (trade.orderType === "limit" || trade.orderType === "sl") priceText = ` @ ${formatNumber(trade.entry)}`;
+    if ((trade.orderType === "sl" || trade.orderType === "slm") && Number.isFinite(trade.triggerPrice)) priceText += ` · trg ${formatNumber(trade.triggerPrice)}`;
+    const executed = trade.status === "open" || trade.status === "closed" || trade.status === "filled";
+    if (executed && trade.orderType !== "limit" && trade.orderType !== "sl" && Number.isFinite(trade.entry)) priceText = ` @ ${formatNumber(trade.entry)}`;
+    const product = trade.product ? ` · ${trade.product}` : "";
+    const reason = trade.status === "cancelled" && trade.cancelReason ? ` · ${trade.cancelReason}` : "";
+    return `${String(trade.direction || "").toUpperCase()} · ${type}${priceText}${product}${reason}`;
   }
 
   let imBrokerOrdersActiveFilter = "all";
 
   function renderBrokerOrdersList() {
-    const allRows = loadTrades();
+    const allRows = loadTrades()
+      .map((trade, index) => ({ trade, index }))
+      .filter(({ trade }) => !trade.isSplit && trade.status);
     const rows = imBrokerOrdersActiveFilter === "all"
       ? allRows
-      : allRows.filter((row) => classifyOrderStatus(row.status) === imBrokerOrdersActiveFilter);
+      : allRows.filter(({ trade }) => classifyOrderStatus(trade.status) === imBrokerOrdersActiveFilter);
     const body = document.getElementById("im-broker-orders-body");
     if (!body) return;
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="3">No ${imBrokerOrdersActiveFilter === "all" ? "" : imBrokerOrdersActiveFilter + " "}paper orders.</td></tr>`;
+      body.innerHTML = `<p class="settings-help">No ${imBrokerOrdersActiveFilter === "all" ? "" : imBrokerOrdersActiveFilter + " "}paper orders.</p>`;
       return;
     }
-    body.innerHTML = rows.map((row) => {
-      return `<tr><td class="im-col-symbol">${escapeHtml(imTradeMarketLabel(row.index))}</td><td class="im-col-price">${escapeHtml(String(row.qty ?? "--"))}</td><td class="im-col-change-pct">${escapeHtml(String(row.status || "--").toUpperCase())}</td></tr>`;
+    body.innerHTML = rows.map(({ trade, index }) => {
+      const bucket = classifyOrderStatus(trade.status);
+      const cancelKey = trade.id || `idx:${index}`;
+      const cancelBtn = bucket === "open"
+        ? `<button type="button" class="im-order-cancel-btn" data-cancel-key="${escapeHtml(cancelKey)}">Cancel</button>`
+        : "";
+      const qty = Number.isFinite(trade.orderQty) ? trade.orderQty : trade.qty;
+      return `
+        <div class="im-ob-row">
+          <div class="im-ob-main">
+            <span class="im-ob-symbol">${escapeHtml(imTradeMarketLabel(trade.index))}</span>
+            <span class="im-order-book-sub">${escapeHtml(describeImOrder(trade))}</span>
+          </div>
+          <span class="im-ob-qty">${escapeHtml(String(qty ?? "--"))}</span>
+          <span class="im-ob-status im-ob-status-${bucket}">${IM_ORDER_STATUS_LABELS[bucket]}${cancelBtn}</span>
+        </div>
+      `;
     }).join("");
   }
+
+  document.getElementById("im-broker-orders-body")?.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-cancel-key]");
+    if (!button) return;
+    const key = button.dataset.cancelKey;
+    const trades = loadTrades();
+    const trade = key.startsWith("idx:") ? trades[Number(key.slice(4))] : trades.find((t) => t.id === key);
+    if (!trade || trade.status !== "pending") return;
+    trade.status = "cancelled";
+    trade.cancelReason = "Cancelled by you";
+    saveTrades(trades);
+    renderTrades();
+    renderBrokerOrdersList();
+    renderPositionsList();
+  });
 
   const imBrokerOrdersFilterPills = document.querySelectorAll("#im-broker-orders-filter-row .im-pos-filter-pill");
   imBrokerOrdersFilterPills.forEach((btn) => {
@@ -9751,8 +10363,7 @@ async function fetchWatchlist() {
   }
 
   // Refreshes the Positions list's live P&L on every price tick, but only
-  // while that page is actually on screen — same guard pattern used
-  // elsewhere for page-scoped polling side effects.
+  // while that page is actually on screen.
   function refreshBrokerPositionsIfVisible() {
     if (document.getElementById("im-broker-account")?.classList.contains("active")) {
       renderPositionsList();
@@ -9760,42 +10371,72 @@ async function fetchWatchlist() {
     }
   }
 
-  // Marks every open/pending paper trade to market every 2s, whether or
-  // not its stock is also on the Watchlist (whose own 2s poll otherwise was
-  // the only live price source for stocks, and indices only got the 60s
-  // technical-engine tick). Feeding checkImPaperTrades() means limit fills,
-  // trailing stops and stop/target exits also fire live, like a real
-  // order book — not just the P&L display.
+  // Marks every open position and pending order to market every 2s,
+  // whatever page is on screen — so live P&L, order fills, stop/target
+  // exits and intraday square-off all happen like a real order book.
+  // Each contract is priced from wherever it can be: indices via
+  // /api/index-quotes, option legs by exact instrument key via /api/ltp,
+  // MCX futures via /api/commodities, stocks via /api/watchlist.
   let imPaperQuotesInFlight = false;
 
   async function pollOpenPaperTradeQuotes() {
     if (imPaperQuotesInFlight || document.getElementById("indianModeRoot")?.hidden) return;
-    const activeKeys = [...new Set(
-      loadTrades()
-        .filter((trade) => trade.status === "open" || trade.status === "pending")
-        .map((trade) => trade.index)
-    )];
-    if (!activeKeys.length) return;
 
-    const indexKeys = activeKeys.filter((key) => IM_TRADE_MARKET_LABELS[key]);
-    const stockSymbols = activeKeys.filter((key) => !IM_TRADE_MARKET_LABELS[key]);
-    const requests = [];
-    if (stockSymbols.length) {
-      requests.push(fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(stockSymbols.join(","))}`).then((r) => r.json()));
+    const trades = loadTrades();
+    if (expireImPaperOrders(trades)) {
+      saveTrades(trades);
+      renderTrades();
+      refreshBrokerPositionsIfVisible();
     }
-    if (indexKeys.length) {
-      requests.push(fetch(`${API_BASE_URL}/api/index-quotes`).then((r) => r.json()));
+
+    const active = trades.filter((trade) => trade.status === "open" || trade.status === "pending");
+    if (!active.length) return;
+
+    const indexKeys = new Set();
+    const stockSymbols = new Set();
+    const mcxSymbols = new Set();
+    const symbolsByInstrumentKey = new Map();
+    active.forEach((trade) => {
+      const symbol = trade.index;
+      if (IM_TRADE_MARKET_LABELS[symbol]) indexKeys.add(symbol);
+      else if (trade.instrumentKey) {
+        const list = symbolsByInstrumentKey.get(trade.instrumentKey) || new Set();
+        list.add(symbol);
+        symbolsByInstrumentKey.set(trade.instrumentKey, list);
+      } else if (IM_MCX_FUTURES_PATTERN.test(String(symbol))) mcxSymbols.add(symbol);
+      else stockSymbols.add(symbol);
+    });
+
+    const getJson = (url) => fetch(url).then((r) => r.json());
+    const jobs = [];
+    if (stockSymbols.size) {
+      jobs.push(getJson(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent([...stockSymbols].join(","))}`)
+        .then((res) => (res?.ok ? res.data || [] : []).forEach((row) => {
+          if (stockSymbols.has(row.symbol)) checkImPaperTrades(row.symbol, { price: row.last_price });
+        })));
+    }
+    if (indexKeys.size) {
+      jobs.push(getJson(`${API_BASE_URL}/api/index-quotes`)
+        .then((res) => (res?.ok ? res.data || [] : []).forEach((row) => {
+          if (indexKeys.has(row.symbol)) checkImPaperTrades(row.symbol, { price: row.last_price });
+        })));
+    }
+    if (symbolsByInstrumentKey.size) {
+      jobs.push(getJson(`${API_BASE_URL}/api/ltp?instrument_keys=${encodeURIComponent([...symbolsByInstrumentKey.keys()].join(","))}`)
+        .then((res) => (res?.ok ? res.data || [] : []).forEach((row) => {
+          (symbolsByInstrumentKey.get(row.symbol) || []).forEach((symbol) => checkImPaperTrades(symbol, { price: row.last_price }));
+        })));
+    }
+    if (mcxSymbols.size) {
+      jobs.push(getJson(`${API_BASE_URL}/api/commodities`)
+        .then((res) => (res?.ok ? res.data || [] : []).forEach((row) => {
+          if (mcxSymbols.has(row.trading_symbol)) checkImPaperTrades(row.trading_symbol, { price: row.last_price });
+        })));
     }
 
     imPaperQuotesInFlight = true;
     try {
-      const results = await Promise.allSettled(requests);
-      results.forEach((result) => {
-        if (result.status !== "fulfilled" || !result.value?.ok) return;
-        (result.value.data || []).forEach((row) => {
-          if (activeKeys.includes(row.symbol)) checkImPaperTrades(row.symbol, { price: row.last_price });
-        });
-      });
+      await Promise.allSettled(jobs);
     } finally {
       imPaperQuotesInFlight = false;
     }
