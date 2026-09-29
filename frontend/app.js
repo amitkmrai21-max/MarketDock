@@ -9693,6 +9693,7 @@ async function fetchWatchlist() {
     if (statusEl) statusEl.textContent = "";
     renderPositionsList();
     renderBrokerOrdersList();
+    pollOpenPaperTradeQuotes();
   }
 
   // Refreshes the Positions list's live P&L on every price tick, but only
@@ -9701,8 +9702,52 @@ async function fetchWatchlist() {
   function refreshBrokerPositionsIfVisible() {
     if (document.getElementById("im-broker-account")?.classList.contains("active")) {
       renderPositionsList();
+      renderBrokerOrdersList();
     }
   }
+
+  // Marks every open/pending paper trade to market every 2s, whether or
+  // not its stock is also on the Watchlist (whose own 2s poll otherwise was
+  // the only live price source for stocks, and indices only got the 60s
+  // technical-engine tick). Feeding checkImPaperTrades() means limit fills,
+  // trailing stops and stop/target exits also fire live, like a real
+  // order book — not just the P&L display.
+  let imPaperQuotesInFlight = false;
+
+  async function pollOpenPaperTradeQuotes() {
+    if (imPaperQuotesInFlight || document.getElementById("indianModeRoot")?.hidden) return;
+    const activeKeys = [...new Set(
+      loadTrades()
+        .filter((trade) => trade.status === "open" || trade.status === "pending")
+        .map((trade) => trade.index)
+    )];
+    if (!activeKeys.length) return;
+
+    const indexKeys = activeKeys.filter((key) => IM_TRADE_MARKET_LABELS[key]);
+    const stockSymbols = activeKeys.filter((key) => !IM_TRADE_MARKET_LABELS[key]);
+    const requests = [];
+    if (stockSymbols.length) {
+      requests.push(fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(stockSymbols.join(","))}`).then((r) => r.json()));
+    }
+    if (indexKeys.length) {
+      requests.push(fetch(`${API_BASE_URL}/api/index-quotes`).then((r) => r.json()));
+    }
+
+    imPaperQuotesInFlight = true;
+    try {
+      const results = await Promise.allSettled(requests);
+      results.forEach((result) => {
+        if (result.status !== "fulfilled" || !result.value?.ok) return;
+        (result.value.data || []).forEach((row) => {
+          if (activeKeys.includes(row.symbol)) checkImPaperTrades(row.symbol, { price: row.last_price });
+        });
+      });
+    } finally {
+      imPaperQuotesInFlight = false;
+    }
+  }
+
+  window.setInterval(pollOpenPaperTradeQuotes, 2000);
 
   // ===================== AI Chart Scanner =====================
   // Pick any NSE stock, get an instant AI-written technical summary. Reuses
