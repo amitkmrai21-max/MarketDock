@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v59">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v60">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -3217,12 +3217,28 @@
             <button type="button" class="im-pos-filter-pill" data-segment="EQ">Equity</button>
             <button type="button" class="im-pos-filter-pill" data-segment="FO">F&amp;O</button>
             <button type="button" class="im-pos-filter-pill" data-segment="MCX">Commodity</button>
+            <button type="button" class="im-pos-filter-pill" data-segment="HOLDINGS">Holdings</button>
+            <button type="button" class="im-pos-filter-pill" data-segment="ORDERS">Order Book</button>
           </div>
 
           <p id="im-broker-positions-status" class="status-line"></p>
-          <div id="im-pos-list" class="im-pos-list"></div>
 
-          <article class="card section-card">
+          <section class="im-pos-view-section" id="im-pos-positions-section">
+            <h3 class="im-section-label">Positions</h3>
+            <div id="im-pos-list" class="im-pos-list"></div>
+          </section>
+
+          <section class="im-pos-view-section" id="im-pos-holdings-section">
+            <h3 class="im-section-label">Holdings</h3>
+            <div class="im-holdings-summary">
+              <div><span>Invested</span><strong id="im-holdings-invested">--</strong></div>
+              <div><span>Current value</span><strong id="im-holdings-current">--</strong></div>
+              <div><span>Total P&amp;L</span><strong id="im-holdings-pnl">--</strong></div>
+            </div>
+            <div id="im-holdings-list" class="im-pos-list"></div>
+          </section>
+
+          <article class="card section-card im-pos-view-section" id="im-pos-orders-section">
             <h3 class="im-section-label">Order Book</h3>
             <div class="im-pos-filter-row" id="im-broker-orders-filter-row">
               <button class="im-pos-filter-pill active" type="button" data-order-filter="all">All</button>
@@ -3896,7 +3912,7 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v50"></script>
+  <script src="/frontend/app.js?v=v20260927v51"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
