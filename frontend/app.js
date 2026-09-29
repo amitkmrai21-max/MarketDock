@@ -5739,6 +5739,10 @@ function clearLiveChartAiOverlay() {
   }
 
   const imLastChangePercent = {};
+  // When the 2-second index-quote feed last updated each index's price —
+  // the minute engine's (up to 20s cached) price must not overwrite it.
+  const imFastQuoteAt = {};
+  const imHasFreshFastQuote = (marketKey) => Date.now() - (imFastQuoteAt[marketKey] || 0) < 10000;
   const imLastSparklineCloses = {};
 
   function redrawImDashboardSparkline(marketKey) {
@@ -5795,7 +5799,8 @@ function clearLiveChartAiOverlay() {
   }
 
   function renderMarketEngine(marketKey, data) {
-    imLastChangePercent[marketKey] = Number(data.change_percent);
+    const fastPriceLive = imHasFreshFastQuote(marketKey);
+    if (!fastPriceLive) imLastChangePercent[marketKey] = Number(data.change_percent);
     redrawImDashboardSparkline(marketKey);
     imLastDecisionLabel[marketKey] = String(data.decision.label);
     updateMarketBiasCard();
@@ -5836,13 +5841,15 @@ function clearLiveChartAiOverlay() {
     // The ticker bar's content is duplicated (once visible, once
     // aria-hidden) so its CSS scroll animation can loop seamlessly —
     // update every copy via data-ticker-field, not a single id.
-    document.querySelectorAll(`[data-ticker-field="${marketKey}-price"]`).forEach((el) => {
-      el.textContent = formatNumber(data.price);
-    });
-    document.querySelectorAll(`[data-ticker-field="${marketKey}-change"]`).forEach((el) => {
-      el.className = "im-ticker-change";
-      el.innerHTML = changePillHtml(data.change_percent);
-    });
+    if (!fastPriceLive) {
+      document.querySelectorAll(`[data-ticker-field="${marketKey}-price"]`).forEach((el) => {
+        el.textContent = formatNumber(data.price);
+      });
+      document.querySelectorAll(`[data-ticker-field="${marketKey}-change"]`).forEach((el) => {
+        el.className = "im-ticker-change";
+        el.innerHTML = changePillHtml(data.change_percent);
+      });
+    }
     const tickerDot = document.getElementById("im-ticker-dot");
     const tickerStatusText = document.getElementById("im-ticker-status-text");
     if (tickerDot && tickerStatusText) {
@@ -5876,8 +5883,8 @@ function clearLiveChartAiOverlay() {
 
     const dashPrice = document.getElementById(`im-dash-${marketKey}-price`);
     const dashChange = document.getElementById(`im-dash-${marketKey}-change`);
-    if (dashPrice) dashPrice.textContent = formatNumber(data.price);
-    if (dashChange) {
+    if (dashPrice && !fastPriceLive) dashPrice.textContent = formatNumber(data.price);
+    if (dashChange && !fastPriceLive) {
       dashChange.className = "stat-change";
       dashChange.innerHTML = changePillHtml(data.change_percent) + (isLiveData ? "" : ` <span class="im-demo-suffix">&middot; Demo</span>`);
     }
@@ -5885,8 +5892,8 @@ function clearLiveChartAiOverlay() {
     const heroPrice = document.getElementById(`im-${marketKey}-hero-price`);
     const heroChange = document.getElementById(`im-${marketKey}-hero-change`);
     const heroEyebrow = document.getElementById(`im-${marketKey}-eyebrow`);
-    if (heroPrice) heroPrice.textContent = formatNumber(data.price);
-    if (heroChange) {
+    if (heroPrice && !fastPriceLive) heroPrice.textContent = formatNumber(data.price);
+    if (heroChange && !fastPriceLive) {
       heroChange.className = "";
       heroChange.innerHTML = changePillHtml(data.change_percent);
     }
@@ -5969,17 +5976,72 @@ function clearLiveChartAiOverlay() {
   }
 
   let technicalEngineTimer = null;
+  let indexQuotesTimer = null;
+
+  // Fast lane for the index prices: the full technical engine (indicators,
+  // decision, Technical Bias) refreshes once a minute, but the price and
+  // day-change on the dashboard cards, the ticker bar and each index's hero
+  // tick every 2 seconds from the lightweight /api/index-quotes endpoint.
+  // If live data isn't configured (demo mode) the call fails and the
+  // minute-by-minute engine values simply stay on screen.
+  async function refreshIndexQuotesFast() {
+    if (document.hidden) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/index-quotes`);
+      if (!response.ok) return;
+      const payload = await response.json();
+      if (!payload?.ok || !Array.isArray(payload.data)) return;
+      payload.data.forEach((row) => {
+        const marketKey = row.symbol;
+        const price = Number(row.last_price);
+        const change = Number(row.change_percent);
+        if (!IM_BIAS_MARKET_KEYS.includes(marketKey) || !(price > 0)) return;
+        imFastQuoteAt[marketKey] = Date.now();
+
+        const priceText = formatNumber(price);
+        const dashPrice = document.getElementById(`im-dash-${marketKey}-price`);
+        const heroPrice = document.getElementById(`im-${marketKey}-hero-price`);
+        if (dashPrice) dashPrice.textContent = priceText;
+        if (heroPrice) heroPrice.textContent = priceText;
+        document.querySelectorAll(`[data-ticker-field="${marketKey}-price"]`).forEach((el) => {
+          el.textContent = priceText;
+        });
+
+        if (Number.isFinite(change)) {
+          const pill = changePillHtml(change);
+          const dashChange = document.getElementById(`im-dash-${marketKey}-change`);
+          const heroChange = document.getElementById(`im-${marketKey}-hero-change`);
+          if (dashChange) { dashChange.className = "stat-change"; dashChange.innerHTML = pill; }
+          if (heroChange) { heroChange.className = ""; heroChange.innerHTML = pill; }
+          document.querySelectorAll(`[data-ticker-field="${marketKey}-change"]`).forEach((el) => {
+            el.className = "im-ticker-change";
+            el.innerHTML = pill;
+          });
+          const flipped = (imLastChangePercent[marketKey] >= 0) !== (change >= 0);
+          imLastChangePercent[marketKey] = change;
+          if (flipped) redrawImDashboardSparkline(marketKey);
+        }
+      });
+    } catch (error) {
+      // Network blip — the next tick (or the minute engine) catches up.
+    }
+  }
 
   function startTechnicalEnginePolling() {
     if (technicalEngineTimer) return;
     refreshTechnicalEngine();
     technicalEngineTimer = window.setInterval(refreshTechnicalEngine, 60000);
+    if (!indexQuotesTimer) indexQuotesTimer = window.setInterval(refreshIndexQuotesFast, 2000);
   }
 
   function stopTechnicalEnginePolling() {
     if (technicalEngineTimer) {
       window.clearInterval(technicalEngineTimer);
       technicalEngineTimer = null;
+    }
+    if (indexQuotesTimer) {
+      window.clearInterval(indexQuotesTimer);
+      indexQuotesTimer = null;
     }
   }
 
