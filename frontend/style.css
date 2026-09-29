@@ -11472,3 +11472,62 @@ button.oc-cell {
     gap: 5px;
   }
 }
+
+/* Option chain: more room and more contrast (darker grid, tighter rows). */
+.indian-market-mode.im-oc-active .im-ticker-bar,
+.indian-market-mode.im-oc-active .im-page-bottom-attribution {
+  display: none;
+}
+.indian-market-mode #im-stock-options {
+  --oc-itm: rgba(255, 255, 255, 0.07);
+  --oc-strike-bg: #020306;
+  --oc-line: rgba(148, 163, 184, 0.10);
+}
+body[data-theme="light"] .indian-market-mode #im-stock-options {
+  --oc-itm: rgba(250, 204, 21, 0.14);
+  --oc-strike-bg: rgba(15, 23, 42, 0.05);
+  --oc-line: rgba(15, 23, 42, 0.08);
+}
+#im-stock-options .oc-table {
+  background: #07080c;
+  border-radius: 12px;
+  overflow: hidden;
+}
+body[data-theme="light"] #im-stock-options .oc-table {
+  background: #ffffff;
+}
+#im-stock-options .oc-body .oc-cell {
+  padding: 7px 3px;
+}
+#im-stock-options .oc-main {
+  color: #f8fafc;
+}
+body[data-theme="light"] #im-stock-options .oc-main {
+  color: var(--im-text);
+}
+#im-stock-options .oc-oi-split {
+  margin-top: 4px;
+}
+#im-stock-options .oc-header {
+  padding: 0 2px 6px;
+}
+#im-stock-options .oc-search {
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+#im-stock-options .oc-expiries {
+  padding-bottom: 8px;
+}
+#im-stock-options .oc-expiry {
+  padding: 7px 14px;
+}
+#im-stock-options .oc-colnames .oc-cell {
+  padding: 9px 3px;
+}
+#im-stock-options .oc-footer {
+  margin-top: 6px;
+  padding: 8px 8px;
+}
+#im-stock-options .oc-footer strong {
+  font-size: 16px;
+}
