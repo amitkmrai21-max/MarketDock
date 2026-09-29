@@ -10964,3 +10964,28 @@ body.im-chart-fullscreen-open {
   font-size: clamp(13px, 3.9vw, 20px);
   overflow-wrap: anywhere;
 }
+
+/* Available funds gets its own colour (not green/red, which read as
+   profit/loss); the "Used" line under it keeps the default muted style. */
+.indian-market-mode #im-pos-funds-available {
+  color: #38bdf8;
+}
+body[data-theme="light"] .indian-market-mode #im-pos-funds-available {
+  color: #0284c7;
+}
+.indian-market-mode .im-pos-funds-card {
+  flex: 1.35;
+}
+.indian-market-mode .im-pos-funds-value {
+  font-size: clamp(13px, 3.7vw, 20px);
+  letter-spacing: -0.2px;
+}
+.indian-market-mode .im-pos-summary-card.im-pos-funds-card {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+@media (max-width: 370px) {
+  .indian-market-mode .im-pos-funds-value {
+    font-size: 12.5px;
+  }
+}
