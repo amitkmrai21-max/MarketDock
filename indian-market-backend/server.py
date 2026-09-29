@@ -2164,7 +2164,9 @@ def find_mcx_option_contracts(future_symbol):
     ]
     window_start = max(earlier) if earlier else None
     today = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)).date()
-    symbol_pattern = re.compile(rf"^{re.escape(prefix)}\d")
+    # Exact commodity only: CRUDEOIL options, not CRUDEOILM (mini) ones, which
+    # can share the same instrument `name` but trade a much smaller lot.
+    symbol_pattern = re.compile(rf"^{re.escape(prefix)}(?=\d|\s)")
 
     contracts = []
     for row in rows:
@@ -2177,11 +2179,10 @@ def find_mcx_option_contracts(future_symbol):
                 option_type = symbol[-2:]
             else:
                 continue
+        if not symbol_pattern.match(symbol):
+            continue
         name = (row.get("name") or "").strip().upper()
-        if commodity_name and name:
-            if name != commodity_name:
-                continue
-        elif not symbol_pattern.match(symbol):
+        if commodity_name and name and name != commodity_name:
             continue
         expiry = _parse_master_date(row.get("expiry"))
         if not expiry or expiry < today or expiry > future_expiry:
