@@ -5295,7 +5295,12 @@ function clearLiveChartAiOverlay() {
     // Whole rupees for the crore-sized balances so they fit narrow cards;
     // P&L and margin keep paise.
     const wholeRupees = (value) => `${value < 0 ? "-" : ""}₹${Math.round(Math.abs(value)).toLocaleString("en-IN")}`;
-    setText("im-pos-funds-available", wholeRupees(funds.available));
+    const fundsValueEl = document.getElementById("im-pos-funds-available");
+    if (fundsValueEl) {
+      // ₹ sign in its own span so it can take a different colour from the amount.
+      const amount = Math.round(Math.abs(funds.available)).toLocaleString("en-IN");
+      fundsValueEl.innerHTML = `${funds.available < 0 ? "-" : ""}<span class="im-funds-rupee">₹</span>${amount}`;
+    }
     setText("im-pos-funds-used", `Used ${formatRupees(funds.used)}`);
     setText("settingsPaperFundsAvailable", wholeRupees(funds.available));
     setText("settingsPaperFundsUsed", formatRupees(funds.used));
@@ -7429,10 +7434,11 @@ async function fetchWatchlist() {
   function openImOrderForm(side, preset = {}) {
     const sheet = imOrderEl("im-watchlist-action-sheet");
     if (!sheet || !imOrderCtx) return;
+    const allowedProducts = imOrderProducts(imOrderCtx).map((p) => p.value);
     Object.assign(imOrderState, {
       side,
       type: preset.type || "market",
-      product: "MIS",
+      product: allowedProducts.includes(preset.product) ? preset.product : "MIS",
       validity: preset.validity || "DAY",
       slUnit: "pct",
       targetUnit: "pct",
@@ -7443,7 +7449,7 @@ async function fetchWatchlist() {
       if (el) el.value = "";
     });
     const qty = imOrderEl("im-order-qty");
-    if (qty) qty.value = "1";
+    if (qty) qty.value = String(preset.lots || 1);
     resetImOrderSwipe(false);
     sheet.classList.add("im-order-mode");
     renderImOrderForm();
@@ -7746,9 +7752,11 @@ async function fetchWatchlist() {
   // Commodities lists behind it) — previously it froze at whatever price the
   // row showed at the moment it was tapped. A single option leg is left
   // static here; its live LTP is the option chain itself.
-  function startImActionSheetLiveQuote(symbol, { isCommodity, isOptionLeg }) {
+  function startImActionSheetLiveQuote(symbol, { isCommodity, isOptionLeg, instrumentKey }) {
     stopImActionSheetLiveQuote();
-    if (isOptionLeg) return;
+    if (isOptionLeg && !instrumentKey) return;
+    const isIndex = Boolean(IM_TRADE_MARKET_LABELS[symbol]);
+    const matchKey = isOptionLeg ? instrumentKey : symbol;
 
     const tick = async () => {
       const sheet = document.getElementById("im-watchlist-action-sheet");
@@ -7757,11 +7765,15 @@ async function fetchWatchlist() {
         return;
       }
       try {
-        const url = isCommodity
-          ? `${API_BASE_URL}/api/commodities`
-          : `${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(symbol)}`;
+        const url = isOptionLeg
+          ? `${API_BASE_URL}/api/ltp?instrument_keys=${encodeURIComponent(instrumentKey)}`
+          : isIndex
+            ? `${API_BASE_URL}/api/index-quotes`
+            : isCommodity
+              ? `${API_BASE_URL}/api/commodities`
+              : `${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(symbol)}`;
         const result = await (await fetch(url)).json();
-        const row = (result?.data || []).find((r) => r.symbol === symbol || r.trading_symbol === symbol);
+        const row = (result?.data || []).find((r) => r.symbol === matchKey || r.trading_symbol === symbol);
         if (!row || !Number.isFinite(Number(row.last_price))) return;
         if (document.getElementById("im-action-sheet-symbol")?.textContent !== symbol) return;
         const pct = Number.isFinite(Number(row.change_percent)) ? Number(row.change_percent) : 0;
@@ -7830,7 +7842,7 @@ async function fetchWatchlist() {
     if (volEl) volEl.textContent = volumeStr;
 
     renderImActionSheetQuote(price, changePct);
-    startImActionSheetLiveQuote(symbol, { isCommodity, isOptionLeg });
+    startImActionSheetLiveQuote(symbol, { isCommodity, isOptionLeg, instrumentKey });
 
     // Mini Chart render
     generateTerminalSvgChart(changePct, "1D");
@@ -7867,8 +7879,28 @@ async function fetchWatchlist() {
     // past the 450ms guard (meant only for that backdrop case) so a fast,
     // decisive tap right after the sheet opens still closes it, instead of
     // leaving it visually stuck open while the app navigates underneath.
-    if (buyBtn) buyBtn.onclick = () => openImOrderForm("Buy");
-    if (sellBtn) sellBtn.onclick = () => openImOrderForm("Sell");
+    const position = options.position || null;
+    const exchangeLabel = isCommodity ? "MCX" : isOptionLeg ? "F&O" : "NSE";
+    const setDockButton = (btn, label, sub) => {
+      if (!btn) return;
+      const accent = btn.querySelector(".im-btn-accent");
+      const subEl = btn.querySelector(".im-btn-sub");
+      if (accent) accent.textContent = label;
+      if (subEl) subEl.textContent = sub;
+    };
+    if (position) {
+      const lots = Math.max(1, Math.round(position.quantity / (lotSize || 1)));
+      const exitSide = position.side === "Buy" ? "Sell" : "Buy";
+      setDockButton(buyBtn, "ADD", `${position.side.toUpperCase()} MORE • ${position.product}`);
+      setDockButton(sellBtn, "EXIT", `${exitSide.toUpperCase()} ${Math.round(position.quantity)} • ${position.product}`);
+      if (buyBtn) buyBtn.onclick = () => openImOrderForm(position.side, { product: position.product });
+      if (sellBtn) sellBtn.onclick = () => openImOrderForm(exitSide, { product: position.product, lots });
+    } else {
+      setDockButton(buyBtn, "BUY", `${exchangeLabel} • REGULAR`);
+      setDockButton(sellBtn, "SELL", `${exchangeLabel} • REGULAR`);
+      if (buyBtn) buyBtn.onclick = () => openImOrderForm("Buy");
+      if (sellBtn) sellBtn.onclick = () => openImOrderForm("Sell");
+    }
     if (chartBtn) {
       // A single option leg has no chart of its own here.
       chartBtn.style.display = isOptionLeg ? "none" : "";
@@ -10124,7 +10156,13 @@ async function fetchWatchlist() {
       const segment = classifyTradeSegment(trade);
       return {
         key: group.key,
+        symbolKey: trade.index,
         symbol: imTradeMarketLabel(trade.index),
+        productCode: group.product || "MIS",
+        isCommodity: segment === "MCX",
+        isOptionLeg: Boolean(trade.instrumentKey),
+        instrumentKey: trade.instrumentKey || null,
+        lotSize: Number(trade.lotSize) > 0 ? Number(trade.lotSize) : 1,
         direction,
         product: IM_PRODUCT_LABELS[group.product] || (trade.orderType === "limit" ? "Limit" : "Market"),
         segment,
@@ -10177,30 +10215,27 @@ async function fetchWatchlist() {
       return;
     }
 
+    // Side is shown the way brokers do it — a short position's quantity is
+    // negative — rather than with a separate BUY/SELL badge. Tapping the
+    // card opens the stock's sheet with Add / Exit (see openImPositionSheet).
     listEl.innerHTML = filtered.map((r) => {
       const cls = r.pnl >= 0 ? "im-change-up" : "im-change-down";
-      const dirCls = r.direction === "BUY" ? "im-pos-badge-buy" : "im-pos-badge-sell";
       const pctText = Number.isFinite(r.pnlPct) ? `(${r.pnlPct >= 0 ? "+" : ""}${r.pnlPct.toFixed(2)}%)` : "";
+      const signedQty = (r.direction === "SELL" ? -1 : 1) * Math.round(r.quantity);
       return `
-        <div class="im-pos-row" data-segment="${r.segment}">
-          <div class="im-pos-row-main">
-            <div class="im-pos-row-left">
-              <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
-              <div class="im-pos-badges">
-                <span class="im-pos-badge ${dirCls}">${r.direction}</span>
-                <span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span>
-              </div>
-              <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
+        <div class="im-pos-row im-pos-card" data-segment="${r.segment}" data-pos-key="${escapeHtml(r.key)}" role="button" tabindex="0" aria-label="${escapeHtml(r.symbol)} position — tap to add or exit">
+          <div class="im-pos-card-left">
+            <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
+            <div class="im-pos-badges">
+              <span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span>
             </div>
-            <div class="im-pos-row-right">
-              <div class="im-pos-row-right-values">
-                <span class="im-pos-pnl ${cls}">${r.pnl >= 0 ? "+" : ""}${formatNumber(r.pnl)}</span>
-                <span class="im-pos-pnl-pct ${cls}">${pctText}</span>
-              </div>
-              <button type="button" class="im-pos-exit-btn" data-exit-key="${escapeHtml(r.key)}">Exit</button>
-            </div>
+            <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
+            <div class="im-pos-row-meta">Qty. ${signedQty.toLocaleString("en-IN")} · Avg ${formatNumber(r.avgPrice)} · LTP ${formatNumber(r.lastPrice)}</div>
           </div>
-          <div class="im-pos-row-meta">Qty. ${Math.round(r.quantity).toLocaleString("en-IN")} · Avg ${formatNumber(r.avgPrice)} · LTP ${formatNumber(r.lastPrice)}</div>
+          <div class="im-pos-card-pnl">
+            <span class="im-pos-pnl ${cls}">${r.pnl >= 0 ? "+" : ""}${formatNumber(r.pnl)}</span>
+            <span class="im-pos-pnl-pct ${cls}">${pctText}</span>
+          </div>
         </div>
       `;
     }).join("");
@@ -10210,54 +10245,40 @@ async function fetchWatchlist() {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   }
 
-  // Squares off a whole net position at the latest live price with a
-  // market order on the opposite side (recorded in the Order Book too).
-  function exitImPosition(positionKey) {
-    const [symbol, product, direction] = positionKey.split("|");
-    const trades = loadTrades();
-    const qty = trades
-      .filter((t) => t.status === "open" && t.index === symbol && (t.product || "") === product && t.direction === direction)
-      .reduce((sum, t) => sum + Number(t.qty || 0), 0);
-    const price = imLastKnownPrice[symbol];
-    if (!qty) return;
-    if (!Number.isFinite(price)) {
-      window.alert("Live price for this position hasn't loaded yet — try again in a couple of seconds.");
-      return;
-    }
-    if (!window.confirm(`Exit ${imTradeMarketLabel(symbol)} — ${direction === "Buy" ? "SELL" : "BUY"} ${qty} at market (≈ ${formatNumber(price)})?`)) return;
-
-    const exitOrder = {
-      id: newImOrderId(),
-      index: symbol,
-      direction: direction === "Buy" ? "Sell" : "Buy",
-      orderType: "market",
-      product: product || "MIS",
-      validity: "DAY",
-      qty,
-      orderQty: qty,
-      entry: price,
-      stop: null,
-      currentStop: null,
-      trailingDistance: null,
-      target: null,
-      margin: 0,
-      status: "pending",
-      createdAt: Date.now(),
-      pnl: null,
-      exitPrice: null,
-      exitReason: null
-    };
-    trades.unshift(exitOrder);
-    applyImFill(trades, exitOrder, price);
-    saveTrades(trades);
-    renderTrades();
-    renderPositionsList();
-    renderBrokerOrdersList();
+  // Opens the same stock sheet the Buy flow uses, in "position" mode: its
+  // footer becomes Add (more on the same side) and Exit (square off the
+  // whole position), each leading into the usual order ticket.
+  function openImPositionSheet(positionKey) {
+    const row = getOpenPositionRows().find((r) => r.key === positionKey);
+    if (!row) return;
+    const chartSymbol = row.isCommodity
+      ? `MCX:${String(row.symbolKey).replace(/\d{2}[A-Z]{3}FUT$/, "")}1!`
+      : `NSE:${row.symbolKey}`;
+    openImWatchlistActionSheet(row.symbolKey, row.lastPrice, {
+      chartSymbol,
+      isCommodity: row.isCommodity,
+      isOptionLeg: row.isOptionLeg,
+      instrumentKey: row.instrumentKey,
+      lotSize: row.lotSize,
+      position: {
+        side: row.direction === "SELL" ? "Sell" : "Buy",
+        product: row.productCode,
+        quantity: row.quantity
+      }
+    });
   }
 
-  document.getElementById("im-pos-list")?.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-exit-key]");
-    if (button) exitImPosition(button.dataset.exitKey);
+  const imPosListEl = document.getElementById("im-pos-list");
+  imPosListEl?.addEventListener("click", (event) => {
+    const card = event.target.closest("[data-pos-key]");
+    if (card) openImPositionSheet(card.dataset.posKey);
+  });
+  imPosListEl?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const card = event.target.closest("[data-pos-key]");
+    if (!card) return;
+    event.preventDefault();
+    openImPositionSheet(card.dataset.posKey);
   });
 
   document.getElementById("im-pos-search-input")?.addEventListener("input", renderPositionsList);

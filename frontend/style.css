@@ -10861,7 +10861,6 @@ body.im-chart-fullscreen-open {
   font-size: clamp(14px, 3.6vw, 20px);
   white-space: nowrap;
 }
-.im-pos-exit-btn,
 .im-order-cancel-btn {
   border: 1px solid rgba(248, 113, 113, 0.5);
   background: rgba(248, 113, 113, 0.1);
@@ -10988,4 +10987,56 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-available {
   .indian-market-mode .im-pos-funds-value {
     font-size: 12.5px;
   }
+}
+
+/* Position card: whole card is tappable (opens Add / Exit sheet); symbol
+   and P&L are larger, P&L centred vertically on the right. */
+.im-pos-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.im-pos-card:hover,
+.im-pos-card:focus-visible {
+  border-color: rgba(139, 92, 246, 0.55);
+  outline: none;
+}
+.im-pos-card:active {
+  background: rgba(139, 92, 246, 0.08);
+}
+.im-pos-card-left {
+  min-width: 0;
+  flex: 1;
+}
+.im-pos-card .im-pos-symbol {
+  font-size: 18px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.im-pos-card-pnl {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  flex-shrink: 0;
+  text-align: right;
+}
+.im-pos-card .im-pos-pnl {
+  font-size: 22px;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.im-pos-card .im-pos-pnl-pct {
+  font-size: 13px;
+}
+
+.indian-market-mode #im-pos-funds-available .im-funds-rupee {
+  color: #fbbf24;
+  margin-right: 1px;
+}
+body[data-theme="light"] .indian-market-mode #im-pos-funds-available .im-funds-rupee {
+  color: #b45309;
 }
