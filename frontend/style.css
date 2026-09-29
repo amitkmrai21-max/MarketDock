@@ -11142,3 +11142,20 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-used .im-funds-used-a
 #im-stock-detail-news {
   margin-top: 22px;
 }
+
+/* Stock Detail: "Get AI Analysis" and "Chart on TradingView" side by side. */
+.im-stock-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.im-stock-detail-actions .primary-button {
+  margin: 0;
+}
+.im-stock-detail-actions .im-tv-open-btn {
+  min-height: 42px;
+  padding: 0 16px;
+  font-weight: 700;
+}

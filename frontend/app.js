@@ -4513,10 +4513,6 @@ function clearLiveChartAiOverlay() {
       title: "Live Market Chart",
       subtitle: "Custom chart workspace for NIFTY 50 and Bank Nifty."
     },
-    "im-tradingview-chart": {
-      title: "TradingView Chart",
-      subtitle: "The real TradingView widget — full indicator/drawing-tool library and symbol search."
-    },
     "im-rrg": {
       title: "Stock Rotation (RRG)",
       subtitle: "Relative strength and momentum rotation versus NIFTY 50."
@@ -4548,58 +4544,17 @@ function clearLiveChartAiOverlay() {
   const pageSubtitle = document.getElementById("im-page-subtitle");
 
   const LAST_PAGE_STORAGE_KEY = "indianMarketLastPage";
-  let imTvChartReturnPage = "im-watchlist";
-
-  function loadImTradingViewChart(symbol, label) {
-    const container = document.getElementById("im-tradingview-widget-container");
-    if (!container) return;
-
-    container.innerHTML = '<div class="tradingview-widget-container__widget"></div>';
-
-    const titleEl = document.getElementById("im-tv-chart-title");
-    if (titleEl) titleEl.textContent = label ? `TradingView Chart — ${label}` : "TradingView Chart";
-
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.async = true;
-    script.text = JSON.stringify({
-      width: "100%",
-      height: 700,
-      symbol,
-      interval: "15",
-      timezone: "Asia/Kolkata",
-      theme: "dark",
-      style: "1",
-      locale: "en",
-      withdateranges: true,
-      hide_side_toolbar: false,
-      allow_symbol_change: true,
-      details: true,
-      studies: ["STD;SMA", "STD;RSI"],
-      support_host: "https://www.tradingview.com"
-    });
-    container.appendChild(script);
+  // Charts open on TradingView itself (its app if installed, otherwise its
+  // website) rather than in an embedded widget: TradingView's embeddable
+  // widgets can't show NSE symbols ("only available on TradingView"), while
+  // tradingview.com shows them under TradingView's own data licence. In the
+  // Android app, Capacitor hands any link to another site to the system,
+  // which opens the TradingView app when it's installed.
+  function openImChartOnTradingView(chartSymbol) {
+    if (!chartSymbol) return;
+    const url = `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(chartSymbol)}`;
+    window.open(url, "_blank", "noopener");
   }
-
-  function openImTradingViewChartFor(symbol, label, returnPage) {
-    imTvChartReturnPage = returnPage || "im-watchlist";
-    loadImTradingViewChart(symbol, label);
-    pushImDrilldown(imTvChartReturnPage);
-    showPage("im-tradingview-chart");
-  }
-
-  function setupImTradingViewChart() {
-    const backBtn = document.getElementById("im-tv-chart-back-btn");
-    if (backBtn) {
-      backBtn.addEventListener("click", () => {
-        consumeImDrilldown();
-        showPage(imTvChartReturnPage);
-      });
-    }
-  }
-
-  setupImTradingViewChart();
 
   function showPage(pageId) {
     navButtons.forEach((button) => {
@@ -8008,8 +7963,7 @@ async function fetchWatchlist() {
       // A single option leg has no chart of its own here.
       chartBtn.style.display = isOptionLeg ? "none" : "";
       chartBtn.onclick = isOptionLeg ? null : () => {
-        closeImWatchlistSheets(true);
-        openImTradingViewChartFor(chartSymbol, symbol, "im-watchlist");
+        openImChartOnTradingView(chartSymbol);
       };
     }
     if (optChainBtn) {
@@ -11341,6 +11295,10 @@ async function fetchWatchlist() {
       btn.classList.toggle("active", btn === button);
     });
     loadImStockDetailCandles(imStockDetailSymbol);
+  });
+
+  document.getElementById("im-stock-detail-tv-btn")?.addEventListener("click", () => {
+    if (imStockDetailSymbol) openImChartOnTradingView(`NSE:${imStockDetailSymbol}`);
   });
 
   document.getElementById("im-stock-detail-ai-btn")?.addEventListener("click", () => {
