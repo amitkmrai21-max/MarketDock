@@ -10178,18 +10178,12 @@ body.im-chart-fullscreen-open {
 }
 
 /* Desktop/website only: the app is always a narrow phone-width WebView,
-   so it never matches this. On a wide browser window the Watchlist and
-   Commodities cards stretch to fill the full content area, which with
-   table-layout:fixed makes whichever column is "auto"-width (symbol on
-   Watchlist, price on Commodities) balloon to fill the leftover space —
-   pushing price/momentum far from the symbol column with a huge gap.
-   Capping the card's own width keeps the same column proportions that
-   already work well on mobile, just at a comfortable reading width
-   instead of full monitor width. */
+   so it never matches this. Watchlist and Commodities span the full
+   content width on the website, the same as the Scanner table. */
 @media (min-width: 769px) {
   .indian-market-mode #im-watchlist .section-card,
   .indian-market-mode #im-commodities .section-card {
-    max-width: 620px;
+    max-width: none;
   }
 
   /* Price sits right-aligned directly against the momentum column's
