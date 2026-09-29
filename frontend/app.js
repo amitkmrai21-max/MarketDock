@@ -7360,8 +7360,21 @@ async function fetchWatchlist() {
   // Share of the order value blocked as margin: intraday leverage for MIS,
   // full value for delivery, MTF's financed buy, roughly exchange-level
   // margin for commodity futures, and the full premium for an option leg.
-  function imMarginRate(ctx, product) {
-    if (ctx.isOptionLeg) return 1;
+  // Writing (selling) an option blocks margin on the underlying, the way a
+  // broker's SPAN + exposure margin does — roughly 18% of the underlying's
+  // value for NSE stock/index options and 10% for MCX — instead of just the
+  // premium a buyer pays. Expressed as a multiple of the option price so the
+  // fill engine can re-base it at the actual fill price like any other rate.
+  const IM_SHORT_OPTION_MARGIN = { nse: 0.18, mcx: 0.1 };
+
+  function imMarginRate(ctx, product, side = "Buy", basis = null) {
+    if (ctx.isOptionLeg) {
+      const underlying = Number(ctx.underlyingPrice);
+      const premium = Number(basis);
+      if (side !== "Sell" || !(underlying > 0) || !(premium > 0)) return 1;
+      const rate = ctx.underlyingIsMcx ? IM_SHORT_OPTION_MARGIN.mcx : IM_SHORT_OPTION_MARGIN.nse;
+      return Math.max(1, (underlying * rate) / premium);
+    }
     if (ctx.isCommodity) return product === "MIS" ? 0.05 : 0.1;
     if (product === "MIS") return 0.2;
     if (product === "MTF") return 0.25;
@@ -7427,7 +7440,7 @@ async function fetchWatchlist() {
       return fail(`${st.product === "CNC" ? "Longterm (CNC)" : "MTF"} sell needs quantity you already hold — use Intraday (MIS) to short-sell.`);
     }
 
-    const marginRate = imMarginRate(ctx, st.product);
+    const marginRate = imMarginRate(ctx, st.product, st.side, basis);
     const margin = basis * Math.max(0, qty - exitableQty) * marginRate;
     const funds = computeImPaperFunds(trades);
     const result = { ok: true, lots, qty, limitPrice, trigger, basis, stop, target, margin, marginRate, available: funds.available };
@@ -7904,7 +7917,13 @@ async function fetchWatchlist() {
     const exchangeEl = document.getElementById("im-action-sheet-exchange");
     if (exchangeEl) exchangeEl.textContent = isOptionLeg ? "F&O OPT" : isCommodity ? "MCX FUT" : "NSE EQ";
 
-    imOrderCtx = { symbol, lotSize, isCommodity, isOptionLeg, instrumentKey, ltp: Number(price) };
+    imOrderCtx = {
+      symbol, lotSize, isCommodity, isOptionLeg, instrumentKey, ltp: Number(price),
+      // For an option leg opened from a chain: the underlying's price, which
+      // sets the margin for writing (selling) that option.
+      underlyingPrice: Number(options.underlyingPrice) || null,
+      underlyingIsMcx: Boolean(options.underlyingIsMcx)
+    };
     closeImOrderForm();
 
     // Find row in imWatchlistLastRows if available — commodity rows aren't
@@ -8541,10 +8560,13 @@ async function fetchWatchlist() {
   document.getElementById("im-stock-options-body")?.addEventListener("click", (event) => {
     const cell = event.target.closest(".oc-tradable");
     if (!cell) return;
+    const liveSpot = Number(String(document.getElementById("im-stock-options-spot")?.textContent || "").replace(/,/g, ""));
     openImWatchlistActionSheet(cell.dataset.tradingSymbol, cell.dataset.ltp, {
       isOptionLeg: true,
       instrumentKey: cell.dataset.instrumentKey,
       lotSize: cell.dataset.lotSize,
+      underlyingPrice: liveSpot > 0 ? liveSpot : Number(imStockOptionsLastData?.underlying_spot_price) || null,
+      underlyingIsMcx: IM_MCX_FUTURES_PATTERN.test(imStockOptionsSymbol || ""),
     });
   });
 
