@@ -10703,7 +10703,7 @@ async function fetchWatchlist() {
 
   window.setInterval(pollOpenPaperTradeQuotes, 2000);
 
-  // ===================== AI Chart Scanner =====================
+  // ===================== Stock Detail AI analysis =====================
   // Colors a Trend/Supertrend-style word by its meaning (bullish -> green,
   // bearish -> red, neutral -> muted gray), same convention as every other
   // bullish/bearish pill in the app — these stat tiles were showing the
