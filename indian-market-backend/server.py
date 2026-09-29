@@ -1857,6 +1857,35 @@ def watchlist():
         return jsonify({"ok": False, "error": "Could not fetch watchlist data right now."}), 502
 
 
+# Plain LTP for the 4 fixed index markets, keyed by market_key (nifty,
+# banknifty, ...). /api/market/<key> also carries a price, but it's the full
+# technical-engine snapshot (candles + indicators, 20s cache) — far heavier
+# than needed just to mark open paper positions to market every 2s.
+INDEX_QUOTES_CACHE_SECONDS = 2
+_index_quotes_cache = {"data": None, "fetched_at": 0}
+
+
+@app.get("/api/index-quotes")
+def index_quotes():
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
+
+    if _index_quotes_cache["data"] is not None and time.time() - _index_quotes_cache["fetched_at"] < INDEX_QUOTES_CACHE_SECONDS:
+        return jsonify({"ok": True, "data": _index_quotes_cache["data"]})
+
+    try:
+        quotes = fetch_quotes_with_change(
+            list(UPSTOX_MARKETS.keys()),
+            resolver=lambda market_key: UPSTOX_MARKETS[market_key]["instrument_key"],
+        )
+        _index_quotes_cache["data"] = quotes
+        _index_quotes_cache["fetched_at"] = time.time()
+        return jsonify({"ok": True, "data": quotes})
+    except Exception as error:
+        app.logger.warning("Index quotes fetch failed: %s", error)
+        return jsonify({"ok": False, "error": "Could not fetch index quotes right now."}), 502
+
+
 @app.get("/api/live/status")
 def live_status():
     return jsonify(
