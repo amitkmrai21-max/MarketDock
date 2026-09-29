@@ -4424,8 +4424,25 @@ function clearLiveChartAiOverlay() {
     return document.getElementById("settingsDrawer")?.classList.contains("open") ?? false;
   }
 
+  // Pull-to-refresh is only for the plain page. It stays off while any
+  // sheet/drawer is open, on full-screen views like the option chain, and
+  // when the finger starts inside a list that scrolls on its own (dragging
+  // that list back up must scroll it, not reload the app).
+  function isPullBlocked(target) {
+    if (isSettingsDrawerOpen()) return true;
+    const sheetBackdrop = document.getElementById("im-watchlist-sheet-backdrop");
+    if (sheetBackdrop && !sheetBackdrop.hidden) return true;
+    if (document.getElementById("im-stock-options")?.classList.contains("active") &&
+        !document.getElementById("indianModeRoot")?.hidden) return true;
+    for (let el = target instanceof Element ? target : null; el && el !== document.body; el = el.parentElement) {
+      const overflowY = getComputedStyle(el).overflowY;
+      if ((overflowY === "auto" || overflowY === "scroll") && el.scrollHeight > el.clientHeight + 1) return true;
+    }
+    return false;
+  }
+
   document.addEventListener("touchstart", (event) => {
-    if (window.scrollY > 0 || event.touches.length !== 1 || isSettingsDrawerOpen()) return;
+    if (window.scrollY > 0 || event.touches.length !== 1 || isPullBlocked(event.target)) return;
     startY = event.touches[0].clientY;
     pulling = true;
     indicator.style.transition = "";
@@ -4434,6 +4451,8 @@ function clearLiveChartAiOverlay() {
   document.addEventListener("touchmove", (event) => {
     if (!pulling) return;
     if (isSettingsDrawerOpen()) { pulling = false; setPull(0); return; }
+    const sheetBackdrop = document.getElementById("im-watchlist-sheet-backdrop");
+    if (sheetBackdrop && !sheetBackdrop.hidden) { pulling = false; setPull(0); return; }
     const deltaY = event.touches[0].clientY - startY;
     if (deltaY <= 0) { setPull(0); return; }
     if (window.scrollY > 0) { pulling = false; setPull(0); return; }
@@ -8122,7 +8141,9 @@ async function fetchWatchlist() {
   function optionChangeHtml(current, base) {
     const now = Number(current);
     const prev = Number(base);
-    if (!Number.isFinite(now) || !Number.isFinite(prev) || prev <= 0) return `<span class="oc-sub">0.00%</span>`;
+    // No base (e.g. MCX options carry no previous-day OI): leave the line
+    // blank rather than print a misleading 0.00%.
+    if (base === null || base === undefined || !Number.isFinite(now) || !Number.isFinite(prev) || prev <= 0) return `<span class="oc-sub">&nbsp;</span>`;
     const pct = ((now - prev) / prev) * 100;
     const cls = pct > 0.004 ? "oc-up" : pct < -0.004 ? "oc-down" : "";
     const text = Math.abs(pct).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
