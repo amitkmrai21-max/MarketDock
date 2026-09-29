@@ -11033,10 +11033,73 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-available {
   font-size: 13px;
 }
 
-.indian-market-mode #im-pos-funds-available .im-funds-rupee {
-  color: #fbbf24;
-  margin-right: 1px;
+
+/* Positions page views: All / segment / Holdings / Order Book */
+#im-pos-segment-filter-row {
+  flex-wrap: wrap;
+  overflow-x: visible;
 }
-body[data-theme="light"] .indian-market-mode #im-pos-funds-available .im-funds-rupee {
-  color: #b45309;
+.im-pos-view-section[hidden] {
+  display: none !important;
+}
+.im-pos-view-section .im-section-label {
+  margin: 4px 0 10px;
+}
+.im-holdings-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.im-holdings-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--im-card-bg, #131b2e);
+  border: 1px solid var(--im-border, #232d45);
+}
+.im-holdings-summary span {
+  font-size: 11px;
+  color: var(--im-muted, #8b93a8);
+}
+.im-holdings-summary strong {
+  font-size: 14px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Summary cards: large P&L / balance figures shrink to fit instead of clipping. */
+.indian-market-mode .im-pos-summary-card {
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.indian-market-mode .im-pos-summary-value {
+  font-size: clamp(14px, 4.1vw, 20px);
+  overflow-wrap: anywhere;
+}
+#im-broker-orders-filter-row {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+/* Keep the funds figure's own (smaller) size — the generic summary-value
+   rule above would otherwise override it. */
+.indian-market-mode .im-pos-summary-value.im-pos-funds-value {
+  font-size: clamp(13px, 3.7vw, 20px);
+}
+@media (max-width: 370px) {
+  .indian-market-mode .im-pos-summary-value.im-pos-funds-value {
+    font-size: 12.5px;
+  }
+}
+/* Used margin under Available Funds reads in red. */
+.indian-market-mode #im-pos-funds-used .im-funds-used-amount {
+  color: #f87171;
+}
+body[data-theme="light"] .indian-market-mode #im-pos-funds-used .im-funds-used-amount {
+  color: #dc2626;
 }

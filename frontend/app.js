@@ -5295,13 +5295,9 @@ function clearLiveChartAiOverlay() {
     // Whole rupees for the crore-sized balances so they fit narrow cards;
     // P&L and margin keep paise.
     const wholeRupees = (value) => `${value < 0 ? "-" : ""}₹${Math.round(Math.abs(value)).toLocaleString("en-IN")}`;
-    const fundsValueEl = document.getElementById("im-pos-funds-available");
-    if (fundsValueEl) {
-      // ₹ sign in its own span so it can take a different colour from the amount.
-      const amount = Math.round(Math.abs(funds.available)).toLocaleString("en-IN");
-      fundsValueEl.innerHTML = `${funds.available < 0 ? "-" : ""}<span class="im-funds-rupee">₹</span>${amount}`;
-    }
-    setText("im-pos-funds-used", `Used ${formatRupees(funds.used)}`);
+    setText("im-pos-funds-available", wholeRupees(funds.available));
+    const usedEl = document.getElementById("im-pos-funds-used");
+    if (usedEl) usedEl.innerHTML = `Used <span class="im-funds-used-amount">${formatRupees(funds.used)}</span>`;
     setText("settingsPaperFundsAvailable", wholeRupees(funds.available));
     setText("settingsPaperFundsUsed", formatRupees(funds.used));
     setText("settingsPaperFundsRealized", `${funds.realized >= 0 ? "+" : ""}${formatRupees(funds.realized)}`, funds.realized >= 0 ? "im-change-up" : "im-change-down");
@@ -10154,11 +10150,16 @@ async function fetchWatchlist() {
       const pnl = isBuy ? (lastPrice - avgPrice) * group.qty : (avgPrice - lastPrice) * group.qty;
       const investedValue = Math.abs(avgPrice * group.qty) || null;
       const segment = classifyTradeSegment(trade);
+      const productCode = group.product || "MIS";
       return {
         key: group.key,
+        // Delivery buys (Longterm CNC / MTF) are Holdings; intraday and
+        // F&O/commodity carryforward are Positions — the same split a
+        // broker app makes.
+        isHolding: isBuy && (productCode === "CNC" || productCode === "MTF"),
         symbolKey: trade.index,
         symbol: imTradeMarketLabel(trade.index),
-        productCode: group.product || "MIS",
+        productCode,
         isCommodity: segment === "MCX",
         isOptionLeg: Boolean(trade.instrumentKey),
         instrumentKey: trade.instrumentKey || null,
@@ -10190,55 +10191,92 @@ async function fetchWatchlist() {
     const totalPct = invested ? (totalPnl / invested) * 100 : null;
     if (totalPctEl) { totalPctEl.textContent = Number.isFinite(totalPct) ? `(${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(2)}%)` : ""; totalPctEl.className = `im-pos-summary-pct ${totalCls}`; }
 
-    if (countEl) { countEl.textContent = String(rows.length); countEl.className = "im-pos-summary-value"; }
-    if (countSubEl) { countSubEl.textContent = rows.length === 1 ? "open position" : "open positions"; countSubEl.className = "im-pos-summary-pct"; }
+    const openCount = rows.filter((r) => !r.isHolding).length;
+    if (countEl) { countEl.textContent = String(openCount); countEl.className = "im-pos-summary-value"; }
+    if (countSubEl) { countSubEl.textContent = openCount === 1 ? "open position" : "open positions"; countSubEl.className = "im-pos-summary-pct"; }
 
     renderImPaperFunds();
   }
 
+  // Which part of the Positions page is on screen, from the filter pills:
+  // ALL shows positions, holdings and the order book together; EQ/FO/MCX
+  // show just that segment's positions; HOLDINGS / ORDERS show only that.
+  function applyImPosView() {
+    const view = imPosActiveSegment;
+    const show = (id, visible) => {
+      const el = document.getElementById(id);
+      if (el) el.hidden = !visible;
+    };
+    show("im-pos-positions-section", view === "ALL" || view === "EQ" || view === "FO" || view === "MCX");
+    show("im-pos-holdings-section", view === "ALL" || view === "HOLDINGS");
+    show("im-pos-orders-section", view === "ALL" || view === "ORDERS");
+  }
+
+  function imPositionCardHtml(r) {
+    const cls = r.pnl >= 0 ? "im-change-up" : "im-change-down";
+    const pctText = Number.isFinite(r.pnlPct) ? `(${r.pnlPct >= 0 ? "+" : ""}${r.pnlPct.toFixed(2)}%)` : "";
+    // Side is shown the way brokers do it — a short position's quantity is
+    // negative — rather than with a separate BUY/SELL badge.
+    const signedQty = (r.direction === "SELL" ? -1 : 1) * Math.round(r.quantity);
+    const valueLine = r.isHolding ? ` · Cur. ${formatNumber(r.lastPrice * r.quantity)}` : "";
+    return `
+      <div class="im-pos-row im-pos-card" data-segment="${r.segment}" data-pos-key="${escapeHtml(r.key)}" role="button" tabindex="0" aria-label="${escapeHtml(r.symbol)} — tap to add or exit">
+        <div class="im-pos-card-left">
+          <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
+          <div class="im-pos-badges">
+            <span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span>
+          </div>
+          <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
+          <div class="im-pos-row-meta">Qty. ${signedQty.toLocaleString("en-IN")} · Avg ${formatNumber(r.avgPrice)} · LTP ${formatNumber(r.lastPrice)}${valueLine}</div>
+        </div>
+        <div class="im-pos-card-pnl">
+          <span class="im-pos-pnl ${cls}">${r.pnl >= 0 ? "+" : ""}${formatNumber(r.pnl)}</span>
+          <span class="im-pos-pnl-pct ${cls}">${pctText}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderImHoldings(holdings) {
+    const invested = holdings.reduce((sum, r) => sum + r.avgPrice * r.quantity, 0);
+    const current = holdings.reduce((sum, r) => sum + r.lastPrice * r.quantity, 0);
+    const pnl = current - invested;
+    const setVal = (id, text, cls = "") => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      el.className = cls;
+    };
+    setVal("im-holdings-invested", formatRupees(invested));
+    setVal("im-holdings-current", formatRupees(current));
+    const pct = invested ? ` (${pnl >= 0 ? "+" : ""}${((pnl / invested) * 100).toFixed(2)}%)` : "";
+    setVal("im-holdings-pnl", `${pnl >= 0 ? "+" : ""}${formatNumber(pnl)}${pct}`, pnl >= 0 ? "im-change-up" : "im-change-down");
+  }
+
   function renderPositionsList() {
     const listEl = document.getElementById("im-pos-list");
+    const holdingsEl = document.getElementById("im-holdings-list");
     if (!listEl) return;
     const searchTerm = (document.getElementById("im-pos-search-input")?.value || "").trim().toUpperCase();
     const rows = getOpenPositionRows();
+    const matchesSearch = (r) => !searchTerm || r.symbol.toUpperCase().includes(searchTerm);
+    const segmentView = imPosActiveSegment === "EQ" || imPosActiveSegment === "FO" || imPosActiveSegment === "MCX";
 
-    const filtered = rows.filter((r) => {
-      if (imPosActiveSegment !== "ALL" && r.segment !== imPosActiveSegment) return false;
-      if (searchTerm && !r.symbol.toUpperCase().includes(searchTerm)) return false;
-      return true;
-    });
+    const positions = rows.filter((r) => !r.isHolding && matchesSearch(r) && (!segmentView || r.segment === imPosActiveSegment));
+    const holdings = rows.filter((r) => r.isHolding && matchesSearch(r));
 
     renderPositionsSummary(rows);
+    renderImHoldings(rows.filter((r) => r.isHolding));
+    applyImPosView();
 
-    if (!filtered.length) {
-      listEl.innerHTML = `<p class="settings-help">No open positions right now. Tap a stock or commodity, then Buy or Sell to place a paper order.</p>`;
-      return;
+    listEl.innerHTML = positions.length
+      ? positions.map(imPositionCardHtml).join("")
+      : `<p class="settings-help">No open positions right now. Tap a stock or commodity, then Buy or Sell to place a paper order.</p>`;
+    if (holdingsEl) {
+      holdingsEl.innerHTML = holdings.length
+        ? holdings.map(imPositionCardHtml).join("")
+        : `<p class="settings-help">No holdings yet. Buy with Longterm (CNC) or MTF and the stock shows up here.</p>`;
     }
-
-    // Side is shown the way brokers do it — a short position's quantity is
-    // negative — rather than with a separate BUY/SELL badge. Tapping the
-    // card opens the stock's sheet with Add / Exit (see openImPositionSheet).
-    listEl.innerHTML = filtered.map((r) => {
-      const cls = r.pnl >= 0 ? "im-change-up" : "im-change-down";
-      const pctText = Number.isFinite(r.pnlPct) ? `(${r.pnlPct >= 0 ? "+" : ""}${r.pnlPct.toFixed(2)}%)` : "";
-      const signedQty = (r.direction === "SELL" ? -1 : 1) * Math.round(r.quantity);
-      return `
-        <div class="im-pos-row im-pos-card" data-segment="${r.segment}" data-pos-key="${escapeHtml(r.key)}" role="button" tabindex="0" aria-label="${escapeHtml(r.symbol)} position — tap to add or exit">
-          <div class="im-pos-card-left">
-            <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
-            <div class="im-pos-badges">
-              <span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span>
-            </div>
-            <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
-            <div class="im-pos-row-meta">Qty. ${signedQty.toLocaleString("en-IN")} · Avg ${formatNumber(r.avgPrice)} · LTP ${formatNumber(r.lastPrice)}</div>
-          </div>
-          <div class="im-pos-card-pnl">
-            <span class="im-pos-pnl ${cls}">${r.pnl >= 0 ? "+" : ""}${formatNumber(r.pnl)}</span>
-            <span class="im-pos-pnl-pct ${cls}">${pctText}</span>
-          </div>
-        </div>
-      `;
-    }).join("");
   }
 
   function newImOrderId() {
@@ -10268,20 +10306,25 @@ async function fetchWatchlist() {
     });
   }
 
-  const imPosListEl = document.getElementById("im-pos-list");
-  imPosListEl?.addEventListener("click", (event) => {
-    const card = event.target.closest("[data-pos-key]");
-    if (card) openImPositionSheet(card.dataset.posKey);
-  });
-  imPosListEl?.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    const card = event.target.closest("[data-pos-key]");
-    if (!card) return;
-    event.preventDefault();
-    openImPositionSheet(card.dataset.posKey);
+  ["im-pos-list", "im-holdings-list"].forEach((listId) => {
+    const listEl = document.getElementById(listId);
+    listEl?.addEventListener("click", (event) => {
+      const card = event.target.closest("[data-pos-key]");
+      if (card) openImPositionSheet(card.dataset.posKey);
+    });
+    listEl?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      const card = event.target.closest("[data-pos-key]");
+      if (!card) return;
+      event.preventDefault();
+      openImPositionSheet(card.dataset.posKey);
+    });
   });
 
-  document.getElementById("im-pos-search-input")?.addEventListener("input", renderPositionsList);
+  document.getElementById("im-pos-search-input")?.addEventListener("input", () => {
+    renderPositionsList();
+    renderBrokerOrdersList();
+  });
 
   const imPosSegmentPills = document.querySelectorAll("#im-pos-segment-filter-row .im-pos-filter-pill");
   imPosSegmentPills.forEach((btn) => {
@@ -10319,9 +10362,11 @@ async function fetchWatchlist() {
   let imBrokerOrdersActiveFilter = "all";
 
   function renderBrokerOrdersList() {
+    const searchTerm = (document.getElementById("im-pos-search-input")?.value || "").trim().toUpperCase();
     const allRows = loadTrades()
       .map((trade, index) => ({ trade, index }))
-      .filter(({ trade }) => !trade.isSplit && trade.status);
+      .filter(({ trade }) => !trade.isSplit && trade.status)
+      .filter(({ trade }) => !searchTerm || imTradeMarketLabel(trade.index).toUpperCase().includes(searchTerm));
     const rows = imBrokerOrdersActiveFilter === "all"
       ? allRows
       : allRows.filter(({ trade }) => classifyOrderStatus(trade.status) === imBrokerOrdersActiveFilter);
