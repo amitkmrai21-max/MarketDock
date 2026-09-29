@@ -8132,9 +8132,15 @@ async function fetchWatchlist() {
     return Number.isFinite(number) ? String(Math.round(number * 100) / 100) : "--";
   }
 
+  // OI unit for the chain on screen: lakhs for NSE stock/index options (OI
+  // runs into lakhs there), plain counts for MCX, whose OI is in lots and
+  // would otherwise read as 0.00 lakh.
+  let imStockOptionsOiInLakhs = true;
+
   function formatOiLakhs(value) {
     const number = Number(value);
-    return Number.isFinite(number) ? (number / 1e5).toFixed(2) : "--";
+    if (!Number.isFinite(number)) return "--";
+    return imStockOptionsOiInLakhs ? (number / 1e5).toFixed(2) : formatOptionCompactNumber(number);
   }
 
   // "1,436.47%" / "-50.49%" under a value, coloured by direction.
@@ -8185,15 +8191,21 @@ async function fetchWatchlist() {
   function optionLegCells(leg, side, itm) {
     const tradable = leg.instrument_key && leg.trading_symbol;
     const itmCls = itm ? " oc-itm" : "";
+    // Either cell of a side (OI or LTP) opens that contract's Buy/Sell sheet.
+    const tradeAttrs = tradable
+      ? ` data-instrument-key="${escapeHtml(leg.instrument_key)}" data-trading-symbol="${escapeHtml(leg.trading_symbol)}" data-ltp="${Number.isFinite(Number(leg.ltp)) ? leg.ltp : ""}" data-lot-size="${Number.isFinite(Number(leg.lot_size)) ? leg.lot_size : ""}"`
+      : "";
     const iv = Number(leg.iv);
     const delta = Number(leg.delta);
     const outer = imStockOptionsMode === "greeks"
       ? `<span class="oc-main">${Number.isFinite(iv) && iv > 0 && iv < 300 ? iv.toFixed(2) : "--"}</span><span class="oc-sub">Δ ${Number.isFinite(delta) ? delta.toFixed(2) : "--"}</span>`
       : `<span class="oc-main">${formatOiLakhs(leg.oi)}</span>${optionChangeHtml(leg.oi, leg.prev_oi)}`;
-    const outerCell = `<div class="oc-cell oc-${side} oc-oi${itmCls}">${outer}</div>`;
+    const outerCell = tradable
+      ? `<div class="oc-cell oc-${side} oc-oi oc-tradable${itmCls}"${tradeAttrs} aria-hidden="true">${outer}</div>`
+      : `<div class="oc-cell oc-${side} oc-oi${itmCls}">${outer}</div>`;
     const ltpInner = `<span class="oc-main">${formatOptionPrice(leg.ltp)}</span>${optionChangeHtml(leg.ltp, leg.close_price)}`;
     const ltpCell = tradable
-      ? `<button type="button" class="oc-cell oc-${side} oc-ltp oc-tradable${itmCls}" data-instrument-key="${escapeHtml(leg.instrument_key)}" data-trading-symbol="${escapeHtml(leg.trading_symbol)}" data-ltp="${Number.isFinite(Number(leg.ltp)) ? leg.ltp : ""}" data-lot-size="${Number.isFinite(Number(leg.lot_size)) ? leg.lot_size : ""}" aria-label="${escapeHtml(leg.trading_symbol)} ${formatOptionPrice(leg.ltp)}">${ltpInner}</button>`
+      ? `<button type="button" class="oc-cell oc-${side} oc-ltp oc-tradable${itmCls}"${tradeAttrs} aria-label="${escapeHtml(leg.trading_symbol)} ${formatOptionPrice(leg.ltp)}">${ltpInner}</button>`
       : `<div class="oc-cell oc-${side} oc-ltp${itmCls}">${ltpInner}</div>`;
     return side === "call" ? outerCell + ltpCell : ltpCell + outerCell;
   }
@@ -8223,6 +8235,12 @@ async function fetchWatchlist() {
       });
     }
     const atmStrike = atmRow ? Number(atmRow.strike) : null;
+
+    const maxOi = rows.reduce((max, row) => Math.max(max, Number(row.call?.oi) || 0, Number(row.put?.oi) || 0), 0);
+    imStockOptionsOiInLakhs = maxOi >= 1e5;
+    document.querySelectorAll("#im-stock-options .oc-colnames .oc-when-oi").forEach((el) => {
+      el.textContent = imStockOptionsOiInLakhs ? "OI (lakh)" : "OI";
+    });
 
     body.innerHTML = rows.map((row) => {
       const strike = Number(row.strike);

@@ -11531,3 +11531,12 @@ body[data-theme="light"] #im-stock-options .oc-main {
 #im-stock-options .oc-footer strong {
   font-size: 16px;
 }
+
+/* Any cell of a call/put side opens that contract's Buy/Sell sheet. */
+#im-stock-options .oc-tradable {
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#im-stock-options .oc-tradable:active {
+  background: rgba(76, 141, 255, 0.18);
+}
