@@ -4489,10 +4489,6 @@ function clearLiveChartAiOverlay() {
       title: "Market Scanner",
       subtitle: "Scan NSE stocks for today's top gainers, losers, and momentum leaders."
     },
-    "im-ai-scanner": {
-      title: "AI Chart Scanner",
-      subtitle: "Pick any NSE stock for an instant AI-written technical summary. Educational only."
-    },
     "im-stock-detail": {
       title: "Stock Detail",
       subtitle: "Live chart, technicals, and recent news for any NSE stock in one place."
@@ -4795,7 +4791,6 @@ function clearLiveChartAiOverlay() {
     }
     const searchDropdowns = [
       ["im-watchlist-search-results", () => hideImWatchlistSearchResults()],
-      ["im-ai-scanner-search-results", () => hideImAiScannerSearchResults()],
       ["im-dashboard-ai-search-results", () => hideImDashboardAiSearchResults()],
       ["im-stock-detail-search-results", () => hideImStockDetailSearchResults()],
     ];
@@ -10709,80 +10704,6 @@ async function fetchWatchlist() {
   window.setInterval(pollOpenPaperTradeQuotes, 2000);
 
   // ===================== AI Chart Scanner =====================
-  // Pick any NSE stock, get an instant AI-written technical summary. Reuses
-  // the same stock search endpoint as the Watchlist's "add stock" box, and
-  // the same renderGeminiReview() text formatter the AI Trade Coach uses —
-  // both proven UI patterns, just wired to a new stock-picker + endpoint.
-
-  let imAiScannerSearchDebounce = null;
-  let imAiScannerSearchResults = [];
-  let imAiScannerSearchActiveIndex = -1;
-
-  function hideImAiScannerSearchResults() {
-    const el = document.getElementById("im-ai-scanner-search-results");
-    if (el) {
-      el.hidden = true;
-      el.innerHTML = "";
-    }
-    imAiScannerSearchResults = [];
-    imAiScannerSearchActiveIndex = -1;
-  }
-
-  function updateImAiScannerActiveHighlight() {
-    const resultsEl = document.getElementById("im-ai-scanner-search-results");
-    if (!resultsEl) return;
-    [...resultsEl.querySelectorAll(".im-watchlist-search-item")].forEach((el, i) => {
-      el.classList.toggle("active", i === imAiScannerSearchActiveIndex);
-    });
-  }
-
-  function renderImAiScannerSearchResults(results) {
-    imAiScannerSearchResults = results;
-    imAiScannerSearchActiveIndex = -1;
-    const el = document.getElementById("im-ai-scanner-search-results");
-    if (!el) return;
-    if (!results.length) {
-      el.innerHTML = `<div class="im-watchlist-search-empty">No matching NSE stocks found.</div>`;
-      el.hidden = false;
-      return;
-    }
-    el.innerHTML = results
-      .map((s, i) => `
-        <div class="im-watchlist-search-item" data-search-index="${i}">
-          <strong>${escapeHtml(s.symbol)}</strong>
-          <span>${escapeHtml(s.name)}</span>
-        </div>
-      `)
-      .join("");
-    el.hidden = false;
-  }
-
-  async function runImAiScannerSearch(query) {
-    const resultsEl = document.getElementById("im-ai-scanner-search-results");
-    if (!query) {
-      hideImAiScannerSearchResults();
-      return;
-    }
-    if (resultsEl) {
-      resultsEl.innerHTML = `<div class="im-watchlist-search-empty">Searching…</div>`;
-      resultsEl.hidden = false;
-    }
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=15`);
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.error || "Stock search failed.");
-      renderImAiScannerSearchResults(Array.isArray(result.data) ? result.data : []);
-    } catch (error) {
-      console.error("AI scanner stock search failed:", error);
-      imAiScannerSearchResults = [];
-      imAiScannerSearchActiveIndex = -1;
-      if (resultsEl) {
-        resultsEl.innerHTML = `<div class="im-watchlist-search-empty">${escapeHtml(friendlyAiErrorMessage(error.message))}</div>`;
-        resultsEl.hidden = false;
-      }
-    }
-  }
-
   // Colors a Trend/Supertrend-style word by its meaning (bullish -> green,
   // bearish -> red, neutral -> muted gray), same convention as every other
   // bullish/bearish pill in the app — these stat tiles were showing the
@@ -10808,7 +10729,7 @@ async function fetchWatchlist() {
   }
 
   function renderAiScannerIndicators(snapshot) {
-    const grid = document.getElementById("im-ai-scanner-indicators");
+    const grid = document.getElementById("im-stock-detail-ai-indicators");
     if (!grid) return;
     const tiles = [
       ["Price", formatNumber(snapshot.price)],
@@ -10836,15 +10757,19 @@ async function fetchWatchlist() {
       .join("");
   }
 
+  // AI write-up for the stock open on Stock Detail, shown right under its
+  // "Get AI Analysis" button.
   async function runAiChartScan(symbol) {
-    const statusEl = document.getElementById("im-ai-scanner-status");
-    const resultEl = document.getElementById("im-ai-scanner-result");
-    const symbolEl = document.getElementById("im-ai-scanner-symbol");
-    const updatedEl = document.getElementById("im-ai-scanner-updated");
-    const analysisEl = document.getElementById("im-ai-scanner-analysis");
+    const statusEl = document.getElementById("im-stock-detail-ai-status");
+    const resultEl = document.getElementById("im-stock-detail-ai-result");
+    const symbolEl = document.getElementById("im-stock-detail-ai-symbol");
+    const updatedEl = document.getElementById("im-stock-detail-ai-updated");
+    const analysisEl = document.getElementById("im-stock-detail-ai-analysis");
+    const button = document.getElementById("im-stock-detail-ai-btn");
 
-    if (statusEl) statusEl.textContent = `Analysing ${symbol}…`;
+    if (statusEl) { statusEl.textContent = `Analysing ${symbol}…`; statusEl.hidden = false; }
     if (resultEl) resultEl.hidden = true;
+    if (button) { button.disabled = true; button.textContent = "Analysing…"; }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/ai-chart-scanner`, {
@@ -10853,6 +10778,7 @@ async function fetchWatchlist() {
         body: JSON.stringify({ symbol })
       });
       const result = await response.json();
+      if (symbol !== imStockDetailSymbol) return; // user moved on to another stock
       if (!response.ok || !result.ok) throw new Error(result.error || "AI chart scan failed.");
 
       if (symbolEl) symbolEl.textContent = result.symbol;
@@ -10863,13 +10789,23 @@ async function fetchWatchlist() {
       renderAiScannerIndicators(result.indicators || {});
       if (analysisEl) renderGeminiReview(analysisEl, result.analysis);
       if (resultEl) resultEl.hidden = false;
-      if (statusEl) statusEl.textContent = "";
+      if (statusEl) { statusEl.textContent = ""; statusEl.hidden = true; }
     } catch (error) {
       console.error("AI chart scan failed:", error);
-      if (statusEl) statusEl.textContent = friendlyAiErrorMessage(error.message);
+      if (statusEl) { statusEl.textContent = friendlyAiErrorMessage(error.message); statusEl.hidden = false; }
       if (resultEl) resultEl.hidden = true;
       showAiErrorToast(error.message);
+    } finally {
+      if (button) { button.disabled = false; button.textContent = "Get AI Analysis"; }
     }
+  }
+
+  // A new stock on Stock Detail clears the previous stock's AI write-up.
+  function resetImStockDetailAi() {
+    const statusEl = document.getElementById("im-stock-detail-ai-status");
+    const resultEl = document.getElementById("im-stock-detail-ai-result");
+    if (statusEl) { statusEl.textContent = ""; statusEl.hidden = true; }
+    if (resultEl) resultEl.hidden = true;
   }
 
   let imDashboardAiMarket = "nifty";
@@ -11097,66 +11033,12 @@ async function fetchWatchlist() {
     });
   }
 
-  function setupImAiScannerSearch() {
-    const input = document.getElementById("im-ai-scanner-search-input");
-    const resultsEl = document.getElementById("im-ai-scanner-search-results");
-    if (!input || !resultsEl) return;
-
-    input.addEventListener("input", () => {
-      const query = input.value.trim();
-      if (imAiScannerSearchDebounce) window.clearTimeout(imAiScannerSearchDebounce);
-      imAiScannerSearchDebounce = window.setTimeout(() => runImAiScannerSearch(query), 250);
-    });
-
-    resultsEl.addEventListener("click", (event) => {
-      const item = event.target.closest(".im-watchlist-search-item");
-      if (!item) return;
-      const stock = imAiScannerSearchResults[Number(item.dataset.searchIndex)];
-      if (!stock) return;
-      input.value = stock.symbol;
-      hideImAiScannerSearchResults();
-      runAiChartScan(stock.symbol);
-    });
-
-    document.addEventListener("click", (event) => {
-      if (!input.contains(event.target) && !resultsEl.contains(event.target)) {
-        hideImAiScannerSearchResults();
-      }
-    });
-
-    input.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") {
-        event.preventDefault();
-        const active = imAiScannerSearchResults[imAiScannerSearchActiveIndex];
-        if (active) {
-          input.value = active.symbol;
-          hideImAiScannerSearchResults();
-          runAiChartScan(active.symbol);
-        } else if (input.value.trim()) {
-          hideImAiScannerSearchResults();
-          runAiChartScan(input.value.trim().toUpperCase());
-        }
-      } else if (event.key === "ArrowDown" && imAiScannerSearchResults.length) {
-        event.preventDefault();
-        imAiScannerSearchActiveIndex = Math.min(imAiScannerSearchActiveIndex + 1, imAiScannerSearchResults.length - 1);
-        updateImAiScannerActiveHighlight();
-      } else if (event.key === "ArrowUp" && imAiScannerSearchResults.length) {
-        event.preventDefault();
-        imAiScannerSearchActiveIndex = Math.max(imAiScannerSearchActiveIndex - 1, 0);
-        updateImAiScannerActiveHighlight();
-      }
-    });
-  }
-
-  setupImAiScannerSearch();
   setupImDashboardAiReview();
 
   // ===================== Stock Detail (any NSE stock) =====================
   // Chart + technicals + news for an arbitrary stock in one page. Reuses
-  // /api/index-candles (already symbol-agnostic via resolve_instrument_key),
-  // the AI Chart Scanner's indicator-grid styling, and jumps into the AI
-  // Chart Scanner itself for the AI write-up instead of duplicating that
-  // call here.
+  // /api/index-candles (already symbol-agnostic via resolve_instrument_key)
+  // and shows the AI write-up (runAiChartScan) inline under its button.
 
   let imStockDetailSearchDebounce = null;
   let imStockDetailSearchResults = [];
@@ -11362,6 +11244,7 @@ async function fetchWatchlist() {
 
   async function loadImStockDetail(symbol) {
     imStockDetailSymbol = symbol;
+    resetImStockDetailAi();
     const statusEl = document.getElementById("im-stock-detail-status");
     const resultEl = document.getElementById("im-stock-detail-result");
     const symbolEl = document.getElementById("im-stock-detail-symbol");
@@ -11462,12 +11345,7 @@ async function fetchWatchlist() {
 
   document.getElementById("im-stock-detail-ai-btn")?.addEventListener("click", () => {
     if (!imStockDetailSymbol) return;
-    const symbol = imStockDetailSymbol;
-    pushImDrilldown("im-stock-detail");
-    showPage("im-ai-scanner");
-    const aiInput = document.getElementById("im-ai-scanner-search-input");
-    if (aiInput) aiInput.value = symbol;
-    runAiChartScan(symbol);
+    runAiChartScan(imStockDetailSymbol);
   });
 
   let watchlistTimer = null;
