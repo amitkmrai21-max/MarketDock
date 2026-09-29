@@ -8019,6 +8019,11 @@ async function fetchWatchlist() {
         // the chosen expiry's option chain opens.
         optChainBtn.style.display = "";
         optChainBtn.onclick = () => {
+          if (commodityKey === "aluminium" || (symbol && symbol.toUpperCase().startsWith("ALUMINI"))) {
+            closeImWatchlistSheets(true);
+            alert("Aluminium ke liye MCX par options listed nahi hain (sirf Futures trading hoti hai).");
+            return;
+          }
           closeImWatchlistSheets(true);
           openCommodityExpirySheet(commodityKey, commodityName);
         };
@@ -8408,8 +8413,15 @@ async function fetchWatchlist() {
       await loadStockOptionChain();
     } catch (error) {
       console.error("Stock option expiries fetch failed:", error);
-      if (meta) { meta.hidden = false; meta.textContent = error.message || "Could not load option expiries."; }
-      if (body) body.innerHTML = "";
+      const msg = error.message || "Could not load option expiries.";
+      if (meta) { meta.hidden = false; meta.textContent = msg; }
+      if (body) {
+        body.innerHTML = `<div style="padding: 32px 16px; text-align: center; color: #94a3b8; font-size: 14px; line-height: 1.6;">
+          <div style="font-size: 28px; margin-bottom: 8px;">ℹ️</div>
+          <div style="font-weight: 600; color: #f1f5f9; margin-bottom: 4px;">Options Unavailable</div>
+          <div>${escapeHtml(msg)}</div>
+        </div>`;
+      }
     }
   }
 
