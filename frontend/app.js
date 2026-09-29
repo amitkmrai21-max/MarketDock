@@ -5661,6 +5661,12 @@ function clearLiveChartAiOverlay() {
       .join("");
   }
 
+  // Once a BUY/SELL setup's entry/stop/targets go live, keep showing that
+  // last confirmed plan (faded) instead of snapping to "No entry"/"--" the
+  // moment the live decision drops back to plain WAIT — the levels are
+  // still the most recent real read, just no longer an active signal.
+  const imLastActionableTradePlan = {};
+
   function renderTradePlan(marketKey, data) {
     const plan = document.getElementById(`im-${marketKey}-trade-plan`);
 
@@ -5668,22 +5674,32 @@ function clearLiveChartAiOverlay() {
       return;
     }
 
-    const entry = data.trade_plan.entry_zone;
+    const isActionable = data.trade_plan.entry_zone.from !== null && data.trade_plan.entry_zone.to !== null;
+    if (isActionable) {
+      imLastActionableTradePlan[marketKey] = data;
+    }
+
+    const isStale = !isActionable && Boolean(imLastActionableTradePlan[marketKey]);
+    const displayData = isStale ? imLastActionableTradePlan[marketKey] : data;
+
+    plan.classList.toggle("trade-plan-stale", isStale);
+
+    const entry = displayData.trade_plan.entry_zone;
     const entryText =
       entry.from === null || entry.to === null
         ? "No entry"
         : `${formatNumber(entry.from)} - ${formatNumber(entry.to)}`;
 
     const rows = [
-      ["Decision", data.decision.label],
+      ["Decision", displayData.decision.label],
       ["Entry zone", entryText],
       ["Entry condition", entry.condition],
-      ["Stop-loss", formatNumber(data.trade_plan.stop_loss)],
-      ["Target 1", formatNumber(data.trade_plan.target_1)],
-      ["Target 2", formatNumber(data.trade_plan.target_2)],
+      ["Stop-loss", formatNumber(displayData.trade_plan.stop_loss)],
+      ["Target 1", formatNumber(displayData.trade_plan.target_1)],
+      ["Target 2", formatNumber(displayData.trade_plan.target_2)],
       ["Support", formatNumber(data.levels.support)],
       ["Resistance", formatNumber(data.levels.resistance)],
-      ["Exit rule", data.trade_plan.exit_rule]
+      ["Exit rule", displayData.trade_plan.exit_rule]
     ];
 
     plan.innerHTML = rows
