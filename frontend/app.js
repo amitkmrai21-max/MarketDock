@@ -10455,7 +10455,9 @@ async function fetchWatchlist() {
     if (trade.direction !== "Buy" || (product !== "CNC" && product !== "MTF")) return false;
     const boughtAt = trade.filledAt || trade.createdAt;
     if (!Number.isFinite(boughtAt)) return true;
-    return now >= imIstCutoff(boughtAt, 15, 30);
+    // On the day of purchase, it stays in Positions.
+    // On the next trading day (or any subsequent day in IST), it moves to Holdings.
+    return imIstDayKey(now) > imIstDayKey(boughtAt);
   }
 
   function getOpenPositionRows() {
@@ -10676,7 +10678,7 @@ async function fetchWatchlist() {
     if (holdingsEl) {
       holdingsEl.innerHTML = holdings.length
         ? holdings.map(imPositionCardHtml).join("")
-        : `<p class="settings-help">No holdings yet. Buy with Longterm (CNC) or MTF — the stock moves here after the market closes (3:30 PM).</p>`;
+        : `<p class="settings-help">No holdings yet. Buy with Longterm (CNC) or MTF — the stock stays in Positions today and moves here on the next trading day.</p>`;
     }
   }
 
@@ -10766,10 +10768,20 @@ async function fetchWatchlist() {
   let imBrokerOrdersActiveFilter = "all";
 
   function renderBrokerOrdersList() {
+    const today = imIstDayKey(Date.now());
     const searchTerm = (document.getElementById("im-pos-search-input")?.value || "").trim().toUpperCase();
     const allRows = loadTrades()
       .map((trade, index) => ({ trade, index }))
       .filter(({ trade }) => !trade.isSplit && trade.status)
+      .filter(({ trade }) => {
+        // Pending/open orders stay visible so user can monitor or cancel.
+        // Executed and cancelled orders show only for the current trading day.
+        const bucket = classifyOrderStatus(trade.status);
+        if (bucket === "open") return true;
+        const tradeTime = trade.filledAt || trade.closedAt || trade.createdAt;
+        if (!Number.isFinite(tradeTime)) return true;
+        return imIstDayKey(tradeTime) === today;
+      })
       .filter(({ trade }) => !searchTerm || imTradeMarketLabel(trade.index).toUpperCase().includes(searchTerm));
     const rows = imBrokerOrdersActiveFilter === "all"
       ? allRows
