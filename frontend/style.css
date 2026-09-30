@@ -11173,9 +11173,21 @@ body[data-theme="light"] .indian-market-mode #im-stock-options {
   --oc-field: rgba(15, 23, 42, 0.06);
 }
 .indian-market-mode .oc-page {
-  max-width: 820px;
+  max-width: 100%;
   margin: 0 auto;
   padding: 0 !important;
+}
+@media (min-width: 900px) {
+  .indian-market-mode .oc-page {
+    max-width: 1160px;
+    padding: 8px 12px !important;
+  }
+}
+@media (min-width: 1280px) {
+  .indian-market-mode .oc-page {
+    max-width: 1380px;
+    padding: 12px 16px !important;
+  }
 }
 .oc-header {
   display: flex;
@@ -11539,4 +11551,779 @@ body[data-theme="light"] #im-stock-options .oc-main {
 }
 #im-stock-options .oc-tradable:active {
   background: rgba(76, 141, 255, 0.18);
+}
+
+/* Desktop & large screen enhancements for Option Chain */
+@media (min-width: 900px) {
+  #im-stock-options .oc-body {
+    min-height: 540px;
+  }
+  #im-stock-options .oc-body .oc-cell {
+    padding: 11px 8px;
+  }
+  #im-stock-options .oc-colnames .oc-cell {
+    padding: 14px 8px;
+    font-size: 15px;
+  }
+  #im-stock-options .oc-main,
+  #im-stock-options .oc-strike-num {
+    font-size: 17.5px;
+  }
+  #im-stock-options .oc-sub {
+    font-size: 13px;
+  }
+  #im-stock-options .oc-search {
+    min-height: 52px;
+    margin-bottom: 12px;
+    padding: 0 16px;
+  }
+  #im-stock-options .oc-search strong {
+    font-size: 19px;
+  }
+  #im-stock-options .oc-expiry {
+    padding: 8px 18px;
+    font-size: 14.5px;
+  }
+  #im-stock-options .oc-footer {
+    margin-top: 10px;
+    padding: 14px 18px;
+  }
+  #im-stock-options .oc-footer strong {
+    font-size: 18px;
+  }
+  #im-stock-options .oc-footer span {
+    font-size: 13.5px;
+  }
+}
+
+
+/* Dedicated Funds Trigger & Surface Modal */
+.settings-funds-trigger-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: #f1f5f9;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.settings-funds-trigger-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+.settings-funds-trigger-left { display: flex; flex-direction: column; gap: 3px; }
+.settings-funds-trigger-title { font-size: 14px; font-weight: 600; color: #f8fafc; }
+.settings-funds-trigger-sub { font-size: 12px; color: #10b981; font-weight: 500; }
+.settings-funds-trigger-right { display: flex; align-items: center; gap: 8px; color: #94a3b8; }
+.settings-funds-view-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+  text-transform: uppercase;
+}
+.funds-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  background: rgba(10, 15, 25, 0.78);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.funds-modal-overlay[hidden] { display: none !important; }
+.funds-modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+}
+.funds-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 14px;
+}
+.funds-modal-header h3 { margin: 0; font-size: 18px; font-weight: 700; color: #f8fafc; }
+.funds-modal-sub { margin: 4px 0 0 0; font-size: 12px; color: #94a3b8; }
+.funds-modal-close {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+.funds-modal-surface {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.funds-surface-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.funds-surface-label { font-size: 12px; color: #94a3b8; font-weight: 500; }
+.funds-surface-val { font-size: 16px; font-weight: 700; color: #f1f5f9; }
+.funds-surface-val.val-highlight { color: #34d399; }
+.funds-modal-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 16px;
+}
+.funds-reset-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #f87171;
+  cursor: pointer;
+}
+.funds-reset-btn:hover { background: rgba(239, 68, 68, 0.24); border-color: #ef4444; }
+.funds-reset-hint { margin: 0; font-size: 11.5px; color: #64748b; text-align: center; }
+
+
+/* =================================================================
+   COMPREHENSIVE LIGHT THEME OVERRIDES (MarketDock)
+   Watchlist, Positions, Commodity, Option Chain & Funds Modal
+   ================================================================= */
+
+body[data-theme="light"] .indian-market-mode {
+  --im-bg: #f8fafc !important;
+  --im-panel: #ffffff !important;
+  --im-panel-2: #f1f5f9 !important;
+  --im-card-bg: #ffffff !important;
+  --im-border: #e2e8f0 !important;
+  --im-text: #0f172a !important;
+  --im-muted: #64748b !important;
+  --im-blue: #2563eb !important;
+  --im-green: #16a34a !important;
+  --im-red: #dc2626 !important;
+  --im-yellow: #d97706 !important;
+  --im-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* 1. WATCHLIST & COMMODITY ROWS */
+body[data-theme="light"] .im-watchlist-row,
+body[data-theme="light"] .indian-market-mode #im-watchlist .im-watchlist-row,
+body[data-theme="light"] .indian-market-mode #im-commodities .im-watchlist-row {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+body[data-theme="light"] .im-watchlist-row:hover,
+body[data-theme="light"] .indian-market-mode #im-watchlist .im-watchlist-row:hover,
+body[data-theme="light"] .indian-market-mode #im-commodities .im-watchlist-row:hover {
+  background: #f8fafc !important;
+}
+
+body[data-theme="light"] .im-watchlist-row:active,
+body[data-theme="light"] .indian-market-mode #im-watchlist .im-watchlist-row:active {
+  background: #f1f5f9 !important;
+}
+
+body[data-theme="light"] .indian-market-mode #im-watchlist .im-stock-symbol-text,
+body[data-theme="light"] .indian-market-mode #im-commodities .im-stock-symbol-text,
+body[data-theme="light"] .im-commodity-expiry-row-expiry,
+body[data-theme="light"] .im-commodity-expiry-row-price {
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] .indian-market-mode #im-watchlist .im-stock-name-text,
+body[data-theme="light"] .indian-market-mode #im-commodities .im-stock-name-text,
+body[data-theme="light"] .im-commodity-expiry-row-symbol {
+  color: #64748b !important;
+}
+
+body[data-theme="light"] .indian-market-mode #im-watchlist .im-price-value,
+body[data-theme="light"] .indian-market-mode #im-commodities .im-price-value {
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] .im-watchlist-tab {
+  background: #ffffff !important;
+  color: #64748b !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body[data-theme="light"] .im-watchlist-tab.active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+body[data-theme="light"] .im-watchlist-tab-new {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px dashed #cbd5e1 !important;
+}
+
+body[data-theme="light"] .indian-market-mode .im-watchlist-search-wrap input {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* 2. POSITIONS PAGE */
+body[data-theme="light"] .im-pos-summary-card,
+body[data-theme="light"] .im-pos-row,
+body[data-theme="light"] .im-pos-closed-row {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+}
+
+body[data-theme="light"] .im-pos-summary-label,
+body[data-theme="light"] .im-pos-row-sub,
+body[data-theme="light"] .im-pos-row-avg,
+body[data-theme="light"] .im-pos-row-qty {
+  color: #64748b !important;
+}
+
+body[data-theme="light"] .im-pos-summary-value,
+body[data-theme="light"] .im-pos-row-sym,
+body[data-theme="light"] .im-pos-row-ltp {
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] .im-pos-filter-pill {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+body[data-theme="light"] .im-pos-filter-pill.active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+body[data-theme="light"] .im-pos-search-input {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* 3. OPTION CHAIN */
+body[data-theme="light"] #im-stock-options {
+  --oc-itm: rgba(254, 240, 138, 0.45) !important;
+  --oc-strike-bg: #f8fafc !important;
+  --oc-atm-bg: #e2e8f0 !important;
+  --oc-line: #e2e8f0 !important;
+  --oc-field: #f1f5f9 !important;
+  background: #f8fafc !important;
+}
+
+body[data-theme="light"] #im-stock-options .oc-table {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body[data-theme="light"] .oc-row {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+body[data-theme="light"] .oc-main {
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] .oc-sub {
+  color: #64748b !important;
+}
+
+body[data-theme="light"] .oc-strike .oc-main {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+body[data-theme="light"] .oc-th {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+}
+
+body[data-theme="light"] #im-stock-options-expiry,
+body[data-theme="light"] #im-stock-options-search,
+body[data-theme="light"] .oc-search {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+/* 4. COMMODITY EXPIRY / SELECTORS */
+body[data-theme="light"] .im-commodity-expiry-row {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+/* 5. PAPER TRADING FUNDS MODAL */
+body[data-theme="light"] #fundsModalOverlay {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+body[data-theme="light"] .funds-surface-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.15) !important;
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] .funds-surface-title {
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] .funds-surface-sub,
+body[data-theme="light"] .funds-surface-label,
+body[data-theme="light"] .funds-surface-note {
+  color: #64748b !important;
+}
+
+body[data-theme="light"] .funds-surface-metric {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body[data-theme="light"] .funds-surface-val {
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] .funds-surface-val.val-highlight {
+  color: #16a34a !important;
+}
+
+body[data-theme="light"] .funds-surface-close {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #64748b !important;
+}
+
+body[data-theme="light"] .funds-surface-close:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] .funds-surface-reset-btn {
+  background: #fff1f2 !important;
+  border: 1px solid #fecdd3 !important;
+  color: #e11d48 !important;
+}
+
+body[data-theme="light"] .funds-surface-reset-btn:hover {
+  background: #ffe4e6 !important;
+}
+
+
+/* =================================================================
+   DASHBOARD AI, CHART AI, ALERTS BUTTONS & STOCK NAME SIZING
+   ================================================================= */
+
+/* 1. Dashboard: Run AI Analysis Button in Light Theme */
+body[data-theme="light"] #im-dashboard-ai-run-btn {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3) !important;
+  font-weight: 700 !important;
+}
+
+/* 2. Live Chart: Refresh AI Review Button in Light Theme */
+body[data-theme="light"] #im-chart-ai-button {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28) !important;
+  font-weight: 700 !important;
+}
+
+/* 3. Alerts: Save Alert & Save Condition Buttons in Light Theme */
+body[data-theme="light"] #create-alert-form button[type="submit"],
+body[data-theme="light"] #create-condition-alert-form button[type="submit"],
+body[data-theme="light"] .alerts-form .primary-button {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28) !important;
+  font-weight: 700 !important;
+}
+
+/* 4. Top Gainers, Losers, Watchlist & Scanner: Stock Names font size & weight */
+.im-stock-symbol-text,
+.indian-market-mode #im-watchlist .im-stock-symbol-text,
+.indian-market-mode #im-commodities .im-stock-symbol-text,
+#im-scanner-body .im-stock-symbol-text {
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.3px !important;
+}
+
+.im-stock-name-text,
+.indian-market-mode #im-watchlist .im-stock-name-text,
+.indian-market-mode #im-commodities .im-stock-name-text,
+#im-scanner-body .im-stock-name-text {
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  opacity: 0.9 !important;
+}
+
+
+/* ==========================================================================
+   Light Theme Fixes: Stocks (Movers & Scanner), Alerts Buttons, Funds Modal
+   ========================================================================== */
+
+/* 1. Dashboard Gainers/Losers & Scanner: crisp dark stock names in Light Mode */
+body[data-theme="light"] .im-stock-symbol-text,
+body.light-theme .im-stock-symbol-text,
+body[data-theme="light"] #im-scanner .im-stock-symbol-text,
+body.light-theme #im-scanner .im-stock-symbol-text,
+body[data-theme="light"] #im-dashboard-movers .im-stock-symbol-text,
+body.light-theme #im-dashboard-movers .im-stock-symbol-text {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+}
+
+body[data-theme="light"] .im-stock-name-text,
+body.light-theme .im-stock-name-text,
+body[data-theme="light"] #im-scanner .im-stock-name-text,
+body.light-theme #im-scanner .im-stock-name-text,
+body[data-theme="light"] #im-dashboard-movers .im-stock-name-text,
+body.light-theme #im-dashboard-movers .im-stock-name-text {
+  color: #334155 !important;
+  font-weight: 600 !important;
+  font-size: 11.5px !important;
+}
+
+/* 2. Alerts section buttons in Light Mode */
+body[data-theme="light"] .test-notification-btn,
+body.light-theme .test-notification-btn,
+body[data-theme="light"] #im-test-notification-btn,
+body.light-theme #im-test-notification-btn,
+body[data-theme="light"] #settingsTestNotificationBtn,
+body.light-theme #settingsTestNotificationBtn {
+  background: #7c3aed !important;
+  color: #ffffff !important;
+  border: 1px solid #6d28d9 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 4px rgba(124, 58, 237, 0.25) !important;
+}
+
+body[data-theme="light"] .test-notification-btn:hover,
+body.light-theme .test-notification-btn:hover,
+body[data-theme="light"] #im-test-notification-btn:hover,
+body.light-theme #im-test-notification-btn:hover {
+  background: #6d28d9 !important;
+}
+
+/* Save Alert and Save Condition Alert buttons */
+body[data-theme="light"] #im-alerts .primary-button,
+body.light-theme #im-alerts .primary-button,
+body[data-theme="light"] #im-price-alert-form .primary-button,
+body.light-theme #im-price-alert-form .primary-button,
+body[data-theme="light"] #im-condition-alert-form .primary-button,
+body.light-theme #im-condition-alert-form .primary-button {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  border: 1px solid #1e40af !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25) !important;
+}
+
+body[data-theme="light"] #im-alerts .primary-button:hover,
+body.light-theme #im-alerts .primary-button:hover {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+}
+
+/* 3. Settings: Paper Trading Funds row visibility in Light Mode */
+body[data-theme="light"] #settingsPaperFundsRow,
+body.light-theme #settingsPaperFundsRow,
+body[data-theme="light"] .im-paper-funds-row,
+body.light-theme .im-paper-funds-row,
+body[data-theme="light"] .settings-section .im-funds-row,
+body.light-theme .settings-section .im-funds-row {
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] #settingsPaperFundsRow *,
+body.light-theme #settingsPaperFundsRow *,
+body[data-theme="light"] .im-paper-funds-row *,
+body.light-theme .im-paper-funds-row * {
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] #settingsPaperFundsRow .settings-help,
+body.light-theme #settingsPaperFundsRow .settings-help,
+body[data-theme="light"] .im-paper-funds-row small,
+body.light-theme .im-paper-funds-row small {
+  color: #64748b !important;
+}
+
+/* 4. Funds Modal Light Theme Interface */
+body[data-theme="light"] #im-funds-modal,
+body.light-theme #im-funds-modal,
+body[data-theme="light"] .im-funds-modal-container,
+body.light-theme .im-funds-modal-container {
+  background: rgba(15, 23, 42, 0.45) !important;
+}
+
+body[data-theme="light"] #im-funds-modal-content,
+body.light-theme #im-funds-modal-content,
+body[data-theme="light"] .im-funds-modal-dialog,
+body.light-theme .im-funds-modal-dialog,
+body[data-theme="light"] .im-funds-modal-card,
+body.light-theme .im-funds-modal-card {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12) !important;
+}
+
+body[data-theme="light"] #im-funds-modal h2,
+body[data-theme="light"] #im-funds-modal h3,
+body.light-theme #im-funds-modal h2,
+body.light-theme #im-funds-modal h3,
+body[data-theme="light"] .im-funds-modal-title,
+body.light-theme .im-funds-modal-title {
+  color: #0f172a !important;
+}
+
+body[data-theme="light"] #im-funds-modal .im-funds-grid,
+body.light-theme #im-funds-modal .im-funds-grid,
+body[data-theme="light"] .im-funds-grid,
+body.light-theme .im-funds-grid {
+  background: transparent !important;
+}
+
+body[data-theme="light"] .im-funds-cell,
+body.light-theme .im-funds-cell,
+body[data-theme="light"] #im-funds-modal .im-funds-cell,
+body.light-theme #im-funds-modal .im-funds-cell {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+body[data-theme="light"] .im-funds-cell span,
+body.light-theme .im-funds-cell span {
+  color: #64748b !important;
+  font-weight: 600 !important;
+}
+
+body[data-theme="light"] .im-funds-cell strong,
+body.light-theme .im-funds-cell strong {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+/* Reset Funds button inside Funds modal */
+body[data-theme="light"] #settingsResetFundsBtn,
+body.light-theme #settingsResetFundsBtn,
+body[data-theme="light"] .im-reset-funds-btn,
+body.light-theme .im-reset-funds-btn {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+  font-weight: 700 !important;
+}
+
+body[data-theme="light"] #settingsResetFundsBtn:hover,
+body.light-theme #settingsResetFundsBtn:hover {
+  background: #fee2e2 !important;
+}
+
+
+/* ==========================================================================
+   Exact Light Theme Fixes: Funds Trigger Button & Dedicated Funds Modal
+   ========================================================================== */
+
+/* 1. Settings Funds Trigger Row in Light Mode */
+body.light-theme .settings-funds-trigger-btn,
+body[data-theme="light"] .settings-funds-trigger-btn,
+html.light-theme .settings-funds-trigger-btn,
+html[data-theme="light"] .settings-funds-trigger-btn {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+body.light-theme .settings-funds-trigger-btn:hover,
+body[data-theme="light"] .settings-funds-trigger-btn:hover,
+html.light-theme .settings-funds-trigger-btn:hover,
+html[data-theme="light"] .settings-funds-trigger-btn:hover {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.light-theme .settings-funds-trigger-title,
+body[data-theme="light"] .settings-funds-trigger-title,
+html.light-theme .settings-funds-trigger-title,
+html[data-theme="light"] .settings-funds-trigger-title {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+}
+
+body.light-theme .settings-funds-trigger-sub,
+body[data-theme="light"] .settings-funds-trigger-sub,
+html.light-theme .settings-funds-trigger-sub,
+html[data-theme="light"] .settings-funds-trigger-sub {
+  color: #059669 !important;
+  font-weight: 600 !important;
+}
+
+body.light-theme .settings-funds-view-pill,
+body[data-theme="light"] .settings-funds-view-pill,
+html.light-theme .settings-funds-view-pill,
+html[data-theme="light"] .settings-funds-view-pill {
+  background: rgba(37, 99, 235, 0.1) !important;
+  color: #2563eb !important;
+  border: 1px solid rgba(37, 99, 235, 0.2) !important;
+}
+
+body.light-theme .settings-funds-trigger-right svg,
+body[data-theme="light"] .settings-funds-trigger-right svg,
+html.light-theme .settings-funds-trigger-right svg,
+html[data-theme="light"] .settings-funds-trigger-right svg {
+  color: #64748b !important;
+}
+
+/* 2. Dedicated Funds Modal Container & Cards in Light Mode */
+body.light-theme .funds-modal-card,
+body[data-theme="light"] .funds-modal-card,
+html.light-theme .funds-modal-card,
+html[data-theme="light"] .funds-modal-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.15) !important;
+}
+
+body.light-theme .funds-modal-header,
+body[data-theme="light"] .funds-modal-header,
+html.light-theme .funds-modal-header,
+html[data-theme="light"] .funds-modal-header {
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+body.light-theme .funds-modal-header h3,
+body[data-theme="light"] .funds-modal-header h3,
+html.light-theme .funds-modal-header h3,
+html[data-theme="light"] .funds-modal-header h3 {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+body.light-theme .funds-modal-sub,
+body[data-theme="light"] .funds-modal-sub,
+html.light-theme .funds-modal-sub,
+html[data-theme="light"] .funds-modal-sub {
+  color: #64748b !important;
+}
+
+body.light-theme .funds-modal-close,
+body[data-theme="light"] .funds-modal-close,
+html.light-theme .funds-modal-close,
+html[data-theme="light"] .funds-modal-close {
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+body.light-theme .funds-modal-close:hover,
+body[data-theme="light"] .funds-modal-close:hover,
+html.light-theme .funds-modal-close:hover,
+html[data-theme="light"] .funds-modal-close:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+body.light-theme .funds-surface-card,
+body[data-theme="light"] .funds-surface-card,
+html.light-theme .funds-surface-card,
+html[data-theme="light"] .funds-surface-card {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.light-theme .funds-surface-label,
+body[data-theme="light"] .funds-surface-label,
+html.light-theme .funds-surface-label,
+html[data-theme="light"] .funds-surface-label {
+  color: #64748b !important;
+  font-weight: 600 !important;
+}
+
+body.light-theme .funds-surface-val,
+body[data-theme="light"] .funds-surface-val,
+html.light-theme .funds-surface-val,
+html[data-theme="light"] .funds-surface-val {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+body.light-theme .funds-surface-val.val-highlight,
+body[data-theme="light"] .funds-surface-val.val-highlight,
+html.light-theme .funds-surface-val.val-highlight,
+html[data-theme="light"] .funds-surface-val.val-highlight {
+  color: #059669 !important;
+}
+
+body.light-theme .funds-reset-btn,
+body[data-theme="light"] .funds-reset-btn,
+html.light-theme .funds-reset-btn,
+html[data-theme="light"] .funds-reset-btn {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+  font-weight: 700 !important;
+}
+
+body.light-theme .funds-reset-btn:hover,
+body[data-theme="light"] .funds-reset-btn:hover,
+html.light-theme .funds-reset-btn:hover,
+html[data-theme="light"] .funds-reset-btn:hover {
+  background: #fee2e2 !important;
+}
+
+body.light-theme .funds-reset-hint,
+body[data-theme="light"] .funds-reset-hint,
+html.light-theme .funds-reset-hint,
+html[data-theme="light"] .funds-reset-hint {
+  color: #64748b !important;
 }

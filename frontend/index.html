@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20260927v70">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20260930fundsLight1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -202,6 +202,47 @@
         No broker connection, no auto-trading, and no real-money order execution.
       </div>
     </aside>
+
+  <!-- Dedicated Funds Surface Modal -->
+  <div id="fundsModalOverlay" class="funds-modal-overlay" hidden>
+    <div class="funds-modal-card" role="dialog" aria-modal="true" aria-labelledby="fundsModalHeading">
+      <div class="funds-modal-header">
+        <div>
+          <h3 id="fundsModalHeading">Paper Trading Funds</h3>
+          <p class="funds-modal-sub">Virtual margin &amp; balance management</p>
+        </div>
+        <button id="closeFundsModalBtn" class="funds-modal-close" type="button" aria-label="Close funds">×</button>
+      </div>
+
+      <div class="funds-modal-surface">
+        <div class="funds-surface-card">
+          <span class="funds-surface-label">Available</span>
+          <strong id="modalPaperFundsAvailable" class="funds-surface-val val-highlight">₹2,00,00,000</strong>
+        </div>
+        <div class="funds-surface-card">
+          <span class="funds-surface-label">Used margin</span>
+          <strong id="modalPaperFundsUsed" class="funds-surface-val">₹0.00</strong>
+        </div>
+        <div class="funds-surface-card">
+          <span class="funds-surface-label">Realized P&amp;L</span>
+          <strong id="modalPaperFundsRealized" class="funds-surface-val">₹0.00</strong>
+        </div>
+        <div class="funds-surface-card">
+          <span class="funds-surface-label">Opening balance</span>
+          <strong id="modalPaperFundsOpening" class="funds-surface-val">₹2,00,00,000</strong>
+        </div>
+      </div>
+
+      <div class="funds-modal-footer">
+        <button id="resetFundsBtn" class="funds-reset-btn" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+          Reset Funds
+        </button>
+        <p class="funds-reset-hint">Fund khatam hone par ya practice fresh start karne ke liye balance wapas ₹2,00,00,000 par reset karein.</p>
+      </div>
+    </div>
+  </div>
+
 
     <main class="content">
       <header class="topbar">
@@ -2366,104 +2407,28 @@
       </button>
     </div>
 
-    <section class="settings-section">
+        <section class="settings-section">
       <div class="settings-section-header">
         <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-        </span>
-        <div>
-          <h3>Account</h3>
-          <p class="settings-section-desc">Manage your account and preferences</p>
-        </div>
-      </div>
-
-      <div class="settings-group settings-group--plain" id="accountLoggedOutGroup">
-        <button id="accountGoogleBtn" class="account-google-btn" type="button">
-          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.96 10.71A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58z"/></svg>
-          Continue with Google
-        </button>
-        <div class="settings-divider"><span>or</span></div>
-
-        <div class="settings-name-row">
-          <input id="accountEmailInput" type="email" placeholder="Email" autocomplete="email" />
-        </div>
-        <div class="settings-password-field">
-          <input id="accountPasswordInput" type="password" placeholder="Password" autocomplete="current-password" />
-          <button id="accountPasswordToggle" class="password-toggle-btn" type="button" aria-label="Show password" aria-pressed="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-          </button>
-        </div>
-
-        <div class="settings-account-actions">
-          <button id="accountLoginBtn" class="account-primary-btn" type="button">Log In</button>
-          <button id="accountSignupBtn" type="button">Sign Up</button>
-        </div>
-
-        <p id="accountAuthStatus" class="settings-help" role="status"></p>
-      </div>
-
-      <div class="settings-group settings-group--plain" id="accountLoggedInGroup" hidden>
-        <div class="account-identity">
-          <span class="account-avatar" id="accountAvatar">--</span>
-          <div>
-            <p class="account-identity-email" id="accountEmailDisplay">--</p>
-            <p class="settings-help">Manage your account and active session.</p>
-          </div>
-        </div>
-        <button id="accountLogoutBtn" class="reset-settings-btn" type="button">Log Out</button>
-
-        <div class="settings-subsection">
-          <label for="accountNewPasswordInput">Change password</label>
-          <div class="settings-password-field">
-            <input id="accountNewPasswordInput" type="password" placeholder="New password (min 6 characters)" autocomplete="new-password" />
-            <button id="accountNewPasswordToggle" class="password-toggle-btn" type="button" aria-label="Show password" aria-pressed="false">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-            </button>
-          </div>
-          <div class="settings-account-actions">
-            <button id="accountChangePasswordBtn" class="account-primary-btn" type="button">Update Password</button>
-          </div>
-          <p id="accountChangePasswordStatus" class="settings-help" role="status"></p>
-        </div>
-
-        <div class="settings-subsection">
-          <p class="settings-help">Deleting your account permanently removes your MarketDock login. This can't be undone.</p>
-          <button id="accountDeleteBtn" class="reset-settings-btn" type="button">Delete Account</button>
-          <p id="accountDeleteStatus" class="settings-help" role="status"></p>
-        </div>
-      </div>
-    </section>
-
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path><path d="M16 15h2"></path></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>
         </span>
         <div>
           <h3>Funds</h3>
+          <p class="settings-section-desc">Virtual paper-trading balance &amp; margins</p>
         </div>
       </div>
 
       <div class="settings-group settings-group--plain">
-        <p class="settings-help">Virtual paper-trading money. Every order uses these funds; they can't be added to or withdrawn.</p>
-        <div class="im-funds-grid">
-          <div class="im-funds-cell">
-            <span>Available</span>
-            <strong id="settingsPaperFundsAvailable">--</strong>
+        <button id="openFundsModalBtn" class="settings-funds-trigger-btn" type="button">
+          <div class="settings-funds-trigger-left">
+            <span class="settings-funds-trigger-title">Paper Trading Funds</span>
+            <span class="settings-funds-trigger-sub" id="settingsFundsSubtitlePreview">Available: ₹2,00,00,000</span>
           </div>
-          <div class="im-funds-cell">
-            <span>Used margin</span>
-            <strong id="settingsPaperFundsUsed">--</strong>
+          <div class="settings-funds-trigger-right">
+            <span class="settings-funds-view-pill">View</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg>
           </div>
-          <div class="im-funds-cell">
-            <span>Realized P&amp;L</span>
-            <strong id="settingsPaperFundsRealized">--</strong>
-          </div>
-          <div class="im-funds-cell">
-            <span>Opening balance</span>
-            <strong id="settingsPaperFundsOpening">--</strong>
-          </div>
-        </div>
+        </button>
       </div>
     </section>
 
@@ -2688,7 +2653,48 @@
     <p class="settings-help" id="appBuildVersion">Version: --</p>
   </aside>
 
-  <script src="/frontend/app.js?v=v20260927v65"></script>
+  <!-- Dedicated Funds Surface Modal -->
+  <div id="fundsModalOverlay" class="funds-modal-overlay" hidden>
+    <div class="funds-modal-card" role="dialog" aria-modal="true" aria-labelledby="fundsModalHeading">
+      <div class="funds-modal-header">
+        <div>
+          <h3 id="fundsModalHeading">Paper Trading Funds</h3>
+          <p class="funds-modal-sub">Virtual margin &amp; balance management</p>
+        </div>
+        <button id="closeFundsModalBtn" class="funds-modal-close" type="button" aria-label="Close funds">×</button>
+      </div>
+
+      <div class="funds-modal-surface">
+        <div class="funds-surface-card">
+          <span class="funds-surface-label">Available</span>
+          <strong id="modalPaperFundsAvailable" class="funds-surface-val val-highlight">₹2,00,00,000</strong>
+        </div>
+        <div class="funds-surface-card">
+          <span class="funds-surface-label">Used margin</span>
+          <strong id="modalPaperFundsUsed" class="funds-surface-val">₹0.00</strong>
+        </div>
+        <div class="funds-surface-card">
+          <span class="funds-surface-label">Realized P&amp;L</span>
+          <strong id="modalPaperFundsRealized" class="funds-surface-val">₹0.00</strong>
+        </div>
+        <div class="funds-surface-card">
+          <span class="funds-surface-label">Opening balance</span>
+          <strong id="modalPaperFundsOpening" class="funds-surface-val">₹2,00,00,000</strong>
+        </div>
+      </div>
+
+      <div class="funds-modal-footer">
+        <button id="resetFundsBtn" class="funds-reset-btn" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+          Reset Funds
+        </button>
+        <p class="funds-reset-hint">Fund khatam hone par ya practice fresh start karne ke liye balance wapas ₹2,00,00,000 par reset karein.</p>
+      </div>
+    </div>
+  </div>
+
+
+  <script src="/frontend/app.js?v=v20260929funds1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

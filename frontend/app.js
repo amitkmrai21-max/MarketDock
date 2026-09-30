@@ -2641,11 +2641,15 @@ setInterval(loadRrg, 300000);
     });
 
     supabaseClient.auth.onAuthStateChange((_event, session) => {
+      window.marketDockSession = session || null;
+      window.marketDockUser = session?.user || null;
       if (session) showLoggedIn(session);
       else showLoggedOut();
     });
 
     supabaseClient.auth.getSession().then(({ data }) => {
+      window.marketDockSession = data?.session || null;
+      window.marketDockUser = data?.session?.user || null;
       if (data?.session) showLoggedIn(data.session);
       else showLoggedOut();
     });
@@ -5157,6 +5161,12 @@ function clearLiveChartAiOverlay() {
 
   if (form) {
     form.addEventListener("submit", (event) => {
+      if (!isUserAuthenticated()) {
+        event.preventDefault();
+        promptSignupForTrading();
+        return;
+      }
+
       event.preventDefault();
 
       const entry = Number(document.getElementById("im-trade-entry").value);
@@ -5279,6 +5289,12 @@ function clearLiveChartAiOverlay() {
     setText("settingsPaperFundsUsed", formatRupees(funds.used));
     setText("settingsPaperFundsRealized", `${funds.realized >= 0 ? "+" : ""}${formatRupees(funds.realized)}`, funds.realized >= 0 ? "im-change-up" : "im-change-down");
     setText("settingsPaperFundsOpening", wholeRupees(funds.opening));
+
+    setText("settingsFundsSubtitlePreview", `Available: ${wholeRupees(funds.available)}`);
+    setText("modalPaperFundsAvailable", wholeRupees(funds.available));
+    setText("modalPaperFundsUsed", formatRupees(funds.used));
+    setText("modalPaperFundsRealized", `${funds.realized >= 0 ? "+" : ""}${formatRupees(funds.realized)}`, funds.realized >= 0 ? "funds-surface-val val-highlight" : "funds-surface-val im-change-down");
+    setText("modalPaperFundsOpening", wholeRupees(funds.opening));
     setText("im-order-available", formatRupees(funds.available));
     return funds;
   }
@@ -7552,7 +7568,36 @@ async function fetchWatchlist() {
     resetImOrderSwipe(false);
   }
 
+  
+  function isUserAuthenticated() {
+    return Boolean(window.marketDockSession || window.marketDockUser);
+  }
+
+  function promptSignupForTrading() {
+    const settingsDrawer = document.getElementById("settingsDrawer");
+    const settingsBackdrop = document.getElementById("settingsBackdrop");
+    if (settingsDrawer) settingsDrawer.classList.add("open");
+    if (settingsBackdrop) settingsBackdrop.classList.add("open");
+
+    const loggedOutGroup = document.getElementById("accountLoggedOutGroup");
+    if (loggedOutGroup) {
+      loggedOutGroup.scrollIntoView({ behavior: "smooth", block: "center" });
+      const emailInput = document.getElementById("accountEmailInput");
+      if (emailInput) emailInput.focus();
+    }
+    const statusEl = document.getElementById("accountAuthStatus");
+    if (statusEl) {
+      statusEl.textContent = "Live paper trading ke liye pehle Sign Up ya Login karein.";
+      statusEl.style.color = "#f59e0b";
+    }
+    window.alert("Live paper trading ke liye pehle Sign Up ya Login karna zaroori hai. Please Settings mein jaakar Sign Up ya Login karein.");
+  }
+
   function submitImOrder() {
+    if (!isUserAuthenticated()) {
+      promptSignupForTrading();
+      return false;
+    }
     imOrderState.showErrors = true;
     const order = updateImOrderSummary();
     if (!order || !order.ok) return false;
@@ -8316,11 +8361,14 @@ async function fetchWatchlist() {
     const body = document.getElementById("im-stock-options-body");
     const footer = document.querySelector("#im-stock-options .oc-footer");
     if (!body || !document.getElementById("im-stock-options")?.classList.contains("active")) return;
+    const isDesktop = window.innerWidth >= 900;
     const nav = document.querySelector(".indian-market-mode .sidebar");
-    const navCovers = nav && getComputedStyle(nav).position === "fixed" && nav.getBoundingClientRect().top > window.innerHeight / 2;
-    const reserved = (footer?.offsetHeight || 0) + (navCovers ? nav.offsetHeight : 0) + 16;
-    const top = body.getBoundingClientRect().top + window.scrollY;
-    body.style.maxHeight = `${Math.max(240, window.innerHeight - top - reserved)}px`;
+    const navCovers = !isDesktop && nav && getComputedStyle(nav).position === "fixed" && nav.getBoundingClientRect().top > window.innerHeight / 2;
+    const reserved = (footer?.offsetHeight || 0) + (navCovers ? nav.offsetHeight : 0) + 24;
+    const rect = body.getBoundingClientRect();
+    const available = window.innerHeight - rect.top - reserved;
+    const floor = isDesktop ? 560 : 260;
+    body.style.maxHeight = `${Math.max(floor, available)}px`;
   }
   window.addEventListener("resize", sizeImStockOptionsBody);
 
@@ -14202,3 +14250,53 @@ async function fetchWatchlist() {
     // Ignore — private browsing / storage quota, non-critical.
   }
 })();
+
+
+  function setupDedicatedFundsModal() {
+    const openBtn = document.getElementById("openFundsModalBtn");
+    const modalOverlay = document.getElementById("fundsModalOverlay");
+    const closeBtn = document.getElementById("closeFundsModalBtn");
+    const resetBtn = document.getElementById("resetFundsBtn");
+
+    if (openBtn && modalOverlay) {
+      openBtn.addEventListener("click", () => {
+        if (typeof renderImPaperFunds === "function") renderImPaperFunds();
+        modalOverlay.hidden = false;
+      });
+    }
+
+    if (closeBtn && modalOverlay) {
+      closeBtn.addEventListener("click", () => { modalOverlay.hidden = true; });
+    }
+
+    if (modalOverlay) {
+      modalOverlay.addEventListener("click", (e) => {
+        if (e.target === modalOverlay) modalOverlay.hidden = true;
+      });
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener("click", () => {
+        const confirmed = window.confirm(
+          "Kya aap paper trading funds ko wapas ₹2,00,00,000 par reset karna chahte hain? Sabhi paper positions aur trade history clear ho jayegi."
+        );
+        if (!confirmed) return;
+
+        try { localStorage.removeItem("indianMarketPaperTrades"); } catch (err) {}
+
+        if (typeof renderTrades === "function") renderTrades();
+        if (typeof renderImPaperFunds === "function") renderImPaperFunds();
+        if (typeof renderBrokerOrdersList === "function") renderBrokerOrdersList();
+        if (typeof renderPositionsList === "function") renderPositionsList();
+        if (typeof refreshBrokerPositionsIfVisible === "function") refreshBrokerPositionsIfVisible();
+
+        window.alert("Paper trading funds wapas ₹2,00,00,000 par restore ho gaye hain!");
+      });
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupDedicatedFundsModal);
+  } else {
+    setupDedicatedFundsModal();
+  }
