@@ -20,6 +20,7 @@ from google.genai import types as genai_types
 from groq import Groq
 import groq as groq_sdk
 import requests
+import redis
 
 app = Flask(__name__)
 CORS(app)
@@ -155,6 +156,12 @@ DEMO_MARKETS = {
 LIVE_SNAPSHOT_CACHE_SECONDS = 20
 _live_snapshot_cache = {}
 _stock_snapshot_cache = {}
+
+try:
+    redis_client = redis.Redis(host='127.0.0.1', port=6379, db=0, decode_responses=True)
+    redis_client.ping()
+except Exception as e:
+    redis_client = None
 
 
 def now_utc():
@@ -803,13 +810,29 @@ def get_real_market_snapshot(market_key):
     populated from real Upstox data, so calculate_confirmation_engine can
     consume it unchanged. Raises on failure so the caller can fall back."""
     market = UPSTOX_MARKETS[market_key]
-    cached = _live_snapshot_cache.get(market_key)
-    if cached and time.time() - cached["fetched_at"] < LIVE_SNAPSHOT_CACHE_SECONDS:
-        return cached["data"]
+    cache_key = f"market_snapshot:{market_key}"
+    
+    if redis_client:
+        try:
+            val = redis_client.get(cache_key)
+            if val:
+                return json.loads(val)
+        except Exception:
+            pass
+    else:
+        cached = _live_snapshot_cache.get(market_key)
+        if cached and time.time() - cached["fetched_at"] < LIVE_SNAPSHOT_CACHE_SECONDS:
+            return cached["data"]
 
     candles_5m = fetch_upstox_candles(market["instrument_key"], "minutes", 5, chart_history_days=5)
     snapshot = build_technical_snapshot(market["name"], candles_5m)
     snapshot["data_source"] = "live"
+    
+    if redis_client:
+        try:
+            redis_client.setex(cache_key, LIVE_SNAPSHOT_CACHE_SECONDS, json.dumps(snapshot))
+        except Exception:
+            pass
     _live_snapshot_cache[market_key] = {"data": snapshot, "fetched_at": time.time()}
     return snapshot
 
@@ -818,15 +841,31 @@ def get_stock_technical_snapshot(symbol):
     """Same technical snapshot as get_real_market_snapshot, but for any NSE
     stock symbol (used by the AI Chart Scanner) instead of one of the 4
     fixed index markets."""
-    cache_key = symbol.upper()
-    cached = _stock_snapshot_cache.get(cache_key)
-    if cached and time.time() - cached["fetched_at"] < LIVE_SNAPSHOT_CACHE_SECONDS:
-        return cached["data"]
+    symbol_key = symbol.upper()
+    cache_key = f"stock_snapshot:{symbol_key}"
+    
+    if redis_client:
+        try:
+            val = redis_client.get(cache_key)
+            if val:
+                return json.loads(val)
+        except Exception:
+            pass
+    else:
+        cached = _stock_snapshot_cache.get(symbol_key)
+        if cached and time.time() - cached["fetched_at"] < LIVE_SNAPSHOT_CACHE_SECONDS:
+            return cached["data"]
 
     instrument_key = resolve_instrument_key(symbol)
     candles_5m = fetch_upstox_candles(instrument_key, "minutes", 5, chart_history_days=5)
-    snapshot = build_technical_snapshot(cache_key, candles_5m)
-    _stock_snapshot_cache[cache_key] = {"data": snapshot, "fetched_at": time.time()}
+    snapshot = build_technical_snapshot(symbol_key, candles_5m)
+    
+    if redis_client:
+        try:
+            redis_client.setex(cache_key, LIVE_SNAPSHOT_CACHE_SECONDS, json.dumps(snapshot))
+        except Exception:
+            pass
+    _stock_snapshot_cache[symbol_key] = {"data": snapshot, "fetched_at": time.time()}
     return snapshot
 
 
@@ -2424,6 +2463,16 @@ def option_chain(market_key):
             {"ok": False, "error": "Live market data is not configured on the server."}
         ), 503
 
+    redis_opt_key = f"option_chain:{market_key.lower().strip()}:{expiry}"
+    if redis_client:
+        try:
+            cached_raw = redis_client.get(redis_opt_key)
+            if cached_raw:
+                cached_json = json.loads(cached_raw)
+                return jsonify({"ok": True, "updated_at": cached_json.get("updated_at"), "data": cached_json.get("data")})
+        except Exception:
+            pass
+
     cache_key = f"{market_key.lower().strip()}:{expiry}"
     cached = _option_chain_cache.get(cache_key)
     if cached and time.time() - cached["fetched_at"] < OPTION_CHAIN_CACHE_SECONDS:
@@ -2439,6 +2488,11 @@ def option_chain(market_key):
             return jsonify({"ok": False, "error": "No options are listed for this expiry."}), 404
         updated_at = now_utc()
         _option_chain_cache[cache_key] = {"data": result, "fetched_at": time.time(), "updated_at": updated_at}
+        if redis_client:
+            try:
+                redis_client.setex(redis_opt_key, 10, json.dumps({"updated_at": updated_at, "data": result}))
+            except Exception:
+                pass
         return jsonify({"ok": True, "updated_at": updated_at, "data": result})
 
     instrument_key, display_name = resolve_options_underlying(market_key)
@@ -2551,6 +2605,11 @@ def option_chain(market_key):
         }
         updated_at = now_utc()
         _option_chain_cache[cache_key] = {"data": result, "fetched_at": time.time(), "updated_at": updated_at}
+        if redis_client:
+            try:
+                redis_client.setex(redis_opt_key, 10, json.dumps({"updated_at": updated_at, "data": result}))
+            except Exception:
+                pass
         return jsonify({"ok": True, "updated_at": updated_at, "data": result})
 
     except Exception as error:
@@ -3408,6 +3467,16 @@ def commodities():
         return jsonify(
             {"ok": False, "error": "Live market data is not configured on the server."}
         ), 503
+
+    cache_key = "commodities:overview"
+    if redis_client:
+        try:
+            cached_raw = redis_client.get(cache_key)
+            if cached_raw:
+                cached_json = json.loads(cached_raw)
+                return jsonify({"ok": True, "updated_at": cached_json.get("updated_at"), "data": cached_json.get("data")})
+        except Exception:
+            pass
 
     now = time.time()
     if _commodity_quote_cache["data"] is not None and (now - _commodity_quote_cache["fetched_at"]) < COMMODITY_QUOTE_CACHE_SECONDS:
