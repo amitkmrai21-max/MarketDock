@@ -9198,7 +9198,7 @@ body.im-chart-fullscreen-open {
 .text-green { color: #10b981 !important; }
 .text-red { color: #f43f5e !important; }
 
-/* Sticky Main Bottom BUY / SELL Dock (Single set only!) */
+/* Professional Compact & Extra-Wide BUY & SELL Dock */
 .im-terminal-dock-footer {
   position: sticky;
   bottom: 0;
@@ -9206,89 +9206,28 @@ body.im-chart-fullscreen-open {
   right: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 12px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  gap: 6px;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
   background: #0b0f17;
   border-top: 1px solid #1e293b;
   flex-shrink: 0;
   z-index: 10;
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .im-terminal-btn {
   border: none;
-  border-radius: 8px;
-  padding: 12px 10px;
+  border-radius: 7px;
+  height: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  width: 100%;
+  padding: 0 12px !important;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  transition: all 0.12s ease;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-}
-.im-terminal-btn:active {
-  transform: scale(0.97);
-}
-
-.im-btn-accent {
-  font-size: 16px;
-  font-weight: 900;
-  letter-spacing: 1px;
-  color: #ffffff;
-}
-
-.im-btn-sub {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
-  opacity: 0.85;
-}
-
-.im-terminal-buy {
-  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
-}
-.im-terminal-buy:hover {
-  filter: brightness(1.12);
-}
-
-.im-terminal-sell {
-  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
-  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.4);
-}
-.im-terminal-sell:hover {
-  filter: brightness(1.12);
-}
-
-
-/* Professional Compact BUY & SELL Dock */
-.im-terminal-dock-footer {
-  position: sticky;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px));
-  background: #0b0f17;
-  border-top: 1px solid #1e293b;
-  flex-shrink: 0;
-  z-index: 10;
-}
-
-.im-terminal-btn {
-  border: none;
-  border-radius: 8px;
-  height: 36px;
-  padding: 0 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
   transition: all 0.15s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -9299,34 +9238,36 @@ body.im-chart-fullscreen-open {
 }
 
 .im-btn-accent {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  color: #ffffff;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px !important;
+  color: #ffffff !important;
+  line-height: 1 !important;
 }
 
 .im-btn-sub {
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  opacity: 0.85;
-  color: #ffffff;
+  font-size: 9.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  opacity: 0.9 !important;
+  color: #ffffff !important;
+  line-height: 1 !important;
 }
 
 .im-terminal-buy {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+  box-shadow: 0 3px 12px rgba(2, 132, 199, 0.35);
 }
 .im-terminal-buy:hover {
-  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%) !important;
 }
 
 .im-terminal-sell {
-  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35);
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+  box-shadow: 0 3px 12px rgba(225, 29, 72, 0.35);
 }
 .im-terminal-sell:hover {
-  background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+  background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%) !important;
 }
 
 /* Mobile & Desktop Responsive Surface */
