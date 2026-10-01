@@ -5807,13 +5807,6 @@ function clearLiveChartAiOverlay() {
      return "decision-wait";
    }
 
-    if (label.includes("SELL")) {
-      return "decision-sell";
-    }
-
-    return "decision-wait";
-  }
-
   function renderTechnicalMetrics(marketKey, data) {
     const grid = document.getElementById(`im-${marketKey}-technical-grid`);
 
