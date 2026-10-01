@@ -23,7 +23,7 @@ let liveCandleRawData = [];
 const __themedCharts = [];
 
 function getChartThemeColors() {
-  const theme = document.body.dataset.theme || "dark";
+  const theme = document.body.dataset.theme || "light";
   if (theme === "light") {
     return {
       bg: "#ffffff",
@@ -2009,7 +2009,7 @@ setInterval(loadRrg, 300000);
     function getCurrentSettings() {
       return {
         name: nameInput?.value.trim() || "",
-        theme: document.body.dataset.theme || "dark",
+        theme: document.body.dataset.theme || "light",
         accent: document.body.dataset.accent || "blue",
         textSize: document.body.dataset.textSize || "normal"
       };
@@ -2032,7 +2032,7 @@ setInterval(loadRrg, 300000);
     }
 
     function applySettings(nextSettings = {}) {
-      const theme = nextSettings.theme || "dark";
+      const theme = nextSettings.theme || "light";
       const accent = nextSettings.accent || "blue";
       const textSize = nextSettings.textSize || "normal";
       const name = nextSettings.name || "";
@@ -2189,7 +2189,7 @@ setInterval(loadRrg, 300000);
       button.addEventListener("click", () => {
         applySettings({
           ...getCurrentSettings(),
-          theme: button.dataset.themeChoice || "dark"
+          theme: button.dataset.themeChoice || "light"
         });
         saveSettings();
       });
@@ -2765,16 +2765,24 @@ setInterval(loadRrg, 300000);
       updateOnboardingVisibility(session);
       window.marketDockSession = session || null;
       window.marketDockUser = session?.user || null;
-      if (session) showLoggedIn(session);
-      else showLoggedOut();
+      if (session) {
+        showLoggedIn(session);
+        if (window.syncCloudTrades) window.syncCloudTrades(session.user);
+      } else {
+        showLoggedOut();
+      }
     });
 
     supabaseClient.auth.getSession().then(({ data }) => {
       updateOnboardingVisibility(data?.session);
       window.marketDockSession = data?.session || null;
       window.marketDockUser = data?.session?.user || null;
-      if (data?.session) showLoggedIn(data.session);
-      else showLoggedOut();
+      if (data?.session) {
+        showLoggedIn(data.session);
+        if (window.syncCloudTrades) window.syncCloudTrades(data.session.user);
+      } else {
+        showLoggedOut();
+      }
     });
   }
 
@@ -5062,7 +5070,48 @@ function clearLiveChartAiOverlay() {
 
   function saveTrades(trades) {
     localStorage.setItem(storageKey, JSON.stringify(trades));
+    if (window.marketDockSupabase && window.marketDockUser) {
+      window.marketDockSupabase.auth.updateUser({
+        data: { im_paper_trades: trades }
+      }).catch((e) => console.warn("Supabase trade sync failed:", e));
+    }
   }
+
+  // Two-way Cloud Sync: Auto-pushes existing local trades and pulls on mobile app
+  window.syncCloudTrades = async function(user) {
+    if (!user) return;
+    try {
+      const localTrades = loadTrades();
+      const remoteTrades = user.user_metadata?.im_paper_trades;
+
+      // 1. If website has trades but cloud is empty, upload them immediately
+      if (Array.isArray(localTrades) && localTrades.length > 0 && (!remoteTrades || remoteTrades.length === 0)) {
+        if (window.marketDockSupabase) {
+          await window.marketDockSupabase.auth.updateUser({
+            data: { im_paper_trades: localTrades }
+          });
+        }
+        return;
+      }
+
+      // 2. If cloud has trades, pull into App/Browser localStorage
+      if (Array.isArray(remoteTrades) && remoteTrades.length > 0) {
+        localStorage.setItem(storageKey, JSON.stringify(remoteTrades));
+        if (typeof renderTrades === "function") renderTrades();
+        if (typeof renderTradesHistory === "function") renderTradesHistory();
+        if (typeof getOpenPositionRows === "function") {
+          const rows = getOpenPositionRows();
+          if (typeof renderPositionsSummary === "function") renderPositionsSummary(rows);
+        }
+        // Force refresh UI list if on positions page
+        if (typeof renderPositionsList === "function") {
+          renderPositionsList();
+        }
+      }
+    } catch (e) {
+      console.warn("Cross-device sync error:", e);
+    }
+  };
 
   function escapeText(value) {
     const div = document.createElement("div");
@@ -5882,31 +5931,24 @@ function clearLiveChartAiOverlay() {
     const changeEl = document.getElementById("im-dash-market-bias-change");
     if (!valueEl || !changeEl) return;
 
-    const labels = IM_BIAS_MARKET_KEYS.map((key) => imLastDecisionLabel[key]).filter(Boolean);
-    if (labels.length < IM_BIAS_MARKET_KEYS.length) return;
-
-    const bullish = labels.filter((label) => label.includes("BUY")).length;
-    const bearish = labels.filter((label) => label.includes("SELL")).length;
-    const neutral = labels.length - bullish - bearish;
+    // Direct price sync: 4 major indices ka live move check karein
+    const changes = IM_BIAS_MARKET_KEYS.map((key) => Number(imLastChangePercent[key] || 0));
+    const advancing = changes.filter((c) => c > 0).length;
+    const declining = changes.filter((c) => c < 0).length;
+    const unchanged = changes.filter((c) => c === 0).length;
 
     let bias = "Neutral";
     let cls = "neutral";
-    if (bullish > bearish) {
-      bias = "Bullish";
-      cls = "positive";
-    } else if (bearish > bullish) {
-      bias = "Bearish";
+    if (declining > advancing) {
+      bias = "Negative";
       cls = "negative";
+    } else if (advancing > declining) {
+      bias = "Positive";
+      cls = "positive";
     }
 
     valueEl.textContent = bias;
-    // "buy/sell/hold setups", not "bullish/bearish" — this counts technical
-    // setups (RSI/EMA/Supertrend etc.), which can and does disagree with
-    // today's price move shown in the % pills above (e.g. an index can be
-    // up today while its setup still reads SELL, if it's running into
-    // resistance or an overbought reading) — different question, on
-    // purpose, not a contradiction.
-    changeEl.textContent = `${bullish} buy · ${bearish} sell · ${neutral} hold setups`;
+    changeEl.textContent = `${advancing} advancing · ${declining} declining · ${unchanged} unchanged`;
     changeEl.className = `stat-change ${cls}`;
   }
 
@@ -10804,6 +10846,14 @@ async function fetchWatchlist() {
         : `<p class="settings-help">No holdings yet. Buy with Longterm (CNC) or MTF — the stock stays in Positions today and moves here on the next trading day.</p>`;
     }
   }
+
+  
+  // Immediate instant render from cache on page load to prevent "0" flash
+  try {
+    if (typeof renderPositionsList === "function") {
+      renderPositionsList();
+    }
+  } catch (e) {}
 
   function newImOrderId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;

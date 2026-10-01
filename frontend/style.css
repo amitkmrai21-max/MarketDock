@@ -1,3 +1,14 @@
+/* Permanent Light Theme Default */
+:root, html, body {
+    color-scheme: light !important;
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+}
+html[data-theme="dark"], body[data-theme="dark"] {
+    background-color: #0b0e14 !important;
+    color: #e2e8f0 !important;
+}
+
 :root {
   /* Indigo Premium theme: deep indigo ground, violet accent. --blue/--amber
      are kept as variable names for backward compatibility with existing
@@ -10372,6 +10383,7 @@ body.im-chart-fullscreen-open {
   min-width: 0;
 }
 .im-pos-symbol {
+  color: #0f172a !important;
   font-size: 14px;
   font-weight: 700;
   color: #ffffff;
@@ -10944,6 +10956,7 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-available {
   flex: 1;
 }
 .im-pos-card .im-pos-symbol {
+  color: #0f172a !important;
   font-size: 18px;
   font-weight: 800;
   overflow-wrap: anywhere;
@@ -12659,4 +12672,190 @@ body[data-theme="light"] .onboarding-disclaimer {
 
 html.im-show-onboarding #onboardingOverlay {
   display: flex !important;
+}
+
+/* Safe Hide Live Chart */
+button[data-page="im-live-chart"],
+#page-im-live-chart,
+.im-live-chart-container {
+    display: none !important;
+}
+
+/* Completely Disable Live Chart Tools, Layout & Drawing Overlay */
+button[data-page="im-live-chart"],
+#im-live-chart,
+.live-chart-layout,
+.im-live-chart-full,
+#im-drawing-overlay,
+.live-chart-drawing-overlay,
+.tv-attribution {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+/* Tighten spacing between content and footer disclaimers */
+.im-regulatory-footer {
+  margin-top: 15px !important;
+  padding-top: 10px !important;
+  padding-bottom: 15px !important;
+}
+.im-regulatory-p {
+  margin-top: 4px !important;
+  margin-bottom: 4px !important;
+}
+#im-watchlist-ai-note {
+  margin-bottom: 10px !important;
+}
+
+/* Force Total P&L summary big number to show Red for loss and Green for profit */
+#im-pos-total-pnl.im-change-up,
+.im-pos-summary-value.im-change-up {
+  color: #16a34a !important;
+}
+
+#im-pos-total-pnl.im-change-down,
+.im-pos-summary-value.im-change-down {
+  color: #dc2626 !important;
+}
+
+/* Mobile Optimization for Position Cards */
+@media (max-width: 768px) {
+  .im-pos-row.im-pos-card {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  /* Compact stock symbol to prevent breaking into next line */
+  .im-pos-symbol {
+    font-size: 0.92rem !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 175px !important;
+  }
+
+  /* Compact P&L price and percentage */
+  .im-pos-card-pnl .im-pos-pnl {
+    font-size: 1.05rem !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
+  }
+
+  .im-pos-card-pnl .im-pos-pnl-pct {
+    font-size: 0.75rem !important;
+  }
+
+  /* Meta info (Qty, Avg, LTP) neat spacing */
+  .im-pos-row-meta {
+    font-size: 0.72rem !important;
+    margin-top: 2px !important;
+  }
+
+  .im-pos-badges {
+    margin: 3px 0 !important;
+  }
+
+  .im-pos-badge {
+    font-size: 0.65rem !important;
+    padding: 1px 6px !important;
+  }
+}
+
+/* Mobile Optimization for Order Book Rows */
+@media (max-width: 768px) {
+  .im-order-row,
+  .im-ob-row {
+    padding: 8px 10px !important;
+    gap: 6px !important;
+  }
+
+  /* Order book symbol name */
+  .im-order-symbol,
+  .im-ob-symbol {
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 160px !important;
+  }
+
+  /* Subtitle text like SELL · MARKET @ 287.80 */
+  .im-order-sub,
+  .im-ob-sub {
+    font-size: 0.70rem !important;
+    color: #64748b !important;
+    margin-top: 2px !important;
+  }
+
+  /* QTY display */
+  .im-order-qty,
+  .im-ob-qty {
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+  }
+
+  /* Status badge (EXECUTED / OPEN / CANCELLED) */
+  .im-order-status,
+  .im-ob-status {
+    font-size: 0.72rem !important;
+    font-weight: 700 !important;
+    padding: 2px 6px !important;
+  }
+}
+
+/* Align Order Book headers and data rows in perfect columns */
+.im-order-book-header,
+.im-ob-header,
+.im-order-table-head {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.8fr) 80px 95px !important;
+  align-items: center !important;
+  padding: 6px 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.im-order-row,
+.im-ob-row,
+.im-order-item {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.8fr) 80px 95px !important;
+  align-items: center !important;
+  padding: 10px 12px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Column 1: Order Details (Left Aligned) */
+.im-order-book-header > *:first-child,
+.im-ob-header > *:first-child,
+.im-order-row > *:first-child,
+.im-ob-row > *:first-child {
+  text-align: left !important;
+  justify-self: start !important;
+}
+
+/* Column 2: Quantity (Right Aligned under QTY) */
+.im-order-book-header > *:nth-child(2),
+.im-ob-header > *:nth-child(2),
+.im-order-row > *:nth-child(2),
+.im-ob-row > *:nth-child(2),
+.im-order-qty,
+.im-ob-qty {
+  text-align: right !important;
+  justify-self: end !important;
+}
+
+/* Column 3: Status (Right Aligned under STATUS) */
+.im-order-book-header > *:nth-child(3),
+.im-ob-header > *:nth-child(3),
+.im-order-row > *:nth-child(3),
+.im-ob-row > *:nth-child(3),
+.im-order-status,
+.im-ob-status {
+  text-align: right !important;
+  justify-self: end !important;
 }
