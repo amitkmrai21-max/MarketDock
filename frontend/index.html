@@ -36,7 +36,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=1790869978">
+  <link rel="stylesheet" href="/frontend/style.css?v=1790870263">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -127,6 +127,28 @@
   [id*="-api-status"] {
     margin-bottom: 0 !important;
     padding-bottom: 0 !important;
+  }
+</style>
+
+
+<style id="custom-setup-badge-colors">
+  .setup-badge.decision-bullish {
+    background: rgba(22, 163, 74, 0.15) !important;
+    color: #16a34a !important;
+    border: 1px solid rgba(22, 163, 74, 0.35) !important;
+    font-weight: 700 !important;
+  }
+  .setup-badge.decision-bearish {
+    background: rgba(220, 38, 38, 0.15) !important;
+    color: #dc2626 !important;
+    border: 1px solid rgba(220, 38, 38, 0.35) !important;
+    font-weight: 700 !important;
+  }
+  .setup-badge.decision-wait {
+    background: rgba(234, 179, 8, 0.15) !important;
+    color: #ca8a04 !important;
+    border: 1px solid rgba(234, 179, 8, 0.35) !important;
+    font-weight: 700 !important;
   }
 </style>
 
@@ -838,7 +860,7 @@
             </p>
           </div>
 
-          <div class="setup-badge" id="im-banknifty-hero-setup-badge">Awaiting Confirmation</div>
+          <div class="setup-badge" id="im-finnifty-hero-setup-badge">Awaiting Confirmation</div>
         </article>
 
         <div class="dashboard-grid">
@@ -2904,7 +2926,7 @@
 
 
 
-  <script defer src="/frontend/app.js?v=1790869978"></script>
+  <script defer src="/frontend/app.js?v=1790870263"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
