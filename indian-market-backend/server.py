@@ -1074,21 +1074,34 @@ def calculate_confirmation_engine(market):
     change = price - previous_close
     change_percent = (change / previous_close) * 100
 
-    decision = "WAIT"
-    decision_reason = "Confirmations are mixed. Wait for a clearer aligned setup."
+    # Practical technical confluence engine (Active & Sensitive, SEBI-Compliant)
+    total_checks = len(confirmations) if confirmations else 7
+    bullish_count = sum(1 for item in confirmations if item.get('state') == 'bullish')
+    bearish_count = sum(1 for item in confirmations if item.get('state') == 'bearish')
 
-    if weighted_score >= 5 and bullish_count >= 4 and price < resistance:
-        decision = "BULLISH BIAS"
-        decision_reason = "Bullish confluence with a defined risk plan."
-    elif weighted_score <= -5 and bearish_count >= 4 and price > support:
-        decision = "BEARISH BIAS"
-        decision_reason = "Bearish confluence with a defined risk plan."
-    elif weighted_score >= 3:
-        decision = "AWAITING BULLISH SETUP"
-        decision_reason = "Bullish factors exist, but wait for stronger alignment or a clean breakout."
-    elif weighted_score <= -3:
-        decision = "AWAITING BEARISH SETUP"
-        decision_reason = "Bearish factors exist, but wait for stronger alignment or a clean breakdown."
+    # 1. Clear Bullish Trending Structure
+    if bullish_count >= 4 or (bullish_count >= 3 and price >= vwap):
+        decision = 'BULLISH MOMENTUM ACTIVE'
+        decision_reason = f'Bullish alignment across {bullish_count}/{total_checks} technical checks. Price holding favorable market structure.'
+    # 2. Clear Bearish Trending Structure
+    elif bearish_count >= 4 or (bearish_count >= 3 and price <= vwap):
+        decision = 'BEARISH MOMENTUM ACTIVE'
+        decision_reason = f'Bearish alignment across {bearish_count}/{total_checks} technical checks. Downward price action observed.'
+    # 3. Early Bullish Watch
+    elif bullish_count >= 3:
+        decision = 'BULLISH STRUCTURE FORMING'
+        decision_reason = f'Positive momentum building ({bullish_count}/{total_checks} checks). Tracking price action near key levels.'
+    # 4. Early Bearish Watch
+    elif bearish_count >= 3:
+        decision = 'BEARISH STRUCTURE FORMING'
+        decision_reason = f'Negative pressure building ({bearish_count}/{total_checks} checks). Tracking price action near support.'
+    # 5. Rangebound / Consolidation
+    elif bullish_count <= 2 and bearish_count <= 2:
+        decision = 'RANGEBOUND CONSOLIDATION'
+        decision_reason = 'Low directional conviction between buyers and sellers. Observing intraday price behavior.'
+    else:
+        decision = 'NEUTRAL / BALANCED'
+        decision_reason = 'Even distribution between buyers and sellers. Observing intraday price behavior.'
 
     risk_buffer = atr * 0.35
 
