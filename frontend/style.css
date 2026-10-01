@@ -13411,3 +13411,41 @@ button[data-page="im-live-chart"],
   color: #ca8a04 !important;
   border: 1px solid rgba(234, 179, 8, 0.35) !important;
 }
+
+
+/* Observed Key Levels - Dynamic Decision Color */
+.trade-plan-list .decision-bullish,
+.trade-level-decision.decision-bullish,
+.trade-plan-item:has(.decision-bullish) strong,
+.trade-plan-list strong:contains("BULLISH") {
+  color: #16a34a !important;
+  font-weight: 700 !important;
+}
+
+.trade-plan-list .decision-bearish,
+.trade-level-decision.decision-bearish,
+.trade-plan-item:has(.decision-bearish) strong {
+  color: #dc2626 !important;
+  font-weight: 700 !important;
+}
+
+/* Fallback badge styling inside Observed Key Levels */
+[id*="-trade-plan"] .badge.decision-bullish,
+[id*="-trade-plan"] .decision-bullish {
+  background: rgba(22, 163, 74, 0.15) !important;
+  color: #16a34a !important;
+  border: 1px solid rgba(22, 163, 74, 0.35) !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  display: inline-block !important;
+}
+
+[id*="-trade-plan"] .badge.decision-bearish,
+[id*="-trade-plan"] .decision-bearish {
+  background: rgba(220, 38, 38, 0.15) !important;
+  color: #dc2626 !important;
+  border: 1px solid rgba(220, 38, 38, 0.35) !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  display: inline-block !important;
+}
