@@ -5883,8 +5883,13 @@ function clearLiveChartAiOverlay() {
   }
 
   function renderTradePlan(marketKey, data) {
-    const plan = document.getElementById(`im-${marketKey}-trade-plan`);
+    // Populate dynamic plan support and resistance cards
+    const planSupport = document.getElementById(`im-${marketKey}-plan-support`);
+    const planResistance = document.getElementById(`im-${marketKey}-plan-resistance`);
+    if (planSupport && data.levels) planSupport.textContent = formatNumber(data.levels.support);
+    if (planResistance && data.levels) planResistance.textContent = formatNumber(data.levels.resistance);
 
+    const plan = document.getElementById(`im-${marketKey}-trade-plan`);
     if (!plan) {
       return;
     }
@@ -6065,7 +6070,7 @@ function clearLiveChartAiOverlay() {
       heroChange.className = "";
       heroChange.innerHTML = changePillHtml(data.change_percent);
     }
-    if (heroEyebrow) heroEyebrow.textContent = `NSE Index \u00B7 ${isLiveData ? "Live data" : "Demo values"}`;
+    if (heroEyebrow) heroEyebrow.textContent = `NSE Index \u00B7 ${isLiveData ? (isNseMarketOpen() ? "Live data" : "End of Day / Indicative") : "Demo values"}`;
 
     renderTechnicalMetrics(marketKey, data);
     renderConfirmations(marketKey, data);
