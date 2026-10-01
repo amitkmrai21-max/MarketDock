@@ -14797,9 +14797,7 @@ async function fetchWatchlist() {
 
         e.preventDefault();
         e.stopImmediatePropagation();
-        alert("🔒 Feature Under Development
-
-RRG (Relative Rotation Graph) is currently undergoing calibration and testing. This feature will be enabled in an upcoming release.");
+        alert("🔒 Feature Under Development\n\nRRG (Relative Rotation Graph) is currently undergoing calibration and testing. This feature will be enabled in an upcoming release.");
         return false;
       };
     }
