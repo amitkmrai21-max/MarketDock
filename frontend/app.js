@@ -1,3 +1,17 @@
+
+  function isNseMarketOpen() {
+    const now = new Date();
+    // Get IST time string
+    const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const istDate = new Date(istString);
+    const day = istDate.getDay(); // 0 is Sunday, 6 is Saturday
+    if (day === 0 || day === 6) return false;
+    const hours = istDate.getHours();
+    const minutes = istDate.getMinutes();
+    const totalMinutes = hours * 60 + minutes;
+    // 9:15 AM (555 min) to 3:30 PM (930 min)
+    return totalMinutes >= 555 && totalMinutes <= 930;
+  }
 let liveCandleChart = null;
 let liveCandleSeries = null;
 let liveCandleRawData = [];
@@ -10046,7 +10060,14 @@ async function fetchWatchlist() {
   function renderHeatmapGrid(constituents, quoteMap) {
     const grid = document.getElementById("im-heatmap-grid");
     if (!grid) return;
-    grid.innerHTML = constituents.map((c) => heatmapTileHtml(c.symbol, c.name, quoteMap[c.symbol])).join("");
+    const sorted = [...constituents].sort((a, b) => {
+      const qA = quoteMap[a.symbol];
+      const qB = quoteMap[b.symbol];
+      const chgA = qA && qA.change_percent !== null && qA.change_percent !== undefined ? Number(qA.change_percent) : -999;
+      const chgB = qB && qB.change_percent !== null && qB.change_percent !== undefined ? Number(qB.change_percent) : -999;
+      return chgB - chgA;
+    });
+    grid.innerHTML = sorted.map((c) => heatmapTileHtml(c.symbol, c.name, quoteMap[c.symbol])).join("");
   }
 
   function setHeatmapProgress(loaded, total) {
@@ -10072,8 +10093,23 @@ async function fetchWatchlist() {
     await Promise.all(Array.from({ length: Math.min(limit, total) }, runner));
   }
 
+  function syncHeatmapMarketBadge() {
+    const liveBadge = document.getElementById("im-heatmap-live-badge");
+    if (!liveBadge) return;
+    if (isNseMarketOpen()) {
+      liveBadge.textContent = "LIVE";
+      liveBadge.classList.remove("im-badge-closed");
+      liveBadge.classList.add("im-badge-live");
+    } else {
+      liveBadge.textContent = "CLOSED";
+      liveBadge.classList.remove("im-badge-live");
+      liveBadge.classList.add("im-badge-closed");
+    }
+  }
+
   async function loadHeatmap(indexName) {
     imHeatmapIndex = indexName;
+    syncHeatmapMarketBadge();
 
     if (indexName === "ALL") {
       return loadAllStocksHeatmap();
@@ -10083,8 +10119,10 @@ async function fetchWatchlist() {
     const liveBadge = document.getElementById("im-heatmap-live-badge");
     const grid = document.getElementById("im-heatmap-grid");
     setHeatmapProgress(0, 0);
-    if (statusText) statusText.textContent = `Loading ${indexName}…`;
-    if (liveBadge) liveBadge.hidden = true;
+    if (!imHeatmapConstituentsCache[indexName]) {
+      if (statusText) statusText.textContent = `Loading ${indexName}…`;
+      if (liveBadge) liveBadge.hidden = true;
+    }
     // Clear any stale error/old tiles from a previous index right away,
     // instead of leaving them visible under the new "Loading…" status.
     if (grid && !imHeatmapConstituentsCache[indexName]) {
@@ -10119,7 +10157,18 @@ async function fetchWatchlist() {
 
       renderHeatmapGrid(constituents, quoteMap);
       if (statusText) statusText.textContent = `${indexName} · ${constituents.length} stocks`;
-      if (liveBadge) liveBadge.hidden = false;
+      if (liveBadge) {
+        liveBadge.hidden = false;
+        if (isNseMarketOpen()) {
+          liveBadge.textContent = "LIVE";
+          liveBadge.classList.remove("im-badge-closed");
+          liveBadge.classList.add("im-badge-live");
+        } else {
+          liveBadge.textContent = "CLOSED";
+          liveBadge.classList.remove("im-badge-live");
+          liveBadge.classList.add("im-badge-closed");
+        }
+      }
     } catch (error) {
       console.error("Heatmap load failed:", error);
       if (statusText) statusText.textContent = `Could not load heatmap for ${indexName}.`;
@@ -10195,7 +10244,18 @@ async function fetchWatchlist() {
       if (myToken !== imHeatmapLoadToken) return;
       setHeatmapProgress(0, 0);
       if (statusText) statusText.textContent = `All NSE stocks · ${symbols.length.toLocaleString("en-IN")} listed`;
-      if (liveBadge) liveBadge.hidden = false;
+      if (liveBadge) {
+        liveBadge.hidden = false;
+        if (isNseMarketOpen()) {
+          liveBadge.textContent = "LIVE";
+          liveBadge.classList.remove("im-badge-closed");
+          liveBadge.classList.add("im-badge-live");
+        } else {
+          liveBadge.textContent = "CLOSED";
+          liveBadge.classList.remove("im-badge-live");
+          liveBadge.classList.add("im-badge-closed");
+        }
+      }
     } catch (error) {
       console.error("All-stocks heatmap failed:", error);
       if (statusText) statusText.textContent = "Could not load the full stock list right now.";
@@ -10444,7 +10504,18 @@ async function fetchWatchlist() {
           ? `All NSE stocks · ${symbols.length.toLocaleString("en-IN")} scanned`
           : `${imScannerUniverse} · ${symbols.length} stocks scanned`;
       }
-      if (liveBadge) liveBadge.hidden = false;
+      if (liveBadge) {
+        liveBadge.hidden = false;
+        if (isNseMarketOpen()) {
+          liveBadge.textContent = "LIVE";
+          liveBadge.classList.remove("im-badge-closed");
+          liveBadge.classList.add("im-badge-live");
+        } else {
+          liveBadge.textContent = "CLOSED";
+          liveBadge.classList.remove("im-badge-live");
+          liveBadge.classList.add("im-badge-closed");
+        }
+      }
     } catch (error) {
       console.error("Scanner load failed:", error);
       // A background poll failing shouldn't blank out already-good data on
