@@ -9198,58 +9198,61 @@ body.im-chart-fullscreen-open {
 .text-green { color: #10b981 !important; }
 .text-red { color: #f43f5e !important; }
 
-/* Professional Compact & Extra-Wide BUY & SELL Dock */
+/* Professional BUY & SELL Dock: increased width and balanced thickness */
 .im-terminal-dock-footer {
   position: sticky;
   bottom: 0;
   left: 0;
   right: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px));
   background: #0b0f17;
   border-top: 1px solid #1e293b;
   flex-shrink: 0;
   z-index: 10;
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.5);
 }
 
 .im-terminal-btn {
   border: none;
-  border-radius: 7px;
-  height: 30px !important;
-  min-height: 30px !important;
-  max-height: 30px !important;
-  width: 100%;
-  padding: 0 12px !important;
+  border-radius: 8px;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  flex: 1;
+  max-width: 225px;
+  padding: 4px 14px !important;
   cursor: pointer;
   display: flex !important;
-  flex-direction: row !important;
+  flex-direction: column !important;
   align-items: center !important;
-  justify-content: space-between !important;
+  justify-content: center !important;
+  gap: 2px;
   transition: all 0.15s ease;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
 .im-terminal-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
   filter: brightness(0.92);
 }
 
 .im-btn-accent {
-  font-size: 13px !important;
+  font-size: 15px !important;
   font-weight: 800 !important;
-  letter-spacing: 0.5px !important;
+  letter-spacing: 0.6px !important;
   color: #ffffff !important;
-  line-height: 1 !important;
+  line-height: 1.1 !important;
 }
 
 .im-btn-sub {
-  font-size: 9.5px !important;
+  font-size: 10px !important;
   font-weight: 600 !important;
-  letter-spacing: 0.3px !important;
-  opacity: 0.9 !important;
+  letter-spacing: 0.4px !important;
+  opacity: 0.88 !important;
   color: #ffffff !important;
   line-height: 1 !important;
 }
