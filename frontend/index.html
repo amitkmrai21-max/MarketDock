@@ -2,6 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <script>
+    (function() {
+      try {
+        var theme = localStorage.getItem("marketdock_theme") || "light";
+        document.documentElement.setAttribute("data-theme", theme);
+        if (theme === "light") {
+          document.documentElement.style.backgroundColor = "#f5f7fb";
+        }
+      } catch(e) {}
+    })();
+  </script>
   <meta name="google-site-verification" content="qFS6fF3U7SNJ06Yl2r4CuyWgIjP4CGB4-FWhqlQvmNo" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script>if (window.Capacitor) document.documentElement.classList.add("capacitor-app");</script>
@@ -25,7 +36,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20261001fastOpen1">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20261001lightOnboard1">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -61,6 +72,37 @@
     }
     html.im-show-onboarding #onboardingOverlay {
       display: flex !important;
+      background: rgba(15, 23, 42, 0.45) !important;
+    }
+    html.im-show-onboarding .onboarding-card {
+      background: #ffffff !important;
+      color: #172033 !important;
+      border: 1px solid #dbe2ee !important;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12) !important;
+    }
+    html.im-show-onboarding .onboarding-title {
+      color: #172033 !important;
+    }
+    html.im-show-onboarding .onboarding-tagline {
+      color: #4b5875 !important;
+    }
+    html.im-show-onboarding .onboarding-features {
+      background: #f8fafc !important;
+      border: 1px solid #e2e8f0 !important;
+    }
+    html.im-show-onboarding .onboarding-feat-text strong {
+      color: #0f172a !important;
+    }
+    html.im-show-onboarding .onboarding-feat-text span {
+      color: #64748b !important;
+    }
+    html.im-show-onboarding .onboarding-alt-btn {
+      background: #f1f5f9 !important;
+      color: #334155 !important;
+      border: 1px solid #cbd5e1 !important;
+    }
+    html.im-show-onboarding .onboarding-explore-link {
+      color: #475569 !important;
     }
   </style>
 </head>
@@ -2845,7 +2887,7 @@
 
 
 
-  <script defer src="/frontend/app.js?v=v20261001fastOpen1"></script>
+  <script defer src="/frontend/app.js?v=v20261001lightOnboard1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
