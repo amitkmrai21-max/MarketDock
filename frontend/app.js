@@ -14646,3 +14646,52 @@ if (document.readyState === "loading") {
   initMarketdockTrialAndProfile();
 }
 // ============================================================================
+
+
+// ==================== RRG DEV GATEKEEPER ====================
+(function initRrgGatekeeper() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("dev") === "1" || urlParams.get("admin") === "1" || urlParams.get("unlock_rrg") === "1") {
+    localStorage.setItem("marketdock_dev_unlocked", "true");
+    console.log("[MarketDock] Developer mode activated. RRG Unlocked.");
+  }
+
+  const isDevUnlocked = localStorage.getItem("marketdock_dev_unlocked") === "true";
+
+  function applyRrgLock() {
+    const rrgBtn = document.querySelector('.nav-button[data-page="im-rrg"]');
+    if (!rrgBtn) return;
+
+    if (!isDevUnlocked) {
+      // Add subtle lock indicator to button
+      if (!rrgBtn.querySelector('.rrg-lock-badge')) {
+        const badge = document.createElement("span");
+        badge.className = "rrg-lock-badge";
+        badge.innerHTML = " 🔒";
+        badge.style.fontSize = "11px";
+        badge.style.opacity = "0.75";
+        rrgBtn.appendChild(badge);
+      }
+
+      // Intercept clicks on RRG nav button
+      rrgBtn.addEventListener("click", function(e) {
+        if (localStorage.getItem("marketdock_dev_unlocked") !== "true") {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          
+          alert("🔒 Feature Under Development
+
+RRG (Relative Rotation Graph) is currently undergoing calibration and testing. This feature will be enabled in an upcoming release.");
+          return false;
+        }
+      }, true); // Capture phase to prevent page switcher
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", applyRrgLock);
+  } else {
+    applyRrgLock();
+  }
+})();
+// =============================================================
