@@ -2469,8 +2469,57 @@ setInterval(loadRrg, 300000);
     const APP_OAUTH_REDIRECT = "com.marketdock.app://auth-callback";
     const isNativeApp = () => !!window.Capacitor?.isNativePlatform?.();
 
-    googleBtn?.addEventListener("click", async () => {
+
+    // =========================================================================
+    // Onboarding / First-Open Welcome Screen Handling
+    // =========================================================================
+    const onboardingOverlay = document.getElementById("onboardingOverlay");
+    const onboardingGoogleBtn = document.getElementById("onboardingGoogleBtn");
+    const onboardingEmailPhoneBtn = document.getElementById("onboardingEmailPhoneBtn");
+    const onboardingInlineAuth = document.getElementById("onboardingInlineAuth");
+    const onboardingEmailInput = document.getElementById("onboardingEmailInput");
+    const onboardingPasswordInput = document.getElementById("onboardingPasswordInput");
+    const onboardingLoginBtn = document.getElementById("onboardingLoginBtn");
+    const onboardingSignupBtn = document.getElementById("onboardingSignupBtn");
+    const onboardingAuthStatus = document.getElementById("onboardingAuthStatus");
+    const onboardingExploreBtn = document.getElementById("onboardingExploreBtn");
+
+    function setOnboardingStatus(message, isError) {
+      if (!onboardingAuthStatus) return;
+      onboardingAuthStatus.textContent = message || "";
+      onboardingAuthStatus.style.color = isError ? "#ef4444" : "#22c55e";
+    }
+
+    function updateOnboardingVisibility(session) {
+      if (!onboardingOverlay) return;
+      if (session) {
+        onboardingOverlay.hidden = true;
+        return;
+      }
+      const dismissed = sessionStorage.getItem("marketdock_dismissed_onboarding") === "1";
+      if (!dismissed) {
+        onboardingOverlay.hidden = false;
+      } else {
+        onboardingOverlay.hidden = true;
+      }
+    }
+
+    onboardingExploreBtn?.addEventListener("click", () => {
+      sessionStorage.setItem("marketdock_dismissed_onboarding", "1");
+      if (onboardingOverlay) onboardingOverlay.hidden = true;
+    });
+
+    onboardingEmailPhoneBtn?.addEventListener("click", () => {
+      if (!onboardingInlineAuth) return;
+      onboardingInlineAuth.hidden = !onboardingInlineAuth.hidden;
+      if (!onboardingInlineAuth.hidden) {
+        onboardingEmailInput?.focus();
+      }
+    });
+
+    async function triggerGoogleSignIn() {
       setStatus("Redirecting to Google...", false);
+      setOnboardingStatus("Redirecting to Google...", false);
       try {
         if (isNativeApp() && window.Capacitor?.Plugins?.Browser) {
           const { data, error } = await supabaseClient.auth.signInWithOAuth({
@@ -2487,12 +2536,16 @@ setInterval(loadRrg, 300000);
           options: { redirectTo: window.location.href }
         });
         if (error) throw error;
-        // On success the browser navigates to Google now; there's nothing
-        // more to do here — it comes back to this page already signed in.
       } catch (error) {
-        setStatus(friendlyAuthError(error), true);
+        const msg = friendlyAuthError(error);
+        setStatus(msg, true);
+        setOnboardingStatus(msg, true);
       }
-    });
+    }
+
+    onboardingGoogleBtn?.addEventListener("click", triggerGoogleSignIn);
+
+    googleBtn?.addEventListener("click", triggerGoogleSignIn);
 
     // Catches the app reopening via the com.marketdock.app://auth-callback
     // deep link once Google Sign-In finishes in the system browser tab.
@@ -2640,7 +2693,53 @@ setInterval(loadRrg, 300000);
       }
     });
 
+    
+    onboardingLoginBtn?.addEventListener("click", async () => {
+      const email = onboardingEmailInput?.value?.trim();
+      const password = onboardingPasswordInput?.value;
+      if (!email || !password) {
+        setOnboardingStatus("Enter email and password.", true);
+        return;
+      }
+      setOnboardingStatus("Logging in...", false);
+      try {
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        setOnboardingStatus("", false);
+        if (onboardingOverlay) onboardingOverlay.hidden = true;
+      } catch (error) {
+        setOnboardingStatus(friendlyAuthError(error), true);
+      }
+    });
+
+    onboardingSignupBtn?.addEventListener("click", async () => {
+      const email = onboardingEmailInput?.value?.trim();
+      const password = onboardingPasswordInput?.value;
+      if (!email || !password) {
+        setOnboardingStatus("Enter email and password.", true);
+        return;
+      }
+      if (password.length < 6) {
+        setOnboardingStatus("Password must be at least 6 characters.", true);
+        return;
+      }
+      setOnboardingStatus("Creating account...", false);
+      try {
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) throw error;
+        if (data?.session) {
+          setOnboardingStatus("", false);
+          if (onboardingOverlay) onboardingOverlay.hidden = true;
+        } else {
+          setOnboardingStatus("Account created! Check email to confirm, then log in.", false);
+        }
+      } catch (error) {
+        setOnboardingStatus(friendlyAuthError(error), true);
+      }
+    });
+
     supabaseClient.auth.onAuthStateChange((_event, session) => {
+      updateOnboardingVisibility(session);
       window.marketDockSession = session || null;
       window.marketDockUser = session?.user || null;
       if (session) showLoggedIn(session);
@@ -2648,6 +2747,7 @@ setInterval(loadRrg, 300000);
     });
 
     supabaseClient.auth.getSession().then(({ data }) => {
+      updateOnboardingVisibility(data?.session);
       window.marketDockSession = data?.session || null;
       window.marketDockUser = data?.session?.user || null;
       if (data?.session) showLoggedIn(data.session);

@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20261001dockWider1">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20261001onboard1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -2419,6 +2419,11 @@
       </div>
 
       <div class="settings-group settings-group--plain" id="accountLoggedOutGroup">
+        <button id="accountGoogleBtn" class="account-google-btn" type="button" style="margin-bottom: 10px;">
+          <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.96 10.71A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58z"/></svg>
+          Continue with Google
+        </button>
+        <div class="settings-divider"><span>or</span></div>
         <div class="settings-name-row" style="margin-bottom: 8px;">
           <input id="accountEmailInput" type="email" placeholder="Email address" autocomplete="email" />
         </div>
@@ -2727,7 +2732,7 @@
   </div>
 
 
-  <script src="/frontend/app.js?v=v20260929funds1"></script>
+  <script src="/frontend/app.js?v=v20261001onboard1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -2735,5 +2740,87 @@
       });
     }
   </script>
+
+  <!-- Full Surface Welcome / Onboarding Screen -->
+  <div id="onboardingOverlay" class="onboarding-overlay" hidden>
+    <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+      <div class="onboarding-header">
+        <div class="onboarding-icon-wrap">
+          <img src="/frontend/image-1.png?v=v20260927v3" alt="MarketDock Logo" class="onboarding-logo" />
+        </div>
+        <h2 id="onboardingTitle" class="onboarding-title">Paper Trading</h2>
+        <div class="onboarding-badge">NSE • FUT &amp; OPTION • MCX</div>
+        <p class="onboarding-tagline">Buy &amp; Sell with Virtual Money</p>
+      </div>
+
+      <div class="onboarding-features">
+        <div class="onboarding-feature-item">
+          <div class="onboarding-feat-bullet">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+          <div class="onboarding-feat-text">
+            <strong>₹2,00,00,000 virtual balance</strong>
+            <span>Generous virtual margin to practice real strategies</span>
+          </div>
+        </div>
+
+        <div class="onboarding-feature-item">
+          <div class="onboarding-feat-bullet">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+          </div>
+          <div class="onboarding-feat-text">
+            <strong>NSE, MCX &amp; F&amp;O trading</strong>
+            <span>Equities, Futures, Options &amp; Commodity contracts</span>
+          </div>
+        </div>
+
+        <div class="onboarding-feature-item">
+          <div class="onboarding-feat-bullet">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+          </div>
+          <div class="onboarding-feat-text">
+            <strong>Track P/L and ledger</strong>
+            <span>Positions, executed order book &amp; portfolio ledger</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="onboarding-actions">
+        <button id="onboardingGoogleBtn" class="onboarding-google-btn" type="button">
+          <svg width="20" height="20" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.96 10.71A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58z"/></svg>
+          Sign in with Google
+        </button>
+
+        <button id="onboardingEmailPhoneBtn" class="onboarding-email-toggle-btn" type="button">
+          Continue with Email / Phone
+        </button>
+
+        <div id="onboardingInlineAuth" class="onboarding-inline-auth" hidden>
+          <div class="onboarding-input-row">
+            <input id="onboardingEmailInput" type="email" placeholder="Email address or username" autocomplete="email" />
+          </div>
+          <div class="onboarding-input-row">
+            <input id="onboardingPasswordInput" type="password" placeholder="Password" autocomplete="current-password" />
+          </div>
+          <div class="onboarding-inline-btns">
+            <button id="onboardingLoginBtn" class="onboarding-submit-btn" type="button">Log In</button>
+            <button id="onboardingSignupBtn" class="onboarding-secondary-btn" type="button">Sign Up</button>
+          </div>
+          <p id="onboardingAuthStatus" class="onboarding-auth-status" role="status"></p>
+        </div>
+
+        <button id="onboardingExploreBtn" class="onboarding-skip-link" type="button">
+          Explore Dashboard first →
+        </button>
+      </div>
+
+      <div class="onboarding-footer">
+        <p class="onboarding-disclaimer">
+          No real money involved. This is a paper trading platform.
+        </p>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
