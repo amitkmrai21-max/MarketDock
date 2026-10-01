@@ -5975,6 +5975,7 @@ function clearLiveChartAiOverlay() {
     const heroBadge = document.getElementById(`im-${marketKey}-hero-setup-badge`);
     if (heroBadge && data.decision) {
       heroBadge.textContent = data.decision.label;
+      heroBadge.className = `tag ${decisionClass(data.decision.label)}`;
     }
     const label = document.getElementById(`im-${marketKey}-decision-label`);
     const reason = document.getElementById(`im-${marketKey}-decision-reason`);

@@ -13449,3 +13449,26 @@ button[data-page="im-live-chart"],
   border-radius: 6px !important;
   display: inline-block !important;
 }
+
+
+/* Hero Setup Badge dynamic styling */
+.tag.decision-bullish {
+  background: rgba(22, 163, 74, 0.15) !important;
+  color: #16a34a !important;
+  border: 1px solid rgba(22, 163, 74, 0.35) !important;
+  font-weight: 700 !important;
+}
+
+.tag.decision-bearish {
+  background: rgba(220, 38, 38, 0.15) !important;
+  color: #dc2626 !important;
+  border: 1px solid rgba(220, 38, 38, 0.35) !important;
+  font-weight: 700 !important;
+}
+
+.tag.decision-wait {
+  background: rgba(234, 179, 8, 0.15) !important;
+  color: #ca8a04 !important;
+  border: 1px solid rgba(234, 179, 8, 0.35) !important;
+  font-weight: 700 !important;
+}
