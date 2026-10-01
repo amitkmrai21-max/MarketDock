@@ -31,6 +31,27 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
 <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    (function() {
+      try {
+        var dismissed = sessionStorage.getItem("marketdock_dismissed_onboarding") === "1";
+        var hasSession = false;
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf("-auth-token") !== -1) {
+            var val = localStorage.getItem(k);
+            if (val && (val.indexOf("access_token") !== -1 || val.indexOf("currentSession") !== -1)) {
+              hasSession = true;
+              break;
+            }
+          }
+        }
+        if (!hasSession && !dismissed) {
+          document.documentElement.classList.add("im-show-onboarding");
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 
 <body>
@@ -2730,7 +2751,7 @@
   </div>
 
 
-  <script src="/frontend/app.js?v=v20261001accountPhoto1"></script>
+  <script src="/frontend/app.js?v=v20261001flickerFix1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
