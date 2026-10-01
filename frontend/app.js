@@ -2491,23 +2491,33 @@ setInterval(loadRrg, 300000);
       onboardingAuthStatus.style.color = isError ? "#ef4444" : "#22c55e";
     }
 
+    function hideOnboarding() {
+      document.documentElement.classList.remove("im-show-onboarding");
+      if (onboardingOverlay) hideOnboarding();
+    }
+
+    function showOnboarding() {
+      document.documentElement.classList.add("im-show-onboarding");
+      if (onboardingOverlay) showOnboarding();
+    }
+
     function updateOnboardingVisibility(session) {
       if (!onboardingOverlay) return;
       if (session) {
-        onboardingOverlay.hidden = true;
+        hideOnboarding();
         return;
       }
       const dismissed = sessionStorage.getItem("marketdock_dismissed_onboarding") === "1";
       if (!dismissed) {
-        onboardingOverlay.hidden = false;
+        showOnboarding();
       } else {
-        onboardingOverlay.hidden = true;
+        hideOnboarding();
       }
     }
 
     onboardingExploreBtn?.addEventListener("click", () => {
       sessionStorage.setItem("marketdock_dismissed_onboarding", "1");
-      if (onboardingOverlay) onboardingOverlay.hidden = true;
+      if (onboardingOverlay) hideOnboarding();
     });
 
     onboardingEmailPhoneBtn?.addEventListener("click", () => {
@@ -2627,7 +2637,7 @@ setInterval(loadRrg, 300000);
       const settingsModal = document.getElementById("settingsModal");
       if (settingsModal) settingsModal.hidden = true;
       const onboardingOverlay = document.getElementById("onboardingOverlay");
-      if (onboardingOverlay) onboardingOverlay.hidden = false;
+      if (onboardingOverlay) showOnboarding();
     });
 
     logoutBtn.addEventListener("click", async () => {
@@ -2638,7 +2648,7 @@ setInterval(loadRrg, 300000);
         const settingsModal = document.getElementById("settingsModal");
         if (settingsModal) settingsModal.hidden = true;
         const onboardingOverlay = document.getElementById("onboardingOverlay");
-        if (onboardingOverlay) onboardingOverlay.hidden = false;
+        if (onboardingOverlay) showOnboarding();
       } catch (error) {
         console.error("Sign out failed:", error);
       } finally {
@@ -2719,7 +2729,7 @@ setInterval(loadRrg, 300000);
         const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) throw error;
         setOnboardingStatus("", false);
-        if (onboardingOverlay) onboardingOverlay.hidden = true;
+        if (onboardingOverlay) hideOnboarding();
       } catch (error) {
         setOnboardingStatus(friendlyAuthError(error), true);
       }
@@ -2742,7 +2752,7 @@ setInterval(loadRrg, 300000);
         if (error) throw error;
         if (data?.session) {
           setOnboardingStatus("", false);
-          if (onboardingOverlay) onboardingOverlay.hidden = true;
+          if (onboardingOverlay) hideOnboarding();
         } else {
           setOnboardingStatus("Account created! Check email to confirm, then log in.", false);
         }
