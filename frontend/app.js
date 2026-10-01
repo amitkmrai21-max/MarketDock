@@ -2493,12 +2493,12 @@ setInterval(loadRrg, 300000);
 
     function hideOnboarding() {
       document.documentElement.classList.remove("im-show-onboarding");
-      if (onboardingOverlay) hideOnboarding();
+      if (onboardingOverlay) onboardingOverlay.hidden = true;
     }
 
     function showOnboarding() {
       document.documentElement.classList.add("im-show-onboarding");
-      if (onboardingOverlay) showOnboarding();
+      if (onboardingOverlay) onboardingOverlay.hidden = false;
     }
 
     function updateOnboardingVisibility(session) {
