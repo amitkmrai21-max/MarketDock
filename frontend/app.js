@@ -2529,14 +2529,8 @@ setInterval(loadRrg, 300000);
     }
 
     function triggerUserTrialAndProfileSetup(user) {
-      const uId = user.id || "default_user";
-      const storageKey = `md_profile_${uId}`;
-      let profile = {};
-      try {
-        profile = JSON.parse(localStorage.getItem(storageKey) || "{}");
-      } catch (e) {
-        profile = {};
-      }
+      if (!user || !user.email) return;
+      const email = user.email.toLowerCase();
 
       const onboardingModal = document.getElementById("md-onboarding-modal");
       const trialModal = document.getElementById("md-trial-welcome-modal");
@@ -2553,46 +2547,50 @@ setInterval(loadRrg, 300000);
         }
       }
 
-      // Agar name already saved hai
-      if (profile.firstName && profile.lastName) {
-        const fullName = `${profile.firstName} ${profile.lastName}`.trim();
-        syncToSettingsInput(fullName);
-
-        // 7-day expiration check
-        if (!profile.trialStartedAt) {
-          profile.trialStartedAt = Date.now();
-          localStorage.setItem(storageKey, JSON.stringify(profile));
+      // Check Server DB for this Email
+      fetch("/api/user/sync-trial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, user_id: user.id })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.is_expired) {
+          if (subModal) subModal.style.display = "flex";
+          return;
         }
-        const diff = Date.now() - profile.trialStartedAt;
-        if (diff > 7 * 24 * 60 * 60 * 1000 && subModal) {
-          subModal.style.display = "flex";
+
+        const localProfile = JSON.parse(localStorage.getItem(`md_profile_${user.id}`) || "{}");
+        if (localProfile.firstName && localProfile.lastName) {
+          syncToSettingsInput(`${localProfile.firstName} ${localProfile.lastName}`);
+          return;
         }
-        return;
-      }
 
-      // Naya user hai toh Name Modal kholo
-      if (onboardingModal) onboardingModal.style.display = "flex";
+        // New profile name onboarding
+        if (onboardingModal) onboardingModal.style.display = "flex";
 
-      if (saveBtn) {
-        saveBtn.onclick = function() {
-          const fn = (document.getElementById("md-first-name-input")?.value || "").trim();
-          const ln = (document.getElementById("md-last-name-input")?.value || "").trim();
-          if (!fn || !ln) {
-            alert("Kripya First Name aur Surname dono bharein.");
-            return;
-          }
-          const full = `${fn} ${ln}`;
-          profile.firstName = fn;
-          profile.lastName = ln;
-          profile.trialStartedAt = Date.now();
-          localStorage.setItem(storageKey, JSON.stringify(profile));
-
-          syncToSettingsInput(full);
-
-          if (onboardingModal) onboardingModal.style.display = "none";
-          if (trialModal) trialModal.style.display = "flex";
-        };
-      }
+        if (saveBtn) {
+          saveBtn.onclick = function() {
+            const fn = (document.getElementById("md-first-name-input")?.value || "").trim();
+            const ln = (document.getElementById("md-last-name-input")?.value || "").trim();
+            if (!fn || !ln) {
+              alert("Kripya First Name aur Surname dono bharein.");
+              return;
+            }
+            localStorage.setItem(`md_profile_${user.id}`, JSON.stringify({ firstName: fn, lastName: ln }));
+            syncToSettingsInput(`${fn} ${ln}`);
+            if (onboardingModal) onboardingModal.style.display = "none";
+            if (trialModal) {
+              const noticeP = trialModal.querySelector("p");
+              if (noticeP) {
+                noticeP.innerHTML = `Welcome! Your email <b>${email}</b> has <b>${data.days_left} days left</b> in your free trial.`;
+              }
+              trialModal.style.display = "flex";
+            }
+          };
+        }
+      })
+      .catch(err => console.error("Trial sync error:", err));
 
       if (dismissBtn) {
         dismissBtn.onclick = function() {

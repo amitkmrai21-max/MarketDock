@@ -1,3 +1,4 @@
+import json
 import os
 from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -118,3 +119,79 @@ def sitemap():
   </url>
 </urlset>"""
     return Response(content=content, media_type="application/xml")
+
+
+# ================= ANDROID DIGITAL ASSET LINKS =================
+@app.get("/.well-known/assetlinks.json")
+def get_assetlinks():
+    try:
+        with open("/opt/marketdock/frontend/.well-known/assetlinks.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    except Exception as e:
+        return [{
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "in.marketdock.app",
+                "sha256_cert_fingerprints": ["SHA256_FINGERPRINT_PLACEHOLDER"]
+            }
+        }]
+
+
+# ================= USER TRIAL & SUBSCRIPTION TRACKER =================
+import time, json, os
+from pydantic import BaseModel
+
+USER_DB_FILE = "/opt/marketdock/user_subscriptions.json"
+
+class TrialCheckRequest(BaseModel):
+    email: str
+    user_id: str = ""
+
+@app.post("/api/user/sync-trial")
+def sync_user_trial(req: TrialCheckRequest):
+    email = req.email.strip().lower()
+    if not email:
+        return {"error": "Email is required"}
+    
+    users = {}
+    if os.path.exists(USER_DB_FILE):
+        try:
+            with open(USER_DB_FILE, "r", encoding="utf-8") as f:
+                users = json.load(f)
+        except Exception:
+            users = {}
+
+    now = int(time.time())
+    trial_duration = 7 * 24 * 3600  # 7 Days in seconds
+
+    if email not in users:
+        # First time registration
+        users[email] = {
+            "email": email,
+            "user_id": req.user_id,
+            "created_at": now,
+            "trial_expires_at": now + trial_duration,
+            "plan": "trial",
+            "is_paid": False
+        }
+        with open(USER_DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, indent=2)
+    
+    user_data = users[email]
+    
+    # Calculate days
+    seconds_passed = now - user_data["created_at"]
+    days_passed = seconds_passed // 86400
+    days_left = max(0, 7 - days_passed)
+    is_expired = now > user_data["trial_expires_at"] and not user_data.get("is_paid", False)
+
+    return {
+        "email": email,
+        "is_expired": is_expired,
+        "days_left": days_left,
+        "days_passed": days_passed,
+        "is_paid": user_data.get("is_paid", False),
+        "plan": user_data.get("plan", "trial")
+    }
