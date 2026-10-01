@@ -12611,3 +12611,48 @@ body[data-theme="light"] .onboarding-skip-link {
 body[data-theme="light"] .onboarding-disclaimer {
   color: #94a3b8;
 }
+
+
+/* Regulatory & Legal Disclaimers (Positioned at bottom of pages) */
+.im-regulatory-footer {
+  width: 100%;
+  max-width: 980px;
+  margin: 48px auto 24px;
+  padding: 24px 16px 36px;
+  border-top: 1px solid var(--im-border, rgba(255, 255, 255, 0.08));
+  box-sizing: border-box;
+}
+
+.im-regulatory-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.im-regulatory-p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--im-muted, rgba(255, 255, 255, 0.5));
+  text-align: left;
+}
+
+.im-regulatory-p strong {
+  color: var(--im-text-primary, rgba(255, 255, 255, 0.78));
+  font-weight: 600;
+}
+
+[data-theme="light"] .im-regulatory-footer,
+.theme-light .im-regulatory-footer {
+  border-top-color: #e2e8f0;
+}
+
+[data-theme="light"] .im-regulatory-p,
+.theme-light .im-regulatory-p {
+  color: #64748b;
+}
+
+[data-theme="light"] .im-regulatory-p strong,
+.theme-light .im-regulatory-p strong {
+  color: #1e293b;
+}
