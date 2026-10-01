@@ -5801,9 +5801,11 @@ function clearLiveChartAiOverlay() {
   }
 
   function decisionClass(label) {
-    if (label.includes("BUY")) {
-      return "decision-buy";
-    }
+    const l = String(label || "").toUpperCase();
+    if (l.includes("BULLISH") || l.includes("BUY")) return "decision-bullish";
+    if (l.includes("BEARISH") || l.includes("SELL")) return "decision-bearish";
+    return "decision-wait";
+  }
 
     if (label.includes("SELL")) {
       return "decision-sell";
@@ -5977,6 +5979,10 @@ function clearLiveChartAiOverlay() {
     redrawImDashboardSparkline(marketKey);
     imLastDecisionLabel[marketKey] = String(data.decision.label);
     updateMarketBiasCard();
+    const heroBadge = document.getElementById(`im-${marketKey}-hero-setup-badge`);
+    if (heroBadge && data.decision) {
+      heroBadge.textContent = data.decision.label;
+    }
     const label = document.getElementById(`im-${marketKey}-decision-label`);
     const reason = document.getElementById(`im-${marketKey}-decision-reason`);
     const status = document.getElementById(`im-${marketKey}-api-status`);
