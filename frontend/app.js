@@ -2515,9 +2515,9 @@ setInterval(loadRrg, 300000);
     }
 
     function updateOnboardingVisibility(session) {
-      if (!onboardingOverlay) return;
-      if (session) {
+      if (session && session.user) {
         hideOnboarding();
+        triggerUserTrialAndProfileSetup(session.user);
         return;
       }
       const dismissed = sessionStorage.getItem("marketdock_dismissed_onboarding") === "1";
@@ -2525,6 +2525,79 @@ setInterval(loadRrg, 300000);
         showOnboarding();
       } else {
         hideOnboarding();
+      }
+    }
+
+    function triggerUserTrialAndProfileSetup(user) {
+      const uId = user.id || "default_user";
+      const storageKey = `md_profile_${uId}`;
+      let profile = {};
+      try {
+        profile = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      } catch (e) {
+        profile = {};
+      }
+
+      const onboardingModal = document.getElementById("md-onboarding-modal");
+      const trialModal = document.getElementById("md-trial-welcome-modal");
+      const subModal = document.getElementById("md-subscription-modal");
+      const saveBtn = document.getElementById("md-save-profile-btn");
+      const dismissBtn = document.getElementById("md-dismiss-trial-btn");
+
+      function syncToSettingsInput(full) {
+        const inp = document.getElementById("userNameInput");
+        if (inp) {
+          inp.value = full;
+          const sBtn = document.getElementById("saveUserNameBtn");
+          if (sBtn) sBtn.click();
+        }
+      }
+
+      // Agar name already saved hai
+      if (profile.firstName && profile.lastName) {
+        const fullName = `${profile.firstName} ${profile.lastName}`.trim();
+        syncToSettingsInput(fullName);
+
+        // 7-day expiration check
+        if (!profile.trialStartedAt) {
+          profile.trialStartedAt = Date.now();
+          localStorage.setItem(storageKey, JSON.stringify(profile));
+        }
+        const diff = Date.now() - profile.trialStartedAt;
+        if (diff > 7 * 24 * 60 * 60 * 1000 && subModal) {
+          subModal.style.display = "flex";
+        }
+        return;
+      }
+
+      // Naya user hai toh Name Modal kholo
+      if (onboardingModal) onboardingModal.style.display = "flex";
+
+      if (saveBtn) {
+        saveBtn.onclick = function() {
+          const fn = (document.getElementById("md-first-name-input")?.value || "").trim();
+          const ln = (document.getElementById("md-last-name-input")?.value || "").trim();
+          if (!fn || !ln) {
+            alert("Kripya First Name aur Surname dono bharein.");
+            return;
+          }
+          const full = `${fn} ${ln}`;
+          profile.firstName = fn;
+          profile.lastName = ln;
+          profile.trialStartedAt = Date.now();
+          localStorage.setItem(storageKey, JSON.stringify(profile));
+
+          syncToSettingsInput(full);
+
+          if (onboardingModal) onboardingModal.style.display = "none";
+          if (trialModal) trialModal.style.display = "flex";
+        };
+      }
+
+      if (dismissBtn) {
+        dismissBtn.onclick = function() {
+          if (trialModal) trialModal.style.display = "none";
+        };
       }
     }
 
