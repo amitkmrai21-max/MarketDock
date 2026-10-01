@@ -14561,3 +14561,88 @@ async function fetchWatchlist() {
   } else {
     setupDedicatedFundsModal();
   }
+
+
+// ==================== MARKETDOCK TRIAL & ONBOARDING SYNC ====================
+function initMarketdockTrialAndProfile() {
+  const trialDays = 7;
+  const trialDurationMs = trialDays * 24 * 60 * 60 * 1000;
+  
+  let userProfile = {};
+  try {
+    userProfile = JSON.parse(localStorage.getItem("marketdock_user_profile") || "{}");
+  } catch (e) {
+    userProfile = {};
+  }
+
+  const onboardingModal = document.getElementById("md-onboarding-modal");
+  const trialWelcomeModal = document.getElementById("md-trial-welcome-modal");
+  const subscriptionModal = document.getElementById("md-subscription-modal");
+  const saveBtn = document.getElementById("md-save-profile-btn");
+  const dismissBtn = document.getElementById("md-dismiss-trial-btn");
+
+  // Sync with Settings Tab Inputs if they exist
+  function syncToSettings(firstName, lastName) {
+    const fullName = `${firstName} ${lastName}`.trim();
+    const settingNameInputs = document.querySelectorAll('input[name="name"], #setting-name, #profile-name, #user-name, input[placeholder*="Name"]');
+    settingNameInputs.forEach(input => {
+      input.value = fullName;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
+
+  // 1. Initial Profile Setup Check (First time account login)
+  if (!userProfile.firstName || !userProfile.lastName) {
+    if (onboardingModal) onboardingModal.style.display = "flex";
+  } else {
+    syncToSettings(userProfile.firstName, userProfile.lastName);
+    checkTrialExpiration();
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener("click", () => {
+      const fName = (document.getElementById("md-first-name-input")?.value || "").trim();
+      const lName = (document.getElementById("md-last-name-input")?.value || "").trim();
+      if (!fName || !lName) {
+        alert("Please enter both your First Name and Surname to proceed.");
+        return;
+      }
+
+      userProfile.firstName = fName;
+      userProfile.lastName = lName;
+      userProfile.trialStartedAt = userProfile.trialStartedAt || Date.now();
+      localStorage.setItem("marketdock_user_profile", JSON.stringify(userProfile));
+
+      syncToSettings(fName, lName);
+
+      if (onboardingModal) onboardingModal.style.display = "none";
+      if (trialWelcomeModal) trialWelcomeModal.style.display = "flex";
+    });
+  }
+
+  if (dismissBtn) {
+    dismissBtn.addEventListener("click", () => {
+      if (trialWelcomeModal) trialWelcomeModal.style.display = "none";
+    });
+  }
+
+  // 2. Check 7-Day Trial Expiration
+  function checkTrialExpiration() {
+    if (!userProfile.trialStartedAt) {
+      userProfile.trialStartedAt = Date.now();
+      localStorage.setItem("marketdock_user_profile", JSON.stringify(userProfile));
+    }
+    const elapsed = Date.now() - userProfile.trialStartedAt;
+    if (elapsed > trialDurationMs) {
+      if (subscriptionModal) subscriptionModal.style.display = "flex";
+    }
+  }
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initMarketdockTrialAndProfile);
+} else {
+  initMarketdockTrialAndProfile();
+}
+// ============================================================================
