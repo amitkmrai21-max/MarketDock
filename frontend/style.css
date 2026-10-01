@@ -12656,3 +12656,7 @@ body[data-theme="light"] .onboarding-disclaimer {
 .theme-light .im-regulatory-p strong {
   color: #1e293b;
 }
+
+html.im-show-onboarding #onboardingOverlay {
+  display: flex !important;
+}
