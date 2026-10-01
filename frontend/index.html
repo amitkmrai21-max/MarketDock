@@ -2762,15 +2762,6 @@
   </div>
 
 
-  <script src="/frontend/app.js?v=v20261001cleanLayout1"></script>
-  <script>
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/frontend/sw.js").catch(() => {});
-      });
-    }
-  </script>
-
   <!-- Full Surface Welcome / Onboarding Screen -->
   <div id="onboardingOverlay" class="onboarding-overlay" hidden>
     <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
@@ -2822,7 +2813,7 @@
         </button>
 
         <button id="onboardingEmailPhoneBtn" class="onboarding-email-toggle-btn" type="button">
-          Continue with Email / Phone
+          Continue with Email
         </button>
 
         <div id="onboardingInlineAuth" class="onboarding-inline-auth" hidden>
@@ -2851,6 +2842,16 @@
       </div>
     </div>
   </div>
+
+
+  <script src="/frontend/app.js?v=v20261001cleanLayout1"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/frontend/sw.js").catch(() => {});
+      });
+    }
+  </script>
 
 </body>
 </html>
