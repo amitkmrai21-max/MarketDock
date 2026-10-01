@@ -1097,7 +1097,7 @@ def calculate_confirmation_engine(market):
         decision_reason = f'Negative pressure building ({bearish_count}/{total_checks} checks). Tracking price action near support.'
     # 5. Rangebound / Consolidation
     elif bullish_count <= 2 and bearish_count <= 2:
-        decision = 'RANGEBOUND CONSOLIDATION'
+        decision = 'SIDEWAYS'
         decision_reason = 'Low directional conviction between buyers and sellers. Observing intraday price behavior.'
     else:
         decision = 'NEUTRAL / BALANCED'
