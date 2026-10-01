@@ -5801,11 +5801,11 @@ function clearLiveChartAiOverlay() {
   }
 
   function decisionClass(label) {
-    const l = String(label || "").toUpperCase();
-    if (l.includes("BULLISH") || l.includes("BUY")) return "decision-bullish";
-    if (l.includes("BEARISH") || l.includes("SELL")) return "decision-bearish";
-    return "decision-wait";
-  }
+     const l = String(label || "").toUpperCase();
+     if (l.includes("BULLISH") || l.includes("BUY")) return "decision-bullish";
+     if (l.includes("BEARISH") || l.includes("SELL")) return "decision-bearish";
+     return "decision-wait";
+   }
 
     if (label.includes("SELL")) {
       return "decision-sell";
