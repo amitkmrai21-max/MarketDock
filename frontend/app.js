@@ -1,5 +1,4 @@
-
-  function isNseMarketOpen() {
+function isNseMarketOpen() {
     const now = new Date();
     // Get IST time string
     const istString = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
@@ -14564,96 +14563,124 @@ async function fetchWatchlist() {
 
 
 // ==================== MARKETDOCK TRIAL & ONBOARDING SYNC ====================
-function initMarketdockTrialAndProfile() {
-  const trialDays = 7;
-  const trialDurationMs = trialDays * 24 * 60 * 60 * 1000;
-  
-  let userProfile = {};
-  try {
-    userProfile = JSON.parse(localStorage.getItem("marketdock_user_profile") || "{}");
-  } catch (e) {
-    userProfile = {};
-  }
+(function initMarketdockProperFlow() {
+  const trialDurationMs = 7 * 24 * 60 * 60 * 1000;
 
-  const onboardingModal = document.getElementById("md-onboarding-modal");
-  const trialWelcomeModal = document.getElementById("md-trial-welcome-modal");
-  const subscriptionModal = document.getElementById("md-subscription-modal");
-  const saveBtn = document.getElementById("md-save-profile-btn");
-  const dismissBtn = document.getElementById("md-dismiss-trial-btn");
-
-  // Sync with Settings Tab Inputs if they exist
-  function syncToSettings(firstName, lastName) {
-    const fullName = `${firstName} ${lastName}`.trim();
-    const settingNameInputs = document.querySelectorAll('input[name="name"], #setting-name, #profile-name, #user-name, input[placeholder*="Name"]');
-    settingNameInputs.forEach(input => {
-      input.value = fullName;
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-    });
-  }
-
-  // 1. Initial Profile Setup Check (First time account login)
-  if (!userProfile.firstName || !userProfile.lastName) {
-    if (onboardingModal) onboardingModal.style.display = "flex";
-  } else {
-    syncToSettings(userProfile.firstName, userProfile.lastName);
-    checkTrialExpiration();
-  }
-
-  if (saveBtn) {
-    saveBtn.addEventListener("click", () => {
-      const fName = (document.getElementById("md-first-name-input")?.value || "").trim();
-      const lName = (document.getElementById("md-last-name-input")?.value || "").trim();
-      if (!fName || !lName) {
-        alert("Please enter both your First Name and Surname to proceed.");
-        return;
+  function syncNameToSettingsAndStorage(fullName) {
+    if (!fullName) return;
+    localStorage.setItem("marketdock_user_name", fullName);
+    const settingsInput = document.getElementById("userNameInput");
+    if (settingsInput) {
+      settingsInput.value = fullName;
+      const saveBtn = document.getElementById("saveUserNameBtn");
+      if (saveBtn) {
+        saveBtn.click();
       }
-
-      userProfile.firstName = fName;
-      userProfile.lastName = lName;
-      userProfile.trialStartedAt = userProfile.trialStartedAt || Date.now();
-      localStorage.setItem("marketdock_user_profile", JSON.stringify(userProfile));
-
-      syncToSettings(fName, lName);
-
-      if (onboardingModal) onboardingModal.style.display = "none";
-      if (trialWelcomeModal) trialWelcomeModal.style.display = "flex";
-    });
-  }
-
-  if (dismissBtn) {
-    dismissBtn.addEventListener("click", () => {
-      if (trialWelcomeModal) trialWelcomeModal.style.display = "none";
-    });
-  }
-
-  // 2. Check 7-Day Trial Expiration
-  function checkTrialExpiration() {
-    if (!userProfile.trialStartedAt) {
-      userProfile.trialStartedAt = Date.now();
-      localStorage.setItem("marketdock_user_profile", JSON.stringify(userProfile));
-    }
-    const elapsed = Date.now() - userProfile.trialStartedAt;
-    if (elapsed > trialDurationMs) {
-      if (subscriptionModal) subscriptionModal.style.display = "flex";
     }
   }
-}
 
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initMarketdockTrialAndProfile);
-} else {
-  initMarketdockTrialAndProfile();
-}
-// ============================================================================
+  function handleAuthenticatedUser(user) {
+    if (!user) return;
+    const userId = user.id || "guest";
+    const profileKey = `marketdock_profile_${userId}`;
+    
+    let userProfile = {};
+    try {
+      userProfile = JSON.parse(localStorage.getItem(profileKey) || "{}");
+    } catch (e) {
+      userProfile = {};
+    }
 
+    const onboardingModal = document.getElementById("md-onboarding-modal");
+    const trialWelcomeModal = document.getElementById("md-trial-welcome-modal");
+    const subscriptionModal = document.getElementById("md-subscription-modal");
+    const saveBtn = document.getElementById("md-save-profile-btn");
+    const dismissBtn = document.getElementById("md-dismiss-trial-btn");
+
+    // Agar name pehle se saved hai
+    if (userProfile.firstName && userProfile.lastName) {
+      const fullName = `${userProfile.firstName} ${userProfile.lastName}`.trim();
+      syncNameToSettingsAndStorage(fullName);
+
+      // Check 7-day expiration
+      if (!userProfile.trialStartedAt) {
+        userProfile.trialStartedAt = Date.now();
+        localStorage.setItem(profileKey, JSON.stringify(userProfile));
+      }
+      const elapsed = Date.now() - userProfile.trialStartedAt;
+      if (elapsed > trialDurationMs && subscriptionModal) {
+        subscriptionModal.style.display = "flex";
+      }
+      return;
+    }
+
+    // Agar naya user hai jisne abhi sign in kiya hai -> Name prompt modal kholo
+    if (onboardingModal) {
+      onboardingModal.style.display = "flex";
+    }
+
+    if (saveBtn) {
+      saveBtn.onclick = function() {
+        const fName = (document.getElementById("md-first-name-input")?.value || "").trim();
+        const lName = (document.getElementById("md-last-name-input")?.value || "").trim();
+
+        if (!fName || !lName) {
+          alert("Please enter both First Name and Surname to continue.");
+          return;
+        }
+
+        const fullName = `${fName} ${lName}`;
+        userProfile.firstName = fName;
+        userProfile.lastName = lName;
+        userProfile.trialStartedAt = Date.now();
+        localStorage.setItem(profileKey, JSON.stringify(userProfile));
+
+        // Save into Settings Profile tab
+        syncNameToSettingsAndStorage(fullName);
+
+        if (onboardingModal) onboardingModal.style.display = "none";
+        if (trialWelcomeModal) trialWelcomeModal.style.display = "flex";
+      };
+    }
+
+    if (dismissBtn) {
+      dismissBtn.onclick = function() {
+        if (trialWelcomeModal) trialWelcomeModal.style.display = "none";
+      };
+    }
+  }
+
+  // Supabase Auth listener se bind karte hain
+  function attachAuthWatcher() {
+    if (typeof supabaseClient !== "undefined" && supabaseClient.auth) {
+      supabaseClient.auth.getSession().then(({ data: { session } }) => {
+        if (session && session.user) {
+          handleAuthenticatedUser(session.user);
+        }
+      });
+
+      supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (event === "SIGNED_IN" || (session && session.user)) {
+          handleAuthenticatedUser(session.user);
+        }
+      });
+    } else {
+      setTimeout(attachAuthWatcher, 500);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", attachAuthWatcher);
+  } else {
+    attachAuthWatcher();
+  }
+})();
 
 // ==================== RRG DEV GATEKEEPER ====================
 (function initRrgGatekeeper() {
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get("dev") === "1" || urlParams.get("admin") === "1" || urlParams.get("unlock_rrg") === "1") {
     localStorage.setItem("marketdock_dev_unlocked", "true");
-    console.log("[MarketDock] Developer mode activated. RRG Unlocked.");
   }
 
   const isDevUnlocked = localStorage.getItem("marketdock_dev_unlocked") === "true";
@@ -14663,7 +14690,6 @@ if (document.readyState === "loading") {
     if (!rrgBtn) return;
 
     if (!isDevUnlocked) {
-      // Add subtle lock indicator to button
       if (!rrgBtn.querySelector('.rrg-lock-badge')) {
         const badge = document.createElement("span");
         badge.className = "rrg-lock-badge";
@@ -14673,18 +14699,14 @@ if (document.readyState === "loading") {
         rrgBtn.appendChild(badge);
       }
 
-      // Intercept clicks on RRG nav button
       rrgBtn.addEventListener("click", function(e) {
         if (localStorage.getItem("marketdock_dev_unlocked") !== "true") {
           e.preventDefault();
           e.stopImmediatePropagation();
-          
-          alert("🔒 Feature Under Development
-
-RRG (Relative Rotation Graph) is currently undergoing calibration and testing. This feature will be enabled in an upcoming release.");
+          alert("🔒 Feature Under Development\n\nRRG (Relative Rotation Graph) is currently undergoing calibration and testing. This feature will be enabled in an upcoming release.");
           return false;
         }
-      }, true); // Capture phase to prevent page switcher
+      }, true);
     }
   }
 
@@ -14694,4 +14716,3 @@ RRG (Relative Rotation Graph) is currently undergoing calibration and testing. T
     applyRrgLock();
   }
 })();
-// =============================================================
