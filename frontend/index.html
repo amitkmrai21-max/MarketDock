@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <script>
@@ -107,7 +107,7 @@
   </style>
 </head>
 
-<body>
+<body data-theme="light">
 
   <!-- Full Surface Welcome / Onboarding Screen -->
   <div id="onboardingOverlay" class="onboarding-overlay" hidden>
@@ -319,10 +319,6 @@
           Stock Detail
         </button>
 
-        <button class="nav-button" data-page="im-live-chart" type="button">
-          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 17l6-6 4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-          Live Chart
-        </button>
 
         <p class="nav-label">Journal</p>
 
@@ -353,8 +349,8 @@
       </nav>
 
       <div class="sidebar-note">
-       <strong>Research-only tool</strong><br />
-        No broker connection, no auto-trading, and no real-money order execution.
+       <strong>Paper Trading Only</strong><br />
+        Simulation & educational tool. No real-money execution.
       </div>
     </aside>
 
@@ -441,7 +437,7 @@
           </article>
 
           <article class="card stat-card">
-            <div class="stat-label">Technical Bias</div>
+            <div class="stat-label">Market Breadth</div>
             <div class="stat-value" id="im-dash-market-bias-value">Loading…</div>
             <div class="stat-change neutral" id="im-dash-market-bias-change">Waiting on technical data</div>
           </article>
@@ -1133,7 +1129,7 @@
             </table>
           </div>
 
-          <p id="im-watchlist-ai-note" class="im-chart-status">1. Momentum score (0-100): formula-based from today's % change, not AI/LLM or financial advice. 60-100 Bullish, 41-59 Neutral, 0-40 Bearish. Up to 100 stocks/watchlist, 10 watchlists.<br>2. Tap a stock for Buy/Sell/Chart. Press and hold to remove it. Drag the &#8942; handle to reorder.</p>
+          <p id="im-watchlist-ai-note" class="im-chart-status">1. Momentum score (0-100): formula-based from today's % change, not AI/LLM or financial advice. 60-100 Bullish, 41-59 Neutral, 0-40 Bearish. Up to 100 stocks/watchlist, 10 watchlists.<br>2. Tap a stock for Paper Trade. Press and hold to remove it. Drag the &#8942; handle to reorder.</p>
         </article>
       </section>
 
@@ -1189,6 +1185,8 @@
               </tbody>
             </table>
           </div>
+
+          <p class="im-chart-status" style="margin-top: 12px; font-size: 13px;">1. Commodity momentum & pricing for simulation. Educational review only — not financial advice.<br>2. Tap a commodity for Paper Trade & contract selection.</p>
         </article>
       </section>
 
@@ -1211,6 +1209,8 @@
               </tbody>
             </table>
           </div>
+
+          <p class="im-chart-status" style="margin-top: 12px; font-size: 13px;">1. Commodity momentum & pricing for simulation. Educational review only — not financial advice.<br>2. Tap a commodity for Paper Trade & contract selection.</p>
         </article>
       </section>
 
@@ -1278,7 +1278,7 @@
             <div id="im-stock-detail-news-list"></div>
           </div>
 
-          <p class="im-chart-status">Educational data only. Not financial advice.</p>
+          <p class="im-chart-status">Educational data only. Tap a commodity for Paper Trade. Not financial advice.</p>
         </article>
       </section>
 
@@ -1300,6 +1300,8 @@
               </tbody>
             </table>
           </div>
+
+          <p class="im-chart-status" style="margin-top: 12px; font-size: 13px;">1. Commodity momentum & pricing for simulation. Educational review only — not financial advice.<br>2. Tap a commodity for Paper Trade & contract selection.</p>
         </article>
       </section>
 
@@ -2237,14 +2239,8 @@
       <!-- Regulatory, Educational & IP Disclaimers (Positioned at bottom of pages) -->
       <footer class="im-regulatory-footer">
         <div class="im-regulatory-content">
-          <p class="im-regulatory-p">
-            <strong>Educational &amp; Paper Trading Simulation:</strong> MarketDock is strictly an educational paper trading simulation and technical analysis platform. All virtual funds (₹2,00,00,000), portfolio balances, margin allocations, and executed orders are simulated with zero real monetary or financial value.
-          </p>
-          <p class="im-regulatory-p">
-            <strong>Regulatory Status:</strong> MarketDock is an independent technology platform and is not registered with SEBI as an investment adviser, research analyst, broker, or portfolio manager. Algorithmic analysis, support/resistance levels, indicators, and market screens are automated mathematical calculations for educational review only and do not constitute financial advice, trade signals, or investment recommendations.
-          </p>
-          <p class="im-regulatory-p">
-            <strong>Market Data &amp; Trademark Disclosures:</strong> Market data feeds and prices are indicative for simulation and educational review, and may be delayed. NIFTY 50, BANK NIFTY, FINNIFTY, and NSE are registered trademarks of the National Stock Exchange of India Ltd. SENSEX and BSE are registered trademarks of BSE Ltd. MCX is a registered trademark of Multi Commodity Exchange of India Ltd. MarketDock is an independent entity and is not affiliated with, sponsored by, or endorsed by NSE, BSE, or MCX.
+          <p class="im-regulatory-p" style="font-size: 12px; line-height: 1.5; color: #6b7280;">
+            <strong>Disclaimer:</strong> MarketDock is strictly an educational paper-trading simulator and mathematical technical analysis tool. Virtual funds have no real financial value. Not registered with SEBI as an Investment Adviser or Research Analyst; content does not constitute financial advice or trade signals. Market data is indicative/delayed. Trademarks belong to respective exchanges (NSE/BSE/MCX).
           </p>
           <p class="tv-attribution im-page-bottom-attribution">Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener">TradingView</a>.</p>
         </div>

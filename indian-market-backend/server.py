@@ -3537,6 +3537,12 @@ def commodities():
         _commodity_quote_cache["fetched_at"] = now
         _commodity_quote_cache["updated_at"] = updated_at
 
+        if redis_client:
+            try:
+                redis_client.setex(cache_key, COMMODITY_QUOTE_CACHE_SECONDS, json.dumps({"updated_at": updated_at, "data": results}))
+            except Exception:
+                pass
+
         return jsonify({"ok": True, "updated_at": updated_at, "data": results})
 
     except Exception as error:
