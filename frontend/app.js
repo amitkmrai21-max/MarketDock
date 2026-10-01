@@ -14749,20 +14749,40 @@ async function fetchWatchlist() {
 
 // ==================== RRG DEV GATEKEEPER ====================
 (function initRrgGatekeeper() {
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("dev") === "1" || urlParams.get("admin") === "1" || urlParams.get("unlock_rrg") === "1") {
-    localStorage.setItem("marketdock_dev_unlocked", "true");
-  }
+  const ADMIN_EMAILS = ["amitkmrai21@gmail.com"];
 
-  const isDevUnlocked = localStorage.getItem("marketdock_dev_unlocked") === "true";
-
-  function applyRrgLock() {
+  function checkRrgAccess() {
     const rrgBtn = document.querySelector('.nav-button[data-page="im-rrg"]');
     if (!rrgBtn) return;
 
-    if (!isDevUnlocked) {
-      if (!rrgBtn.querySelector('.rrg-lock-badge')) {
-        const badge = document.createElement("span");
+    // Check logged in user email
+    let currentEmail = "";
+    if (window.marketDockUser && window.marketDockUser.email) {
+      currentEmail = window.marketDockUser.email.toLowerCase();
+    } else {
+      try {
+        const authData = JSON.parse(localStorage.getItem("sb-pfgkufhpxgoxevvshfqq-auth-token") || "{}");
+        currentEmail = (authData?.user?.email || "").toLowerCase();
+      } catch (e) {
+        currentEmail = "";
+      }
+    }
+
+    const isAdmin = ADMIN_EMAILS.includes(currentEmail);
+
+    // Existing lock badge handle
+    let badge = rrgBtn.querySelector('.rrg-lock-badge');
+
+    if (isAdmin) {
+      // Admin: remove lock badge and clone to clear blocked click listeners
+      if (badge) badge.remove();
+      rrgBtn.style.opacity = "1";
+      rrgBtn.style.cursor = "pointer";
+      rrgBtn.removeAttribute("title");
+    } else {
+      // Normal User: Lock badge lagao aur click intercept karo
+      if (!badge) {
+        badge = document.createElement("span");
         badge.className = "rrg-lock-badge";
         badge.innerHTML = " 🔒";
         badge.style.fontSize = "11px";
@@ -14770,20 +14790,23 @@ async function fetchWatchlist() {
         rrgBtn.appendChild(badge);
       }
 
-      rrgBtn.addEventListener("click", function(e) {
-        if (localStorage.getItem("marketdock_dev_unlocked") !== "true") {
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          alert("🔒 Feature Under Development\n\nRRG (Relative Rotation Graph) is currently undergoing calibration and testing. This feature will be enabled in an upcoming release.");
-          return false;
-        }
-      }, true);
+      rrgBtn.onclick = function(e) {
+        // Re-check in case user just logged in
+        let recheckEmail = (window.marketDockUser?.email || "").toLowerCase();
+        if (ADMIN_EMAILS.includes(recheckEmail)) return true;
+
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        alert("🔒 Feature Under Development
+
+RRG (Relative Rotation Graph) is currently undergoing calibration and testing. This feature will be enabled in an upcoming release.");
+        return false;
+      };
     }
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", applyRrgLock);
-  } else {
-    applyRrgLock();
-  }
+  // Periodic and state change check
+  document.addEventListener("DOMContentLoaded", checkRrgAccess);
+  window.addEventListener("load", checkRrgAccess);
+  setInterval(checkRrgAccess, 1500);
 })();
