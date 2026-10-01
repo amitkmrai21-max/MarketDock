@@ -25,7 +25,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=v20261001flickerFix3">
+  <link rel="stylesheet" href="/frontend/style.css?v=v20261001cleanLayout1">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -53,48 +53,19 @@
     })();
   </script>
   <style id="im-onboarding-prepaint-style">
-    /* Prevent home page flash: If unauthenticated, keep main content hidden until dismissed or logged in */
-    html.im-show-onboarding body {
-      overflow: hidden !important;
+    /* When onboarding is active on open, prevent dashboard from flashing underneath */
+    html.im-show-onboarding .app-shell,
+    html.im-show-onboarding .topbar,
+    html.im-show-onboarding .im-ticker-bar {
+      visibility: hidden !important;
     }
     html.im-show-onboarding #onboardingOverlay {
       display: flex !important;
-      position: fixed !important;
-      inset: 0 !important;
-      z-index: 999999 !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-    }
-    html.im-show-onboarding body > *:not(#onboardingOverlay):not(script):not(style) {
-      display: none !important;
-      visibility: hidden !important;
     }
   </style>
 </head>
 
 <body>
-  <!-- Full Surface Welcome / Onboarding Screen -->
-  <div id="onboardingOverlay" class="onboarding-overlay" hidden>
-    <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
-      <div class="onboarding-header">
-        <div class="onboarding-icon-wrap">
-          <img src="/frontend/image-1.png?v=v20260927v3" alt="MarketDock Logo" class="onboarding-logo" />
-        </div>
-        <h2 id="onboardingTitle" class="onboarding-title">Paper Trading</h2>
-        <div class="onboarding-badge">NSE • FUT &amp; OPTION • MCX</div>
-        <p class="onboarding-tagline">Buy &amp; Sell with Virtual Money</p>
-      </div>
-
-      <div class="onboarding-features">
-        <div class="onboarding-feature-item">
-          <div class="onboarding-feat-bullet">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-          </div>
-          <div class="onboarding-feat-text">
-            <strong>₹2,00,00,000 virtual balance</strong>
-            <span>Generous virtual margin to practice real strategies</span>
-          </div>
-        </div>
   <div id="ptrIndicator" class="ptr-indicator" aria-hidden="true"><span class="ptr-spinner"></span></div>
 
   <header class="topbar">
@@ -2791,7 +2762,7 @@
   </div>
 
 
-  <script src="/frontend/app.js?v=v20261001flickerFix3"></script>
+  <script src="/frontend/app.js?v=v20261001cleanLayout1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -2800,7 +2771,28 @@
     }
   </script>
 
-  
+  <!-- Full Surface Welcome / Onboarding Screen -->
+  <div id="onboardingOverlay" class="onboarding-overlay" hidden>
+    <div class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+      <div class="onboarding-header">
+        <div class="onboarding-icon-wrap">
+          <img src="/frontend/image-1.png?v=v20260927v3" alt="MarketDock Logo" class="onboarding-logo" />
+        </div>
+        <h2 id="onboardingTitle" class="onboarding-title">Paper Trading</h2>
+        <div class="onboarding-badge">NSE • FUT &amp; OPTION • MCX</div>
+        <p class="onboarding-tagline">Buy &amp; Sell with Virtual Money</p>
+      </div>
+
+      <div class="onboarding-features">
+        <div class="onboarding-feature-item">
+          <div class="onboarding-feat-bullet">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+          </div>
+          <div class="onboarding-feat-text">
+            <strong>₹2,00,00,000 virtual balance</strong>
+            <span>Generous virtual margin to practice real strategies</span>
+          </div>
+        </div>
 
         <div class="onboarding-feature-item">
           <div class="onboarding-feat-bullet">
