@@ -150,6 +150,23 @@
       }
     }
 
+  
+    @media (prefers-reduced-motion: reduce) {
+      .onboarding-card,
+      .onboarding-icon-wrap,
+      .onboarding-title,
+      .onboarding-badge,
+      .onboarding-tagline,
+      .onboarding-features,
+      .onboarding-actions,
+      .onboarding-disclaimer-note {
+        animation: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+      }
+    }
+
   </style>
 
 <style id="tight-engine-card-fix">
