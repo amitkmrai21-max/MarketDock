@@ -326,12 +326,11 @@
   <header class="topbar">
     <div class="brand">
       <img class="brand-logo" src="/frontend/image-1.png?v=v20260927v3" alt="MarketDock logo">
-
-     <div class="brand-text">
+      <div class="brand-text">
         <h1 id="brandTitle">Market<span class="brand-accent">Dock</span></h1>
       </div>
-      <button id="headerUpgradeBtn" type="button" style="background:#facc15; color:#854d0e; font-weight:800; font-size:12px; padding:4px 10px; border-radius:8px; border:none; cursor:pointer; margin-left:10px; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(250,204,21,0.35); text-transform:uppercase; letter-spacing:0.3px;">⚡ Upgrade</button>
     </div>
+    <button id="headerUpgradeBtn" type="button" style="margin-left:auto; background:#facc15; color:#854d0e; font-weight:800; font-size:12px; padding:6px 14px; border-radius:999px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(250,204,21,0.4); text-transform:uppercase; letter-spacing:0.4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="#854d0e" style="display:inline-block; vertical-align:middle; flex-shrink:0;"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg><span>Upgrade</span></button>
   </header>
 
 
@@ -2046,7 +2045,7 @@
             <!-- Active Trial Banner -->
             <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:14px; padding:16px; margin-bottom:20px;">
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
-                <div style="width:38px; height:38px; background:#dcfce7; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#15803d;">
+                <div id="md-overview-status-icon" style="width:38px; height:38px; background:#dcfce7; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#15803d;">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 </div>
                 <div>
@@ -2124,9 +2123,9 @@
             </div>
 
             <!-- Trial status info callout -->
-            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 14px; display:flex; align-items:flex-start; gap:10px; margin-bottom:20px;">
-              <span style="color:#2563eb; font-size:16px;">ℹ️</span>
-              <div style="font-size:12px; color:#1e40af; line-height:1.45;">
+            <div id="md-overview-callout" style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:12px; padding:12px 14px; display:flex; align-items:flex-start; gap:10px; margin-bottom:20px;">
+              <span id="md-callout-icon" style="color:#2563eb; font-size:16px;">ℹ️</span>
+              <div id="md-callout-text" style="font-size:12px; color:#1e40af; line-height:1.45;">
                 <b>Your 7 days free trial is active.</b><br/>After that, you can continue with a Premium plan to keep enjoying all features.
               </div>
             </div>
