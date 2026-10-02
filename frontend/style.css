@@ -13486,3 +13486,10 @@ body > header.topbar {
   margin-left: auto !important;
   flex-shrink: 0 !important;
 }
+
+/* RRG stays private until verified owner access is granted. */
+#im-rrg-content[hidden], #im-rrg-maintenance[hidden] { display: none !important; }
+.im-rrg-maintenance { max-width: 560px; margin: 64px auto; padding: 40px 24px; text-align: center; }
+.im-rrg-maintenance > span { font-size: 30px; }
+.im-rrg-maintenance h2 { font-size: 23px; margin: 16px 0 10px; }
+.im-rrg-maintenance p { line-height: 1.6; opacity: .75; }
