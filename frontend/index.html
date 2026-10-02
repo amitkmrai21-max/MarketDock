@@ -36,7 +36,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=1790870731">
+  <link rel="stylesheet" href="/frontend/style.css?v=1790870731-rrg-maintenance">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1950,6 +1950,12 @@
       </section>
 
 <section class="page" id="im-rrg">
+        <div id="im-rrg-maintenance" class="im-rrg-maintenance" role="status">
+          <span aria-hidden="true">🔒</span>
+          <h2>RRG under maintenance</h2>
+          <p data-rrg-message>RRG is under maintenance. Please check back later.</p>
+        </div>
+        <div id="im-rrg-content" hidden>
         <article class="card section-card">
           <div class="section-heading">
             <div>
@@ -2034,6 +2040,7 @@
             </div>
           </div>
         </article>
+        </div>
       </section>
 
       <!-- ================= UPDATE & BILLING PAGE ================= -->
@@ -3310,7 +3317,7 @@
 
 
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script defer src="/frontend/app.js?v=1790876023"></script>
+  <script defer src="/frontend/app.js?v=1790876023-rrg-maintenance"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
