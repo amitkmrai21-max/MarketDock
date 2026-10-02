@@ -2541,7 +2541,6 @@ setInterval(loadRrg, 300000);
 
       const onboardingModal = document.getElementById("md-onboarding-modal");
       const trialModal = document.getElementById("md-trial-welcome-modal");
-      const subModal = document.getElementById("md-subscription-modal");
       const saveBtn = document.getElementById("md-save-profile-btn");
       const dismissBtn = document.getElementById("md-dismiss-trial-btn");
 
@@ -2562,11 +2561,6 @@ setInterval(loadRrg, 300000);
       })
       .then(res => res.json())
       .then(data => {
-        if (data.is_expired) {
-          if (subModal) subModal.style.display = "flex";
-          return;
-        }
-
         let localProfile = {};
         try {
           localProfile = JSON.parse(localStorage.getItem(`md_profile_${user.id}`) || "{}");
@@ -14747,8 +14741,6 @@ async function fetchWatchlist() {
 
 // ==================== MARKETDOCK TRIAL & ONBOARDING SYNC ====================
 (function initMarketdockProperFlow() {
-  const trialDurationMs = 7 * 24 * 60 * 60 * 1000;
-
   function syncNameToSettingsAndStorage(fullName) {
     if (!fullName) return;
     localStorage.setItem("marketdock_user_name", fullName);
@@ -14776,7 +14768,6 @@ async function fetchWatchlist() {
 
     const onboardingModal = document.getElementById("md-onboarding-modal");
     const trialWelcomeModal = document.getElementById("md-trial-welcome-modal");
-    const subscriptionModal = document.getElementById("md-subscription-modal");
     const saveBtn = document.getElementById("md-save-profile-btn");
     const dismissBtn = document.getElementById("md-dismiss-trial-btn");
 
@@ -14795,10 +14786,6 @@ async function fetchWatchlist() {
       syncNameToSettingsAndStorage(fullName);
       if (onboardingModal) onboardingModal.style.display = "none";
 
-      const elapsed = Date.now() - userProfile.trialStartedAt;
-      if (elapsed > trialDurationMs && subscriptionModal) {
-        subscriptionModal.style.display = "flex";
-      }
       return;
     }
 
