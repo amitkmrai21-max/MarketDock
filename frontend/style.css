@@ -13472,3 +13472,17 @@ button[data-page="im-live-chart"],
   border: 1px solid rgba(234, 179, 8, 0.35) !important;
   font-weight: 700 !important;
 }
+
+/* Ensure top header remains horizontal row with upgrade button pushed to far right */
+body > header.topbar {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+}
+
+#headerUpgradeBtn {
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+}
