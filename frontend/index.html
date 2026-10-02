@@ -105,45 +105,67 @@
       color: #475569 !important;
     }
   
-    /* Welcome Board Center-to-Top Smooth Entrance */
-    .onboarding-icon-wrap,
-    .onboarding-title {
-      animation: onboardingHeroSlide 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
-      will-change: transform, opacity;
+    /* Welcome Board: Logo & Title start at exact screen center, pause, then smoothly glide up to top and settle. Once settled, bottom items reveal smoothly. */
+    .onboarding-card {
+      animation: onboardingCardMaterialize 1.6s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
-    @keyframes onboardingHeroSlide {
-      0% {
-        opacity: 0;
-        transform: translateY(140px) scale(1.08);
-      }
-      15% {
-        opacity: 1;
-        transform: translateY(140px) scale(1.08);
-      }
-      42% {
-        opacity: 1;
-        transform: translateY(140px) scale(1.08);
+    @keyframes onboardingCardMaterialize {
+      0%, 35% {
+        background: transparent !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
       }
       100% {
+        background: #ffffff !important;
+        border-color: #dbe2ee !important;
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.12) !important;
+      }
+    }
+
+    .onboarding-icon-wrap,
+    .onboarding-title {
+      animation: onboardingCenterToTop 1.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+      will-change: transform, opacity;
+    }
+    @keyframes onboardingCenterToTop {
+      0% {
+        opacity: 0;
+        transform: translateY(230px) scale(1.12);
+      }
+      12% {
+        opacity: 1;
+        transform: translateY(230px) scale(1.12);
+      }
+      38% {
+        /* Screen ke center me ruk kar sthir dikhega */
+        opacity: 1;
+        transform: translateY(230px) scale(1.12);
+      }
+      100% {
+        /* Smoothly dheere se upar jakr apni jageh sthir ho jayega */
         opacity: 1;
         transform: translateY(0) scale(1);
       }
     }
+
     .onboarding-badge,
     .onboarding-tagline,
     .onboarding-features,
     .onboarding-actions,
+    .onboarding-explore-link,
     .onboarding-disclaimer-note {
-      animation: onboardingContentReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+      animation: onboardingBottomItemsReveal 2.0s cubic-bezier(0.16, 1, 0.3, 1) both;
       will-change: transform, opacity;
     }
-    @keyframes onboardingContentReveal {
-      0%, 46% {
+    @keyframes onboardingBottomItemsReveal {
+      0%, 75% {
+        /* Jab tak logo upar jakar ruk nahi jata, ye puri tarah chhupe rahenge */
         opacity: 0;
-        transform: translateY(24px);
+        transform: translateY(30px);
         pointer-events: none;
       }
       100% {
+        /* Upar sthir hone ke bad apne aap neeche se smoothly nikal kar dikhne lagenge */
         opacity: 1;
         transform: translateY(0);
         pointer-events: auto;
