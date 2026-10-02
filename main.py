@@ -211,7 +211,7 @@ def _load_env():
                         if line and not line.startswith("#") and "=" in line:
                             k, v = line.split("=", 1)
                             k = k.strip()
-                            v = v.strip().strip(""'")
+                            v = v.strip().strip("\"'")
                             if k and not os.environ.get(k):
                                 os.environ[k] = v
             except Exception:
