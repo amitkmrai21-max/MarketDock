@@ -2461,12 +2461,19 @@ setInterval(loadRrg, 300000);
       const email = session?.user?.email || "--";
       if (emailDisplay) emailDisplay.textContent = email;
       if (avatarEl) avatarEl.textContent = email.charAt(0) || "?";
+      if (session?.user?.email) {
+        localStorage.setItem("marketdock_user_email", session.user.email);
+        if (window.syncUserSubscription) window.syncUserSubscription(session.user.email);
+      }
     }
 
     function showLoggedOut() {
       loggedOutGroup.hidden = false;
       loggedInGroup.hidden = true;
       setStatus("", false);
+      localStorage.removeItem("marketdock_user_email");
+      localStorage.removeItem("marketdock_is_paid");
+      if (window.syncUserSubscription) window.syncUserSubscription("");
     }
 
     async function setButtonsBusy(busy) {
@@ -14843,9 +14850,65 @@ async function fetchWatchlist() {
     const proceedPayBtn = document.getElementById("md-proceed-pay-btn");
     const goDashboardBtn = document.getElementById("md-success-go-dashboard-btn");
 
-    function isUserPaid() {
-      return localStorage.getItem("marketdock_is_paid") === "true";
+    function getCurrentUserEmail() {
+      if (window.marketDockUser && window.marketDockUser.email) {
+        return window.marketDockUser.email.trim().toLowerCase();
+      }
+      if (window.marketDockSession && window.marketDockSession.user && window.marketDockSession.user.email) {
+        return window.marketDockSession.user.email.trim().toLowerCase();
+      }
+      const stored = localStorage.getItem("marketdock_user_email");
+      return stored ? stored.trim().toLowerCase() : "";
     }
+
+    function getActiveUserSub() {
+      const email = getCurrentUserEmail();
+      if (!email) return null;
+      try {
+        const raw = localStorage.getItem("marketdock_sub_" + email);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        return data && data.is_paid ? data : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function isUserPaid() {
+      const sub = getActiveUserSub();
+      return Boolean(sub && sub.is_paid);
+    }
+
+    async function syncUserSubscription(email) {
+      if (!email) {
+        refreshUpgradeButtonVisibility();
+        updateTrialStatusDates();
+        return;
+      }
+      email = email.trim().toLowerCase();
+      try {
+        const res = await fetch("/api/subscription/status?email=" + encodeURIComponent(email));
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.is_paid) {
+            localStorage.setItem("marketdock_sub_" + email, JSON.stringify({
+              is_paid: true,
+              plan: data.plan || "Annual Plan",
+              amount: data.amount || 999,
+              paid_at: data.paid_at,
+              valid_until: data.valid_until
+            }));
+          } else {
+            localStorage.removeItem("marketdock_sub_" + email);
+          }
+        }
+      } catch (err) {
+        console.warn("Subscription check error:", err);
+      }
+      refreshUpgradeButtonVisibility();
+      updateTrialStatusDates();
+    }
+    window.syncUserSubscription = syncUserSubscription;
 
     function refreshUpgradeButtonVisibility() {
       if (!headerUpgradeBtn) return;
@@ -14867,26 +14930,24 @@ async function fetchWatchlist() {
       const checkoutBtn = document.getElementById("md-go-to-checkout-btn");
 
       if (isUserPaid()) {
-        const planName = localStorage.getItem("marketdock_active_plan") || "Annual Plan";
-        const paidAmount = localStorage.getItem("marketdock_paid_amount") || "999";
-        const period = localStorage.getItem("marketdock_paid_period") || (planName.toLowerCase().includes("month") ? "1 Month" : (planName.toLowerCase().includes("quarter") ? "3 Months" : (planName.toLowerCase().includes("half") ? "6 Months" : "1 Year")));
+        const activeSub = getActiveUserSub() || {};
+        const planName = activeSub.plan || "Annual Plan";
+        const paidAmount = activeSub.amount || "999";
+        const period = activeSub.period || (planName.toLowerCase().includes("month") ? "1 Month" : (planName.toLowerCase().includes("quarter") ? "3 Months" : (planName.toLowerCase().includes("half") ? "6 Months" : "1 Year")));
 
-        let validUntilISO = localStorage.getItem("marketdock_valid_until");
+        let validUntilISO = activeSub.valid_until;
         if (!validUntilISO) {
-          const paidDateStr = localStorage.getItem("marketdock_paid_date");
-          const paidDate = paidDateStr ? new Date(paidDateStr) : new Date();
+          const paidDate = activeSub.paid_at ? new Date(activeSub.paid_at * 1000) : new Date();
           const future = new Date(paidDate);
           if (period === "1 Month") future.setMonth(future.getMonth() + 1);
           else if (period === "3 Months") future.setMonth(future.getMonth() + 3);
           else if (period === "6 Months") future.setMonth(future.getMonth() + 6);
           else future.setFullYear(future.getFullYear() + 1);
           validUntilISO = future.toISOString();
-          localStorage.setItem("marketdock_valid_until", validUntilISO);
         }
 
         const validUntilDate = new Date(validUntilISO);
         const validUntilStr = validUntilDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-        localStorage.setItem("marketdock_valid_until_formatted", validUntilStr);
 
         const diffMs = validUntilDate.getTime() - Date.now();
         const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
@@ -15053,15 +15114,21 @@ async function fetchWatchlist() {
                   throw new Error("Payment signature verification failed.");
                 }
 
-                // Payment verified! Store in localStorage
-                localStorage.setItem("marketdock_is_paid", "true");
-                localStorage.setItem("marketdock_active_plan", planName);
-                localStorage.setItem("marketdock_paid_amount", planAmount.toString());
-                localStorage.setItem("marketdock_paid_period", planPeriod);
-                localStorage.setItem("marketdock_payment_id", response.razorpay_payment_id);
-                localStorage.setItem("marketdock_paid_date", new Date().toISOString());
-                localStorage.setItem("marketdock_valid_until", future.toISOString());
-                localStorage.setItem("marketdock_valid_until_formatted", endStr);
+                // Payment verified! Store in user-scoped localStorage
+                const subRecord = {
+                  is_paid: true,
+                  plan: planName,
+                  amount: planAmount,
+                  period: planPeriod,
+                  payment_id: response.razorpay_payment_id,
+                  paid_at: Math.floor(Date.now() / 1000),
+                  valid_until: future.toISOString(),
+                  valid_until_formatted: endStr
+                };
+                if (userEmail) {
+                  localStorage.setItem("marketdock_sub_" + userEmail.toLowerCase(), JSON.stringify(subRecord));
+                }
+                localStorage.removeItem("marketdock_is_paid");
 
                 // Fill receipt
                 const recPlan = document.getElementById("md-receipt-plan");
