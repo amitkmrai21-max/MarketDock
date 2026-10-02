@@ -369,6 +369,31 @@ def get_subscription_status(email: str = ""):
         import datetime
         valid_until_iso = datetime.datetime.fromtimestamp(valid_until_ts, tz=datetime.timezone.utc).isoformat()
 
+    # Track 7-day trial per email
+    trial_start_ts = user_info.get("trial_start_ts")
+    trial_duration = 7 * 86400
+    if not is_paid:
+        if not trial_start_ts:
+            trial_start_ts = now
+            user_info["trial_start_ts"] = trial_start_ts
+            users[email] = user_info
+            try:
+                with open(USER_DB_FILE, "w", encoding="utf-8") as f:
+                    json.dump(users, f, indent=2)
+            except Exception:
+                pass
+    
+    trial_end_ts = (trial_start_ts + trial_duration) if trial_start_ts else (now + trial_duration)
+    time_left = trial_end_ts - now
+    trial_days_remaining = max(0, int(math.ceil(time_left / 86400.0))) if time_left > 0 else 0
+    trial_expired = bool(now >= trial_end_ts)
+    trial_active = bool(not is_paid and not trial_expired)
+
+    trial_end_iso = None
+    if trial_end_ts:
+        import datetime
+        trial_end_iso = datetime.datetime.fromtimestamp(trial_end_ts, tz=datetime.timezone.utc).isoformat()
+
     return {
         "email": email,
         "is_paid": is_paid,
@@ -376,6 +401,12 @@ def get_subscription_status(email: str = ""):
         "amount": user_info.get("amount"),
         "paid_at": paid_at,
         "valid_until_ts": valid_until_ts,
-        "valid_until": valid_until_iso
+        "valid_until": valid_until_iso,
+        "trial_start_ts": trial_start_ts,
+        "trial_end_ts": trial_end_ts,
+        "trial_end_iso": trial_end_iso,
+        "trial_days_remaining": trial_days_remaining,
+        "trial_expired": trial_expired,
+        "trial_active": trial_active
     }
 
