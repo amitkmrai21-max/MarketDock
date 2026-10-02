@@ -104,6 +104,52 @@
     html.im-show-onboarding .onboarding-explore-link {
       color: #475569 !important;
     }
+  
+    /* Welcome Board Center-to-Top Smooth Entrance */
+    .onboarding-icon-wrap,
+    .onboarding-title {
+      animation: onboardingHeroSlide 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+      will-change: transform, opacity;
+    }
+    @keyframes onboardingHeroSlide {
+      0% {
+        opacity: 0;
+        transform: translateY(140px) scale(1.08);
+      }
+      15% {
+        opacity: 1;
+        transform: translateY(140px) scale(1.08);
+      }
+      42% {
+        opacity: 1;
+        transform: translateY(140px) scale(1.08);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    .onboarding-badge,
+    .onboarding-tagline,
+    .onboarding-features,
+    .onboarding-actions,
+    .onboarding-disclaimer-note {
+      animation: onboardingContentReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+      will-change: transform, opacity;
+    }
+    @keyframes onboardingContentReveal {
+      0%, 46% {
+        opacity: 0;
+        transform: translateY(24px);
+        pointer-events: none;
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+    }
+
   </style>
 
 <style id="tight-engine-card-fix">
