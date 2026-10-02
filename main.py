@@ -320,3 +320,27 @@ def verify_razorpay_payment(req: RazorpayVerifyRequest):
         "payment_id": req.razorpay_payment_id,
         "plan": req.plan_name
     }
+
+@app.get("/api/subscription/status")
+def get_subscription_status(email: str = ""):
+    email = (email or "").strip().lower()
+    if not email:
+        return {"is_paid": False, "plan": None, "active": False}
+    users = {}
+    if os.path.exists(USER_DB_FILE):
+        try:
+            with open(USER_DB_FILE, "r", encoding="utf-8") as f:
+                users = json.load(f)
+        except Exception:
+            users = {}
+    user_info = users.get(email, {})
+    is_paid = bool(user_info.get("is_paid", False))
+    return {
+        "email": email,
+        "is_paid": is_paid,
+        "plan": user_info.get("plan"),
+        "amount": user_info.get("amount"),
+        "paid_at": user_info.get("paid_at", 0),
+        "valid_until": user_info.get("valid_until")
+    }
+
