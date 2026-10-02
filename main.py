@@ -311,6 +311,16 @@ def verify_razorpay_payment(req: RazorpayVerifyRequest):
         users[email]["payment_id"] = req.razorpay_payment_id
         users[email]["paid_at"] = now
         users[email]["amount"] = req.amount
+        plan_lower = (req.plan_name or "").lower()
+        if "month" in plan_lower:
+            days = 30
+        elif "quarter" in plan_lower:
+            days = 90
+        elif "half" in plan_lower:
+            days = 180
+        else:
+            days = 365
+        users[email]["valid_until_ts"] = now + (days * 86400)
         with open(USER_DB_FILE, "w", encoding="utf-8") as f:
             json.dump(users, f, indent=2)
 
@@ -335,12 +345,37 @@ def get_subscription_status(email: str = ""):
             users = {}
     user_info = users.get(email, {})
     is_paid = bool(user_info.get("is_paid", False))
+    now = int(time.time())
+    paid_at = user_info.get("paid_at", 0)
+    valid_until_ts = user_info.get("valid_until_ts")
+    if is_paid and not valid_until_ts and paid_at:
+        plan_lower = (user_info.get("plan") or "").lower()
+        if "month" in plan_lower:
+            days = 30
+        elif "quarter" in plan_lower:
+            days = 90
+        elif "half" in plan_lower:
+            days = 180
+        else:
+            days = 365
+        valid_until_ts = paid_at + (days * 86400)
+
+    # Check if expired
+    if valid_until_ts and now > valid_until_ts:
+        is_paid = False
+
+    valid_until_iso = None
+    if valid_until_ts:
+        import datetime
+        valid_until_iso = datetime.datetime.fromtimestamp(valid_until_ts, tz=datetime.timezone.utc).isoformat()
+
     return {
         "email": email,
         "is_paid": is_paid,
         "plan": user_info.get("plan"),
         "amount": user_info.get("amount"),
-        "paid_at": user_info.get("paid_at", 0),
-        "valid_until": user_info.get("valid_until")
+        "paid_at": paid_at,
+        "valid_until_ts": valid_until_ts,
+        "valid_until": valid_until_iso
     }
 
