@@ -14860,15 +14860,74 @@ async function fetchWatchlist() {
       const datesSpan = document.getElementById("md-overview-trial-dates");
       const titleDiv = document.getElementById("md-overview-trial-title");
       const subDiv = document.getElementById("md-overview-trial-sub");
+      const statusIcon = document.getElementById("md-overview-status-icon");
+      const calloutBox = document.getElementById("md-overview-callout");
+      const calloutIcon = document.getElementById("md-callout-icon");
+      const calloutText = document.getElementById("md-callout-text");
+      const checkoutBtn = document.getElementById("md-go-to-checkout-btn");
+
       if (isUserPaid()) {
-        if (titleDiv) titleDiv.textContent = "Marketdock Premium Active";
-        if (subDiv) subDiv.textContent = "All professional analytical tools are completely unlocked.";
-        if (datesSpan) datesSpan.textContent = "Active Plan: " + (localStorage.getItem("marketdock_active_plan") || "Annual Plan");
+        const planName = localStorage.getItem("marketdock_active_plan") || "Annual Plan";
+        const paidAmount = localStorage.getItem("marketdock_paid_amount") || "999";
+        const period = localStorage.getItem("marketdock_paid_period") || (planName.toLowerCase().includes("month") ? "1 Month" : (planName.toLowerCase().includes("quarter") ? "3 Months" : (planName.toLowerCase().includes("half") ? "6 Months" : "1 Year")));
+
+        let validUntilISO = localStorage.getItem("marketdock_valid_until");
+        if (!validUntilISO) {
+          const paidDateStr = localStorage.getItem("marketdock_paid_date");
+          const paidDate = paidDateStr ? new Date(paidDateStr) : new Date();
+          const future = new Date(paidDate);
+          if (period === "1 Month") future.setMonth(future.getMonth() + 1);
+          else if (period === "3 Months") future.setMonth(future.getMonth() + 3);
+          else if (period === "6 Months") future.setMonth(future.getMonth() + 6);
+          else future.setFullYear(future.getFullYear() + 1);
+          validUntilISO = future.toISOString();
+          localStorage.setItem("marketdock_valid_until", validUntilISO);
+        }
+
+        const validUntilDate = new Date(validUntilISO);
+        const validUntilStr = validUntilDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+        localStorage.setItem("marketdock_valid_until_formatted", validUntilStr);
+
+        const diffMs = validUntilDate.getTime() - Date.now();
+        const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+
+        if (titleDiv) titleDiv.innerHTML = 'Plan Status: <span style="color:#16a34a; background:#dcfce7; padding:2px 8px; border-radius:6px; font-size:14px; margin-left:4px;">ACTIVE ✓</span>';
+        if (subDiv) subDiv.textContent = `Marketdock Premium • ${planName} (₹${paidAmount})`;
+        if (datesSpan) datesSpan.innerHTML = `Valid until: <strong style="color:#15803d;">${validUntilStr}</strong> (${daysRemaining} days remaining)`;
+
+        if (statusIcon) {
+          statusIcon.innerHTML = '<span style="font-size:20px;">👑</span>';
+          statusIcon.style.background = "#fef9c3";
+          statusIcon.style.color = "#ca8a04";
+        }
+
+        if (calloutBox) {
+          calloutBox.style.background = "#f0fdf4";
+          calloutBox.style.borderColor = "#bbf7d0";
+        }
+        if (calloutIcon) calloutIcon.textContent = "✅";
+        if (calloutText) {
+          calloutText.style.color = "#166534";
+          calloutText.innerHTML = `<b>Your Marketdock Premium subscription is active.</b><br/>All real-time features, analytical tools, and paper trading remain fully accessible until <b>${validUntilStr}</b>.`;
+        }
+
+        if (checkoutBtn) {
+          checkoutBtn.innerHTML = `✓ Active Plan: ${planName} (Valid until ${validUntilStr})`;
+          checkoutBtn.style.background = "#16a34a";
+          checkoutBtn.style.boxShadow = "0 4px 12px rgba(22,163,74,0.3)";
+        }
       } else {
         const savedTime = parseInt(localStorage.getItem("marketdock_trial_start") || "0", 10) || Date.now();
         const endDate = new Date(savedTime + 7 * 24 * 3600 * 1000);
         const dateStr = endDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+        if (titleDiv) titleDiv.textContent = "7 Days Free Trial Active";
+        if (subDiv) subDiv.textContent = "Your premium features are unlocked for 7 days.";
         if (datesSpan) datesSpan.textContent = `Trial ends on: ${dateStr}`;
+        if (checkoutBtn) {
+          checkoutBtn.innerHTML = "Upgrade to Premium Plan &rarr;";
+          checkoutBtn.style.background = "#2563eb";
+          checkoutBtn.style.boxShadow = "0 4px 12px rgba(37,99,235,0.3)";
+        }
       }
     }
 
@@ -14998,8 +15057,11 @@ async function fetchWatchlist() {
                 localStorage.setItem("marketdock_is_paid", "true");
                 localStorage.setItem("marketdock_active_plan", planName);
                 localStorage.setItem("marketdock_paid_amount", planAmount.toString());
+                localStorage.setItem("marketdock_paid_period", planPeriod);
                 localStorage.setItem("marketdock_payment_id", response.razorpay_payment_id);
                 localStorage.setItem("marketdock_paid_date", new Date().toISOString());
+                localStorage.setItem("marketdock_valid_until", future.toISOString());
+                localStorage.setItem("marketdock_valid_until_formatted", endStr);
 
                 // Fill receipt
                 const recPlan = document.getElementById("md-receipt-plan");
