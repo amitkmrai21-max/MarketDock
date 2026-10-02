@@ -2866,6 +2866,11 @@ setInterval(loadRrg, 300000);
     });
 
     supabaseClient.auth.onAuthStateChange((_event, session) => {
+      if (document.getElementById("im-rrg")?.classList.contains("active")) {
+        document.querySelector('.nav-button[data-page="im-rrg"]')?.click();
+      } else {
+        updateRrgMaintenanceView(false);
+      }
       updateOnboardingVisibility(session);
       window.marketDockSession = session || null;
       window.marketDockUser = session?.user || null;
@@ -4710,6 +4715,50 @@ function clearLiveChartAiOverlay() {
 })();
 
 /* ===== Indian Market mode (namespaced, isolated from BTC site logic) ===== */
+// RRG maintenance access is verified by the live RRG service on every request.
+// This client check only controls presentation; it never grants data access.
+const RRG_MAINTENANCE_OWNER_EMAIL = "amitkmrai21@gmail.com";
+let rrgAccessRequest = 0;
+
+async function getRrgMaintenanceAccess() {
+  const auth = window.marketDockSupabase?.auth;
+  if (!auth) return { allowed: false, token: null };
+  try {
+    const { data, error } = await auth.getUser();
+    if (error || !data?.user?.email_confirmed_at ||
+        data.user.email?.trim().toLowerCase() !== RRG_MAINTENANCE_OWNER_EMAIL) {
+      return { allowed: false, token: null };
+    }
+    const { data: sessionData } = await auth.getSession();
+    const token = sessionData?.session?.access_token;
+    return { allowed: Boolean(token), token: token || null };
+  } catch {
+    return { allowed: false, token: null };
+  }
+}
+
+function updateRrgMaintenanceView(allowed, checking = false) {
+  const notice = document.getElementById("im-rrg-maintenance");
+  const content = document.getElementById("im-rrg-content");
+  const button = document.querySelector('.nav-button[data-page="im-rrg"]');
+  if (notice) {
+    notice.hidden = allowed;
+    const message = notice.querySelector("[data-rrg-message]");
+    if (message) message.textContent = checking ? "Checking access…" : "RRG is under maintenance. Please check back later.";
+  }
+  if (content) content.hidden = !allowed;
+  if (button) {
+    const badge = button.querySelector(".rrg-lock-badge");
+    if (allowed) badge?.remove();
+    else if (!badge) {
+      const lock = document.createElement("span");
+      lock.className = "rrg-lock-badge";
+      lock.textContent = " 🔒";
+      button.appendChild(lock);
+    }
+  }
+}
+
 (function IndianMarketModule() {
   const pageInfo = {
     "im-dashboard": {
@@ -4899,15 +4948,27 @@ function clearLiveChartAiOverlay() {
     }
 
     if (pageId === "im-rrg") {
-      // The symbol/quotes panel and the RRG chart data are independent —
-      // fetching them in parallel instead of chaining with .then() roughly
-      // halves how long the page feels like it's opening.
-      if (typeof loadImRrgSymbolPanel === "function") loadImRrgSymbolPanel();
-      if (typeof fetchImRrg === "function") fetchImRrg();
-      if (typeof startImRrgQuotesPolling === "function") startImRrgQuotesPolling();
-    } else if (typeof stopImRrgQuotesPolling === "function") {
-      stopImRrgQuotesPolling();
+      const accessRequest = ++rrgAccessRequest;
+      updateRrgMaintenanceView(false, true);
+      getRrgMaintenanceAccess().then(({ allowed }) => {
+        if (accessRequest !== rrgAccessRequest || !document.getElementById("im-rrg")?.classList.contains("active")) return;
+        updateRrgMaintenanceView(allowed);
+        if (!allowed) {
+          stopImRrgQuotesPolling();
+          pauseImRrgAnimation();
+          imRrgData = null;
+          imRrgChart?.destroy();
+          imRrgChart = null;
+          return;
+        }
+        loadImRrgSymbolPanel();
+        fetchImRrg();
+        startImRrgQuotesPolling();
+      });
+    } else {
+      ++rrgAccessRequest;
     }
+    if (pageId !== "im-rrg") stopImRrgQuotesPolling();
 
     if (pageId === "im-heatmap") {
       if (typeof startHeatmapPolling === "function") startHeatmapPolling();
@@ -9530,6 +9591,8 @@ async function fetchWatchlist() {
   }
 
   async function fetchImRrg() {
+    const { allowed, token } = await getRrgMaintenanceAccess();
+    if (!allowed || !token || !document.getElementById("im-rrg")?.classList.contains("active")) return;
     setImRrgStatus(`Loading ${imRrgTimeframe.toUpperCase()} RRG data…`, false);
     try {
       // On the very first load the symbol panel hasn't resolved its default
@@ -9540,11 +9603,20 @@ async function fetchWatchlist() {
       const symbolsParam = imRrgPanelEverLoaded
         ? `&symbols=${encodeURIComponent(Array.from(imRrgSelectedSymbols).join(","))}`
         : "";
-      const response = await fetch(`${API_BASE_URL}/api/rrg?interval=${imRrgTimeframe}${symbolsParam}`);
+      const response = await fetch(`${API_BASE_URL}/api/rrg?interval=${imRrgTimeframe}${symbolsParam}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
       const result = await response.json();
       if (!response.ok || !result.ok) {
+        if (response.status === 401 || response.status === 403) {
+          updateRrgMaintenanceView(false);
+          stopImRrgQuotesPolling();
+          imRrgData = null;
+          imRrgChart?.destroy();
+          imRrgChart = null;
+          return;
+        }
         throw new Error(result.error || "RRG request failed.");
       }
+      if (!document.getElementById("im-rrg")?.classList.contains("active")) return;
       imRrgData = result.data;
       if (typeof pauseImRrgAnimation === "function") pauseImRrgAnimation();
       imRrgAnimWindowStart = 0;
@@ -9807,10 +9879,12 @@ async function fetchWatchlist() {
   let imRrgPanelEverLoaded = false;
 
   async function loadImRrgSymbolPanel() {
+    const { allowed, token } = await getRrgMaintenanceAccess();
+    if (!allowed || !token || !document.getElementById("im-rrg")?.classList.contains("active")) return;
     try {
       const [symbolsRes, quotesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/rrg/symbols`).then((r) => r.json()),
-        fetch(`${API_BASE_URL}/api/rrg/quotes`).then((r) => r.json())
+        fetch(`${API_BASE_URL}/api/rrg/symbols`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }).then((r) => r.json()),
+        fetch(`${API_BASE_URL}/api/rrg/quotes`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }).then((r) => r.json())
       ]);
       if (symbolsRes.ok) {
         imRrgAllSymbols = symbolsRes.symbols || [];
@@ -9834,9 +9908,21 @@ async function fetchWatchlist() {
   let imRrgQuotesTimer = null;
 
   async function refreshImRrgQuotes() {
+    const { allowed, token } = await getRrgMaintenanceAccess();
+    if (!allowed || !token || !document.getElementById("im-rrg")?.classList.contains("active")) {
+      stopImRrgQuotesPolling();
+      updateRrgMaintenanceView(false);
+      return;
+    }
     try {
-      const quotesRes = await fetch(`${API_BASE_URL}/api/rrg/quotes`).then((r) => r.json());
-      if (!quotesRes.ok) return;
+      const quotesRes = await fetch(`${API_BASE_URL}/api/rrg/quotes`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }).then((r) => r.json());
+      if (!quotesRes.ok) {
+        if (!document.getElementById("im-rrg-content")?.hidden) {
+          updateRrgMaintenanceView(false);
+          stopImRrgQuotesPolling();
+        }
+        return;
+      }
       imRrgQuotesMap = {};
       (quotesRes.data || []).forEach((q) => { imRrgQuotesMap[q.symbol] = q; });
       renderRrgSymbolPanel(document.getElementById("im-rrg-search")?.value);
@@ -9971,6 +10057,8 @@ async function fetchWatchlist() {
   }
 
   async function loadImRrgSingleChart(symbol, timeframe) {
+    const { allowed } = await getRrgMaintenanceAccess();
+    if (!allowed || !document.getElementById("im-rrg")?.classList.contains("active")) return;
     imRrgSelectedSingleSymbol = symbol;
     if (timeframe) imRrgChartTimeframe = timeframe;
     mountSharedChartForRrg();
@@ -14775,69 +14863,6 @@ async function fetchWatchlist() {
     attachAuthWatcher();
   }
 })();
-
-// ==================== RRG DEV GATEKEEPER ====================
-(function initRrgGatekeeper() {
-  const ADMIN_EMAILS = ["amitkmrai21@gmail.com"];
-
-  function checkRrgAccess() {
-    const rrgBtn = document.querySelector('.nav-button[data-page="im-rrg"]');
-    if (!rrgBtn) return;
-
-    // Check logged in user email
-    let currentEmail = "";
-    if (window.marketDockUser && window.marketDockUser.email) {
-      currentEmail = window.marketDockUser.email.toLowerCase();
-    } else {
-      try {
-        const authData = JSON.parse(localStorage.getItem("sb-pfgkufhpxgoxevvshfqq-auth-token") || "{}");
-        currentEmail = (authData?.user?.email || "").toLowerCase();
-      } catch (e) {
-        currentEmail = "";
-      }
-    }
-
-    const isAdmin = ADMIN_EMAILS.includes(currentEmail);
-
-    // Existing lock badge handle
-    let badge = rrgBtn.querySelector('.rrg-lock-badge');
-
-    if (isAdmin) {
-      // Admin: remove lock badge and clone to clear blocked click listeners
-      if (badge) badge.remove();
-      rrgBtn.style.opacity = "1";
-      rrgBtn.style.cursor = "pointer";
-      rrgBtn.removeAttribute("title");
-    } else {
-      // Normal User: Lock badge lagao aur click intercept karo
-      if (!badge) {
-        badge = document.createElement("span");
-        badge.className = "rrg-lock-badge";
-        badge.innerHTML = " 🔒";
-        badge.style.fontSize = "11px";
-        badge.style.opacity = "0.75";
-        rrgBtn.appendChild(badge);
-      }
-
-      rrgBtn.onclick = function(e) {
-        // Re-check in case user just logged in
-        let recheckEmail = (window.marketDockUser?.email || "").toLowerCase();
-        if (ADMIN_EMAILS.includes(recheckEmail)) return true;
-
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        alert("🔒 Feature Under Development\n\nRRG (Relative Rotation Graph) is currently undergoing calibration and testing. This feature will be enabled in an upcoming release.");
-        return false;
-      };
-    }
-  }
-
-  // Periodic and state change check
-  document.addEventListener("DOMContentLoaded", checkRrgAccess);
-  window.addEventListener("load", checkRrgAccess);
-  setInterval(checkRrgAccess, 1500);
-})();
-
 
   // ================= MARKETDOCK UPDATE & BILLING CONTROLLER =================
   function initUpdateAndBillingController() {
