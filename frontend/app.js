@@ -4749,6 +4749,10 @@ function clearLiveChartAiOverlay() {
       title: "Price & Signal Alerts",
       subtitle: "Browser alerts for NIFTY 50 / Bank Nifty price targets and decision changes."
     },
+    "im-update": {
+      title: "Subscription & Update",
+      subtitle: "Manage your MarketDock subscription, billing plans, and account tier."
+    },
     "im-live-chart": {
       title: "Live Market Chart",
       subtitle: "Custom chart workspace for NIFTY 50 and Bank Nifty."
@@ -14826,3 +14830,154 @@ async function fetchWatchlist() {
   window.addEventListener("load", checkRrgAccess);
   setInterval(checkRrgAccess, 1500);
 })();
+
+
+  // ================= MARKETDOCK UPDATE & BILLING CONTROLLER =================
+  function initUpdateAndBillingController() {
+    const headerUpgradeBtn = document.getElementById("headerUpgradeBtn");
+    const overviewView = document.getElementById("md-update-view-overview");
+    const checkoutView = document.getElementById("md-update-view-checkout");
+    const successView = document.getElementById("md-update-view-success");
+    const goToCheckoutBtn = document.getElementById("md-go-to-checkout-btn");
+    const backBtn = document.getElementById("md-checkout-back-btn");
+    const proceedPayBtn = document.getElementById("md-proceed-pay-btn");
+    const goDashboardBtn = document.getElementById("md-success-go-dashboard-btn");
+
+    function isUserPaid() {
+      return localStorage.getItem("marketdock_is_paid") === "true";
+    }
+
+    function refreshUpgradeButtonVisibility() {
+      if (!headerUpgradeBtn) return;
+      if (isUserPaid()) {
+        headerUpgradeBtn.style.display = "none";
+      } else {
+        headerUpgradeBtn.style.display = "inline-flex";
+      }
+    }
+
+    function updateTrialStatusDates() {
+      const datesSpan = document.getElementById("md-overview-trial-dates");
+      const titleDiv = document.getElementById("md-overview-trial-title");
+      const subDiv = document.getElementById("md-overview-trial-sub");
+      if (isUserPaid()) {
+        if (titleDiv) titleDiv.textContent = "Marketdock Premium Active";
+        if (subDiv) subDiv.textContent = "All professional analytical tools are completely unlocked.";
+        if (datesSpan) datesSpan.textContent = "Active Plan: " + (localStorage.getItem("marketdock_active_plan") || "Annual Plan");
+      } else {
+        const savedTime = parseInt(localStorage.getItem("marketdock_trial_start") || "0", 10) || Date.now();
+        const endDate = new Date(savedTime + 7 * 24 * 3600 * 1000);
+        const dateStr = endDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+        if (datesSpan) datesSpan.textContent = `Trial ends on: ${dateStr}`;
+      }
+    }
+
+    if (headerUpgradeBtn) {
+      headerUpgradeBtn.onclick = function() {
+        const updateNav = document.getElementById("sidebarUpdateBtn") || document.querySelector('[data-page="im-update"]');
+        if (updateNav) {
+          updateNav.click();
+        } else {
+          document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+          const upPage = document.getElementById("im-update");
+          if (upPage) upPage.classList.add("active");
+        }
+        if (overviewView) overviewView.style.display = "block";
+        if (checkoutView) checkoutView.style.display = "none";
+        if (successView) successView.style.display = "none";
+      };
+    }
+
+    if (goToCheckoutBtn) {
+      goToCheckoutBtn.onclick = function() {
+        if (overviewView) overviewView.style.display = "none";
+        if (checkoutView) checkoutView.style.display = "block";
+        if (successView) successView.style.display = "none";
+      };
+    }
+
+    if (backBtn) {
+      backBtn.onclick = function() {
+        if (checkoutView) checkoutView.style.display = "none";
+        if (overviewView) overviewView.style.display = "block";
+      };
+    }
+
+    // Radio change for plan amount
+    document.querySelectorAll('input[name="md_plan_choice"]').forEach(radio => {
+      radio.onchange = function() {
+        const val = this.value;
+        if (proceedPayBtn) {
+          proceedPayBtn.textContent = `Proceed to Pay ₹${val}`;
+        }
+        document.querySelectorAll(".md-plan-card").forEach(c => {
+          c.style.borderColor = "#e2e8f0";
+          c.style.background = "var(--card-bg, #ffffff)";
+        });
+        const parent = this.closest(".md-plan-card");
+        if (parent) {
+          parent.style.borderColor = "#2563eb";
+          parent.style.background = "#eff6ff";
+        }
+      };
+    });
+
+    if (proceedPayBtn) {
+      proceedPayBtn.onclick = function() {
+        const selectedRadio = document.querySelector('input[name="md_plan_choice"]:checked');
+        const planName = selectedRadio ? selectedRadio.getAttribute("data-name") : "Annual Plan";
+        const planAmount = selectedRadio ? selectedRadio.value : "999";
+        const planPeriod = selectedRadio ? selectedRadio.getAttribute("data-period") : "1 Year";
+
+        // Mark paid in local storage
+        localStorage.setItem("marketdock_is_paid", "true");
+        localStorage.setItem("marketdock_active_plan", planName);
+        localStorage.setItem("marketdock_paid_amount", planAmount);
+        localStorage.setItem("marketdock_paid_date", new Date().toISOString());
+
+        // Fill receipt
+        const recPlan = document.getElementById("md-receipt-plan");
+        const recAmt = document.getElementById("md-receipt-amount");
+        const recStart = document.getElementById("md-receipt-start");
+        const recEnd = document.getElementById("md-receipt-end");
+
+        const today = new Date();
+        const startStr = today.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+        const future = new Date(today);
+        if (planPeriod === "1 Month") future.setMonth(future.getMonth() + 1);
+        else if (planPeriod === "3 Months") future.setMonth(future.getMonth() + 3);
+        else if (planPeriod === "6 Months") future.setMonth(future.getMonth() + 6);
+        else future.setFullYear(future.getFullYear() + 1);
+        const endStr = future.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+        if (recPlan) recPlan.textContent = planName;
+        if (recAmt) recAmt.textContent = `₹${planAmount}`;
+        if (recStart) recStart.textContent = startStr;
+        if (recEnd) recEnd.textContent = endStr;
+
+        // Switch to success view
+        if (checkoutView) checkoutView.style.display = "none";
+        if (successView) successView.style.display = "block";
+
+        // Hide yellow upgrade button
+        refreshUpgradeButtonVisibility();
+        updateTrialStatusDates();
+      };
+    }
+
+    if (goDashboardBtn) {
+      goDashboardBtn.onclick = function() {
+        const dashNav = document.querySelector('[data-page="im-dashboard"]');
+        if (dashNav) dashNav.click();
+      };
+    }
+
+    refreshUpgradeButtonVisibility();
+    updateTrialStatusDates();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initUpdateAndBillingController);
+  } else {
+    initUpdateAndBillingController();
+  }
