@@ -2560,9 +2560,22 @@ setInterval(loadRrg, 300000);
           return;
         }
 
-        const localProfile = JSON.parse(localStorage.getItem(`md_profile_${user.id}`) || "{}");
-        if (localProfile.firstName && localProfile.lastName) {
-          syncToSettingsInput(`${localProfile.firstName} ${localProfile.lastName}`);
+        let localProfile = {};
+        try {
+          localProfile = JSON.parse(localStorage.getItem(`md_profile_${user.id}`) || "{}");
+        } catch(e) {}
+
+        const googleName = (user.user_metadata?.full_name || user.user_metadata?.name || localStorage.getItem("marketdock_user_name") || "").trim();
+        if ((localProfile.firstName && localProfile.lastName) || googleName) {
+          const finalName = googleName || `${localProfile.firstName} ${localProfile.lastName}`.trim();
+          const parts = finalName.split(" ");
+          const fName = localProfile.firstName || parts[0] || "";
+          const lName = localProfile.lastName || parts.slice(1).join(" ") || "";
+          localStorage.setItem(`md_profile_${user.id}`, JSON.stringify({ firstName: fName, lastName: lName }));
+          localStorage.setItem(`marketdock_profile_${user.id}`, JSON.stringify({ firstName: fName, lastName: lName, trialStartedAt: localProfile.trialStartedAt || Date.now() }));
+          localStorage.setItem("marketdock_user_name", finalName);
+          syncToSettingsInput(finalName);
+          if (onboardingModal) onboardingModal.style.display = "none";
           return;
         }
 
@@ -14668,16 +14681,21 @@ async function fetchWatchlist() {
     const saveBtn = document.getElementById("md-save-profile-btn");
     const dismissBtn = document.getElementById("md-dismiss-trial-btn");
 
-    // Agar name pehle se saved hai
-    if (userProfile.firstName && userProfile.lastName) {
-      const fullName = `${userProfile.firstName} ${userProfile.lastName}`.trim();
-      syncNameToSettingsAndStorage(fullName);
-
-      // Check 7-day expiration
+    const googleName = (user.user_metadata?.full_name || user.user_metadata?.name || localStorage.getItem("marketdock_user_name") || "").trim();
+    // Agar name pehle se saved hai ya Google OAuth se mil gaya hai
+    if ((userProfile.firstName && userProfile.lastName) || googleName) {
+      const fullName = googleName || `${userProfile.firstName} ${userProfile.lastName}`.trim();
+      const parts = fullName.split(" ");
+      userProfile.firstName = userProfile.firstName || parts[0] || "";
+      userProfile.lastName = userProfile.lastName || parts.slice(1).join(" ") || "";
       if (!userProfile.trialStartedAt) {
         userProfile.trialStartedAt = Date.now();
-        localStorage.setItem(profileKey, JSON.stringify(userProfile));
       }
+      localStorage.setItem(profileKey, JSON.stringify(userProfile));
+      localStorage.setItem(`md_profile_${userId}`, JSON.stringify({ firstName: userProfile.firstName, lastName: userProfile.lastName }));
+      syncNameToSettingsAndStorage(fullName);
+      if (onboardingModal) onboardingModal.style.display = "none";
+
       const elapsed = Date.now() - userProfile.trialStartedAt;
       if (elapsed > trialDurationMs && subscriptionModal) {
         subscriptionModal.style.display = "flex";
@@ -14685,7 +14703,7 @@ async function fetchWatchlist() {
       return;
     }
 
-    // Agar naya user hai jisne abhi sign in kiya hai -> Name prompt modal kholo
+    // Agar naya user hai bina name ke -> Name prompt modal kholo
     if (onboardingModal) {
       onboardingModal.style.display = "flex";
     }
