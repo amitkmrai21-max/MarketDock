@@ -1813,6 +1813,9 @@ def index_candles():
 
 @app.get("/api/rrg/symbols")
 def rrg_symbols():
+    denied = require_rrg_maintenance_owner()
+    if denied is not None:
+        return denied
     return jsonify(
         {
             "ok": True,
@@ -1822,12 +1825,45 @@ def rrg_symbols():
     )
 
 
+RRG_MAINTENANCE_OWNER_EMAIL = "amitkmrai21@gmail.com"
+SUPABASE_AUTH_URL = "https://qvgfxtjwgrtytjdjcebj.supabase.co/auth/v1/user"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DRsCPkKaKRYPrQDFtqV0xQ_7QeP4kYh"
+
+
+def require_rrg_maintenance_owner():
+    """Verify the access token with Auth, not a browser-provided email or JWT claim."""
+    authorization = request.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer ") or not authorization[7:].strip():
+        return jsonify({"ok": False, "error": "Sign in to access RRG."}), 401
+    try:
+        response = requests.get(
+            SUPABASE_AUTH_URL,
+            headers={"apikey": SUPABASE_PUBLISHABLE_KEY, "Authorization": authorization},
+            timeout=8,
+        )
+    except requests.RequestException:
+        return jsonify({"ok": False, "error": "RRG access check unavailable."}), 503
+    if response.status_code != 200:
+        return jsonify({"ok": False, "error": "Sign in again to access RRG."}), 401
+    try:
+        user = response.json()
+    except ValueError:
+        return jsonify({"ok": False, "error": "RRG access check unavailable."}), 503
+    email = (user.get("email") or "").strip().lower()
+    if not user.get("id") or not user.get("email_confirmed_at") or email != RRG_MAINTENANCE_OWNER_EMAIL:
+        return jsonify({"ok": False, "error": "RRG is under maintenance."}), 403
+    return None
+
+
 _rrg_quotes_cache = {"data": None, "fetched_at": 0}
 RRG_QUOTES_CACHE_SECONDS = 60
 
 
 @app.get("/api/rrg/quotes")
 def rrg_quotes():
+    denied = require_rrg_maintenance_owner()
+    if denied is not None:
+        return denied
     if not UPSTOX_ACCESS_TOKEN:
         return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
 
@@ -1847,6 +1883,9 @@ def rrg_quotes():
 
 @app.get("/api/rrg")
 def rrg():
+    denied = require_rrg_maintenance_owner()
+    if denied is not None:
+        return denied
     interval = request.args.get("interval", "1d").lower().strip()
     if interval not in {"1d", "1h"}:
         return jsonify({"ok": False, "error": "Unsupported interval. Use: 1d or 1h."}), 400
