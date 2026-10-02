@@ -14923,45 +14923,134 @@ async function fetchWatchlist() {
     });
 
     if (proceedPayBtn) {
-      proceedPayBtn.onclick = function() {
+      proceedPayBtn.onclick = async function() {
         const selectedRadio = document.querySelector('input[name="md_plan_choice"]:checked');
         const planName = selectedRadio ? selectedRadio.getAttribute("data-name") : "Annual Plan";
-        const planAmount = selectedRadio ? selectedRadio.value : "999";
+        const planAmount = parseInt(selectedRadio ? selectedRadio.value : "999", 10);
         const planPeriod = selectedRadio ? selectedRadio.getAttribute("data-period") : "1 Year";
 
-        // Mark paid in local storage
-        localStorage.setItem("marketdock_is_paid", "true");
-        localStorage.setItem("marketdock_active_plan", planName);
-        localStorage.setItem("marketdock_paid_amount", planAmount);
-        localStorage.setItem("marketdock_paid_date", new Date().toISOString());
+        const userEmail = (localStorage.getItem("marketdock_user_email") || "").trim();
+        const userName = (localStorage.getItem("marketdock_user_name") || "Subscriber").trim();
 
-        // Fill receipt
-        const recPlan = document.getElementById("md-receipt-plan");
-        const recAmt = document.getElementById("md-receipt-amount");
-        const recStart = document.getElementById("md-receipt-start");
-        const recEnd = document.getElementById("md-receipt-end");
+        const originalBtnText = proceedPayBtn.textContent;
+        proceedPayBtn.disabled = true;
+        proceedPayBtn.textContent = "Connecting to Razorpay...";
 
-        const today = new Date();
-        const startStr = today.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-        const future = new Date(today);
-        if (planPeriod === "1 Month") future.setMonth(future.getMonth() + 1);
-        else if (planPeriod === "3 Months") future.setMonth(future.getMonth() + 3);
-        else if (planPeriod === "6 Months") future.setMonth(future.getMonth() + 6);
-        else future.setFullYear(future.getFullYear() + 1);
-        const endStr = future.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+        try {
+          // 1. Create order on server
+          const orderRes = await fetch("/api/payment/create-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              plan_name: planName,
+              amount: planAmount,
+              email: userEmail
+            })
+          });
 
-        if (recPlan) recPlan.textContent = planName;
-        if (recAmt) recAmt.textContent = `₹${planAmount}`;
-        if (recStart) recStart.textContent = startStr;
-        if (recEnd) recEnd.textContent = endStr;
+          if (!orderRes.ok) {
+            const errJson = await orderRes.json().catch(() => ({}));
+            throw new Error(errJson.detail || "Could not initiate payment order");
+          }
 
-        // Switch to success view
-        if (checkoutView) checkoutView.style.display = "none";
-        if (successView) successView.style.display = "block";
+          const orderData = await orderRes.json();
 
-        // Hide yellow upgrade button
-        refreshUpgradeButtonVisibility();
-        updateTrialStatusDates();
+          // 2. Open Razorpay Checkout modal
+          const rzpOptions = {
+            key: orderData.key_id,
+            amount: orderData.amount,
+            currency: orderData.currency || "INR",
+            name: "MarketDock",
+            description: planName + " Subscription",
+            image: "https://marketdock.in/favicon.ico",
+            order_id: orderData.order_id,
+            prefill: {
+              name: userName,
+              email: userEmail
+            },
+            notes: {
+              plan: planName
+            },
+            theme: {
+              color: "#2563eb"
+            },
+            handler: async function (response) {
+              proceedPayBtn.textContent = "Verifying Payment...";
+              try {
+                const verifyRes = await fetch("/api/payment/verify", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                    email: userEmail,
+                    plan_name: planName,
+                    amount: planAmount
+                  })
+                });
+
+                if (!verifyRes.ok) {
+                  throw new Error("Payment signature verification failed.");
+                }
+
+                // Payment verified! Store in localStorage
+                localStorage.setItem("marketdock_is_paid", "true");
+                localStorage.setItem("marketdock_active_plan", planName);
+                localStorage.setItem("marketdock_paid_amount", planAmount.toString());
+                localStorage.setItem("marketdock_payment_id", response.razorpay_payment_id);
+                localStorage.setItem("marketdock_paid_date", new Date().toISOString());
+
+                // Fill receipt
+                const recPlan = document.getElementById("md-receipt-plan");
+                const recAmt = document.getElementById("md-receipt-amount");
+                const recStart = document.getElementById("md-receipt-start");
+                const recEnd = document.getElementById("md-receipt-end");
+
+                const today = new Date();
+                const startStr = today.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                const future = new Date(today);
+                if (planPeriod === "1 Month") future.setMonth(future.getMonth() + 1);
+                else if (planPeriod === "3 Months") future.setMonth(future.getMonth() + 3);
+                else if (planPeriod === "6 Months") future.setMonth(future.getMonth() + 6);
+                else future.setFullYear(future.getFullYear() + 1);
+                const endStr = future.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+                if (recPlan) recPlan.textContent = planName;
+                if (recAmt) recAmt.textContent = `₹${planAmount}`;
+                if (recStart) recStart.textContent = startStr;
+                if (recEnd) recEnd.textContent = endStr;
+
+                // Switch to success view
+                if (checkoutView) checkoutView.style.display = "none";
+                if (successView) successView.style.display = "block";
+
+                // Hide yellow upgrade button & update trial status
+                refreshUpgradeButtonVisibility();
+                updateTrialStatusDates();
+              } catch (verifyErr) {
+                alert("Payment verification error: " + verifyErr.message);
+              } finally {
+                proceedPayBtn.disabled = false;
+                proceedPayBtn.textContent = originalBtnText;
+              }
+            },
+            modal: {
+              ondismiss: function() {
+                proceedPayBtn.disabled = false;
+                proceedPayBtn.textContent = originalBtnText;
+              }
+            }
+          };
+
+          const rzp = new Razorpay(rzpOptions);
+          rzp.open();
+
+        } catch (err) {
+          alert("Payment Error: " + err.message);
+          proceedPayBtn.disabled = false;
+          proceedPayBtn.textContent = originalBtnText;
+        }
       };
     }
 

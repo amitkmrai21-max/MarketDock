@@ -195,3 +195,128 @@ def sync_user_trial(req: TrialCheckRequest):
         "is_paid": user_data.get("is_paid", False),
         "plan": user_data.get("plan", "trial")
     }
+
+
+# ================= RAZORPAY INTEGRATION =================
+import hmac
+import hashlib
+
+def _load_env():
+    for p in ["/opt/marketdock/.env", ".env"]:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            v = v.strip().strip(""'")
+                            if k and not os.environ.get(k):
+                                os.environ[k] = v
+            except Exception:
+                pass
+
+_load_env()
+
+class RazorpayOrderRequest(BaseModel):
+    plan_name: str = "Annual Plan"
+    amount: int = 999
+    email: str = ""
+
+class RazorpayVerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    email: str = ""
+    plan_name: str = "Annual Plan"
+    amount: int = 999
+
+@app.get("/api/payment/config")
+def get_payment_config():
+    _load_env()
+    key_id = os.environ.get("RAZORPAY_KEY_ID", "")
+    return {"key_id": key_id}
+
+@app.post("/api/payment/create-order")
+def create_razorpay_order(req: RazorpayOrderRequest):
+    _load_env()
+    key_id = os.environ.get("RAZORPAY_KEY_ID")
+    key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=500, detail="Razorpay credentials not configured in server .env")
+
+    # Validate allowed plan amounts (INR in Rupees -> paise)
+    amount_in_paise = int(req.amount * 100)
+    receipt_id = f"rcpt_{int(time.time())}_{req.amount}"
+
+    try:
+        r = requests.post(
+            "https://api.razorpay.com/v1/orders",
+            auth=(key_id, key_secret),
+            json={
+                "amount": amount_in_paise,
+                "currency": "INR",
+                "receipt": receipt_id,
+                "notes": {
+                    "email": req.email,
+                    "plan": req.plan_name
+                }
+            },
+            timeout=10
+        )
+        if r.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"Razorpay order failed: {r.text}")
+        order_data = r.json()
+        return {
+            "order_id": order_data.get("id"),
+            "amount": amount_in_paise,
+            "currency": "INR",
+            "key_id": key_id,
+            "plan_name": req.plan_name
+        }
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=f"Error connecting to Razorpay: {str(e)}")
+
+@app.post("/api/payment/verify")
+def verify_razorpay_payment(req: RazorpayVerifyRequest):
+    _load_env()
+    key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
+    if not key_secret:
+        raise HTTPException(status_code=500, detail="RAZORPAY_KEY_SECRET missing on server")
+
+    # Verify signature: HMAC-SHA256(order_id + "|" + payment_id, secret)
+    msg = f"{req.razorpay_order_id}|{req.razorpay_payment_id}".encode("utf-8")
+    generated = hmac.new(key_secret.encode("utf-8"), msg, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(generated, req.razorpay_signature):
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+
+    # Save paid status to user_subscriptions.json
+    email = req.email.strip().lower()
+    if email:
+        users = {}
+        if os.path.exists(USER_DB_FILE):
+            try:
+                with open(USER_DB_FILE, "r", encoding="utf-8") as f:
+                    users = json.load(f)
+            except Exception:
+                users = {}
+        now = int(time.time())
+        if email not in users:
+            users[email] = {"email": email, "created_at": now}
+        users[email]["is_paid"] = True
+        users[email]["plan"] = req.plan_name
+        users[email]["payment_id"] = req.razorpay_payment_id
+        users[email]["paid_at"] = now
+        users[email]["amount"] = req.amount
+        with open(USER_DB_FILE, "w", encoding="utf-8") as f:
+            json.dump(users, f, indent=2)
+
+    return {
+        "status": "success",
+        "verified": True,
+        "payment_id": req.razorpay_payment_id,
+        "plan": req.plan_name
+    }
