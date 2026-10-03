@@ -3381,6 +3381,70 @@
 </div>
 
 <!-- 2. 7-Day Free Trial Welcome Notice Modal -->
+
+<!-- Connect Broker Modal (Step 1 of 2) -->
+<div id="md-broker-connect-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.85); backdrop-filter:blur(6px); z-index:99999; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;">
+  <div style="background:#ffffff; color:#0f172a; width:100%; max-width:440px; padding:24px 20px; border-radius:20px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); text-align:left; box-sizing:border-box;">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <h3 style="font-size:20px; font-weight:800; color:#0f172a; margin:0;">Connect Broker</h3>
+      <span style="font-size:11px; font-weight:700; color:#2563eb; background:#eff6ff; padding:3px 8px; border-radius:999px;">Step 1 of 2</span>
+    </div>
+    <p style="font-size:12.5px; color:#64748b; margin:0 0 14px 0;">Live feed provider for market depth and ticks</p>
+
+    <!-- Execution Safety Lock Badge -->
+    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px 12px; margin-bottom:16px;">
+      <div style="display:flex; align-items:center; gap:6px; font-size:11px; font-weight:800; color:#15803d; text-transform:uppercase; margin-bottom:2px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+        Execution safety lock active
+      </div>
+      <div style="font-size:11.5px; color:#166534; line-height:1.4;">
+        Broker connection streams live quotes only. Order routing stays locked to Paper Trading mode.
+      </div>
+    </div>
+
+    <!-- Select Market Data Source -->
+    <div style="font-size:12px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Select Market Data Source</div>
+
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:18px;">
+      <!-- Upstox Option -->
+      <a href="/api/broker/login?broker=upstox" style="display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px; border:1.5px solid #2563eb; background:#f8fafc; text-decoration:none; color:inherit; cursor:pointer;">
+        <div style="width:36px; height:36px; border-radius:8px; background:#2563eb; color:#ffffff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">UP</div>
+        <div style="flex:1;">
+          <div style="font-size:13.5px; font-weight:700; color:#0f172a;">Upstox <span style="font-size:11px; color:#2563eb; font-weight:600;">Fast Feed</span></div>
+          <div style="font-size:11px; color:#64748b;">Real-time Level 2 quotes</div>
+        </div>
+        <div style="font-size:12px; font-weight:700; color:#2563eb;">Connect &rarr;</div>
+      </a>
+
+      <!-- Dhan Option -->
+      <div style="display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px; border:1px solid #e2e8f0; background:#f8fafc; opacity:0.85;">
+        <div style="width:36px; height:36px; border-radius:8px; background:#0284c7; color:#ffffff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">DH</div>
+        <div style="flex:1;">
+          <div style="font-size:13.5px; font-weight:700; color:#0f172a;">Dhan <span style="font-size:11px; color:#0284c7; font-weight:600;">Direct API</span></div>
+          <div style="font-size:11px; color:#64748b;">Tick-by-tick websocket data</div>
+        </div>
+        <span style="font-size:10px; font-weight:700; color:#64748b; background:#e2e8f0; padding:2px 6px; border-radius:4px;">Coming Soon</span>
+      </div>
+
+      <!-- Angel One Option -->
+      <div style="display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px; border:1px solid #e2e8f0; background:#f8fafc; opacity:0.85;">
+        <div style="width:36px; height:36px; border-radius:8px; background:#ea580c; color:#ffffff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">AO</div>
+        <div style="flex:1;">
+          <div style="font-size:13.5px; font-weight:700; color:#0f172a;">Angel One <span style="font-size:11px; color:#ea580c; font-weight:600;">SmartAPI</span></div>
+          <div style="font-size:11px; color:#64748b;">Full market depth coverage</div>
+        </div>
+        <span style="font-size:10px; font-weight:700; color:#64748b; background:#e2e8f0; padding:2px 6px; border-radius:4px;">Coming Soon</span>
+      </div>
+    </div>
+
+    <!-- Continue / Skip to Step 2 button -->
+    <button id="md-skip-broker-btn" type="button" style="width:100%; padding:12px; background:#0f172a; color:#ffffff; font-weight:700; border:none; border-radius:10px; font-size:14px; cursor:pointer; text-align:center;">
+      Continue with Default Feed (Step 2 &rarr;)
+    </button>
+  </div>
+</div>
+
 <div id="md-trial-welcome-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.85); backdrop-filter:blur(6px); z-index:99999; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;">
   <div style="background:#ffffff; color:#0f172a; width:100%; max-width:440px; padding:26px 22px; border-radius:20px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); text-align:center; box-sizing:border-box;">
     
