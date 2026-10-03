@@ -2533,6 +2533,8 @@ setInterval(loadRrg, 300000);
         onboardingOverlay.style.display = "flex";
       }
     }
+    // The Pro gate opens this when a signed-out visitor taps a Pro feature.
+    window.mdShowSignIn = showOnboarding;
 
     function updateOnboardingVisibility(session) {
       if (session && session.user) {
@@ -2574,23 +2576,18 @@ setInterval(loadRrg, 300000);
         }
       }
 
-      // Step 1 (connect a broker) then Step 2 (trial welcome). Step 1 is
-      // offered once per user — it used to open on every page load,
-      // including the reload right after returning from Upstox, so
-      // Connect → Upstox → back → OK looped straight back to Connect.
+      // Step 1 (connect a broker) is offered once per user — it used to
+      // open on every page load, including the reload right after
+      // returning from Upstox, so Connect → Upstox → back → OK looped
+      // straight back to Connect. The Pro trial welcome is no longer part of
+      // sign-in: the Pro gate shows it the first time a Pro feature is used.
       function showBrokerModalOrTrial(data = {}) {
         const brokerModal = document.getElementById("md-broker-connect-modal");
         const skipBrokerBtn = document.getElementById("md-skip-broker-btn");
+        if (Number.isFinite(Number(data.days_left))) window.mdTrialDaysLeft = Number(data.days_left);
 
         function openTrialModal() {
           if (brokerModal) brokerModal.style.display = "none";
-          if (trialModal) {
-            const noticeP = trialModal.querySelector("p");
-            if (noticeP) {
-              noticeP.innerHTML = `Welcome! Your email <b>${email}</b> has <b>${data.days_left || 7} days left</b> in your free trial.`;
-            }
-            trialModal.style.display = "flex";
-          }
         }
 
         const brokerStepKey = `md_broker_step_done_${email}`;
@@ -15252,6 +15249,18 @@ async function fetchWatchlist() {
                   throw new Error("Payment signature verification failed.");
                 }
 
+                // Plan period first — the subscription record below needs its
+                // end date (it used to read these before they were declared,
+                // which threw right after a successful payment).
+                const today = new Date();
+                const startStr = today.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+                const future = new Date(today);
+                if (planPeriod === "1 Month") future.setMonth(future.getMonth() + 1);
+                else if (planPeriod === "3 Months") future.setMonth(future.getMonth() + 3);
+                else if (planPeriod === "6 Months") future.setMonth(future.getMonth() + 6);
+                else future.setFullYear(future.getFullYear() + 1);
+                const endStr = future.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
                 // Payment verified! Store in user-scoped localStorage
                 const subRecord = {
                   is_paid: true,
@@ -15273,15 +15282,6 @@ async function fetchWatchlist() {
                 const recAmt = document.getElementById("md-receipt-amount");
                 const recStart = document.getElementById("md-receipt-start");
                 const recEnd = document.getElementById("md-receipt-end");
-
-                const today = new Date();
-                const startStr = today.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-                const future = new Date(today);
-                if (planPeriod === "1 Month") future.setMonth(future.getMonth() + 1);
-                else if (planPeriod === "3 Months") future.setMonth(future.getMonth() + 3);
-                else if (planPeriod === "6 Months") future.setMonth(future.getMonth() + 6);
-                else future.setFullYear(future.getFullYear() + 1);
-                const endStr = future.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
                 if (recPlan) recPlan.textContent = planName;
                 if (recAmt) recAmt.textContent = `₹${planAmount}`;
@@ -15337,3 +15337,129 @@ async function fetchWatchlist() {
   } else {
     initUpdateAndBillingController();
   }
+
+// ================= MARKETDOCK PRO GATE =================
+// Pro features — paper trading (stocks, F&O options, commodities: the
+// Positions/Holdings pages and every Buy/Sell/GTT order ticket), Heatmap,
+// RRG, News and AI analysis — are free for a 7-day trial after sign-in, then
+// need a plan. Everything else (dashboard, watchlist, charts, scanner,
+// option-chain viewing) stays free. RRG's own maintenance lock still applies
+// on top of this. The first Pro feature used during the trial shows the
+// "Pro trial activated" welcome once.
+(function setupProGate() {
+  const PRO_PAGES = {
+    "im-broker-account": "Paper Trading",
+    "im-holdings": "Paper Trading",
+    "im-heatmap": "Heatmap",
+    "im-rrg": "RRG",
+    "im-news": "News"
+  };
+  const PRO_BUTTONS = {
+    "im-action-sheet-buy-btn": "Paper Trading",
+    "im-action-sheet-sell-btn": "Paper Trading",
+    "im-action-sheet-gtt-btn": "Paper Trading",
+    "im-dashboard-ai-run-btn": "AI Analysis",
+    "im-stock-detail-ai-btn": "AI Analysis",
+    "im-chart-ai-button": "AI Analysis",
+    "im-coach-button": "AI Analysis"
+  };
+  const OWNER_EMAIL = "amitkmrai21@gmail.com";
+
+  function readJson(key) {
+    try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; }
+  }
+
+  function currentEmail() {
+    const email = (window.mdCurrentUser && window.mdCurrentUser.email) ||
+      (window.marketDockUser && window.marketDockUser.email) ||
+      localStorage.getItem("marketdock_user_email") || "";
+    return email.trim().toLowerCase();
+  }
+
+  // { ok, reason: "owner" | "paid" | "trial" | "signin" | "expired", daysLeft }
+  function getProAccess() {
+    const email = currentEmail();
+    if (!email) return { ok: false, reason: "signin" };
+    if (email === OWNER_EMAIL) return { ok: true, reason: "owner" };
+
+    const sub = readJson("marketdock_sub_" + email);
+    if (sub && sub.is_paid && (!sub.valid_until || Date.parse(sub.valid_until) > Date.now())) {
+      return { ok: true, reason: "paid" };
+    }
+
+    const trial = readJson("marketdock_trial_" + email);
+    if (trial && trial.trial_end_ts) {
+      const msLeft = trial.trial_end_ts * 1000 - Date.now();
+      if (msLeft > 0 && !trial.trial_expired) {
+        return { ok: true, reason: "trial", daysLeft: Math.max(1, Math.ceil(msLeft / 86400000)) };
+      }
+      return { ok: false, reason: "expired" };
+    }
+    // Trial status not synced yet (brand-new sign-in): don't lock anyone out.
+    return { ok: true, reason: "trial", daysLeft: Number.isFinite(window.mdTrialDaysLeft) ? window.mdTrialDaysLeft : 7 };
+  }
+  window.mdGetProAccess = getProAccess;
+
+  function showGate(access, feature) {
+    const modal = document.getElementById("md-pro-gate-modal");
+    if (!modal) return;
+    const title = document.getElementById("md-pro-gate-title");
+    const text = document.getElementById("md-pro-gate-text");
+    const primary = document.getElementById("md-pro-gate-primary");
+    const close = document.getElementById("md-pro-gate-close");
+    const hide = () => { modal.style.display = "none"; };
+
+    if (access.reason === "signin") {
+      title.textContent = `Sign in to use ${feature}`;
+      text.textContent = `${feature} is part of MarketDock Pro. Sign in to start your 7-day free trial — no payment needed.`;
+      primary.textContent = "Sign in / Sign up";
+      primary.onclick = () => { hide(); if (typeof window.mdShowSignIn === "function") window.mdShowSignIn(); };
+    } else {
+      title.textContent = "Your 7-day free trial has ended";
+      text.textContent = `${feature} needs a MarketDock Pro plan. Choose a plan to unlock paper trading, Heatmap, RRG, News and AI analysis again.`;
+      primary.textContent = "View plans";
+      primary.onclick = () => { hide(); document.getElementById("headerUpgradeBtn")?.click(); };
+    }
+    close.onclick = hide;
+    modal.style.display = "flex";
+  }
+
+  function showTrialWelcomeOnce(access) {
+    const email = currentEmail();
+    const key = "md_pro_welcome_shown_" + email;
+    try { if (localStorage.getItem(key) === "1") return; localStorage.setItem(key, "1"); } catch (e) { return; }
+    const modal = document.getElementById("md-trial-welcome-modal");
+    if (!modal) return;
+    const text = document.getElementById("md-trial-status-text");
+    if (text && Number.isFinite(access.daysLeft)) {
+      text.innerHTML = `You have <b>MarketDock Pro free for ${access.daysLeft} more day${access.daysLeft === 1 ? "" : "s"}</b>: paper trading (stocks, F&amp;O options and commodities), Heatmap, RRG, News and AI analysis are unlocked.`;
+    }
+    const dismiss = document.getElementById("md-dismiss-trial-btn");
+    if (dismiss) dismiss.onclick = () => { modal.style.display = "none"; };
+    modal.style.display = "flex";
+  }
+
+  function featureFor(target) {
+    if (!(target instanceof Element)) return null;
+    const button = target.closest("button, a, [data-page]");
+    if (!button) return null;
+    if (button.id && PRO_BUTTONS[button.id]) return PRO_BUTTONS[button.id];
+    const page = button.getAttribute("data-page");
+    return page && PRO_PAGES[page] ? PRO_PAGES[page] : null;
+  }
+
+  // Capture phase on the document: runs before the buttons' own handlers,
+  // so a blocked tap never opens the page or order ticket underneath.
+  document.addEventListener("click", (event) => {
+    const feature = featureFor(event.target);
+    if (!feature) return;
+    const access = getProAccess();
+    if (access.ok) {
+      if (access.reason === "trial") window.setTimeout(() => showTrialWelcomeOnce(access), 0);
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    showGate(access, feature);
+  }, true);
+})();
