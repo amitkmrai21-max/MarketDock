@@ -3,6 +3,31 @@
 // front, because the Settings broker script strips those params on load.
 const MD_BROKER_OAUTH_RETURN = /[?&]broker_(connected|error)=/.test(window.location.search);
 
+// Paper trades — and the funds, positions, holdings and order book built
+// from them — belong to one MarketDock account, so each email has its own
+// key. They used to share one key per device, so every account signed in
+// on that device saw the same positions and P&L. The old shared list is
+// handed to the first account seen signed in after this change.
+const MD_LEGACY_PAPER_TRADES_KEY = "indianMarketPaperTrades";
+function mdPaperTradesKey() {
+  let email = (window.marketDockUser && window.marketDockUser.email) || "";
+  if (!email) {
+    try { email = localStorage.getItem("marketdock_user_email") || ""; } catch (e) { email = ""; }
+  }
+  email = email.trim().toLowerCase();
+  if (!email) return MD_LEGACY_PAPER_TRADES_KEY + ":guest";
+  const key = MD_LEGACY_PAPER_TRADES_KEY + ":" + email;
+  try {
+    const legacy = localStorage.getItem(MD_LEGACY_PAPER_TRADES_KEY);
+    if (legacy !== null) {
+      if (localStorage.getItem(key) === null) localStorage.setItem(key, legacy);
+      localStorage.removeItem(MD_LEGACY_PAPER_TRADES_KEY);
+    }
+  } catch (e) { /* ignore */ }
+  return key;
+}
+window.mdPaperTradesKey = mdPaperTradesKey;
+
 function isNseMarketOpen() {
     const now = new Date();
     // Get IST time string
@@ -2359,7 +2384,7 @@ setInterval(loadRrg, 300000);
         "This clears your paper trades, watchlists, chart drawings, alerts and backtest history on this device. Your account login and appearance preferences are not affected. Continue?"
       );
       if (!confirmed) return;
-      CLEAR_DATA_KEYS.forEach((key) => {
+      CLEAR_DATA_KEYS.concat(mdPaperTradesKey()).forEach((key) => {
         try { localStorage.removeItem(key); } catch (error) { /* ignore */ }
       });
       window.location.reload();
@@ -2479,6 +2504,7 @@ setInterval(loadRrg, 300000);
       localStorage.removeItem("marketdock_user_email");
       localStorage.removeItem("marketdock_is_paid");
       if (window.syncUserSubscription) window.syncUserSubscription("");
+      if (window.mdRefreshPaperViews) window.mdRefreshPaperViews();
     }
 
     async function setButtonsBusy(busy) {
@@ -5268,7 +5294,6 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     });
   });
 
-  const storageKey = "indianMarketPaperTrades";
   const IM_TRADE_MARKET_LABELS = { nifty: "NIFTY 50", banknifty: "Bank Nifty", finnifty: "FINNIFTY", sensex: "Sensex" };
   const form = document.getElementById("im-paper-trade-form");
   const tradeTableBody = document.getElementById("im-trade-table-body");
@@ -5293,14 +5318,14 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
   function loadTrades() {
     try {
-      return JSON.parse(localStorage.getItem(storageKey)) || [];
+      return JSON.parse(localStorage.getItem(mdPaperTradesKey())) || [];
     } catch {
       return [];
     }
   }
 
   function saveTrades(trades) {
-    localStorage.setItem(storageKey, JSON.stringify(trades));
+    localStorage.setItem(mdPaperTradesKey(), JSON.stringify(trades));
     if (window.marketDockSupabase && window.marketDockUser) {
       window.marketDockSupabase.auth.updateUser({
         data: { im_paper_trades: trades }
@@ -5327,22 +5352,23 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
       // 2. If cloud has trades, pull into App/Browser localStorage
       if (Array.isArray(remoteTrades) && remoteTrades.length > 0) {
-        localStorage.setItem(storageKey, JSON.stringify(remoteTrades));
-        if (typeof renderTrades === "function") renderTrades();
-        if (typeof renderTradesHistory === "function") renderTradesHistory();
-        if (typeof getOpenPositionRows === "function") {
-          const rows = getOpenPositionRows();
-          if (typeof renderPositionsSummary === "function") renderPositionsSummary(rows);
-        }
-        // Force refresh UI list if on positions page
-        if (typeof renderPositionsList === "function") {
-          renderPositionsList();
-        }
+        localStorage.setItem(mdPaperTradesKey(), JSON.stringify(remoteTrades));
       }
     } catch (e) {
       console.warn("Cross-device sync error:", e);
+    } finally {
+      // Always redraw: a different account may have just signed in, and
+      // the screen still shows the previous account's portfolio.
+      refreshPaperViews();
     }
   };
+
+  function refreshPaperViews() {
+    [renderTrades, renderImPaperFunds, renderPositionsList, renderBrokerOrdersList].forEach((render) => {
+      try { render(); } catch (e) { /* view not on this page */ }
+    });
+  }
+  window.mdRefreshPaperViews = refreshPaperViews;
 
   function escapeText(value) {
     const div = document.createElement("div");
@@ -14639,7 +14665,7 @@ async function fetchWatchlist() {
     let journalTrades = [];
     let backtestTrades = [];
     try {
-      journalTrades = JSON.parse(localStorage.getItem("indianMarketPaperTrades")) || [];
+      journalTrades = JSON.parse(localStorage.getItem(mdPaperTradesKey())) || [];
     } catch (error) { /* ignore */ }
     try {
       backtestTrades = JSON.parse(localStorage.getItem("imBacktestResultsV1")) || [];
@@ -14787,7 +14813,12 @@ async function fetchWatchlist() {
         );
         if (!confirmed) return;
 
-        try { localStorage.removeItem("indianMarketPaperTrades"); } catch (err) {}
+        try { localStorage.removeItem(mdPaperTradesKey()); } catch (err) {}
+        // Clear the account's cloud copy too, or the next sign-in pulls the
+        // old trades straight back.
+        if (window.marketDockSupabase && window.marketDockUser) {
+          window.marketDockSupabase.auth.updateUser({ data: { im_paper_trades: [] } }).catch(() => {});
+        }
 
         if (typeof renderTrades === "function") renderTrades();
         if (typeof renderImPaperFunds === "function") renderImPaperFunds();
