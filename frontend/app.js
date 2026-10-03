@@ -14791,7 +14791,7 @@ async function fetchWatchlist() {
 
     if (openBtn && modalOverlay) {
       openBtn.addEventListener("click", () => {
-        if (typeof renderImPaperFunds === "function") renderImPaperFunds();
+        if (window.mdRefreshPaperViews) window.mdRefreshPaperViews();
         modalOverlay.hidden = false;
       });
     }
@@ -14820,11 +14820,10 @@ async function fetchWatchlist() {
           window.marketDockSupabase.auth.updateUser({ data: { im_paper_trades: [] } }).catch(() => {});
         }
 
-        if (typeof renderTrades === "function") renderTrades();
-        if (typeof renderImPaperFunds === "function") renderImPaperFunds();
-        if (typeof renderBrokerOrdersList === "function") renderBrokerOrdersList();
-        if (typeof renderPositionsList === "function") renderPositionsList();
-        if (typeof refreshBrokerPositionsIfVisible === "function") refreshBrokerPositionsIfVisible();
+        // The render functions live inside the Indian-market module, out of
+        // reach here, so they were never called and the old positions stayed
+        // on screen after a reset. Redraw through the module's own hook.
+        if (window.mdRefreshPaperViews) window.mdRefreshPaperViews();
 
         window.alert("Paper trading funds wapas ₹2,00,00,000 par restore ho gaye hain!");
       });
