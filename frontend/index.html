@@ -3052,6 +3052,42 @@
       </div>
     </section>
 
+    <!-- ================= BROKER INTEGRATION SECTION ================= -->
+    <section class="settings-section" id="brokerSettingsSection">
+      <div class="settings-section-header">
+        <span class="settings-section-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+        </span>
+        <div>
+          <h3>Broker Integration</h3>
+          <p class="settings-section-desc">Connect Upstox for live market quotes (Paper Trading Only)</p>
+        </div>
+      </div>
+
+      <div class="settings-group settings-group--plain" id="brokerStatusCard">
+        <div style="background: rgba(15, 23, 42, 0.05); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-weight: 700; font-size: 14px;">Upstox</span>
+            <span id="brokerConnectionBadge" style="font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(148, 163, 184, 0.2); color: #64748b;">Not Connected</span>
+          </div>
+          <p style="font-size: 12px; line-height: 1.5; color: #64748b; margin: 0 0 10px 0;">
+            Connect your Upstox account to feed quotes to your terminal.
+            <strong style="color: #d97706; display: block; margin-top: 4px;">⚠️ Strict Paper Trading: MarketDock will never place live orders or debit funds from your Upstox account.</strong>
+          </p>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a id="connectUpstoxBtn" href="/api/broker/login?broker=upstox" style="display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 16px; border-radius: 6px; background: #2563eb; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 13px;">
+              Connect Upstox
+            </a>
+            <button id="disconnectBrokerBtn" type="button" style="display: none; padding: 8px 14px; border-radius: 6px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-weight: 600; font-size: 13px; cursor: pointer;">
+              Disconnect
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section class="settings-section">
       <div class="settings-section-header">
         <span class="settings-section-icon">
@@ -3451,6 +3487,60 @@
       }
     }, 500);
   });
+</script>
+
+
+<script>
+  // Broker OAuth UI Synchronizer
+  (function() {
+    function updateBrokerUI() {
+      fetch("/api/broker/status")
+        .then(r => r.json())
+        .then(data => {
+          const badge = document.getElementById("brokerConnectionBadge");
+          const connectBtn = document.getElementById("connectUpstoxBtn");
+          const disconnectBtn = document.getElementById("disconnectBrokerBtn");
+          if (!badge) return;
+          if (data && data.connected) {
+            badge.textContent = "Connected (" + (data.user_name || "Upstox") + ")";
+            badge.style.background = "rgba(16, 185, 129, 0.2)";
+            badge.style.color = "#10b981";
+            if (connectBtn) connectBtn.style.display = "none";
+            if (disconnectBtn) disconnectBtn.style.display = "inline-flex";
+          } else {
+            badge.textContent = "Not Connected";
+            badge.style.background = "rgba(148, 163, 184, 0.2)";
+            badge.style.color = "#64748b";
+            if (connectBtn) connectBtn.style.display = "inline-flex";
+            if (disconnectBtn) disconnectBtn.style.display = "none";
+          }
+        })
+        .catch(() => {});
+    }
+
+    window.addEventListener("DOMContentLoaded", function() {
+      updateBrokerUI();
+      const disconnectBtn = document.getElementById("disconnectBrokerBtn");
+      if (disconnectBtn) {
+        disconnectBtn.addEventListener("click", function() {
+          if (confirm("Are you sure you want to disconnect your Upstox broker?")) {
+            fetch("/api/broker/disconnect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
+              .then(() => updateBrokerUI());
+          }
+        });
+      }
+
+      // Check URL parameters for status toasts
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("broker_connected")) {
+        alert("Upstox broker connected successfully! (Paper Trading Mode active)");
+        history.replaceState(null, "", window.location.pathname);
+      } else if (params.get("broker_error")) {
+        alert("Broker connection note: " + params.get("broker_error"));
+        history.replaceState(null, "", window.location.pathname);
+      }
+    });
+  })();
 </script>
 
 </body>
