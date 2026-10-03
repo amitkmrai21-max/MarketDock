@@ -413,10 +413,20 @@ def get_subscription_status(email: str = ""):
 
 
 # ================= BROKER OAUTH (UPSTOX) =================
+# Each MarketDock user connects their *own* Upstox account. The connection is
+# keyed by that user's MarketDock email, carried through Upstox's OAuth
+# `state` in a signed (HMAC) form so a callback can't be pointed at someone
+# else's email. Status / disconnect only ever touch the email asked about.
+import base64
+import time as _time
+import urllib.parse
+
 UPSTOX_APP_KEY = os.environ.get("UPSTOX_APP_KEY", "").strip()
 UPSTOX_APP_SECRET = os.environ.get("UPSTOX_APP_SECRET", "").strip()
 UPSTOX_REDIRECT_URI = os.environ.get("UPSTOX_REDIRECT_URI", "https://marketdock.in/api/broker/callback").strip()
 BROKER_STORAGE_FILE = os.path.join(os.path.dirname(__file__), "user_brokers.json")
+BROKER_STATE_MAX_AGE_SECONDS = 15 * 60
+
 
 def load_user_brokers():
     if not os.path.exists(BROKER_STORAGE_FILE):
@@ -427,6 +437,7 @@ def load_user_brokers():
     except Exception:
         return {}
 
+
 def save_user_brokers(data):
     try:
         with open(BROKER_STORAGE_FILE, "w", encoding="utf-8") as f:
@@ -434,90 +445,108 @@ def save_user_brokers(data):
     except Exception:
         pass
 
+
+def _normalize_email(email):
+    email = (email or "").strip().lower()
+    return email if "@" in email and len(email) <= 254 else ""
+
+
+def _sign_broker_state(email):
+    payload = base64.urlsafe_b64encode(json.dumps({"e": email, "t": int(_time.time())}).encode()).decode().rstrip("=")
+    sig = hmac.new(UPSTOX_APP_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:32]
+    return f"{payload}.{sig}"
+
+
+def _verify_broker_state(state):
+    """The MarketDock email a login was started for, or "" if the state is
+    missing, tampered with or older than BROKER_STATE_MAX_AGE_SECONDS."""
+    try:
+        payload, sig = (state or "").rsplit(".", 1)
+        expected = hmac.new(UPSTOX_APP_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:32]
+        if not hmac.compare_digest(sig, expected):
+            return ""
+        data = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+        if _time.time() - int(data.get("t", 0)) > BROKER_STATE_MAX_AGE_SECONDS:
+            return ""
+        return _normalize_email(data.get("e"))
+    except Exception:
+        return ""
+
+
+def _broker_redirect(**params):
+    return RedirectResponse(url="/?" + urllib.parse.urlencode(params) + "#broker", status_code=303)
+
+
 @app.get("/api/broker/login")
 def broker_login(broker: str = "upstox", email: str = ""):
     if broker.lower() != "upstox":
         raise HTTPException(status_code=400, detail="Unsupported broker")
-    if not UPSTOX_APP_KEY:
-        return RedirectResponse(url="/?broker_error=upstox_not_configured#broker", status_code=303)
-    
-    import urllib.parse
-    state = email or "marketdock_user"
-    auth_url = (
-        "https://api.upstox.com/v2/login/authorization/dialog?"
-        + urllib.parse.urlencode({
-            "response_type": "code",
-            "client_id": UPSTOX_APP_KEY,
-            "redirect_uri": UPSTOX_REDIRECT_URI,
-            "state": state
-        })
-    )
+    if not UPSTOX_APP_KEY or not UPSTOX_APP_SECRET:
+        return _broker_redirect(broker_error="upstox_not_configured")
+    email = _normalize_email(email)
+    if not email:
+        return _broker_redirect(broker_error="login_required")
+
+    auth_url = "https://api.upstox.com/v2/login/authorization/dialog?" + urllib.parse.urlencode({
+        "response_type": "code",
+        "client_id": UPSTOX_APP_KEY,
+        "redirect_uri": UPSTOX_REDIRECT_URI,
+        "state": _sign_broker_state(email),
+    })
     return RedirectResponse(url=auth_url, status_code=303)
+
 
 @app.get("/api/broker/callback")
 def broker_callback(code: str = None, error: str = None, error_description: str = None, state: str = ""):
-    import urllib.parse, time
     if error:
-        err_msg = error_description or error
-        return RedirectResponse(url=f"/?broker_error={urllib.parse.quote(err_msg)}#broker", status_code=303)
-    
+        return _broker_redirect(broker_error=error_description or error)
     if not code:
-        return RedirectResponse(url="/?broker_error=missing_auth_code#broker", status_code=303)
-    
+        return _broker_redirect(broker_error="missing_auth_code")
     if not UPSTOX_APP_KEY or not UPSTOX_APP_SECRET:
-        return RedirectResponse(url="/?broker_error=upstox_server_credentials_missing#broker", status_code=303)
+        return _broker_redirect(broker_error="upstox_not_configured")
 
-    token_url = "https://api.upstox.com/v2/login/authorization/token"
-    headers = {
-        "accept": "application/json",
-        "Api-Version": "2.0",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-    data = {
-        "code": code,
-        "client_id": UPSTOX_APP_KEY,
-        "client_secret": UPSTOX_APP_SECRET,
-        "redirect_uri": UPSTOX_REDIRECT_URI,
-        "grant_type": "authorization_code"
-    }
+    email = _verify_broker_state(state)
+    if not email:
+        return _broker_redirect(broker_error="session_expired")
 
     try:
-        resp = requests.post(token_url, headers=headers, data=data, timeout=15)
+        resp = requests.post(
+            "https://api.upstox.com/v2/login/authorization/token",
+            headers={"accept": "application/json", "Api-Version": "2.0", "Content-Type": "application/x-www-form-urlencoded"},
+            data={
+                "code": code,
+                "client_id": UPSTOX_APP_KEY,
+                "client_secret": UPSTOX_APP_SECRET,
+                "redirect_uri": UPSTOX_REDIRECT_URI,
+                "grant_type": "authorization_code",
+            },
+            timeout=15,
+        )
         token_data = resp.json()
-    except Exception as e:
-        return RedirectResponse(url=f"/?broker_error={urllib.parse.quote(str(e))}#broker", status_code=303)
+    except Exception:
+        return _broker_redirect(broker_error="upstox_unreachable")
 
     if resp.status_code != 200 or not token_data.get("access_token"):
-        err_txt = token_data.get("message") or token_data.get("error") or "Token exchange failed"
-        return RedirectResponse(url=f"/?broker_error={urllib.parse.quote(err_txt)}#broker", status_code=303)
+        return _broker_redirect(broker_error=token_data.get("message") or token_data.get("error") or "token_exchange_failed")
 
-    user_name = token_data.get("user_name", "Upstox User")
-    user_id = token_data.get("user_id", "")
-    email = token_data.get("email") or state or "user"
-
+    user_name = token_data.get("user_name") or "Upstox User"
     brokers = load_user_brokers()
     brokers[email] = {
         "broker": "upstox",
         "user_name": user_name,
-        "user_id": user_id,
-        "connected_at": int(time.time()),
+        "user_id": token_data.get("user_id", ""),
+        "connected_at": int(_time.time()),
         "is_paper_trading": True,
-        "status": "connected"
+        "status": "connected",
     }
     save_user_brokers(brokers)
+    return _broker_redirect(broker_connected="upstox", user_name=user_name)
 
-    return RedirectResponse(
-        url=f"/?broker_connected=upstox&user_name={urllib.parse.quote(user_name)}#broker",
-        status_code=303
-    )
 
 @app.get("/api/broker/status")
 def broker_status(email: str = ""):
-    brokers = load_user_brokers()
-    user_data = brokers.get(email) if email else None
-    if not user_data and brokers:
-        user_data = list(brokers.values())[-1]
-
+    email = _normalize_email(email)
+    user_data = load_user_brokers().get(email) if email else None
     if user_data and user_data.get("status") == "connected":
         return {
             "connected": True,
@@ -525,21 +554,17 @@ def broker_status(email: str = ""):
             "user_name": user_data.get("user_name", "Upstox User"),
             "user_id": user_data.get("user_id", ""),
             "connected_at": user_data.get("connected_at"),
-            "is_paper_trading": True
+            "is_paper_trading": True,
         }
-    return {
-        "connected": False,
-        "broker": "none",
-        "is_paper_trading": True
-    }
+    return {"connected": False, "broker": "none", "is_paper_trading": True}
+
 
 @app.post("/api/broker/disconnect")
 def broker_disconnect(payload: dict = Body(default={})):
-    email = payload.get("email", "") if isinstance(payload, dict) else ""
+    email = _normalize_email(payload.get("email", "") if isinstance(payload, dict) else "")
+    if not email:
+        raise HTTPException(status_code=400, detail="email is required")
     brokers = load_user_brokers()
-    if email and email in brokers:
-        del brokers[email]
-    else:
-        brokers.clear()
-    save_user_brokers(brokers)
+    if brokers.pop(email, None) is not None:
+        save_user_brokers(brokers)
     return {"success": True, "connected": False}
