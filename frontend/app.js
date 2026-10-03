@@ -1,3 +1,8 @@
+// True when this page load is the return from a broker login (Upstox sends
+// the user back with ?broker_connected=… or ?broker_error=…). Read once, up
+// front, because the Settings broker script strips those params on load.
+const MD_BROKER_OAUTH_RETURN = /[?&]broker_(connected|error)=/.test(window.location.search);
+
 function isNseMarketOpen() {
     const now = new Date();
     // Get IST time string
@@ -2546,6 +2551,10 @@ setInterval(loadRrg, 300000);
     function triggerUserTrialAndProfileSetup(user) {
       if (!user || !user.email) return;
       const email = user.email.toLowerCase();
+      // Settings' Broker section and the Connect links need to know who is
+      // signed in, so the broker connection is looked up for this user only.
+      window.mdCurrentUser = { email, id: user.id };
+      window.dispatchEvent(new CustomEvent("md-user-ready", { detail: window.mdCurrentUser }));
 
       const onboardingModal = document.getElementById("md-onboarding-modal");
       const trialModal = document.getElementById("md-trial-welcome-modal");
@@ -2604,14 +2613,30 @@ setInterval(loadRrg, 300000);
             }
           }
 
+          // Step 1 (connect a broker) is offered once per user. It used to
+          // open on every page load — including the reload right after
+          // returning from Upstox — so Connect → Upstox → back → OK looped
+          // straight back into the same Connect screen.
+          const brokerStepKey = `md_broker_step_done_${email}`;
+          const markBrokerStepDone = () => {
+            try { localStorage.setItem(brokerStepKey, "1"); } catch (e) {}
+          };
+          let brokerStepDone = MD_BROKER_OAUTH_RETURN;
+          try { brokerStepDone = brokerStepDone || localStorage.getItem(brokerStepKey) === "1"; } catch (e) {}
+          if (brokerStepDone) markBrokerStepDone();
+
           if (skipBrokerBtn) {
             skipBrokerBtn.onclick = function() {
+              markBrokerStepDone();
               openTrialModal();
             };
           }
+          brokerModal?.querySelectorAll('a[href^="/api/broker/login"]').forEach((link) => {
+            link.href = `/api/broker/login?broker=upstox&email=${encodeURIComponent(email)}`;
+            link.onclick = markBrokerStepDone;
+          });
 
-          // Show Step 1 (Broker connect)
-          if (brokerModal) {
+          if (brokerModal && !brokerStepDone) {
             brokerModal.style.display = "flex";
           } else {
             openTrialModal();

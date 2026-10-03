@@ -3355,7 +3355,7 @@
 
 
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script defer src="/frontend/app.js?v=20261002-rrg-notice"></script>
+  <script defer src="/frontend/app.js?v=20261003-broker-connect-fix"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -3557,16 +3557,29 @@
 
 
 <script>
-  // Broker OAuth UI Synchronizer
+  // Broker OAuth UI Synchronizer — always for the signed-in user only
+  // (window.mdCurrentUser, set by app.js once the session is known).
   (function() {
+    function currentEmail() {
+      return (window.mdCurrentUser && window.mdCurrentUser.email) || "";
+    }
+
     function updateBrokerUI() {
-      fetch("/api/broker/status")
+      const badge = document.getElementById("brokerConnectionBadge");
+      const connectBtn = document.getElementById("connectUpstoxBtn");
+      const disconnectBtn = document.getElementById("disconnectBrokerBtn");
+      if (!badge) return;
+      const email = currentEmail();
+      if (!email) {
+        badge.textContent = "Sign in to connect";
+        if (connectBtn) connectBtn.style.display = "none";
+        if (disconnectBtn) disconnectBtn.style.display = "none";
+        return;
+      }
+      if (connectBtn) connectBtn.href = "/api/broker/login?broker=upstox&email=" + encodeURIComponent(email);
+      fetch("/api/broker/status?email=" + encodeURIComponent(email))
         .then(r => r.json())
         .then(data => {
-          const badge = document.getElementById("brokerConnectionBadge");
-          const connectBtn = document.getElementById("connectUpstoxBtn");
-          const disconnectBtn = document.getElementById("disconnectBrokerBtn");
-          if (!badge) return;
           if (data && data.connected) {
             badge.textContent = "Connected (" + (data.user_name || "Upstox") + ")";
             badge.style.background = "rgba(16, 185, 129, 0.2)";
@@ -3584,26 +3597,41 @@
         .catch(() => {});
     }
 
+    const BROKER_ERROR_MESSAGES = {
+      upstox_not_configured: "Upstox connect is not set up on the server yet (missing Upstox API key/secret).",
+      login_required: "Please sign in to MarketDock first, then connect Upstox.",
+      session_expired: "The Upstox login took too long or was already used. Please tap Connect again.",
+      missing_auth_code: "Upstox did not complete the login. Please try again.",
+      upstox_unreachable: "Could not reach Upstox right now. Please try again in a minute.",
+      token_exchange_failed: "Upstox did not accept the login. Please try again."
+    };
+
+    window.addEventListener("md-user-ready", updateBrokerUI);
+
     window.addEventListener("DOMContentLoaded", function() {
       updateBrokerUI();
       const disconnectBtn = document.getElementById("disconnectBrokerBtn");
       if (disconnectBtn) {
         disconnectBtn.addEventListener("click", function() {
+          const email = currentEmail();
+          if (!email) return;
           if (confirm("Are you sure you want to disconnect your Upstox broker?")) {
-            fetch("/api/broker/disconnect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
+            fetch("/api/broker/disconnect", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email }) })
               .then(() => updateBrokerUI());
           }
         });
       }
 
-      // Check URL parameters for status toasts
+      // One message after returning from Upstox, then clean the URL so a
+      // reload doesn't show it again.
       const params = new URLSearchParams(window.location.search);
-      if (params.get("broker_connected")) {
-        alert("Upstox broker connected successfully! (Paper Trading Mode active)");
+      const connected = params.get("broker_connected");
+      const error = params.get("broker_error");
+      if (connected || error) {
         history.replaceState(null, "", window.location.pathname);
-      } else if (params.get("broker_error")) {
-        alert("Broker connection note: " + params.get("broker_error"));
-        history.replaceState(null, "", window.location.pathname);
+        alert(connected
+          ? "Upstox connected" + (params.get("user_name") ? " (" + params.get("user_name") + ")" : "") + ". MarketDock stays in paper-trading mode — no real orders are placed."
+          : "Upstox connection: " + (BROKER_ERROR_MESSAGES[error] || error));
       }
     });
   })();
