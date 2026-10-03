@@ -2512,13 +2512,21 @@ setInterval(loadRrg, 300000);
     }
 
     function hideOnboarding() {
+      sessionStorage.setItem("marketdock_dismissed_onboarding", "1");
       document.documentElement.classList.remove("im-show-onboarding");
-      if (onboardingOverlay) onboardingOverlay.hidden = true;
+      if (onboardingOverlay) {
+        onboardingOverlay.hidden = true;
+        onboardingOverlay.style.display = "none";
+      }
     }
 
     function showOnboarding() {
+      sessionStorage.removeItem("marketdock_dismissed_onboarding");
       document.documentElement.classList.add("im-show-onboarding");
-      if (onboardingOverlay) onboardingOverlay.hidden = false;
+      if (onboardingOverlay) {
+        onboardingOverlay.hidden = false;
+        onboardingOverlay.style.display = "flex";
+      }
     }
 
     function updateOnboardingVisibility(session) {
@@ -2577,6 +2585,7 @@ setInterval(loadRrg, 300000);
           localStorage.setItem("marketdock_user_name", finalName);
           syncToSettingsInput(finalName);
           if (onboardingModal) onboardingModal.style.display = "none";
+          showBrokerModalOrTrial();
           return;
         }
 
@@ -14854,23 +14863,8 @@ async function fetchWatchlist() {
     }
   }
 
-  // Supabase Auth listener se bind karte hain
+  // Supabase Auth listener - unified with primary triggerUserTrialAndProfileSetup
   function attachAuthWatcher() {
-    if (typeof supabaseClient !== "undefined" && supabaseClient.auth) {
-      supabaseClient.auth.getSession().then(({ data: { session } }) => {
-        if (session && session.user) {
-          handleAuthenticatedUser(session.user);
-        }
-      });
-
-      supabaseClient.auth.onAuthStateChange((event, session) => {
-        if (event === "SIGNED_IN" || (session && session.user)) {
-          handleAuthenticatedUser(session.user);
-        }
-      });
-    } else {
-      setTimeout(attachAuthWatcher, 500);
-    }
   }
 
   if (document.readyState === "loading") {

@@ -57,7 +57,9 @@
             }
           }
         }
-        if (!hasSession && !dismissed) {
+        var isOAuthReturn = (window.location.hash && window.location.hash.indexOf("access_token") !== -1) ||
+                            (window.location.search && window.location.search.indexOf("code=") !== -1);
+        if (!hasSession && !dismissed && !isOAuthReturn) {
           document.documentElement.classList.add("im-show-onboarding");
         }
       } catch (e) {}
