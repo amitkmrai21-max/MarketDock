@@ -14910,8 +14910,19 @@ async function fetchWatchlist() {
               paid_at: data.paid_at,
               valid_until: data.valid_until
             }));
+            localStorage.removeItem("marketdock_trial_" + email);
           } else {
             localStorage.removeItem("marketdock_sub_" + email);
+            if (data) {
+              localStorage.setItem("marketdock_trial_" + email, JSON.stringify({
+                trial_start_ts: data.trial_start_ts,
+                trial_end_ts: data.trial_end_ts,
+                trial_end_iso: data.trial_end_iso,
+                trial_days_remaining: data.trial_days_remaining,
+                trial_expired: Boolean(data.trial_expired),
+                trial_active: Boolean(data.trial_active)
+              }));
+            }
           }
         }
       } catch (err) {
@@ -14990,16 +15001,78 @@ async function fetchWatchlist() {
           checkoutBtn.style.boxShadow = "0 4px 12px rgba(22,163,74,0.3)";
         }
       } else {
-        const savedTime = parseInt(localStorage.getItem("marketdock_trial_start") || "0", 10) || Date.now();
-        const endDate = new Date(savedTime + 7 * 24 * 3600 * 1000);
+        const email = getCurrentUserEmail();
+        let trialInfo = null;
+        if (email) {
+          try {
+            const rawTrial = localStorage.getItem("marketdock_trial_" + email);
+            if (rawTrial) trialInfo = JSON.parse(rawTrial);
+          } catch(e) {}
+        }
+
+        let isExpired = false;
+        let daysLeft = 7;
+        let endDate;
+
+        if (trialInfo && trialInfo.trial_end_ts) {
+          endDate = new Date(trialInfo.trial_end_ts * 1000);
+          isExpired = Boolean(trialInfo.trial_expired || (Date.now() >= trialInfo.trial_end_ts * 1000));
+          daysLeft = Math.max(0, trialInfo.trial_days_remaining !== undefined ? trialInfo.trial_days_remaining : Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+        } else {
+          const savedTime = parseInt(localStorage.getItem("marketdock_trial_start") || "0", 10) || Date.now();
+          endDate = new Date(savedTime + 7 * 24 * 3600 * 1000);
+          isExpired = Date.now() >= endDate.getTime();
+          daysLeft = Math.max(0, Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+        }
+
         const dateStr = endDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-        if (titleDiv) titleDiv.textContent = "7 Days Free Trial Active";
-        if (subDiv) subDiv.textContent = "Your premium features are unlocked for 7 days.";
-        if (datesSpan) datesSpan.textContent = `Trial ends on: ${dateStr}`;
-        if (checkoutBtn) {
-          checkoutBtn.innerHTML = "Upgrade to Premium Plan &rarr;";
-          checkoutBtn.style.background = "#2563eb";
-          checkoutBtn.style.boxShadow = "0 4px 12px rgba(37,99,235,0.3)";
+
+        if (isExpired || daysLeft <= 0) {
+          if (titleDiv) titleDiv.innerHTML = 'Plan Status: <span style="color:#dc2626; background:#fee2e2; padding:2px 8px; border-radius:6px; font-size:14px; margin-left:4px;">TRIAL EXPIRED ✕</span>';
+          if (subDiv) subDiv.textContent = "Your 7-day free trial has ended. Please upgrade your plan.";
+          if (datesSpan) datesSpan.innerHTML = '<span style="color:#dc2626; font-weight:600;">Trial expired on ' + dateStr + '</span> (0 days remaining)';
+          if (statusIcon) {
+            statusIcon.innerHTML = '<span style="font-size:20px;">⚠️</span>';
+            statusIcon.style.background = "#fee2e2";
+            statusIcon.style.color = "#dc2626";
+          }
+          if (calloutBox) {
+            calloutBox.style.background = "#fef2f2";
+            calloutBox.style.borderColor = "#fecaca";
+          }
+          if (calloutIcon) calloutIcon.textContent = "⚠️";
+          if (calloutText) {
+            calloutText.style.color = "#991b1b";
+            calloutText.innerHTML = "<b>Your 7-day trial has ended.</b><br/>Please choose a premium plan below to reactivate full real-time quotes, option chains, and paper trading.";
+          }
+          if (checkoutBtn) {
+            checkoutBtn.innerHTML = "Upgrade to Continue &rarr;";
+            checkoutBtn.style.background = "#dc2626";
+            checkoutBtn.style.boxShadow = "0 4px 12px rgba(220,38,38,0.3)";
+          }
+        } else {
+          if (titleDiv) titleDiv.innerHTML = 'Plan Status: <span style="color:#2563eb; background:#dbeafe; padding:2px 8px; border-radius:6px; font-size:14px; margin-left:4px;">TRIAL ACTIVE</span>';
+          if (subDiv) subDiv.textContent = "Your premium features are unlocked for 7 days (" + daysLeft + " days left).";
+          if (datesSpan) datesSpan.innerHTML = "Trial ends on: <strong>" + dateStr + "</strong> (" + daysLeft + " days remaining)";
+          if (statusIcon) {
+            statusIcon.innerHTML = '<span style="font-size:20px;">⏱️</span>';
+            statusIcon.style.background = "#dbeafe";
+            statusIcon.style.color = "#2563eb";
+          }
+          if (calloutBox) {
+            calloutBox.style.background = "#eff6ff";
+            calloutBox.style.borderColor = "#bfdbfe";
+          }
+          if (calloutIcon) calloutIcon.textContent = "ℹ️";
+          if (calloutText) {
+            calloutText.style.color = "#1e40af";
+            calloutText.innerHTML = "<b>You are currently on a 7-day free trial.</b><br/>Enjoy full access to Indian markets and live paper trading. Upgrade anytime to avoid interruption.";
+          }
+          if (checkoutBtn) {
+            checkoutBtn.innerHTML = "Upgrade to Premium Plan &rarr;";
+            checkoutBtn.style.background = "#2563eb";
+            checkoutBtn.style.boxShadow = "0 4px 12px rgba(37,99,235,0.3)";
+          }
         }
       }
     }
