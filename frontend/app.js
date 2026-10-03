@@ -2580,6 +2580,41 @@ setInterval(loadRrg, 300000);
           return;
         }
 
+        function showBrokerModalOrTrial() {
+          const brokerModal = document.getElementById("md-broker-connect-modal");
+          const skipBrokerBtn = document.getElementById("md-skip-broker-btn");
+          
+          function openTrialModal() {
+            if (brokerModal) brokerModal.style.display = "none";
+            if (trialModal) {
+              const noticeP = trialModal.querySelector("p");
+              if (noticeP) {
+                noticeP.innerHTML = `Welcome! Your email <b>${email}</b> has <b>${data.days_left || 7} days left</b> in your free trial.`;
+              }
+              trialModal.style.display = "flex";
+            }
+          }
+
+          if (skipBrokerBtn) {
+            skipBrokerBtn.onclick = function() {
+              openTrialModal();
+            };
+          }
+
+          // Show Step 1 (Broker connect)
+          if (brokerModal) {
+            brokerModal.style.display = "flex";
+          } else {
+            openTrialModal();
+          }
+        }
+
+        // Check if profile exists already
+        if ((localProfile.firstName && localProfile.lastName) || googleName) {
+          showBrokerModalOrTrial();
+          return;
+        }
+
         // New profile name onboarding
         if (onboardingModal) onboardingModal.style.display = "flex";
 
@@ -2594,13 +2629,7 @@ setInterval(loadRrg, 300000);
             localStorage.setItem(`md_profile_${user.id}`, JSON.stringify({ firstName: fn, lastName: ln }));
             syncToSettingsInput(`${fn} ${ln}`);
             if (onboardingModal) onboardingModal.style.display = "none";
-            if (trialModal) {
-              const noticeP = trialModal.querySelector("p");
-              if (noticeP) {
-                noticeP.innerHTML = `Welcome! Your email <b>${email}</b> has <b>${data.days_left} days left</b> in your free trial.`;
-              }
-              trialModal.style.display = "flex";
-            }
+            showBrokerModalOrTrial();
           };
         }
       })
