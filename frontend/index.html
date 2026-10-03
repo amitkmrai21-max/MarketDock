@@ -3411,5 +3411,47 @@
 
 <!-- ================= END ONBOARDING & SUBSCRIPTION ================= -->
 
+
+<script>
+  // Robust Logout and Session Loop Fixer
+  window.addEventListener("DOMContentLoaded", function() {
+    // Intercept any logout buttons
+    const logoutBtns = document.querySelectorAll('[id*="logout"], [class*="logout"], button[data-action="logout"]');
+    logoutBtns.forEach(btn => {
+      btn.addEventListener("click", function(e) {
+        e.preventDefault();
+        // Clear all Supabase auth tokens and cached keys
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes("supabase.auth.token") || key.includes("sb-") || key.includes("indianMarketPaperTrades")) {
+            localStorage.removeItem(key);
+          }
+        });
+        sessionStorage.clear();
+        if (window.marketDockSupabase && window.marketDockSupabase.auth) {
+          window.marketDockSupabase.auth.signOut().catch(() => {});
+        }
+        window.location.href = "/";
+      }, true);
+    });
+  });
+</script>
+
+
+<script>
+  // Permanent Login Loop Stopper
+  window.addEventListener("DOMContentLoaded", function() {
+    setInterval(function() {
+      const token = localStorage.getItem("sb-pfevgkofxeglsmegugvo-auth-token");
+      if (token) {
+        // Hide welcome modal if token exists
+        const welcomeModal = document.getElementById("md-welcome-modal") || document.querySelector('[id*="welcome"]');
+        if (welcomeModal && getComputedStyle(welcomeModal).display !== "none") {
+          welcomeModal.style.display = "none";
+        }
+      }
+    }, 500);
+  });
+</script>
+
 </body>
 </html>
