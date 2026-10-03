@@ -2562,11 +2562,60 @@ setInterval(loadRrg, 300000);
       const dismissBtn = document.getElementById("md-dismiss-trial-btn");
 
       function syncToSettingsInput(full) {
-        const inp = document.getElementById("userNameInput");
-        if (inp) {
-          inp.value = full;
-          const sBtn = document.getElementById("saveUserNameBtn");
-          if (sBtn) sBtn.click();
+        try {
+          const inp = document.getElementById("userNameInput");
+          if (inp) {
+            inp.value = full;
+            const sBtn = document.getElementById("saveUserNameBtn");
+            if (sBtn) sBtn.click();
+          }
+        } catch (e) {
+          console.warn("Settings name sync failed:", e);
+        }
+      }
+
+      // Step 1 (connect a broker) then Step 2 (trial welcome). Step 1 is
+      // offered once per user — it used to open on every page load,
+      // including the reload right after returning from Upstox, so
+      // Connect → Upstox → back → OK looped straight back to Connect.
+      function showBrokerModalOrTrial(data = {}) {
+        const brokerModal = document.getElementById("md-broker-connect-modal");
+        const skipBrokerBtn = document.getElementById("md-skip-broker-btn");
+
+        function openTrialModal() {
+          if (brokerModal) brokerModal.style.display = "none";
+          if (trialModal) {
+            const noticeP = trialModal.querySelector("p");
+            if (noticeP) {
+              noticeP.innerHTML = `Welcome! Your email <b>${email}</b> has <b>${data.days_left || 7} days left</b> in your free trial.`;
+            }
+            trialModal.style.display = "flex";
+          }
+        }
+
+        const brokerStepKey = `md_broker_step_done_${email}`;
+        const markBrokerStepDone = () => {
+          try { localStorage.setItem(brokerStepKey, "1"); } catch (e) {}
+        };
+        let brokerStepDone = MD_BROKER_OAUTH_RETURN;
+        try { brokerStepDone = brokerStepDone || localStorage.getItem(brokerStepKey) === "1"; } catch (e) {}
+        if (brokerStepDone) markBrokerStepDone();
+
+        if (skipBrokerBtn) {
+          skipBrokerBtn.onclick = function() {
+            markBrokerStepDone();
+            openTrialModal();
+          };
+        }
+        brokerModal?.querySelectorAll('a[href^="/api/broker/login"]').forEach((link) => {
+          link.href = `/api/broker/login?broker=upstox&email=${encodeURIComponent(email)}`;
+          link.onclick = markBrokerStepDone;
+        });
+
+        if (brokerModal && !brokerStepDone) {
+          brokerModal.style.display = "flex";
+        } else {
+          openTrialModal();
         }
       }
 
@@ -2583,7 +2632,9 @@ setInterval(loadRrg, 300000);
           localProfile = JSON.parse(localStorage.getItem(`md_profile_${user.id}`) || "{}");
         } catch(e) {}
 
-        const googleName = (user.user_metadata?.full_name || user.user_metadata?.name || localStorage.getItem("marketdock_user_name") || "").trim();
+        // Only this account's own name — the shared "marketdock_user_name"
+        // key can still hold a different account's name on this device.
+        const googleName = (user.user_metadata?.full_name || user.user_metadata?.name || "").trim();
         if ((localProfile.firstName && localProfile.lastName) || googleName) {
           const finalName = googleName || `${localProfile.firstName} ${localProfile.lastName}`.trim();
           const parts = finalName.split(" ");
@@ -2594,58 +2645,7 @@ setInterval(loadRrg, 300000);
           localStorage.setItem("marketdock_user_name", finalName);
           syncToSettingsInput(finalName);
           if (onboardingModal) onboardingModal.style.display = "none";
-          showBrokerModalOrTrial();
-          return;
-        }
-
-        function showBrokerModalOrTrial() {
-          const brokerModal = document.getElementById("md-broker-connect-modal");
-          const skipBrokerBtn = document.getElementById("md-skip-broker-btn");
-          
-          function openTrialModal() {
-            if (brokerModal) brokerModal.style.display = "none";
-            if (trialModal) {
-              const noticeP = trialModal.querySelector("p");
-              if (noticeP) {
-                noticeP.innerHTML = `Welcome! Your email <b>${email}</b> has <b>${data.days_left || 7} days left</b> in your free trial.`;
-              }
-              trialModal.style.display = "flex";
-            }
-          }
-
-          // Step 1 (connect a broker) is offered once per user. It used to
-          // open on every page load — including the reload right after
-          // returning from Upstox — so Connect → Upstox → back → OK looped
-          // straight back into the same Connect screen.
-          const brokerStepKey = `md_broker_step_done_${email}`;
-          const markBrokerStepDone = () => {
-            try { localStorage.setItem(brokerStepKey, "1"); } catch (e) {}
-          };
-          let brokerStepDone = MD_BROKER_OAUTH_RETURN;
-          try { brokerStepDone = brokerStepDone || localStorage.getItem(brokerStepKey) === "1"; } catch (e) {}
-          if (brokerStepDone) markBrokerStepDone();
-
-          if (skipBrokerBtn) {
-            skipBrokerBtn.onclick = function() {
-              markBrokerStepDone();
-              openTrialModal();
-            };
-          }
-          brokerModal?.querySelectorAll('a[href^="/api/broker/login"]').forEach((link) => {
-            link.href = `/api/broker/login?broker=upstox&email=${encodeURIComponent(email)}`;
-            link.onclick = markBrokerStepDone;
-          });
-
-          if (brokerModal && !brokerStepDone) {
-            brokerModal.style.display = "flex";
-          } else {
-            openTrialModal();
-          }
-        }
-
-        // Check if profile exists already
-        if ((localProfile.firstName && localProfile.lastName) || googleName) {
-          showBrokerModalOrTrial();
+          showBrokerModalOrTrial(data);
           return;
         }
 
@@ -2663,11 +2663,16 @@ setInterval(loadRrg, 300000);
             localStorage.setItem(`md_profile_${user.id}`, JSON.stringify({ firstName: fn, lastName: ln }));
             syncToSettingsInput(`${fn} ${ln}`);
             if (onboardingModal) onboardingModal.style.display = "none";
-            showBrokerModalOrTrial();
+            showBrokerModalOrTrial(data);
           };
         }
       })
-      .catch(err => console.error("Trial sync error:", err));
+      .catch(err => {
+        // Trial sync failed (server or network) — still walk the user through
+        // the same once-only broker step / trial welcome.
+        console.error("Trial sync error:", err);
+        showBrokerModalOrTrial();
+      });
 
       if (dismissBtn) {
         dismissBtn.onclick = function() {
