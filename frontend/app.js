@@ -15445,7 +15445,7 @@ async function fetchWatchlist() {
     modal.style.display = "flex";
   }
 
-  function welcomeKey() { return "md_pro_welcome_shown_" + currentEmail(); }
+  function welcomeKey() { return "md_pro_welcome_accepted_" + currentEmail(); }
 
   function welcomeAccepted() {
     try { return localStorage.getItem(welcomeKey()) === "1"; } catch (e) { return true; }
