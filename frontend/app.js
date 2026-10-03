@@ -15352,8 +15352,8 @@ async function fetchWatchlist() {
 // RRG, News and AI analysis — are free for a 7-day trial after sign-in, then
 // need a plan. Everything else (dashboard, watchlist, charts, scanner,
 // option-chain viewing) stays free. RRG's own maintenance lock still applies
-// on top of this. The first Pro feature used during the trial shows the
-// "Pro trial activated" welcome once.
+// on top of this. The first Pro feature used during the trial waits for the
+// "Pro trial activated" card to be accepted.
 (function setupProGate() {
   const PRO_PAGES = {
     "im-broker-account": "Paper Trading",
@@ -15445,18 +15445,30 @@ async function fetchWatchlist() {
     modal.style.display = "flex";
   }
 
-  function showTrialWelcomeOnce(access) {
-    const email = currentEmail();
-    const key = "md_pro_welcome_shown_" + email;
-    try { if (localStorage.getItem(key) === "1") return; localStorage.setItem(key, "1"); } catch (e) { return; }
+  function welcomeKey() { return "md_pro_welcome_shown_" + currentEmail(); }
+
+  function welcomeAccepted() {
+    try { return localStorage.getItem(welcomeKey()) === "1"; } catch (e) { return true; }
+  }
+
+  // The trial card has to be accepted (its button tapped) before the first
+  // Pro feature opens. Closing it any other way — Back, reload — doesn't
+  // count, so the next Pro tap shows it again.
+  function showTrialWelcome(access, resume) {
     const modal = document.getElementById("md-trial-welcome-modal");
-    if (!modal) return;
+    if (!modal) { if (resume) resume(); return; }
     const text = document.getElementById("md-trial-status-text");
     if (text && Number.isFinite(access.daysLeft)) {
       text.innerHTML = `You have <b>MarketDock Pro free for ${access.daysLeft} more day${access.daysLeft === 1 ? "" : "s"}</b>: paper trading (stocks, F&amp;O options and commodities), Heatmap, RRG, News and AI analysis are unlocked.`;
     }
-    const dismiss = document.getElementById("md-dismiss-trial-btn");
-    if (dismiss) dismiss.onclick = () => { modal.style.display = "none"; };
+    const accept = document.getElementById("md-dismiss-trial-btn");
+    if (accept) {
+      accept.onclick = () => {
+        try { localStorage.setItem(welcomeKey(), "1"); } catch (e) {}
+        modal.style.display = "none";
+        if (resume) resume();
+      };
+    }
     modal.style.display = "flex";
   }
 
@@ -15487,12 +15499,16 @@ async function fetchWatchlist() {
     const feature = featureFor(event.target);
     if (!feature) return;
     const access = getProAccess();
-    if (access.ok) {
-      if (access.reason === "trial") window.setTimeout(() => showTrialWelcomeOnce(access), 0);
-      return;
-    }
+    if (access.ok && !(access.reason === "trial" && !welcomeAccepted())) return;
     event.preventDefault();
     event.stopImmediatePropagation();
+    if (access.ok) {
+      // Trial user who hasn't accepted the trial card yet: show it, then
+      // carry on with the tap they made once they accept.
+      const button = event.target.closest("button, a, [data-page]");
+      showTrialWelcome(access, () => { if (button && button.isConnected) button.click(); });
+      return;
+    }
     showGate(access, feature);
   }, true);
 })();
