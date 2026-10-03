@@ -2,7 +2,7 @@ import json
 import os
 from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 import requests
 
@@ -410,3 +410,136 @@ def get_subscription_status(email: str = ""):
         "trial_active": trial_active
     }
 
+
+
+# ================= BROKER OAUTH (UPSTOX) =================
+UPSTOX_APP_KEY = os.environ.get("UPSTOX_APP_KEY", "").strip()
+UPSTOX_APP_SECRET = os.environ.get("UPSTOX_APP_SECRET", "").strip()
+UPSTOX_REDIRECT_URI = os.environ.get("UPSTOX_REDIRECT_URI", "https://marketdock.in/api/broker/callback").strip()
+BROKER_STORAGE_FILE = os.path.join(os.path.dirname(__file__), "user_brokers.json")
+
+def load_user_brokers():
+    if not os.path.exists(BROKER_STORAGE_FILE):
+        return {}
+    try:
+        with open(BROKER_STORAGE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def save_user_brokers(data):
+    try:
+        with open(BROKER_STORAGE_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+@app.get("/api/broker/login")
+def broker_login(broker: str = "upstox", email: str = ""):
+    if broker.lower() != "upstox":
+        raise HTTPException(status_code=400, detail="Unsupported broker")
+    if not UPSTOX_APP_KEY:
+        return RedirectResponse(url="/?broker_error=upstox_not_configured#broker", status_code=303)
+    
+    import urllib.parse
+    state = email or "marketdock_user"
+    auth_url = (
+        "https://api.upstox.com/v2/login/authorization/dialog?"
+        + urllib.parse.urlencode({
+            "response_type": "code",
+            "client_id": UPSTOX_APP_KEY,
+            "redirect_uri": UPSTOX_REDIRECT_URI,
+            "state": state
+        })
+    )
+    return RedirectResponse(url=auth_url, status_code=303)
+
+@app.get("/api/broker/callback")
+def broker_callback(code: str = None, error: str = None, error_description: str = None, state: str = ""):
+    import urllib.parse, time
+    if error:
+        err_msg = error_description or error
+        return RedirectResponse(url=f"/?broker_error={urllib.parse.quote(err_msg)}#broker", status_code=303)
+    
+    if not code:
+        return RedirectResponse(url="/?broker_error=missing_auth_code#broker", status_code=303)
+    
+    if not UPSTOX_APP_KEY or not UPSTOX_APP_SECRET:
+        return RedirectResponse(url="/?broker_error=upstox_server_credentials_missing#broker", status_code=303)
+
+    token_url = "https://api.upstox.com/v2/login/authorization/token"
+    headers = {
+        "accept": "application/json",
+        "Api-Version": "2.0",
+        "Content-Type": "application/x-www-form-urlencoded"
+    }
+    data = {
+        "code": code,
+        "client_id": UPSTOX_APP_KEY,
+        "client_secret": UPSTOX_APP_SECRET,
+        "redirect_uri": UPSTOX_REDIRECT_URI,
+        "grant_type": "authorization_code"
+    }
+
+    try:
+        resp = requests.post(token_url, headers=headers, data=data, timeout=15)
+        token_data = resp.json()
+    except Exception as e:
+        return RedirectResponse(url=f"/?broker_error={urllib.parse.quote(str(e))}#broker", status_code=303)
+
+    if resp.status_code != 200 or not token_data.get("access_token"):
+        err_txt = token_data.get("message") or token_data.get("error") or "Token exchange failed"
+        return RedirectResponse(url=f"/?broker_error={urllib.parse.quote(err_txt)}#broker", status_code=303)
+
+    user_name = token_data.get("user_name", "Upstox User")
+    user_id = token_data.get("user_id", "")
+    email = token_data.get("email") or state or "user"
+
+    brokers = load_user_brokers()
+    brokers[email] = {
+        "broker": "upstox",
+        "user_name": user_name,
+        "user_id": user_id,
+        "connected_at": int(time.time()),
+        "is_paper_trading": True,
+        "status": "connected"
+    }
+    save_user_brokers(brokers)
+
+    return RedirectResponse(
+        url=f"/?broker_connected=upstox&user_name={urllib.parse.quote(user_name)}#broker",
+        status_code=303
+    )
+
+@app.get("/api/broker/status")
+def broker_status(email: str = ""):
+    brokers = load_user_brokers()
+    user_data = brokers.get(email) if email else None
+    if not user_data and brokers:
+        user_data = list(brokers.values())[-1]
+
+    if user_data and user_data.get("status") == "connected":
+        return {
+            "connected": True,
+            "broker": user_data.get("broker", "upstox"),
+            "user_name": user_data.get("user_name", "Upstox User"),
+            "user_id": user_data.get("user_id", ""),
+            "connected_at": user_data.get("connected_at"),
+            "is_paper_trading": True
+        }
+    return {
+        "connected": False,
+        "broker": "none",
+        "is_paper_trading": True
+    }
+
+@app.post("/api/broker/disconnect")
+def broker_disconnect(payload: dict = Body(default={})):
+    email = payload.get("email", "") if isinstance(payload, dict) else ""
+    brokers = load_user_brokers()
+    if email and email in brokers:
+        del brokers[email]
+    else:
+        brokers.clear()
+    save_user_brokers(brokers)
+    return {"success": True, "connected": False}
