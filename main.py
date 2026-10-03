@@ -1,5 +1,6 @@
 import json
 import os
+import math
 from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, RedirectResponse
@@ -166,20 +167,20 @@ def sync_user_trial(req: TrialCheckRequest):
     now = int(time.time())
     trial_duration = 7 * 24 * 3600  # 7 Days in seconds
 
-    if email not in users:
-        # First time registration
-        users[email] = {
-            "email": email,
-            "user_id": req.user_id,
-            "created_at": now,
-            "trial_expires_at": now + trial_duration,
-            "plan": "trial",
-            "is_paid": False
-        }
+    # An email keeps its first record for good (logout / account delete never
+    # remove it), so signing up again doesn't start a fresh trial. A record
+    # made earlier by /api/subscription/status may lack the sign-up fields.
+    user_data = users.get(email)
+    if not user_data or not user_data.get("created_at") or not user_data.get("trial_expires_at"):
+        user_data = user_data or {"plan": "trial", "is_paid": False}
+        started = user_data.get("created_at") or user_data.get("trial_start_ts") or now
+        user_data.setdefault("email", email)
+        user_data.setdefault("user_id", req.user_id)
+        user_data["created_at"] = started
+        user_data["trial_expires_at"] = started + trial_duration
+        users[email] = user_data
         with open(USER_DB_FILE, "w", encoding="utf-8") as f:
             json.dump(users, f, indent=2)
-    
-    user_data = users[email]
     
     # Calculate days
     seconds_passed = now - user_data["created_at"]
@@ -232,6 +233,16 @@ class RazorpayVerifyRequest(BaseModel):
     plan_name: str = "Annual Plan"
     amount: int = 999
 
+# Plan prices and lengths live on the server: the browser only names a plan,
+# and the paid amount is checked against this table before access is given.
+PLAN_CATALOG = {
+    "Monthly Plan": {"amount": 99, "days": 30},
+    "Quarterly Plan": {"amount": 299, "days": 90},
+    "Half-Yearly Plan": {"amount": 499, "days": 180},
+    "Annual Plan": {"amount": 999, "days": 365},
+}
+
+
 @app.get("/api/payment/config")
 def get_payment_config():
     _load_env()
@@ -246,9 +257,11 @@ def create_razorpay_order(req: RazorpayOrderRequest):
     if not key_id or not key_secret:
         raise HTTPException(status_code=500, detail="Razorpay credentials not configured in server .env")
 
-    # Validate allowed plan amounts (INR in Rupees -> paise)
-    amount_in_paise = int(req.amount * 100)
-    receipt_id = f"rcpt_{int(time.time())}_{req.amount}"
+    plan = PLAN_CATALOG.get(req.plan_name)
+    if not plan:
+        raise HTTPException(status_code=400, detail="Unknown plan")
+    amount_in_paise = plan["amount"] * 100
+    receipt_id = f"rcpt_{int(time.time())}_{plan['amount']}"
 
     try:
         r = requests.post(
@@ -259,7 +272,7 @@ def create_razorpay_order(req: RazorpayOrderRequest):
                 "currency": "INR",
                 "receipt": receipt_id,
                 "notes": {
-                    "email": req.email,
+                    "email": (req.email or "").strip().lower(),
                     "plan": req.plan_name
                 }
             },
@@ -293,34 +306,53 @@ def verify_razorpay_payment(req: RazorpayVerifyRequest):
     if not hmac.compare_digest(generated, req.razorpay_signature):
         raise HTTPException(status_code=400, detail="Invalid payment signature")
 
-    # Save paid status to user_subscriptions.json
-    email = req.email.strip().lower()
-    if email:
-        users = {}
-        if os.path.exists(USER_DB_FILE):
-            try:
-                with open(USER_DB_FILE, "r", encoding="utf-8") as f:
-                    users = json.load(f)
-            except Exception:
-                users = {}
-        now = int(time.time())
-        if email not in users:
-            users[email] = {"email": email, "created_at": now}
-        users[email]["is_paid"] = True
-        users[email]["plan"] = req.plan_name
-        users[email]["payment_id"] = req.razorpay_payment_id
-        users[email]["paid_at"] = now
-        users[email]["amount"] = req.amount
-        plan_lower = (req.plan_name or "").lower()
-        if "month" in plan_lower:
-            days = 30
-        elif "quarter" in plan_lower:
-            days = 90
-        elif "half" in plan_lower:
-            days = 180
-        else:
-            days = 365
-        users[email]["valid_until_ts"] = now + (days * 86400)
+    # The plan, amount and email come from Razorpay's own order/payment
+    # records, not the browser — so paying for one plan can't unlock another.
+    key_id = os.environ.get("RAZORPAY_KEY_ID")
+    try:
+        order = requests.get(f"https://api.razorpay.com/v1/orders/{req.razorpay_order_id}", auth=(key_id, key_secret), timeout=10).json()
+        payment = requests.get(f"https://api.razorpay.com/v1/payments/{req.razorpay_payment_id}", auth=(key_id, key_secret), timeout=10).json()
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not confirm the payment with Razorpay")
+
+    notes = order.get("notes") or {}
+    plan_name = notes.get("plan") if isinstance(notes, dict) else None
+    plan = PLAN_CATALOG.get(plan_name)
+    expected_paise = plan["amount"] * 100 if plan else None
+    if (
+        not plan
+        or order.get("amount") != expected_paise
+        or payment.get("order_id") != req.razorpay_order_id
+        or payment.get("amount") != expected_paise
+        or payment.get("status") not in ("captured", "authorized")
+    ):
+        raise HTTPException(status_code=400, detail="Payment does not match the plan")
+
+    email = ((notes.get("email") if isinstance(notes, dict) else "") or req.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Payment has no account email")
+
+    users = {}
+    if os.path.exists(USER_DB_FILE):
+        try:
+            with open(USER_DB_FILE, "r", encoding="utf-8") as f:
+                users = json.load(f)
+        except Exception:
+            users = {}
+    now = int(time.time())
+    user = users.setdefault(email, {"email": email, "created_at": now})
+    seen = user.setdefault("payment_ids", [])
+    if req.razorpay_payment_id not in seen:
+        # Renewing early adds to the time already paid for instead of resetting it.
+        current_until = user.get("valid_until_ts") or 0
+        start = current_until if user.get("is_paid") and current_until > now else now
+        user["is_paid"] = True
+        user["plan"] = plan_name
+        user["payment_id"] = req.razorpay_payment_id
+        user["paid_at"] = now
+        user["amount"] = plan["amount"]
+        user["valid_until_ts"] = start + plan["days"] * 86400
+        seen.append(req.razorpay_payment_id)
         with open(USER_DB_FILE, "w", encoding="utf-8") as f:
             json.dump(users, f, indent=2)
 
@@ -328,7 +360,8 @@ def verify_razorpay_payment(req: RazorpayVerifyRequest):
         "status": "success",
         "verified": True,
         "payment_id": req.razorpay_payment_id,
-        "plan": req.plan_name
+        "plan": plan_name,
+        "valid_until_ts": user["valid_until_ts"],
     }
 
 @app.get("/api/subscription/status")
@@ -369,12 +402,14 @@ def get_subscription_status(email: str = ""):
         import datetime
         valid_until_iso = datetime.datetime.fromtimestamp(valid_until_ts, tz=datetime.timezone.utc).isoformat()
 
-    # Track 7-day trial per email
-    trial_start_ts = user_info.get("trial_start_ts")
+    # Track 7-day trial per email — one clock per email for good: it starts
+    # at the first sign-up (created_at, from /api/user/sync-trial) and is
+    # never reset by logging out, deleting the account or signing up again.
+    trial_start_ts = user_info.get("trial_start_ts") or user_info.get("created_at")
     trial_duration = 7 * 86400
     if not is_paid:
-        if not trial_start_ts:
-            trial_start_ts = now
+        if not user_info.get("trial_start_ts"):
+            trial_start_ts = trial_start_ts or now
             user_info["trial_start_ts"] = trial_start_ts
             users[email] = user_info
             try:

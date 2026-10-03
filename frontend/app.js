@@ -14970,10 +14970,14 @@ async function fetchWatchlist() {
                 trial_end_iso: data.trial_end_iso,
                 trial_days_remaining: data.trial_days_remaining,
                 trial_expired: Boolean(data.trial_expired),
-                trial_active: Boolean(data.trial_active)
+                trial_active: Boolean(data.trial_active),
+                // A paid plan that has run out (the server still reports its end date).
+                plan_expired: Boolean(data.valid_until_ts && data.valid_until_ts * 1000 < Date.now()),
+                synced_at: Date.now()
               }));
             }
           }
+          window.dispatchEvent(new CustomEvent("md-subscription-synced", { detail: { email } }));
         }
       } catch (err) {
         console.warn("Subscription check error:", err);
@@ -15246,8 +15250,10 @@ async function fetchWatchlist() {
                 });
 
                 if (!verifyRes.ok) {
-                  throw new Error("Payment signature verification failed.");
+                  const errJson = await verifyRes.json().catch(() => ({}));
+                  throw new Error(errJson.detail || "Payment signature verification failed.");
                 }
+                const verifyData = await verifyRes.json().catch(() => ({}));
 
                 // Plan period first — the subscription record below needs its
                 // end date (it used to read these before they were declared,
@@ -15259,6 +15265,8 @@ async function fetchWatchlist() {
                 else if (planPeriod === "3 Months") future.setMonth(future.getMonth() + 3);
                 else if (planPeriod === "6 Months") future.setMonth(future.getMonth() + 6);
                 else future.setFullYear(future.getFullYear() + 1);
+                // The server's end date wins: renewing early adds to the time left.
+                if (Number.isFinite(verifyData.valid_until_ts)) future.setTime(verifyData.valid_until_ts * 1000);
                 const endStr = future.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
                 // Payment verified! Store in user-scoped localStorage
@@ -15393,10 +15401,13 @@ async function fetchWatchlist() {
       if (msLeft > 0 && !trial.trial_expired) {
         return { ok: true, reason: "trial", daysLeft: Math.max(1, Math.ceil(msLeft / 86400000)) };
       }
-      return { ok: false, reason: "expired" };
+      return { ok: false, reason: trial.plan_expired ? "plan-expired" : "expired" };
     }
-    // Trial status not synced yet (brand-new sign-in): don't lock anyone out.
-    return { ok: true, reason: "trial", daysLeft: Number.isFinite(window.mdTrialDaysLeft) ? window.mdTrialDaysLeft : 7 };
+    // The trial is tied to the email on the server (it survives logout,
+    // account deletion and signing up again), so nothing opens until the
+    // server has said where this email stands.
+    if (typeof window.syncUserSubscription === "function") window.syncUserSubscription(email);
+    return { ok: false, reason: "checking" };
   }
   window.mdGetProAccess = getProAccess;
 
@@ -15414,6 +15425,16 @@ async function fetchWatchlist() {
       text.textContent = `${feature} is part of MarketDock Pro. Sign in to start your 7-day free trial — no payment needed.`;
       primary.textContent = "Sign in / Sign up";
       primary.onclick = () => { hide(); if (typeof window.mdShowSignIn === "function") window.mdShowSignIn(); };
+    } else if (access.reason === "checking") {
+      title.textContent = "Checking your plan…";
+      text.textContent = "We're confirming your MarketDock Pro access. Please tap again in a moment.";
+      primary.textContent = "OK";
+      primary.onclick = hide;
+    } else if (access.reason === "plan-expired") {
+      title.textContent = "Your MarketDock Pro plan has expired";
+      text.textContent = `${feature} needs an active plan. Renew to unlock paper trading, Heatmap, RRG, News and AI analysis again.`;
+      primary.textContent = "Renew plan";
+      primary.onclick = () => { hide(); document.getElementById("headerUpgradeBtn")?.click(); };
     } else {
       title.textContent = "Your 7-day free trial has ended";
       text.textContent = `${feature} needs a MarketDock Pro plan. Choose a plan to unlock paper trading, Heatmap, RRG, News and AI analysis again.`;
@@ -15447,6 +15468,18 @@ async function fetchWatchlist() {
     const page = button.getAttribute("data-page");
     return page && PRO_PAGES[page] ? PRO_PAGES[page] : null;
   }
+
+  // On sign-in (each sync), tell a user whose trial or plan has run out —
+  // once per browser session.
+  window.addEventListener("md-subscription-synced", (event) => {
+    const email = (event.detail && event.detail.email) || currentEmail();
+    if (!email || email !== currentEmail()) return;
+    const access = getProAccess();
+    if (access.ok || (access.reason !== "expired" && access.reason !== "plan-expired")) return;
+    const key = "md_pro_notice_shown_" + email;
+    try { if (sessionStorage.getItem(key) === "1") return; sessionStorage.setItem(key, "1"); } catch (e) {}
+    showGate(access, "MarketDock Pro");
+  });
 
   // Capture phase on the document: runs before the buttons' own handlers,
   // so a blocked tap never opens the page or order ticket underneath.
