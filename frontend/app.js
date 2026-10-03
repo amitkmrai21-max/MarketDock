@@ -15355,8 +15355,9 @@ async function fetchWatchlist() {
 // RRG, News and AI analysis — are free for a 7-day trial after sign-in, then
 // need a plan. Everything else (dashboard, watchlist, charts, scanner,
 // option-chain viewing) stays free. RRG's own maintenance lock still applies
-// on top of this. The first Pro feature used during the trial waits for the
-// "Pro trial activated" card to be accepted.
+// on top of this. A brand-new user's first Pro tap waits for the "Pro trial
+// activated" card to be accepted; after that (and for anyone further into
+// their trial) nothing interrupts until the trial ends.
 (function setupProGate() {
   const PRO_PAGES = {
     "im-broker-account": "Paper Trading",
@@ -15375,6 +15376,7 @@ async function fetchWatchlist() {
     "im-coach-button": "AI Analysis"
   };
   const OWNER_EMAIL = "amitkmrai21@gmail.com";
+  const NEW_USER_WINDOW_SEC = 24 * 3600;
 
   function readJson(key) {
     try { return JSON.parse(localStorage.getItem(key) || "null"); } catch (e) { return null; }
@@ -15402,7 +15404,10 @@ async function fetchWatchlist() {
     if (trial && trial.trial_end_ts) {
       const msLeft = trial.trial_end_ts * 1000 - Date.now();
       if (msLeft > 0 && !trial.trial_expired) {
-        return { ok: true, reason: "trial", daysLeft: Math.max(1, Math.ceil(msLeft / 86400000)) };
+        // "New" = this email signed up within the last day. Only they get
+        // the trial card; anyone further into their trial just uses Pro.
+        const isNew = Number.isFinite(trial.trial_start_ts) && Date.now() / 1000 - trial.trial_start_ts < NEW_USER_WINDOW_SEC;
+        return { ok: true, reason: "trial", daysLeft: Math.max(1, Math.ceil(msLeft / 86400000)), isNew };
       }
       return { ok: false, reason: trial.plan_expired ? "plan-expired" : "expired" };
     }
@@ -15514,7 +15519,9 @@ async function fetchWatchlist() {
     const feature = featureFor(event.target);
     if (!feature) return;
     const access = getProAccess();
-    if (access.ok && !(access.reason === "trial" && !welcomeAccepted())) return;
+    // During the trial nothing is held back — except a brand-new user's
+    // first Pro tap, which waits for the trial card to be accepted once.
+    if (access.ok && !(access.reason === "trial" && access.isNew && !welcomeAccepted())) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (access.ok) {
