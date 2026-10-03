@@ -3355,7 +3355,7 @@
 
 
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script defer src="/frontend/app.js?v=20261003-onboarding-fix"></script>
+  <script defer src="/frontend/app.js?v=20261003-pro-gate"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -3459,7 +3459,7 @@
     <h3 style="font-size:22px; font-weight:800; color:#0f172a; margin:0 0 8px 0; letter-spacing:-0.3px;">MarketDock Pro Activated</h3>
     
     <p id="md-trial-status-text" style="font-size:13.5px; color:#475569; line-height:1.5; margin:0 0 18px 0;">
-      You have <b>full premium access free for 7 days</b>. Live confirmation engine, F&amp;O options chain, and MCX feeds are completely unlocked.
+      You have <b>MarketDock Pro free for 7 days</b>: paper trading (stocks, F&amp;O options and commodities), Heatmap, RRG, News and AI analysis are unlocked.
     </p>
 
     <!-- Professional Billing & Plan Matrix -->
@@ -3508,6 +3508,18 @@
     <button id="md-dismiss-trial-btn" style="width:100%; padding:14px; background:linear-gradient(135deg, #16a34a 0%, #15803d 100%); color:#ffffff; font-weight:700; border:none; border-radius:12px; font-size:15px; cursor:pointer; box-shadow:0 4px 12px rgba(22,163,74,0.3); transition:all 0.2s;">
       Enter Terminal &amp; Start Trading &rarr;
     </button>
+  </div>
+</div>
+
+<!-- Pro feature gate: shown when a Pro feature is opened without access -->
+<div id="md-pro-gate-modal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.85); backdrop-filter:blur(6px); z-index:99999; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;" role="dialog" aria-modal="true" aria-labelledby="md-pro-gate-title">
+  <div style="background:#ffffff; color:#0f172a; width:100%; max-width:400px; padding:24px 20px; border-radius:20px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.35); text-align:center; box-sizing:border-box;">
+    <div style="display:inline-flex; align-items:center; gap:6px; background:#fef9c3; border:1px solid #fde68a; color:#854d0e; font-size:11.5px; font-weight:800; padding:4px 12px; border-radius:999px; margin-bottom:12px; letter-spacing:0.4px;">&#128081; MARKETDOCK PRO</div>
+    <h3 id="md-pro-gate-title" style="font-size:20px; font-weight:800; margin:0 0 8px 0;">Pro feature</h3>
+    <p id="md-pro-gate-text" style="font-size:13.5px; color:#475569; line-height:1.5; margin:0 0 16px 0;"></p>
+    <div style="font-size:12px; color:#64748b; margin-bottom:16px;">Plans: ₹99/month · ₹299/3 months · ₹499/6 months · ₹999/year</div>
+    <button id="md-pro-gate-primary" type="button" style="width:100%; padding:13px; background:linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color:#ffffff; font-weight:700; border:none; border-radius:12px; font-size:15px; cursor:pointer; margin-bottom:8px;">Continue</button>
+    <button id="md-pro-gate-close" type="button" style="width:100%; padding:11px; background:transparent; color:#64748b; font-weight:600; border:none; border-radius:12px; font-size:14px; cursor:pointer;">Not now</button>
   </div>
 </div>
 
