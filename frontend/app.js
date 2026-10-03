@@ -5111,6 +5111,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   // as the drilldown one above. Checked first since these can be open on
   // top of anything else (a drilldown page, even the fullscreen chart).
   function closeAnyOpenImOverlay() {
+    if (typeof window.mdCloseOpenCard === "function" && window.mdCloseOpenCard()) return true;
     const sortPanel = document.getElementById("im-watchlist-sort-panel");
     if (sortPanel && !sortPanel.hidden) {
       sortPanel.hidden = true;
@@ -5144,6 +5145,8 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     }
     return false;
   }
+
+  window.mdCloseImOverlay = closeAnyOpenImOverlay;
 
   let imLastHomeBackPressAt = 0;
   const IM_BACK_EXIT_WINDOW_MS = 2000;
@@ -15453,22 +15456,34 @@ async function fetchWatchlist() {
 
   // The trial card has to be accepted (its button tapped) before the first
   // Pro feature opens. Closing it any other way — Back, reload — doesn't
-  // count, so the next Pro tap shows it again.
+  // count, so the next Pro tap shows it again. The accept listener is added
+  // once with addEventListener so the sign-in code's own onclick on the same
+  // button can't replace it.
+  let pendingWelcomeResume = null;
+  let welcomeOpenedByGate = false;
+  const acceptBtn = document.getElementById("md-dismiss-trial-btn");
+  if (acceptBtn) {
+    acceptBtn.addEventListener("click", () => {
+      if (!welcomeOpenedByGate) return;
+      welcomeOpenedByGate = false;
+      try { localStorage.setItem(welcomeKey(), "1"); } catch (e) {}
+      const modal = document.getElementById("md-trial-welcome-modal");
+      if (modal) modal.style.display = "none";
+      const resume = pendingWelcomeResume;
+      pendingWelcomeResume = null;
+      if (resume) resume();
+    });
+  }
+
   function showTrialWelcome(access, resume) {
     const modal = document.getElementById("md-trial-welcome-modal");
-    if (!modal) { if (resume) resume(); return; }
+    if (!modal || !acceptBtn) { if (resume) resume(); return; }
     const text = document.getElementById("md-trial-status-text");
     if (text && Number.isFinite(access.daysLeft)) {
       text.innerHTML = `You have <b>MarketDock Pro free for ${access.daysLeft} more day${access.daysLeft === 1 ? "" : "s"}</b>: paper trading (stocks, F&amp;O options and commodities), Heatmap, RRG, News and AI analysis are unlocked.`;
     }
-    const accept = document.getElementById("md-dismiss-trial-btn");
-    if (accept) {
-      accept.onclick = () => {
-        try { localStorage.setItem(welcomeKey(), "1"); } catch (e) {}
-        modal.style.display = "none";
-        if (resume) resume();
-      };
-    }
+    welcomeOpenedByGate = true;
+    pendingWelcomeResume = resume || null;
     modal.style.display = "flex";
   }
 
@@ -15511,4 +15526,69 @@ async function fetchWatchlist() {
     }
     showGate(access, feature);
   }, true);
+})();
+
+// ================= BACK CLOSES CARDS =================
+// The website has no history entries of its own, so Back on a full-screen
+// card (trial card, Pro gate, Connect Broker) or the Watchlist's Buy/Sell
+// sheet used to leave MarketDock for whatever page came before it — often
+// Upstox's login page from an earlier connect, which looked like the
+// Connect Upstox card opening by itself. Each of these now adds a history
+// entry while it's open, and Back closes it instead. Closing one with its
+// own buttons drops that entry again. In the Android app the hardware back
+// button calls mdCloseOpenCard() directly (see closeAnyOpenImOverlay).
+(function setupCardBackHandling() {
+  const CARDS = ["md-pro-gate-modal", "md-trial-welcome-modal", "md-broker-connect-modal"];
+  const SHEETS = ["im-watchlist-action-sheet", "im-watchlist-delete-sheet", "im-watchlist-tab-menu-sheet"];
+  const isNativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
+  const cardOpen = (el) => Boolean(el) && el.style.display !== "none" && el.style.display !== "";
+  const sheetOpen = (el) => Boolean(el) && !el.hidden;
+
+  function closeCard(id) {
+    const el = document.getElementById(id);
+    if (!cardOpen(el)) return false;
+    // Backing out of Connect Broker counts as skipping it, so it doesn't
+    // come back on the next visit.
+    const skip = id === "md-broker-connect-modal" && document.getElementById("md-skip-broker-btn");
+    if (skip) skip.click();
+    el.style.display = "none";
+    return true;
+  }
+
+  // Closes the top-most open card; true when something was closed.
+  window.mdCloseOpenCard = function () {
+    for (const id of CARDS) if (closeCard(id)) return true;
+    return false;
+  };
+
+  if (isNativeApp || !window.history || !window.history.pushState) return;
+
+  // Set while we step back over our own entry after something closed by
+  // its own button, so that Back doesn't also close what's underneath.
+  let skipNextPop = 0;
+
+  function track(id, isOpen, attribute) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let wasOpen = isOpen(el);
+    new MutationObserver(() => {
+      const open = isOpen(el);
+      if (open === wasOpen) return;
+      wasOpen = open;
+      if (open) {
+        try { history.pushState({ mdCard: id }, ""); } catch (e) {}
+      } else if (history.state && history.state.mdCard === id) {
+        skipNextPop += 1;
+        history.back();
+      }
+    }).observe(el, { attributes: true, attributeFilter: [attribute] });
+  }
+  CARDS.forEach((id) => track(id, cardOpen, "style"));
+  SHEETS.forEach((id) => track(id, sheetOpen, "hidden"));
+
+  window.addEventListener("popstate", () => {
+    if (skipNextPop > 0) { skipNextPop -= 1; return; }
+    if (window.mdCloseOpenCard()) return;
+    if (typeof window.mdCloseImOverlay === "function") window.mdCloseImOverlay();
+  });
 })();
