@@ -14941,7 +14941,18 @@ async function fetchWatchlist() {
 
     function isUserPaid() {
       const sub = getActiveUserSub();
-      return Boolean(sub && sub.is_paid);
+      return Boolean(sub && sub.is_paid && (!sub.valid_until || Date.parse(sub.valid_until) > Date.now()));
+    }
+
+    function isTrialRunning() {
+      const email = getCurrentUserEmail();
+      if (!email) return false;
+      try {
+        const trial = JSON.parse(localStorage.getItem("marketdock_trial_" + email) || "null");
+        return Boolean(trial && trial.trial_end_ts && !trial.trial_expired && trial.trial_end_ts * 1000 > Date.now());
+      } catch (e) {
+        return false;
+      }
     }
 
     async function syncUserSubscription(email) {
@@ -14990,14 +15001,15 @@ async function fetchWatchlist() {
     }
     window.syncUserSubscription = syncUserSubscription;
 
+    // Upgrade shows only when there's something to buy: hidden while the
+    // 7-day trial runs and while a paid plan is active, back as soon as
+    // either ends (re-checked every minute, so it reappears on time even
+    // with the page left open).
     function refreshUpgradeButtonVisibility() {
       if (!headerUpgradeBtn) return;
-      if (isUserPaid()) {
-        headerUpgradeBtn.style.display = "none";
-      } else {
-        headerUpgradeBtn.style.display = "inline-flex";
-      }
+      headerUpgradeBtn.style.display = isUserPaid() || isTrialRunning() ? "none" : "inline-flex";
     }
+    window.setInterval(refreshUpgradeButtonVisibility, 60000);
 
     function updateTrialStatusDates() {
       const datesSpan = document.getElementById("md-overview-trial-dates");
