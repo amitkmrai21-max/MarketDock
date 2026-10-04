@@ -4,27 +4,25 @@
 const MD_BROKER_OAUTH_RETURN = /[?&]broker_(connected|error)=/.test(window.location.search);
 
 // Paper trades — and the funds, positions, holdings and order book built
-// from them — belong to one MarketDock account, so each email has its own
-// key. They used to share one key per device, so every account signed in
-// on that device saw the same positions and P&L. The old shared list is
-// handed to the first account seen signed in after this change.
+// from them — belong strictly to individual MarketDock accounts.
+// Each email has its own isolated key and starts with clean initial funds.
 const MD_LEGACY_PAPER_TRADES_KEY = "indianMarketPaperTrades";
-function mdPaperTradesKey() {
-  let email = (window.marketDockUser && window.marketDockUser.email) || "";
-  if (!email) {
-    try { email = localStorage.getItem("marketdock_user_email") || ""; } catch (e) { email = ""; }
-  }
-  email = email.trim().toLowerCase();
+function mdGetActiveUserEmail() {
+  const email = (window.marketDockUser && window.marketDockUser.email) ||
+                (window.mdCurrentUser && window.mdCurrentUser.email) ||
+                (function() {
+                  try { return localStorage.getItem("marketdock_user_email") || ""; } catch (e) { return ""; }
+                })();
+  return (email || "").trim().toLowerCase();
+}
+window.mdGetActiveUserEmail = mdGetActiveUserEmail;
+
+function mdPaperTradesKey(targetEmail) {
+  const email = (targetEmail !== undefined && targetEmail !== null && String(targetEmail).trim())
+    ? String(targetEmail).trim().toLowerCase()
+    : mdGetActiveUserEmail();
   if (!email) return MD_LEGACY_PAPER_TRADES_KEY + ":guest";
-  const key = MD_LEGACY_PAPER_TRADES_KEY + ":" + email;
-  try {
-    const legacy = localStorage.getItem(MD_LEGACY_PAPER_TRADES_KEY);
-    if (legacy !== null) {
-      if (localStorage.getItem(key) === null) localStorage.setItem(key, legacy);
-      localStorage.removeItem(MD_LEGACY_PAPER_TRADES_KEY);
-    }
-  } catch (e) { /* ignore */ }
-  return key;
+  return MD_LEGACY_PAPER_TRADES_KEY + ":" + email;
 }
 window.mdPaperTradesKey = mdPaperTradesKey;
 
@@ -2492,8 +2490,12 @@ setInterval(loadRrg, 300000);
       if (emailDisplay) emailDisplay.textContent = email;
       if (avatarEl) avatarEl.textContent = email.charAt(0) || "?";
       if (session?.user?.email) {
-        localStorage.setItem("marketdock_user_email", session.user.email);
-        if (window.syncUserSubscription) window.syncUserSubscription(session.user.email);
+        const cleanEmail = session.user.email.trim().toLowerCase();
+        window.marketDockUser = session.user;
+        window.mdCurrentUser = { email: cleanEmail, id: session.user.id };
+        localStorage.setItem("marketdock_user_email", cleanEmail);
+        if (window.syncUserSubscription) window.syncUserSubscription(cleanEmail);
+        if (window.mdRefreshPaperViews) window.mdRefreshPaperViews();
       }
     }
 
@@ -2501,6 +2503,9 @@ setInterval(loadRrg, 300000);
       loggedOutGroup.hidden = false;
       loggedInGroup.hidden = true;
       setStatus("", false);
+      window.marketDockUser = null;
+      window.marketDockSession = null;
+      window.mdCurrentUser = null;
       localStorage.removeItem("marketdock_user_email");
       localStorage.removeItem("marketdock_is_paid");
       if (window.syncUserSubscription) window.syncUserSubscription("");
@@ -5333,32 +5338,28 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     }
   }
 
-  // Two-way Cloud Sync: Auto-pushes existing local trades and pulls on mobile app
+  // Two-way Cloud Sync: Isolate per-user paper trades
   window.syncCloudTrades = async function(user) {
-    if (!user) return;
+    if (!user || !user.email) return;
+    const email = user.email.trim().toLowerCase();
+    const userKey = mdPaperTradesKey(email);
     try {
-      const localTrades = loadTrades();
       const remoteTrades = user.user_metadata?.im_paper_trades;
 
-      // 1. If website has trades but cloud is empty, upload them immediately
-      if (Array.isArray(localTrades) && localTrades.length > 0 && (!remoteTrades || remoteTrades.length === 0)) {
-        if (window.marketDockSupabase) {
-          await window.marketDockSupabase.auth.updateUser({
-            data: { im_paper_trades: localTrades }
-          });
-        }
-        return;
-      }
-
-      // 2. If cloud has trades, pull into App/Browser localStorage
+      // If user has saved trades in cloud metadata, load them into their isolated key
       if (Array.isArray(remoteTrades) && remoteTrades.length > 0) {
-        localStorage.setItem(mdPaperTradesKey(), JSON.stringify(remoteTrades));
+        localStorage.setItem(userKey, JSON.stringify(remoteTrades));
+      } else {
+        // If this is a fresh account or cloud metadata is empty, check their own localStorage key
+        const existingLocal = localStorage.getItem(userKey);
+        if (!existingLocal) {
+          // Fresh account starts clean with 0 positions and full available margin
+          localStorage.setItem(userKey, JSON.stringify([]));
+        }
       }
     } catch (e) {
       console.warn("Cross-device sync error:", e);
     } finally {
-      // Always redraw: a different account may have just signed in, and
-      // the screen still shows the previous account's portfolio.
       refreshPaperViews();
     }
   };
