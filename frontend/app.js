@@ -7066,11 +7066,25 @@ async function fetchWatchlist() {
 
     backdrop.classList.remove("im-backdrop-closing");
     sheet.classList.remove("im-sheet-closing");
+    backdrop.classList.remove("im-backdrop-closing");
+    backdrop.style.opacity = "";
+    sheet.classList.remove("im-sheet-closing", "im-sheet-visible");
+    sheet.style.transform = "";
+    sheet.style.transition = "";
     backdrop.hidden = false;
     backdrop.style.display = "block";
     sheet.hidden = false;
     sheet.style.display = "flex";
     sheet.classList.add("im-sheet-open");
+    // Ensure gesture listener is attached
+    if (typeof initWatchlistSheetDragGesture === "function") {
+      initWatchlistSheetDragGesture();
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        sheet.classList.add("im-sheet-visible");
+      });
+    });
   }
 
   let imWatchlistTabPressTimer = null;
@@ -7681,6 +7695,7 @@ async function fetchWatchlist() {
     const sheetsToClose = [actionSheet, deleteSheet, tabMenuSheet, commodityExpirySheet].filter(Boolean);
 
     if (actionSheet && !actionSheet.hidden) {
+      actionSheet.classList.remove("im-sheet-visible");
       actionSheet.classList.add("im-sheet-closing");
       if (backdrop) backdrop.classList.add("im-backdrop-closing");
       setTimeout(() => {
@@ -7688,13 +7703,16 @@ async function fetchWatchlist() {
           backdrop.hidden = true;
           backdrop.style.display = "none";
           backdrop.classList.remove("im-backdrop-closing");
+          backdrop.style.opacity = "";
         }
         sheetsToClose.forEach(s => {
           s.hidden = true;
           s.style.display = "none";
-          s.classList.remove("im-sheet-open", "im-sheet-closing");
+          s.classList.remove("im-sheet-open", "im-sheet-visible", "im-sheet-closing");
+          s.style.transform = "";
+          s.style.transition = "";
         });
-      }, 200);
+      }, 230);
       return;
     }
 
@@ -8362,7 +8380,90 @@ async function fetchWatchlist() {
     imActionSheetLiveTimer = window.setInterval(tick, 2000);
   }
 
-  function openImWatchlistActionSheet(symbol, price, options = {}) {
+  
+  function initWatchlistSheetDragGesture() {
+    const sheet = document.getElementById("im-watchlist-action-sheet");
+    if (!sheet || sheet.dataset.dragInitialized) return;
+    sheet.dataset.dragInitialized = "true";
+
+    const scrollBody = sheet.querySelector(".im-terminal-scroll-body");
+    let startY = 0;
+    let currentY = 0;
+    let isDragging = false;
+    let canDrag = false;
+
+    sheet.addEventListener("touchstart", (e) => {
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const target = e.target;
+      if (target.closest("button, a, input, select")) return;
+
+      const inHandleOrHeader = !!target.closest(".im-action-sheet-handle, .im-terminal-header");
+      const isAtTop = !scrollBody || scrollBody.scrollTop <= 0;
+
+      if (inHandleOrHeader || isAtTop) {
+        canDrag = true;
+        isDragging = false;
+        startY = touch.clientY;
+        currentY = touch.clientY;
+      }
+    }, { passive: true });
+
+    sheet.addEventListener("touchmove", (e) => {
+      if (!canDrag || e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      const deltaY = touch.clientY - startY;
+
+      if (deltaY > 6) {
+        if (!isDragging) {
+          if (scrollBody && scrollBody.scrollTop > 0) {
+            canDrag = false;
+            return;
+          }
+          isDragging = true;
+        }
+        sheet.style.transition = "none";
+        sheet.style.transform = "translate3d(0, " + deltaY + "px, 0)";
+        const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
+        if (backdrop) {
+          const opacity = Math.max(0.15, 1 - (deltaY / 320));
+          backdrop.style.opacity = opacity;
+        }
+      } else if (deltaY < 0 && isDragging) {
+        sheet.style.transform = "translate3d(0, 0, 0)";
+      }
+    }, { passive: true });
+
+    sheet.addEventListener("touchend", (e) => {
+      if (!canDrag) return;
+      canDrag = false;
+      const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
+      if (backdrop) backdrop.style.opacity = "";
+
+      if (isDragging) {
+        isDragging = false;
+        const endY = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientY : currentY;
+        const deltaY = endY - startY;
+
+        if (deltaY > 80) {
+          sheet.style.transition = "transform 0.22s cubic-bezier(0.4, 0, 1, 1)";
+          sheet.style.transform = "translate3d(0, 100%, 0)";
+          setTimeout(() => {
+            closeImWatchlistSheets(true);
+          }, 220);
+        } else {
+          sheet.style.transition = "transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1)";
+          sheet.style.transform = "translate3d(0, 0, 0)";
+          setTimeout(() => {
+            sheet.style.transition = "";
+            sheet.style.transform = "";
+          }, 250);
+        }
+      }
+    }, { passive: true });
+  }
+
+function openImWatchlistActionSheet(symbol, price, options = {}) {
     imSheetOpenedAt = Date.now();
     const backdrop = document.getElementById("im-watchlist-sheet-backdrop");
     const sheet = document.getElementById("im-watchlist-action-sheet");
@@ -8534,11 +8635,25 @@ async function fetchWatchlist() {
       closeBtn.onclick = () => closeImWatchlistSheets(true);
     }
 
+    backdrop.classList.remove("im-backdrop-closing");
+    backdrop.style.opacity = "";
+    sheet.classList.remove("im-sheet-closing", "im-sheet-visible");
+    sheet.style.transform = "";
+    sheet.style.transition = "";
     backdrop.hidden = false;
     backdrop.style.display = "block";
     sheet.hidden = false;
     sheet.style.display = "flex";
     sheet.classList.add("im-sheet-open");
+    // Ensure gesture listener is attached
+    if (typeof initWatchlistSheetDragGesture === "function") {
+      initWatchlistSheetDragGesture();
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        sheet.classList.add("im-sheet-visible");
+      });
+    });
   }
 
   function openImWatchlistDeleteSheet(symbol) {
@@ -8561,11 +8676,25 @@ async function fetchWatchlist() {
       closeImWatchlistSheets(true);
     };
 
+    backdrop.classList.remove("im-backdrop-closing");
+    backdrop.style.opacity = "";
+    sheet.classList.remove("im-sheet-closing", "im-sheet-visible");
+    sheet.style.transform = "";
+    sheet.style.transition = "";
     backdrop.hidden = false;
     backdrop.style.display = "block";
     sheet.hidden = false;
     sheet.style.display = "flex";
     sheet.classList.add("im-sheet-open");
+    // Ensure gesture listener is attached
+    if (typeof initWatchlistSheetDragGesture === "function") {
+      initWatchlistSheetDragGesture();
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        sheet.classList.add("im-sheet-visible");
+      });
+    });
   }
 
   (function setupImWatchlistSheetDismiss() {
