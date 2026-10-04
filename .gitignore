@@ -39,3 +39,7 @@ mobile-app/android/captures/
 mobile-app/android/.idea/
 *.apk
 *.aab
+
+# Live user records on the server (never commit)
+user_subscriptions.json*
+user_brokers.json*

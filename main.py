@@ -146,6 +146,107 @@ from pydantic import BaseModel
 
 USER_DB_FILE = "/opt/marketdock/user_subscriptions.json"
 
+# Trial / plan records (and broker links below) are JSON files that several
+# requests — and both MarketDock services — change at the same time. JsonStore
+# serialises every read-modify-write (thread lock + file lock), writes to a
+# unique temp file and swaps it in atomically, and keeps the last good file as
+# .bak. An unreadable file is never treated as empty — that would let the
+# next save wipe every trial and payment — the .bak is used instead, or the
+# request fails until someone looks at it.
+import contextlib
+import copy
+import shutil
+import threading
+
+try:
+    import fcntl
+except ImportError:  # not on Linux; the thread lock still applies
+    fcntl = None
+
+
+class StoreUnavailable(Exception):
+    pass
+
+
+class JsonStore:
+    def __init__(self, path):
+        self.path = path
+        self._lock = threading.RLock()
+        self._stamp = None
+        self._data = None
+
+    @contextlib.contextmanager
+    def locked(self):
+        with self._lock:
+            handle = None
+            try:
+                if fcntl:
+                    handle = open(self.path + ".lock", "a")
+                    fcntl.flock(handle, fcntl.LOCK_EX)
+                yield
+            finally:
+                if handle:
+                    fcntl.flock(handle, fcntl.LOCK_UN)
+                    handle.close()
+
+    @staticmethod
+    def _read(path):
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("not a JSON object")
+        return data
+
+    def load(self):
+        """All records — read-only; use load_for_update() under locked() to change them."""
+        backup = self.path + ".bak"
+        if not os.path.exists(self.path):
+            return self._read(backup) if os.path.exists(backup) else {}
+        info = os.stat(self.path)
+        stamp = (info.st_mtime_ns, info.st_size)
+        if self._stamp == stamp:
+            return self._data
+        try:
+            data = self._read(self.path)
+        except (OSError, ValueError) as error:
+            print(f"{self.path} unreadable ({error}); using the backup copy.")
+            try:
+                return self._read(backup)
+            except (OSError, ValueError) as backup_error:
+                raise StoreUnavailable(f"{self.path} and its backup are unreadable: {backup_error}") from error
+        self._stamp, self._data = stamp, data
+        return data
+
+    def load_for_update(self):
+        return copy.deepcopy(self.load())
+
+    def save(self, data):
+        tmp = f"{self.path}.{os.getpid()}.{threading.get_ident()}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        if os.path.exists(self.path):
+            try:
+                self._read(self.path)
+                shutil.copyfile(self.path, self.path + ".bak")
+            except (OSError, ValueError):
+                pass  # never back up a broken file over a good backup
+        os.replace(tmp, self.path)
+        info = os.stat(self.path)
+        self._stamp, self._data = (info.st_mtime_ns, info.st_size), data
+
+
+user_store = JsonStore(USER_DB_FILE)
+
+
+def _load_users_or_503():
+    try:
+        return user_store.load()
+    except StoreUnavailable as error:
+        print(error)
+        raise HTTPException(status_code=503, detail="Account records are temporarily unavailable. Please try again in a minute.")
+
 class TrialCheckRequest(BaseModel):
     email: str
     user_id: str = ""
@@ -156,31 +257,30 @@ def sync_user_trial(req: TrialCheckRequest):
     if not email:
         return {"error": "Email is required"}
     
-    users = {}
-    if os.path.exists(USER_DB_FILE):
-        try:
-            with open(USER_DB_FILE, "r", encoding="utf-8") as f:
-                users = json.load(f)
-        except Exception:
-            users = {}
-
     now = int(time.time())
     trial_duration = 7 * 24 * 3600  # 7 Days in seconds
 
     # An email keeps its first record for good (logout / account delete never
     # remove it), so signing up again doesn't start a fresh trial. A record
     # made earlier by /api/subscription/status may lack the sign-up fields.
-    user_data = users.get(email)
+    user_data = _load_users_or_503().get(email)
     if not user_data or not user_data.get("created_at") or not user_data.get("trial_expires_at"):
-        user_data = user_data or {"plan": "trial", "is_paid": False}
-        started = user_data.get("created_at") or user_data.get("trial_start_ts") or now
-        user_data.setdefault("email", email)
-        user_data.setdefault("user_id", req.user_id)
-        user_data["created_at"] = started
-        user_data["trial_expires_at"] = started + trial_duration
-        users[email] = user_data
-        with open(USER_DB_FILE, "w", encoding="utf-8") as f:
-            json.dump(users, f, indent=2)
+        with user_store.locked():
+            try:
+                users = user_store.load_for_update()
+            except StoreUnavailable as error:
+                print(error)
+                raise HTTPException(status_code=503, detail="Account records are temporarily unavailable. Please try again in a minute.")
+            user_data = users.get(email)
+            if not user_data or not user_data.get("created_at") or not user_data.get("trial_expires_at"):
+                user_data = user_data or {"plan": "trial", "is_paid": False}
+                started = user_data.get("created_at") or user_data.get("trial_start_ts") or now
+                user_data.setdefault("email", email)
+                user_data.setdefault("user_id", req.user_id)
+                user_data["created_at"] = started
+                user_data["trial_expires_at"] = started + trial_duration
+                users[email] = user_data
+                user_store.save(users)
     
     # Calculate days
     seconds_passed = now - user_data["created_at"]
@@ -337,29 +437,28 @@ def verify_razorpay_payment(req: RazorpayVerifyRequest):
     if not email:
         raise HTTPException(status_code=400, detail="Payment has no account email")
 
-    users = {}
-    if os.path.exists(USER_DB_FILE):
+    with user_store.locked():
         try:
-            with open(USER_DB_FILE, "r", encoding="utf-8") as f:
-                users = json.load(f)
-        except Exception:
-            users = {}
-    now = int(time.time())
-    user = users.setdefault(email, {"email": email, "created_at": now})
-    seen = user.setdefault("payment_ids", [])
-    if req.razorpay_payment_id not in seen:
-        # Renewing early adds to the time already paid for instead of resetting it.
-        current_until = user.get("valid_until_ts") or 0
-        start = current_until if user.get("is_paid") and current_until > now else now
-        user["is_paid"] = True
-        user["plan"] = plan_name
-        user["payment_id"] = req.razorpay_payment_id
-        user["paid_at"] = now
-        user["amount"] = plan["amount"]
-        user["valid_until_ts"] = start + plan["days"] * 86400
-        seen.append(req.razorpay_payment_id)
-        with open(USER_DB_FILE, "w", encoding="utf-8") as f:
-            json.dump(users, f, indent=2)
+            users = user_store.load_for_update()
+        except StoreUnavailable as error:
+            # The payment is real; say so instead of losing it silently.
+            print(f"Could not record payment {req.razorpay_payment_id} for {email}: {error}")
+            raise HTTPException(status_code=503, detail=f"Payment received but could not be saved yet. Please contact support with payment ID {req.razorpay_payment_id}.")
+        now = int(time.time())
+        user = users.setdefault(email, {"email": email, "created_at": now})
+        seen = user.setdefault("payment_ids", [])
+        if req.razorpay_payment_id not in seen:
+            # Renewing early adds to the time already paid for instead of resetting it.
+            current_until = user.get("valid_until_ts") or 0
+            start = current_until if user.get("is_paid") and current_until > now else now
+            user["is_paid"] = True
+            user["plan"] = plan_name
+            user["payment_id"] = req.razorpay_payment_id
+            user["paid_at"] = now
+            user["amount"] = plan["amount"]
+            user["valid_until_ts"] = start + plan["days"] * 86400
+            seen.append(req.razorpay_payment_id)
+            user_store.save(users)
 
     return {
         "status": "success",
@@ -374,14 +473,7 @@ def get_subscription_status(email: str = ""):
     email = (email or "").strip().lower()
     if not email:
         return {"is_paid": False, "plan": None, "active": False}
-    users = {}
-    if os.path.exists(USER_DB_FILE):
-        try:
-            with open(USER_DB_FILE, "r", encoding="utf-8") as f:
-                users = json.load(f)
-        except Exception:
-            users = {}
-    user_info = users.get(email, {})
+    user_info = dict(_load_users_or_503().get(email, {}))
     is_paid = bool(user_info.get("is_paid", False))
     now = int(time.time())
     paid_at = user_info.get("paid_at", 0)
@@ -416,12 +508,17 @@ def get_subscription_status(email: str = ""):
         if not user_info.get("trial_start_ts"):
             trial_start_ts = trial_start_ts or now
             user_info["trial_start_ts"] = trial_start_ts
-            users[email] = user_info
             try:
-                with open(USER_DB_FILE, "w", encoding="utf-8") as f:
-                    json.dump(users, f, indent=2)
-            except Exception:
-                pass
+                with user_store.locked():
+                    users = user_store.load_for_update()
+                    record = users.get(email, {})
+                    if not record.get("trial_start_ts"):
+                        record["trial_start_ts"] = trial_start_ts
+                        users[email] = record
+                        user_store.save(users)
+                    trial_start_ts = record["trial_start_ts"]
+            except (StoreUnavailable, OSError) as error:
+                print(f"Could not record trial start for {email}: {error}")
     
     trial_end_ts = (trial_start_ts + trial_duration) if trial_start_ts else (now + trial_duration)
     time_left = trial_end_ts - now
@@ -468,22 +565,19 @@ BROKER_STORAGE_FILE = os.path.join(os.path.dirname(__file__), "user_brokers.json
 BROKER_STATE_MAX_AGE_SECONDS = 15 * 60
 
 
+broker_store = JsonStore(BROKER_STORAGE_FILE)
+
+
 def load_user_brokers():
-    if not os.path.exists(BROKER_STORAGE_FILE):
-        return {}
     try:
-        with open(BROKER_STORAGE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
+        return broker_store.load_for_update()
+    except StoreUnavailable as error:
+        print(error)
+        raise HTTPException(status_code=503, detail="Broker links are temporarily unavailable. Please try again in a minute.")
 
 
 def save_user_brokers(data):
-    try:
-        with open(BROKER_STORAGE_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-    except Exception:
-        pass
+    broker_store.save(data)
 
 
 def _normalize_email(email):
@@ -570,16 +664,17 @@ def broker_callback(code: str = None, error: str = None, error_description: str 
         return _broker_redirect(broker_error=token_data.get("message") or token_data.get("error") or "token_exchange_failed")
 
     user_name = token_data.get("user_name") or "Upstox User"
-    brokers = load_user_brokers()
-    brokers[email] = {
-        "broker": "upstox",
-        "user_name": user_name,
-        "user_id": token_data.get("user_id", ""),
-        "connected_at": int(_time.time()),
-        "is_paper_trading": True,
-        "status": "connected",
-    }
-    save_user_brokers(brokers)
+    with broker_store.locked():
+        brokers = load_user_brokers()
+        brokers[email] = {
+            "broker": "upstox",
+            "user_name": user_name,
+            "user_id": token_data.get("user_id", ""),
+            "connected_at": int(_time.time()),
+            "is_paper_trading": True,
+            "status": "connected",
+        }
+        save_user_brokers(brokers)
     return _broker_redirect(broker_connected="upstox", user_name=user_name)
 
 
@@ -604,7 +699,8 @@ def broker_disconnect(payload: dict = Body(default={})):
     email = _normalize_email(payload.get("email", "") if isinstance(payload, dict) else "")
     if not email:
         raise HTTPException(status_code=400, detail="email is required")
-    brokers = load_user_brokers()
-    if brokers.pop(email, None) is not None:
-        save_user_brokers(brokers)
+    with broker_store.locked():
+        brokers = load_user_brokers()
+        if brokers.pop(email, None) is not None:
+            save_user_brokers(brokers)
     return {"success": True, "connected": False}
