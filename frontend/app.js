@@ -7064,6 +7064,8 @@ async function fetchWatchlist() {
       if (event.key === "Enter") submitRename();
     };
 
+    backdrop.classList.remove("im-backdrop-closing");
+    sheet.classList.remove("im-sheet-closing");
     backdrop.hidden = false;
     backdrop.style.display = "block";
     sheet.hidden = false;
@@ -7675,29 +7677,37 @@ async function fetchWatchlist() {
     const deleteSheet = document.getElementById("im-watchlist-delete-sheet");
     const tabMenuSheet = document.getElementById("im-watchlist-tab-menu-sheet");
     const commodityExpirySheet = document.getElementById("im-commodity-expiry-sheet");
+
+    const sheetsToClose = [actionSheet, deleteSheet, tabMenuSheet, commodityExpirySheet].filter(Boolean);
+
+    if (actionSheet && !actionSheet.hidden) {
+      actionSheet.classList.add("im-sheet-closing");
+      if (backdrop) backdrop.classList.add("im-backdrop-closing");
+      setTimeout(() => {
+        if (backdrop) {
+          backdrop.hidden = true;
+          backdrop.style.display = "none";
+          backdrop.classList.remove("im-backdrop-closing");
+        }
+        sheetsToClose.forEach(s => {
+          s.hidden = true;
+          s.style.display = "none";
+          s.classList.remove("im-sheet-open", "im-sheet-closing");
+        });
+      }, 200);
+      return;
+    }
+
     if (backdrop) {
       backdrop.hidden = true;
       backdrop.style.display = "none";
+      backdrop.classList.remove("im-backdrop-closing");
     }
-    if (actionSheet) {
-      actionSheet.hidden = true;
-      actionSheet.style.display = "none";
-      actionSheet.classList.remove("im-sheet-open");
-    }
-    if (deleteSheet) {
-      deleteSheet.hidden = true;
-      deleteSheet.style.display = "none";
-    }
-    if (tabMenuSheet) {
-      tabMenuSheet.hidden = true;
-      tabMenuSheet.style.display = "none";
-      tabMenuSheet.classList.remove("im-sheet-open");
-    }
-    if (commodityExpirySheet) {
-      commodityExpirySheet.hidden = true;
-      commodityExpirySheet.style.display = "none";
-      commodityExpirySheet.classList.remove("im-sheet-open");
-    }
+    sheetsToClose.forEach(s => {
+      s.hidden = true;
+      s.style.display = "none";
+      s.classList.remove("im-sheet-open", "im-sheet-closing");
+    });
   }
 
   window.openImWatchlistActionSheet = openImWatchlistActionSheet;

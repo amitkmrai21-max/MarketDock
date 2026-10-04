@@ -4623,7 +4623,23 @@ body[data-accent="green"] .settings-choice.active {
   inset: 0;
   z-index: 9998;
   background: rgba(5, 8, 20, 0.55);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: im-backdrop-fade-in 0.28s ease-out forwards;
+}
+
+.im-watchlist-sheet-backdrop.im-backdrop-closing {
+  animation: im-backdrop-fade-out 0.2s ease-in forwards !important;
+}
+
+@keyframes im-backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes im-backdrop-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 .im-action-sheet {
@@ -9297,8 +9313,18 @@ body.im-chart-fullscreen-open {
     border-top-right-radius: 20px !important;
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
-    animation: im-sheet-slide-up 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: transform;
+    animation: im-sheet-slide-up 0.34s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
+}
+
+.im-terminal-sheet.im-sheet-closing {
+  animation: im-sheet-slide-down 0.22s cubic-bezier(0.4, 0, 1, 1) forwards !important;
+}
+
+@keyframes im-sheet-slide-down {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(0, 100%, 0); }
 }
 
 @media (min-width: 768px) {
@@ -9323,8 +9349,8 @@ body.im-chart-fullscreen-open {
 }
 
 @keyframes im-sheet-slide-up {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
+  0% { transform: translate3d(0, 100%, 0); }
+  100% { transform: translate3d(0, 0, 0); }
 }
 
 @keyframes im-modal-pop {
