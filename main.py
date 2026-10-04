@@ -272,6 +272,7 @@ def create_razorpay_order(req: RazorpayOrderRequest):
                 "currency": "INR",
                 "receipt": receipt_id,
                 "notes": {
+                    "app": "marketdock",
                     "email": (req.email or "").strip().lower(),
                     "plan": req.plan_name
                 }
@@ -319,8 +320,12 @@ def verify_razorpay_payment(req: RazorpayVerifyRequest):
     plan_name = notes.get("plan") if isinstance(notes, dict) else None
     plan = PLAN_CATALOG.get(plan_name)
     expected_paise = plan["amount"] * 100 if plan else None
+    # CryptoDock bills through the same Razorpay account; its orders say
+    # app=cryptodock and must not unlock MarketDock. (Older MarketDock orders
+    # have no "app" note.)
     if (
-        not plan
+        notes.get("app") not in (None, "marketdock")
+        or not plan
         or order.get("amount") != expected_paise
         or payment.get("order_id") != req.razorpay_order_id
         or payment.get("amount") != expected_paise
