@@ -5,14 +5,13 @@ import csv
 import io
 import json
 import gzip
-import secrets
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 
-from flask import Flask, jsonify, request, redirect
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from google import genai
 from google.genai import errors as genai_errors
@@ -866,6 +865,7 @@ def get_stock_technical_snapshot(symbol):
         except Exception:
             pass
     _stock_snapshot_cache[symbol_key] = {"data": snapshot, "fetched_at": time.time()}
+    _prune_cache(_stock_snapshot_cache, 300)
     return snapshot
 
 
@@ -1437,6 +1437,18 @@ def _parse_int(value):
         return None
 
 
+def _prune_cache(cache, max_age, limit=500):
+    """Per-symbol caches gain a key for every instrument anyone ever asked
+    for and never shrank. Once one grows past `limit`, drop entries older
+    than `max_age` seconds (they would be refetched anyway)."""
+    if len(cache) <= limit:
+        return
+    cutoff = time.time() - max_age
+    for key, entry in list(cache.items()):
+        if entry.get("fetched_at", 0) < cutoff:
+            cache.pop(key, None)
+
+
 def resolve_order_instrument_key(symbol):
     """Resolves a trading symbol to its Upstox instrument_key for order
     placement/brokerage-estimate purposes, covering both regular NSE equity
@@ -1909,6 +1921,7 @@ def rrg():
     try:
         data = build_rrg_data(interval, symbols=symbols_arg)
         _rrg_cache[cache_key] = {"data": data, "fetched_at": time.time()}
+        _prune_cache(_rrg_cache, RRG_CACHE_SECONDS, limit=50)
         return jsonify({"ok": True, "data": data})
     except Exception as error:
         app.logger.warning("RRG build failed for %s: %s", interval, error)
@@ -1943,6 +1956,7 @@ def fetch_quotes_cached(symbols):
             entry = {"row": row, "fetched_at": fetched_at}
             _watchlist_cache[row["symbol"]] = entry
             cached_rows[row["symbol"]] = entry
+        _prune_cache(_watchlist_cache, 60)
 
     ordered = [cached_rows[s]["row"] for s in symbols if s in cached_rows]
     oldest_fetched_at = min((cached_rows[s]["fetched_at"] for s in symbols if s in cached_rows), default=now)
@@ -2036,6 +2050,7 @@ def ltp_by_instrument_key():
         for row in fetched:
             _ltp_by_key_cache[row["symbol"]] = {"row": row, "fetched_at": fetched_at}
             rows[row["symbol"]] = row
+        _prune_cache(_ltp_by_key_cache, 60)
 
     return jsonify({"ok": True, "data": [rows[k] for k in keys if k in rows]})
 
@@ -2130,6 +2145,7 @@ def live_candles(market_key):
             ),
         }
         _live_candles_cache[cache_key] = {"response": response_body, "fetched_at": time.time()}
+        _prune_cache(_live_candles_cache, 60, limit=100)
         return jsonify(response_body)
 
     except requests.RequestException:
@@ -2540,6 +2556,7 @@ def option_chain(market_key):
             return jsonify({"ok": False, "error": "No options are listed for this expiry."}), 404
         updated_at = now_utc()
         _option_chain_cache[cache_key] = {"data": result, "fetched_at": time.time(), "updated_at": updated_at}
+        _prune_cache(_option_chain_cache, 60, limit=40)
         if redis_client:
             try:
                 redis_client.setex(redis_opt_key, 10, json.dumps({"updated_at": updated_at, "data": result}))
@@ -2630,13 +2647,14 @@ def option_chain(market_key):
             try:
                 index = get_instrument_master_index()
                 for leg in missing:
-                    master_row = index.get(leg["instrument_key"])
-                    if not master_row:
+                    master = index.get(leg["instrument_key"])
+                    if not master:
                         continue
+                    trading_symbol, lot_size = master
                     if not leg.get("trading_symbol"):
-                        leg["trading_symbol"] = master_row.get("tradingsymbol")
+                        leg["trading_symbol"] = trading_symbol
                     if leg.get("lot_size") is None:
-                        leg["lot_size"] = _parse_int(master_row.get("lot_size"))
+                        leg["lot_size"] = lot_size
             except Exception as error:
                 app.logger.warning("Option leg fill from instrument master failed for %s: %s", market_key, error)
 
@@ -2657,6 +2675,7 @@ def option_chain(market_key):
         }
         updated_at = now_utc()
         _option_chain_cache[cache_key] = {"data": result, "fetched_at": time.time(), "updated_at": updated_at}
+        _prune_cache(_option_chain_cache, 60, limit=40)
         if redis_client:
             try:
                 redis_client.setex(redis_opt_key, 10, json.dumps({"updated_at": updated_at, "data": result}))
@@ -3385,7 +3404,7 @@ MCX_COMMODITIES = {
 
 INSTRUMENT_MASTER_URL = "https://assets.upstox.com/market-quote/instruments/exchange/complete.csv.gz"
 INSTRUMENT_MASTER_CACHE_SECONDS = 12 * 60 * 60
-_instrument_master_cache = {"rows": None, "fetched_at": 0}
+_instrument_master_cache = {"rows": None, "by_key": {}, "fetched_at": 0}
 
 COMMODITY_CONTRACT_CACHE_SECONDS = 12 * 60 * 60
 _commodity_contract_cache = {}
@@ -3394,31 +3413,52 @@ COMMODITY_QUOTE_CACHE_SECONDS = 2
 _commodity_quote_cache = {"data": None, "fetched_at": 0}
 
 
-def get_instrument_master_rows():
-    now = time.time()
-    if _instrument_master_cache["rows"] is not None and (now - _instrument_master_cache["fetched_at"]) < INSTRUMENT_MASTER_CACHE_SECONDS:
-        return _instrument_master_cache["rows"]
+# The master lists every instrument on every Indian exchange (well over a
+# lakh rows). Only two slices are ever read, so only those are kept:
+# - full rows (needed columns only) for MCX futures/options and NSE equities,
+#   used by the Commodities pages and stock search;
+# - instrument_key -> (trading symbol, lot size) for F&O option contracts,
+#   used to fill option-chain legs.
+# Holding the whole file as dicts cost 200+ MB per worker on a 1 GB server.
+MASTER_ROW_EXCHANGES = {"MCX_FO", "NSE_EQ"}
+MASTER_ROW_FIELDS = ("instrument_key", "tradingsymbol", "name", "exchange", "instrument_type", "option_type", "expiry", "strike", "lot_size")
+MASTER_INDEX_EXCHANGES = {"NSE_FO", "BSE_FO", "MCX_FO"}
 
+
+def _load_instrument_master():
     response = requests.get(INSTRUMENT_MASTER_URL, timeout=30)
     response.raise_for_status()
-    text = gzip.decompress(response.content).decode("utf-8")
-    rows = list(csv.DictReader(io.StringIO(text)))
+    rows, by_key = [], {}
+    # Stream the gzip so the decompressed CSV is never held in memory whole.
+    with gzip.GzipFile(fileobj=io.BytesIO(response.content)) as raw:
+        for row in csv.DictReader(io.TextIOWrapper(raw, encoding="utf-8")):
+            exchange = row.get("exchange")
+            if exchange in MASTER_ROW_EXCHANGES:
+                rows.append({field: row[field] for field in MASTER_ROW_FIELDS if field in row})
+            key = row.get("instrument_key")
+            if key and exchange in MASTER_INDEX_EXCHANGES and "OPT" in (row.get("instrument_type") or "").upper():
+                by_key[key] = (row.get("tradingsymbol"), _parse_int(row.get("lot_size")))
+    return rows, by_key
 
-    _instrument_master_cache["rows"] = rows
-    _instrument_master_cache["fetched_at"] = now
-    return rows
+
+def _ensure_instrument_master():
+    now = time.time()
+    if _instrument_master_cache["rows"] is None or (now - _instrument_master_cache["fetched_at"]) >= INSTRUMENT_MASTER_CACHE_SECONDS:
+        rows, by_key = _load_instrument_master()
+        _instrument_master_cache["rows"] = rows
+        _instrument_master_cache["by_key"] = by_key
+        _instrument_master_cache["fetched_at"] = now
+    return _instrument_master_cache
 
 
-_instrument_master_index = {"source": None, "by_key": {}}
+def get_instrument_master_rows():
+    """MCX_FO and NSE_EQ rows of the instrument master (see above)."""
+    return _ensure_instrument_master()["rows"]
 
 
 def get_instrument_master_index():
-    """instrument_key -> master row, rebuilt whenever the master reloads."""
-    rows = get_instrument_master_rows()
-    if _instrument_master_index["source"] is not rows:
-        _instrument_master_index["by_key"] = {r.get("instrument_key"): r for r in rows if r.get("instrument_key")}
-        _instrument_master_index["source"] = rows
-    return _instrument_master_index["by_key"]
+    """instrument_key -> (trading_symbol, lot_size) for F&O option contracts."""
+    return _ensure_instrument_master()["by_key"]
 
 
 def find_all_mcx_futures(prefix):
@@ -3461,25 +3501,6 @@ def find_current_mcx_future(prefix):
     Commodities list itself quotes, before a specific expiry is chosen."""
     all_futures = find_all_mcx_futures(prefix)
     return all_futures[0] if all_futures else None
-
-
-def resolve_mcx_instrument_key(trading_symbol):
-    """Looks up an MCX futures contract's instrument_key by its exact
-    trading symbol (e.g. GOLD25DECFUT) from Upstox's instrument master —
-    the same source find_current_mcx_future() above already resolves
-    quotes from, so this always agrees with what /api/commodities shows."""
-    cache_key = f"MCX_FO:{trading_symbol.upper()}"
-    if cache_key in _instrument_key_cache:
-        return _instrument_key_cache[cache_key]
-
-    for row in get_instrument_master_rows():
-        if row.get("exchange") == "MCX_FO" and row.get("tradingsymbol", "").upper() == trading_symbol.upper():
-            instrument_key = row.get("instrument_key")
-            if instrument_key:
-                _instrument_key_cache[cache_key] = instrument_key
-                return instrument_key
-
-    raise RuntimeError(f"No MCX instrument found for {trading_symbol}")
 
 
 def resolve_mcx_instrument_key(trading_symbol):
