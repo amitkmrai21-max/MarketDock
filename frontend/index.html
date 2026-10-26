@@ -3029,6 +3029,69 @@
       </div>
     </section>
 
+    <!-- ================= OWNER ANALYTICS & SUBSCRIBERS (amitkmrai21@gmail.com Only) ================= -->
+    <section id="mdOwnerAnalyticsSection" class="settings-section" style="display: none;">
+      <div class="settings-section-header" style="justify-content: space-between; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="settings-section-icon" style="color: #f59e0b;">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+          </span>
+          <div>
+            <h3 style="color: #fbbf24; margin: 0; font-size: 15px;">Owner Analytics</h3>
+            <p class="settings-section-desc" style="margin: 2px 0 0; font-size: 12px; color: #94a3b8;">Subscribers &amp; registered users</p>
+          </div>
+        </div>
+        <span style="font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); text-transform: uppercase; letter-spacing: 0.05em;">
+          OWNER ONLY
+        </span>
+      </div>
+
+      <div class="settings-group settings-group--plain" style="margin-top: 10px;">
+        <div style="background: linear-gradient(180deg, rgba(30, 24, 15, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <span style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Live Overview</span>
+            <button id="mdOwnerRefreshBtn" type="button" style="background: none; border: none; color: #38bdf8; font-size: 12px; cursor: pointer; font-weight: 600; padding: 2px 6px; display: inline-flex; align-items: center; gap: 4px;">
+              ↻ Refresh
+            </button>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 12px 8px; text-align: center;">
+              <div style="font-size: 12px; color: #94a3b8; font-weight: 600; margin-bottom: 4px;">👥 Registered</div>
+              <div id="mdOwnerTotalUsers" style="font-size: 24px; font-weight: 800; color: #38bdf8; line-height: 1.2;">--</div>
+              <div style="font-size: 10.5px; color: #64748b; margin-top: 3px;">Total Accounts</div>
+            </div>
+
+            <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 10px; padding: 12px 8px; text-align: center;">
+              <div style="font-size: 12px; color: #4ade80; font-weight: 600; margin-bottom: 4px;">⭐ Subscribers</div>
+              <div id="mdOwnerTotalSubscribers" style="font-size: 24px; font-weight: 800; color: #4ade80; line-height: 1.2;">--</div>
+              <div id="mdOwnerSubDetail" style="font-size: 10.5px; color: #64748b; margin-top: 3px;">-- Active / -- Total</div>
+            </div>
+          </div>
+
+          <!-- Subscriber List Toggle & Container -->
+          <div style="margin-top: 14px;">
+            <button id="mdOwnerToggleSubsBtn" type="button" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; color: #fbbf24; font-size: 13px; font-weight: 600; cursor: pointer;">
+              <span id="mdOwnerSubsToggleLabel">📋 View Subscribers List (0)</span>
+              <span id="mdOwnerSubsArrow" style="transition: transform 0.2s ease;">▼</span>
+            </button>
+
+            <div id="mdOwnerSubsListContainer" style="display: none; margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background: rgba(0, 0, 0, 0.35); padding: 8px;">
+              <div id="mdOwnerSubsList" style="display: flex; flex-direction: column; gap: 8px;">
+                <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 12px 0;">No subscribers yet.</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748b;">
+            <span>Owner: <span style="color: #cbd5e1;">amitkmrai21@gmail.com</span></span>
+            <span id="mdOwnerStatsTime">--:--</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
         <section class="settings-section">
       <div class="settings-section-header">
         <span class="settings-section-icon">
@@ -3355,7 +3418,7 @@
 
 
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-  <script defer src="/frontend/app.js?v=20261026-pay-guard-1"></script>
+  <script defer src="/frontend/app.js?v=20261026-md-owner-v3"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
