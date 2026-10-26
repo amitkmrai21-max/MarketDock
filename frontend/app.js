@@ -2425,8 +2425,42 @@ setInterval(loadRrg, 300000);
     return;
   }
 
+  if (window.location.hash && window.location.hash.startsWith("##")) {
+    try {
+      history.replaceState(null, "", window.location.pathname + window.location.search + window.location.hash.replace(/^#+/, "#"));
+    } catch (e) {}
+  }
   const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
   window.marketDockSupabase = supabaseClient;
+
+  // Auto-recover session from URL hash if double-hash or delayed auth occurred
+  (async function handleOAuthHashSession() {
+    const rawHash = window.location.hash || "";
+    if (rawHash.includes("access_token=")) {
+      const cleanParams = new URLSearchParams(rawHash.replace(/^#+/, ""));
+      const token = cleanParams.get("access_token");
+      const refresh = cleanParams.get("refresh_token") || "";
+      if (token) {
+        try {
+          const { data, error } = await supabaseClient.auth.setSession({
+            access_token: token,
+            refresh_token: refresh
+          });
+          if (data?.session) {
+            sessionStorage.setItem("marketdock_dismissed_onboarding", "1");
+            document.documentElement.classList.remove("im-show-onboarding");
+            const overlay = document.getElementById("onboardingOverlay");
+            if (overlay) { overlay.hidden = true; overlay.style.display = "none"; }
+            try {
+              history.replaceState(null, "", window.location.pathname + window.location.search);
+            } catch (e) {}
+          }
+        } catch (err) {
+          console.warn("OAuth setSession error:", err);
+        }
+      }
+    }
+  })();
 
   function initAccount() {
     const loggedOutGroup = document.getElementById("accountLoggedOutGroup");
@@ -2495,6 +2529,12 @@ setInterval(loadRrg, 300000);
         window.mdCurrentUser = { email: cleanEmail, id: session.user.id };
         localStorage.setItem("marketdock_user_email", cleanEmail);
         if (window.syncUserSubscription) window.syncUserSubscription(cleanEmail);
+        if (cleanEmail === "amitkmrai21@gmail.com") {
+          setTimeout(() => { if (window.mdCheckAndSyncOwnerStats) window.mdCheckAndSyncOwnerStats(); }, 200);
+        } else {
+          const ownerSec = document.getElementById("mdOwnerAnalyticsSection");
+          if (ownerSec) ownerSec.style.display = "none";
+        }
         if (window.mdRefreshPaperViews) window.mdRefreshPaperViews();
       }
     }
@@ -2509,6 +2549,8 @@ setInterval(loadRrg, 300000);
       localStorage.removeItem("marketdock_user_email");
       localStorage.removeItem("marketdock_is_paid");
       if (window.syncUserSubscription) window.syncUserSubscription("");
+      const ownerSec = document.getElementById("mdOwnerAnalyticsSection");
+      if (ownerSec) ownerSec.style.display = "none";
       if (window.mdRefreshPaperViews) window.mdRefreshPaperViews();
     }
 
@@ -2571,6 +2613,9 @@ setInterval(loadRrg, 300000);
       if (session && session.user) {
         hideOnboarding();
         triggerUserTrialAndProfileSetup(session.user);
+        return;
+      }
+      if (window.location.hash && window.location.hash.includes("access_token")) {
         return;
       }
       const dismissed = sessionStorage.getItem("marketdock_dismissed_onboarding") === "1";
@@ -2738,7 +2783,7 @@ setInterval(loadRrg, 300000);
 
         const { error } = await supabaseClient.auth.signInWithOAuth({
           provider: "google",
-          options: { redirectTo: window.location.href }
+          options: { redirectTo: window.location.origin + window.location.pathname }
         });
         if (error) throw error;
       } catch (error) {
@@ -15781,3 +15826,141 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (typeof window.mdCloseImOverlay === "function") window.mdCloseImOverlay();
   });
 })();
+
+
+  // ================= OWNER ANALYTICS LOGIC (amitkmrai21@gmail.com Only) =================
+  let mdCachedSubscribers = [];
+
+  window.mdCheckAndSyncOwnerStats = async function() {
+    const ownerEmail = "amitkmrai21@gmail.com";
+    const currentEmail = (window.marketDockUser?.email || localStorage.getItem("marketdock_user_email") || "").trim().toLowerCase();
+    const ownerSec = document.getElementById("mdOwnerAnalyticsSection");
+    if (!ownerSec) return;
+
+    if (currentEmail !== ownerEmail) {
+      ownerSec.style.display = "none";
+      return;
+    }
+
+    ownerSec.style.display = "block";
+
+    const usersEl = document.getElementById("mdOwnerTotalUsers");
+    const subsEl = document.getElementById("mdOwnerTotalSubscribers");
+    const detailEl = document.getElementById("mdOwnerSubDetail");
+    const timeEl = document.getElementById("mdOwnerStatsTime");
+    const toggleLabel = document.getElementById("mdOwnerSubsToggleLabel");
+
+    try {
+      const headers = {};
+      const token = window.marketDockSession?.access_token || "";
+      if (token) headers["Authorization"] = "Bearer " + token;
+
+      const res = await fetch("/api/owner/analytics?email=" + encodeURIComponent(currentEmail), { headers });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+
+      if (usersEl) usersEl.textContent = (data.total_registered != null) ? data.total_registered : "--";
+      if (subsEl) subsEl.textContent = (data.active_subscribers != null) ? data.active_subscribers : (data.total_subscribers || "0");
+      if (detailEl) {
+        detailEl.textContent = (data.active_subscribers || 0) + " Active / " + (data.total_subscribers || 0) + " Total";
+      }
+      if (timeEl) {
+        const now = new Date();
+        timeEl.textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+
+      mdCachedSubscribers = Array.isArray(data.subscribers) ? data.subscribers : [];
+      if (toggleLabel) {
+        toggleLabel.textContent = `📋 View Subscribers List (${mdCachedSubscribers.length})`;
+      }
+
+      renderOwnerSubscribersList(mdCachedSubscribers);
+
+    } catch (err) {
+      console.warn("Owner analytics sync error:", err);
+      if (usersEl && usersEl.textContent === "--") usersEl.textContent = "Err";
+      if (subsEl && subsEl.textContent === "--") subsEl.textContent = "Err";
+    }
+  };
+
+  function renderOwnerSubscribersList(subs) {
+    const listEl = document.getElementById("mdOwnerSubsList");
+    if (!listEl) return;
+
+    if (!subs || subs.length === 0) {
+      listEl.innerHTML = `<p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 12px 0;">No active or past subscribers recorded yet.</p>`;
+      return;
+    }
+
+    listEl.innerHTML = subs.map(s => {
+      const isActive = s.status === "Active" || s.is_active;
+      const statusBadge = isActive
+        ? `<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4);">ACTIVE</span>`
+        : `<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35);">EXPIRED</span>`;
+
+      const amountStr = s.amount ? `₹${s.amount}` : "";
+      const planStr = s.plan || "Pro Member";
+      const validUntilStr = s.valid_until ? `Valid: ${s.valid_until}` : "";
+      const paidAtStr = s.paid_at ? `Paid: ${s.paid_at}` : "";
+
+      return `
+        <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+            <span style="font-size: 12.5px; font-weight: 600; color: #f1f5f9; word-break: break-all;">${s.email}</span>
+            ${statusBadge}
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11.5px; color: #94a3b8; margin-top: 2px;">
+            <span style="color: #38bdf8; font-weight: 600;">${planStr} ${amountStr ? `(${amountStr})` : ""}</span>
+            <span style="font-size: 10.5px; color: #64748b;">${paidAtStr}</span>
+          </div>
+          ${validUntilStr ? `<div style="font-size: 10.5px; color: #94a3b8;">${validUntilStr}</div>` : ""}
+        </div>
+      `;
+    }).join("");
+  }
+
+  function initOwnerAnalyticsUI() {
+    const refreshBtn = document.getElementById("mdOwnerRefreshBtn");
+    if (refreshBtn && !refreshBtn.dataset.bound) {
+      refreshBtn.dataset.bound = "true";
+      refreshBtn.addEventListener("click", () => {
+        if (window.mdCheckAndSyncOwnerStats) window.mdCheckAndSyncOwnerStats();
+      });
+    }
+
+    const toggleBtn = document.getElementById("mdOwnerToggleSubsBtn");
+    const container = document.getElementById("mdOwnerSubsListContainer");
+    const arrow = document.getElementById("mdOwnerSubsArrow");
+    if (toggleBtn && container && !toggleBtn.dataset.bound) {
+      toggleBtn.dataset.bound = "true";
+      toggleBtn.addEventListener("click", () => {
+        const isOpen = container.style.display !== "none";
+        container.style.display = isOpen ? "none" : "block";
+        if (arrow) arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(180deg)";
+      });
+    }
+
+    const topSettingsBtn = document.getElementById("topSettingsMenuButton");
+    if (topSettingsBtn && !topSettingsBtn.dataset.ownerBound) {
+      topSettingsBtn.dataset.ownerBound = "true";
+      topSettingsBtn.addEventListener("click", () => {
+        setTimeout(() => {
+          if (window.mdCheckAndSyncOwnerStats) window.mdCheckAndSyncOwnerStats();
+        }, 150);
+      });
+    }
+
+    // Auto-check on load if already logged in as owner
+    const savedEmail = (localStorage.getItem("marketdock_user_email") || "").trim().toLowerCase();
+    if (savedEmail === "amitkmrai21@gmail.com") {
+      setTimeout(() => {
+        if (window.mdCheckAndSyncOwnerStats) window.mdCheckAndSyncOwnerStats();
+      }, 500);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initOwnerAnalyticsUI);
+  } else {
+    initOwnerAnalyticsUI();
+  }
