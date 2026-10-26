@@ -298,6 +298,114 @@ def sync_user_trial(req: TrialCheckRequest):
     }
 
 
+
+# ================= OWNER ANALYTICS (amitkmrai21@gmail.com Only) =================
+def _verified_session_email(authorization: str = None) -> str:
+    """Email of the signed-in Supabase user behind a Bearer token, or "" when
+    there is none. An email typed into the URL proves nothing, so it is never used."""
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return ""
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        resp = requests.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={"apikey": SUPABASE_ANON_KEY, "Authorization": f"Bearer {token}"},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            return (resp.json().get("email") or "").strip().lower()
+    except Exception:
+        pass
+    return ""
+
+@app.get("/api/owner/analytics")
+def get_owner_analytics(authorization: str = Header(None)):
+    owner_mail = "amitkmrai21@gmail.com"
+    # Only the signed-in owner (verified through the Supabase session token).
+    if _verified_session_email(authorization) != owner_mail:
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+
+    users = _load_users_or_503()
+    now = int(time.time())
+    active_subscribers = 0
+    total_paid_ever = 0
+    subscribers_list = []
+    all_emails = set(users.keys())
+
+    # Include paper trade users if exists
+    for p_path in ["/opt/marketdock/user_paper_trades.json", "user_paper_trades.json"]:
+        if os.path.exists(p_path):
+            try:
+                with open(p_path, "r", encoding="utf-8") as f:
+                    pdata = json.load(f)
+                    if isinstance(pdata, dict):
+                        all_emails.update(pdata.keys())
+            except Exception:
+                pass
+
+    for u_email, u in users.items():
+        if not isinstance(u, dict):
+            continue
+        is_paid = bool(u.get("is_paid", False))
+        valid_until = u.get("valid_until_ts") or 0
+        has_payments = bool(u.get("payment_ids") or (is_paid and valid_until > 0) or u.get("payment_id"))
+        is_active = bool(is_paid and valid_until > now)
+
+        if has_payments:
+            total_paid_ever += 1
+        if is_active:
+            active_subscribers += 1
+
+        if has_payments:
+            import datetime
+            valid_until_str = ""
+            if valid_until:
+                valid_until_str = datetime.datetime.fromtimestamp(valid_until).strftime("%d %b %Y, %I:%M %p")
+            paid_at_str = ""
+            if u.get("paid_at"):
+                paid_at_str = datetime.datetime.fromtimestamp(u["paid_at"]).strftime("%d %b %Y")
+
+            subscribers_list.append({
+                "email": u_email,
+                "plan": u.get("plan") or "Subscription",
+                "amount": u.get("amount") or (PLAN_CATALOG.get(u.get("plan", ""), {}).get("amount", 0)),
+                "is_active": is_active,
+                "status": "Active" if is_active else "Expired",
+                "valid_until_ts": valid_until,
+                "valid_until": valid_until_str,
+                "paid_at": paid_at_str,
+                "payment_id": u.get("payment_id") or (u.get("payment_ids")[-1] if u.get("payment_ids") else "")
+            })
+
+    subscribers_list.sort(key=lambda s: (1 if s["is_active"] else 0, s["valid_until_ts"]), reverse=True)
+
+    supabase_count = 0
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if service_key:
+        try:
+            resp = requests.get(
+                f"{SUPABASE_URL}/auth/v1/admin/users?per_page=1",
+                headers={"apikey": service_key, "Authorization": f"Bearer {service_key}"},
+                timeout=3,
+            )
+            if resp.status_code == 200:
+                cr = resp.headers.get("Content-Range", "")
+                if "/" in cr:
+                    supabase_count = int(cr.split("/")[-1])
+        except Exception:
+            pass
+
+    total_registered = max(len(all_emails), supabase_count)
+
+    return {
+        "ok": True,
+        "total_registered": total_registered,
+        "total_subscribers": total_paid_ever,
+        "active_subscribers": active_subscribers,
+        "subscribers": subscribers_list,
+        "timestamp": now,
+    }
+
 # ================= RAZORPAY INTEGRATION =================
 import hmac
 import hashlib
