@@ -1,7 +1,7 @@
 import json
 import os
 import math
-from fastapi import Body, FastAPI, Header, HTTPException
+from fastapi import Body, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -360,6 +360,9 @@ def create_razorpay_order(req: RazorpayOrderRequest):
     plan = PLAN_CATALOG.get(req.plan_name)
     if not plan:
         raise HTTPException(status_code=400, detail="Unknown plan")
+    # A payment without an account email can't be given a plan, so don't take it.
+    if "@" not in (req.email or ""):
+        raise HTTPException(status_code=400, detail="Please sign in first, then choose a plan.")
     amount_in_paise = plan["amount"] * 100
     receipt_id = f"rcpt_{int(time.time())}_{plan['amount']}"
 
@@ -394,6 +397,71 @@ def create_razorpay_order(req: RazorpayOrderRequest):
             raise e
         raise HTTPException(status_code=500, detail=f"Error connecting to Razorpay: {str(e)}")
 
+def _grant_plan_for_payment(order_id, payment_id, email_hint=""):
+    """Asks Razorpay itself about the payment and, if it is a real MarketDock
+    plan payment, gives the plan (once per payment id). Used by the browser's
+    verify step and by the webhook, so a payment is never lost when the tab
+    closes before verify runs."""
+    key_id = os.environ.get("RAZORPAY_KEY_ID")
+    key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
+    # The plan, amount and email come from Razorpay's own order/payment
+    # records, not the browser — so paying for one plan can't unlock another.
+    try:
+        order_res = requests.get(f"https://api.razorpay.com/v1/orders/{order_id}", auth=(key_id, key_secret), timeout=10)
+        payment_res = requests.get(f"https://api.razorpay.com/v1/payments/{payment_id}", auth=(key_id, key_secret), timeout=10)
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not confirm the payment with Razorpay")
+    if order_res.status_code != 200 or payment_res.status_code != 200:
+        print(f"Razorpay lookup failed for {payment_id}: orders {order_res.status_code}, payments {payment_res.status_code}")
+        raise HTTPException(status_code=502, detail="Could not confirm the payment with Razorpay")
+    order, payment = order_res.json(), payment_res.json()
+
+    notes = order.get("notes") or {}
+    plan_name = notes.get("plan") if isinstance(notes, dict) else None
+    plan = PLAN_CATALOG.get(plan_name)
+    expected_paise = plan["amount"] * 100 if plan else None
+    # CryptoDock bills through the same Razorpay account; its orders say
+    # app=cryptodock and must not unlock MarketDock. (Older MarketDock orders
+    # have no "app" note.)
+    if (
+        notes.get("app") not in (None, "marketdock")
+        or not plan
+        or order.get("amount") != expected_paise
+        or payment.get("order_id") != order_id
+        or payment.get("amount") != expected_paise
+        or payment.get("status") not in ("captured", "authorized")
+    ):
+        raise HTTPException(status_code=400, detail="Payment does not match the plan")
+
+    email = ((notes.get("email") if isinstance(notes, dict) else "") or email_hint or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="Payment has no account email")
+
+    with user_store.locked():
+        try:
+            users = user_store.load_for_update()
+        except StoreUnavailable as error:
+            # The payment is real; say so instead of losing it silently.
+            print(f"Could not record payment {payment_id} for {email}: {error}")
+            raise HTTPException(status_code=503, detail=f"Payment received but could not be saved yet. Please contact support with payment ID {payment_id}.")
+        now = int(time.time())
+        user = users.setdefault(email, {"email": email, "created_at": now})
+        seen = user.setdefault("payment_ids", [])
+        if payment_id not in seen:
+            # Renewing early adds to the time already paid for instead of resetting it.
+            current_until = user.get("valid_until_ts") or 0
+            start = current_until if user.get("is_paid") and current_until > now else now
+            user["is_paid"] = True
+            user["plan"] = plan_name
+            user["payment_id"] = payment_id
+            user["paid_at"] = now
+            user["amount"] = plan["amount"]
+            user["valid_until_ts"] = start + plan["days"] * 86400
+            seen.append(payment_id)
+            user_store.save(users)
+    return {"plan": plan_name, "valid_until_ts": user["valid_until_ts"]}
+
+
 @app.post("/api/payment/verify")
 def verify_razorpay_payment(req: RazorpayVerifyRequest):
     _load_env()
@@ -407,66 +475,48 @@ def verify_razorpay_payment(req: RazorpayVerifyRequest):
     if not hmac.compare_digest(generated, req.razorpay_signature):
         raise HTTPException(status_code=400, detail="Invalid payment signature")
 
-    # The plan, amount and email come from Razorpay's own order/payment
-    # records, not the browser — so paying for one plan can't unlock another.
-    key_id = os.environ.get("RAZORPAY_KEY_ID")
-    try:
-        order = requests.get(f"https://api.razorpay.com/v1/orders/{req.razorpay_order_id}", auth=(key_id, key_secret), timeout=10).json()
-        payment = requests.get(f"https://api.razorpay.com/v1/payments/{req.razorpay_payment_id}", auth=(key_id, key_secret), timeout=10).json()
-    except Exception:
-        raise HTTPException(status_code=502, detail="Could not confirm the payment with Razorpay")
-
-    notes = order.get("notes") or {}
-    plan_name = notes.get("plan") if isinstance(notes, dict) else None
-    plan = PLAN_CATALOG.get(plan_name)
-    expected_paise = plan["amount"] * 100 if plan else None
-    # CryptoDock bills through the same Razorpay account; its orders say
-    # app=cryptodock and must not unlock MarketDock. (Older MarketDock orders
-    # have no "app" note.)
-    if (
-        notes.get("app") not in (None, "marketdock")
-        or not plan
-        or order.get("amount") != expected_paise
-        or payment.get("order_id") != req.razorpay_order_id
-        or payment.get("amount") != expected_paise
-        or payment.get("status") not in ("captured", "authorized")
-    ):
-        raise HTTPException(status_code=400, detail="Payment does not match the plan")
-
-    email = ((notes.get("email") if isinstance(notes, dict) else "") or req.email or "").strip().lower()
-    if not email:
-        raise HTTPException(status_code=400, detail="Payment has no account email")
-
-    with user_store.locked():
-        try:
-            users = user_store.load_for_update()
-        except StoreUnavailable as error:
-            # The payment is real; say so instead of losing it silently.
-            print(f"Could not record payment {req.razorpay_payment_id} for {email}: {error}")
-            raise HTTPException(status_code=503, detail=f"Payment received but could not be saved yet. Please contact support with payment ID {req.razorpay_payment_id}.")
-        now = int(time.time())
-        user = users.setdefault(email, {"email": email, "created_at": now})
-        seen = user.setdefault("payment_ids", [])
-        if req.razorpay_payment_id not in seen:
-            # Renewing early adds to the time already paid for instead of resetting it.
-            current_until = user.get("valid_until_ts") or 0
-            start = current_until if user.get("is_paid") and current_until > now else now
-            user["is_paid"] = True
-            user["plan"] = plan_name
-            user["payment_id"] = req.razorpay_payment_id
-            user["paid_at"] = now
-            user["amount"] = plan["amount"]
-            user["valid_until_ts"] = start + plan["days"] * 86400
-            seen.append(req.razorpay_payment_id)
-            user_store.save(users)
-
+    granted = _grant_plan_for_payment(req.razorpay_order_id, req.razorpay_payment_id, req.email)
     return {
         "status": "success",
         "verified": True,
         "payment_id": req.razorpay_payment_id,
-        "plan": plan_name,
-        "valid_until_ts": user["valid_until_ts"],
+        "plan": granted["plan"],
+        "valid_until_ts": granted["valid_until_ts"],
     }
+
+
+@app.post("/api/payment/webhook")
+async def razorpay_webhook(request: Request):
+    """Razorpay tells us about every captured payment, so a plan is still given
+    when the customer's browser never got to call /verify (UPI app switch,
+    closed tab, lost network). Needs RAZORPAY_WEBHOOK_SECRET on the server and
+    a webhook for payment.captured in the Razorpay dashboard."""
+    _load_env()
+    secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
+    if not secret:
+        raise HTTPException(status_code=404, detail="Not found")
+    body = await request.body()
+    expected = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, request.headers.get("x-razorpay-signature", "")):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+    try:
+        event = json.loads(body)
+        payment = event["payload"]["payment"]["entity"]
+        order_id, payment_id = payment["order_id"], payment["id"]
+    except (ValueError, KeyError, TypeError):
+        return {"status": "ignored"}
+    if event.get("event") not in ("payment.captured", "order.paid"):
+        return {"status": "ignored"}
+    try:
+        _grant_plan_for_payment(order_id, payment_id)
+    except HTTPException as error:
+        # Not ours (another app, wrong amount): nothing to retry. A temporary
+        # problem (Razorpay unreachable, store busy): answer 5xx so Razorpay retries.
+        if error.status_code >= 500:
+            raise
+        return {"status": "ignored", "reason": error.detail}
+    return {"status": "ok"}
+
 
 @app.get("/api/subscription/status")
 def get_subscription_status(email: str = ""):

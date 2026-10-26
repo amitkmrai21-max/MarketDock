@@ -15376,6 +15376,11 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         const userEmail = (localStorage.getItem("marketdock_user_email") || "").trim();
         const userName = (localStorage.getItem("marketdock_user_name") || "Subscriber").trim();
 
+        if (!userEmail) {
+          alert("Please sign in first, then choose a plan. Your plan is tied to your email.");
+          return;
+        }
+
         const originalBtnText = proceedPayBtn.textContent;
         proceedPayBtn.disabled = true;
         proceedPayBtn.textContent = "Connecting to Razorpay...";
