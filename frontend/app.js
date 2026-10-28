@@ -6560,6 +6560,8 @@ function updateRrgMaintenanceView(allowed, checking = false) {
         )
         .join("") + `<button class="im-watchlist-tab-new" type="button" id="im-watchlist-new-btn">+ New</button>`;
 
+    refreshImStars();
+
     // Auto-scroll active tab into view in the horizontal sliding bar
     setTimeout(() => {
       const activeTab = tabsEl.querySelector(".im-watchlist-tab.active");
@@ -6717,6 +6719,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
           <tr class="im-watchlist-row ${rowClass}" data-symbol="${symbol}" data-price="${row.last_price ?? ""}">
             <td class="im-col-symbol">
               <div class="im-stock-brand-cell">
+                ${imStarHtml(row.symbol, true)}
                 <div class="im-stock-avatar im-watchlist-drag-handle" title="Drag to reorder" style="background:${meta.bg};color:${meta.color};">${meta.icon}</div>
                 <div class="im-stock-text-col">
                   <span class="im-stock-symbol-text">${symbol}</span>
@@ -6866,6 +6869,60 @@ async function fetchWatchlist() {
     saveImWatchlists(lists);
     fetchWatchlist();
   }
+
+  // ----- Star before every stock: filled = in the open watchlist, tap to add / remove -----
+  function isSymbolInActiveImWatchlist(symbol) {
+    const key = String(symbol || "").trim().toUpperCase();
+    return getActiveImWatchlist().symbols.includes(key);
+  }
+
+  function imStarHtml(symbol, fixedOn) {
+    const on = fixedOn || isSymbolInActiveImWatchlist(symbol);
+    const sym = escapeHtml(String(symbol || "").toUpperCase());
+    return `<button class="im-star${on ? " is-on" : ""}" type="button" data-star-symbol="${sym}"${fixedOn ? " data-star-fixed" : ""} aria-pressed="${on}" aria-label="${on ? "Remove from" : "Add to"} watchlist">${on ? "★" : "☆"}</button>`;
+  }
+
+  function refreshImStars() {
+    document.querySelectorAll(".im-star[data-star-symbol]:not([data-star-fixed])").forEach((btn) => {
+      const on = isSymbolInActiveImWatchlist(btn.dataset.starSymbol);
+      btn.classList.toggle("is-on", on);
+      btn.textContent = on ? "★" : "☆";
+      btn.setAttribute("aria-pressed", String(on));
+      btn.setAttribute("aria-label", `${on ? "Remove from" : "Add to"} watchlist`);
+    });
+  }
+
+  function toggleSymbolInActiveImWatchlist(symbol) {
+    const key = String(symbol || "").trim().toUpperCase();
+    if (!key) return;
+    const lists = getImWatchlists();
+    const active = getActiveImWatchlist();
+    const target = lists.find((w) => w.id === active.id);
+    if (!target) return;
+    if (target.symbols.includes(key)) {
+      target.symbols = target.symbols.filter((x) => x !== key);
+      saveImWatchlists(lists);
+      refreshImStars();
+      if (document.getElementById("im-watchlist-body")) fetchWatchlist();
+    } else {
+      addSymbolToActiveWatchlist(key);
+      refreshImStars();
+    }
+  }
+
+  // Capture phase: the star must not open the trade sheet, start a long-press or a drag of the row under it.
+  ["pointerdown", "touchstart", "mousedown"].forEach((type) => {
+    document.addEventListener(type, (event) => {
+      if (event.target.closest && event.target.closest(".im-star")) event.stopPropagation();
+    }, true);
+  });
+  document.addEventListener("click", (event) => {
+    const star = event.target.closest && event.target.closest(".im-star[data-star-symbol]");
+    if (!star) return;
+    event.preventDefault();
+    event.stopPropagation();
+    toggleSymbolInActiveImWatchlist(star.dataset.starSymbol);
+  }, true);
 
   let imWatchlistSearchDebounce = null;
   let imWatchlistSearchActiveIndex = -1;
@@ -10865,6 +10922,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
             <td class="im-col-num">${i + 1}</td>
             <td class="im-col-symbol">
               <div class="im-stock-brand-cell">
+                ${imStarHtml(r.symbol)}
                 <div class="im-stock-avatar" style="background:${meta.bg};color:${meta.color};">${meta.icon}</div>
                 <div class="im-stock-text-col">
                   <span class="im-stock-symbol-text">${escapeHtml(r.symbol)}</span>

@@ -10020,3 +10020,29 @@ body[data-theme="light"] .indian-market-mode #im-commodities .im-watchlist-row t
 .indian-market-mode #im-commodities .im-watchlist-row td {
   border-bottom: 0 !important;
 }
+
+/* Star before each stock (Watchlist and Scanner): filled = in your watchlist, tap to add / remove */
+.im-star {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 28px;
+  margin: 0 -2px 0 -3px;
+  padding: 0;
+  border: 0;
+  background: none !important;
+  color: #94a3b8;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.im-star.is-on { color: #f59e0b; }
+.im-star:active { transform: scale(0.88); }
+body[data-theme="light"] .im-star:not(.is-on) { color: #64748b; }
+
+@media (max-width: 480px) {
+  .indian-market-mode #im-watchlist .im-stock-brand-cell,
+  .indian-market-mode #im-scanner .im-stock-brand-cell { gap: 6px !important; }
+  .indian-market-mode #im-watchlist .im-stock-avatar,
+  .indian-market-mode #im-scanner .im-stock-avatar { width: 30px !important; height: 30px !important; font-size: 13px !important; }
+}
