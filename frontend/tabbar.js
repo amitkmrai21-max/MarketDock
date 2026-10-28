@@ -1,4 +1,4 @@
-// Phone navigation like a native app: Home, Watchlist, Positions, Scanner and More. More opens a
+// Phone navigation like a native app: Home, Watchlist, Positions, Commodities and More. More opens a
 // sheet with every other page and Settings. It clicks the same sidebar buttons, so page switching
 // and the Pro rules stay in one place. Shown only on narrow screens (style.css).
 (function marketDockTabBar() {
@@ -12,9 +12,9 @@
     "im-dashboard": "home",
     "im-watchlist": "watch",
     "im-broker-account": "position",
-    "im-scanner": "scanner",
+    "im-commodities": "commodities",
   };
-  const PAGE_OF_TAB = { home: "im-dashboard", watch: "im-watchlist", position: "im-broker-account", scanner: "im-scanner" };
+  const PAGE_OF_TAB = { home: "im-dashboard", watch: "im-watchlist", position: "im-broker-account", commodities: "im-commodities" };
   const sidebarButton = (page) => document.querySelector(`.sidebar .nav-button[data-page="${page}"]`);
   const activePage = () => document.querySelector(".page.active")?.id || "im-dashboard";
 
