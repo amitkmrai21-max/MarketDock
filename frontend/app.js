@@ -7781,6 +7781,22 @@ async function fetchWatchlist() {
     });
   }
 
+  // Hide the Buy/Sell sheet immediately (no slide-away), leaving the backdrop for
+  // whatever opens next.
+  function hideImActionSheetNow() {
+    imSheetCloseToken += 1;
+    stopImActionSheetLiveQuote();
+    closeImOrderForm();
+    const actionSheet = document.getElementById("im-watchlist-action-sheet");
+    if (actionSheet) {
+      actionSheet.hidden = true;
+      actionSheet.style.display = "none";
+      actionSheet.style.transform = "";
+      actionSheet.style.transition = "";
+      actionSheet.classList.remove("im-sheet-open", "im-sheet-visible", "im-sheet-closing");
+    }
+  }
+
   window.openImWatchlistActionSheet = openImWatchlistActionSheet;
 
   // Mini Chart Generator for Pro Terminal
@@ -8660,8 +8676,20 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
             alert("Aluminium ke liye MCX par options listed nahi hain (sirf Futures trading hoti hai).");
             return;
           }
-          closeImWatchlistSheets(true);
-          openCommodityExpirySheet(commodityKey, commodityName);
+          // No slide-away animation or timer here: hide the Buy/Sell sheet at once,
+          // then show the contract picker, so nothing can undo the picker.
+          try {
+            hideImActionSheetNow();
+            // Opened from somewhere that doesn't know the commodity (e.g. a position):
+            // work it out from the contract name, GOLD26DECFUT -> gold.
+            const prefix = String(symbol || "").toUpperCase().replace(/\d{2}[A-Z]{3}FUT$/, "");
+            const key = commodityKey || (prefix ? prefix.toLowerCase() : "");
+            const name = commodityName || (prefix ? prefix.charAt(0) + prefix.slice(1).toLowerCase() : "Commodity");
+            openCommodityExpirySheet(key, name);
+          } catch (error) {
+            console.error("Option button failed:", error);
+            window.alert("Could not open the option contracts: " + (error && error.message ? error.message : error));
+          }
         };
       } else {
         optChainBtn.style.display = "";
