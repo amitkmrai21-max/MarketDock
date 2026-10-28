@@ -50,6 +50,16 @@ let liveCandleRawData = [];
   if (el) el.textContent = `Version: ${version}`;
 })();
 
+// A timer for anything that asks the server for prices: it does nothing while the
+// page is hidden (another tab, the phone locked, the app in the background), so a
+// hidden page costs the server nothing. It carries on by itself when the page is shown again.
+function mdPollInterval(callback, milliseconds) {
+  return window.setInterval(() => {
+    if (document.hidden) return;
+    callback();
+  }, milliseconds);
+}
+
 // ===================== Chart theming =====================
 // LightweightCharts renders to canvas, so its colors can't follow CSS
 // variables — they have to be passed as JS options at creation time, and
@@ -2002,16 +2012,9 @@ renderSavedProviderPlanIfAny("GROQ");
 
 refreshAllData();
 
-setInterval(loadPrice, 30000);
-setInterval(loadChart, 60000);
-setInterval(loadBtcSparkline, 60000);
-
-setInterval(() => {
-  if (typeof window.isAiPlanLocked === "function" && window.isAiPlanLocked()) return;
-  refreshTechnicalAnalysis("Automatic technical refresh.");
-}, 10000);
-
-setInterval(loadRrg, 300000);
+// (The old Bitcoin-site timers that used to run here asked /api/btc/price, /api/btc/chart,
+// /api/technical-signal and /api/rrg on this server, which no longer exist: every open
+// page was getting a 404 from each of them every 10 to 60 seconds. They are gone.)
 /* ===== Dashboard tabs and settings ===== */
 (() => {
   const STORAGE_KEY = "btcAiSignalDashboardPreferences";
@@ -6453,8 +6456,8 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   function startTechnicalEnginePolling() {
     if (technicalEngineTimer) return;
     refreshTechnicalEngine();
-    technicalEngineTimer = window.setInterval(refreshTechnicalEngine, 60000);
-    if (!indexQuotesTimer) indexQuotesTimer = window.setInterval(refreshIndexQuotesFast, 2000);
+    technicalEngineTimer = mdPollInterval(refreshTechnicalEngine, 60000);
+    if (!indexQuotesTimer) indexQuotesTimer = mdPollInterval(refreshIndexQuotesFast, 2000);
   }
 
   function stopTechnicalEnginePolling() {
@@ -8446,7 +8449,7 @@ async function fetchWatchlist() {
       }
     };
 
-    imActionSheetLiveTimer = window.setInterval(tick, 2000);
+    imActionSheetLiveTimer = mdPollInterval(tick, 2000);
   }
 
   
@@ -9142,7 +9145,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   function startStockOptionsPolling() {
     stopStockOptionsPolling();
     loadStockOptionExpiries();
-    imStockOptionsTimer = window.setInterval(loadStockOptionChain, 2000);
+    imStockOptionsTimer = mdPollInterval(loadStockOptionChain, 2000);
   }
 
   // Point the page at a symbol and (re)load it — used both when arriving
@@ -9531,7 +9534,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   function startCommoditiesPolling() {
     if (commoditiesTimer) return;
     fetchCommodities();
-    commoditiesTimer = window.setInterval(fetchCommodities, 2000);
+    commoditiesTimer = mdPollInterval(fetchCommodities, 2000);
   }
 
   function stopCommoditiesPolling() {
@@ -9659,7 +9662,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
   loadImDashboardSparklines();
-  setInterval(loadImDashboardSparklines, 60000);
+  mdPollInterval(loadImDashboardSparklines, 60000);
   window.loadImDashboardSparklines = loadImDashboardSparklines;
   window.redrawMoverSparklines = redrawMoverSparklines;
 
@@ -10257,7 +10260,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   function startImRrgQuotesPolling() {
     if (imRrgQuotesTimer) return;
-    imRrgQuotesTimer = window.setInterval(refreshImRrgQuotes, 20000);
+    imRrgQuotesTimer = mdPollInterval(refreshImRrgQuotes, 20000);
   }
 
   function stopImRrgQuotesPolling() {
@@ -10799,7 +10802,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     // "All NSE Stocks" is refreshed manually only — auto-polling 5000+
     // symbols this often would repeatedly hammer the backend and Upstox
     // for a view that's already a heavy one-off load.
-    imHeatmapTimer = window.setInterval(() => {
+    imHeatmapTimer = mdPollInterval(() => {
       if (imHeatmapIndex === "ALL") return;
       loadHeatmap(imHeatmapIndex);
     }, 2000);
@@ -11063,7 +11066,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     loadScanner();
     if (imScannerTimer) return;
     // Same reasoning as the heatmap: never auto-poll "All NSE Stocks".
-    imScannerTimer = window.setInterval(() => {
+    imScannerTimer = mdPollInterval(() => {
       if (imScannerUniverse === "ALL") return;
       loadScanner(true);
     }, 2000);
@@ -11153,7 +11156,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   function startDashboardMoversPolling() {
     loadDashboardMovers();
     if (imDashboardMoversTimer) return;
-    imDashboardMoversTimer = window.setInterval(loadDashboardMovers, 2000);
+    imDashboardMoversTimer = mdPollInterval(loadDashboardMovers, 2000);
   }
 
   function stopDashboardMoversPolling() {
@@ -11680,7 +11683,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     }
   }
 
-  window.setInterval(pollOpenPaperTradeQuotes, 2000);
+  mdPollInterval(pollOpenPaperTradeQuotes, 2000);
 
   // ===================== Stock Detail AI analysis =====================
   // Colors a Trend/Supertrend-style word by its meaning (bullish -> green,
@@ -12336,7 +12339,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   function startWatchlistPolling() {
     if (watchlistTimer) return;
     fetchWatchlist();
-    watchlistTimer = window.setInterval(fetchWatchlist, 2000);
+    watchlistTimer = mdPollInterval(fetchWatchlist, 2000);
   }
 
   function stopWatchlistPolling() {
@@ -14566,7 +14569,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     refreshLiveChartCandles();
 
-    chartRefreshTimer = window.setInterval(() => {
+    chartRefreshTimer = mdPollInterval(() => {
       refreshLiveChartCandles();
     }, 2000);
   }
