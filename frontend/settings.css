@@ -1126,3 +1126,4 @@ body[data-theme="light"] #settingsDrawer .cd-danger-btn { color: #b91c1c; backgr
 body[data-theme="light"] #settingsDrawer .cd-set-section-danger .cd-set-sec-head h3 { color: #b91c1c; }
 body[data-theme="light"] #settingsDrawer .cd-set-logout-btn { color: #b91c1c; }
 body[data-theme="light"] #settingsDrawer .cd-set-switch input:not(:checked) + .cd-set-slider { background: #94a3b8; }
+body[data-theme="light"] #mdOwnerAnalyticsSection #mdOwnerActiveNow { color: #15803d !important; }

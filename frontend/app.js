@@ -15986,6 +15986,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const timeEl = document.getElementById("mdOwnerStatsTime");
     const toggleLabel = document.getElementById("mdOwnerSubsToggleLabel");
 
+    mdRefreshOwnerActive();
+
     try {
       const headers = {};
       const token = window.marketDockSession?.access_token || "";
@@ -16018,6 +16020,32 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       if (subsEl && subsEl.textContent === "--") subsEl.textContent = "Err";
     }
   };
+
+  // How many people (distinct devices, app or website) used MarketDock in the last minute / 5 minutes.
+  async function mdRefreshOwnerActive() {
+    const nowEl = document.getElementById("mdOwnerActiveNow");
+    const detailEl = document.getElementById("mdOwnerActiveDetail");
+    if (!nowEl) return;
+    try {
+      const res = await fetch("https://api.marketdock.in/api/upstox/stats", { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      nowEl.textContent = data.clients_online != null ? data.clients_online : "--";
+      if (detailEl) detailEl.textContent = `App + website · last 1 min · 5 min: ${data.clients_online_5min != null ? data.clients_online_5min : "--"}`;
+    } catch (error) {
+      nowEl.textContent = "--";
+    }
+  }
+  window.mdRefreshOwnerActive = mdRefreshOwnerActive;
+
+  // Keeps the number fresh while the owner has Settings open.
+  setInterval(() => {
+    const sec = document.getElementById("mdOwnerAnalyticsSection");
+    const drawer = document.getElementById("settingsDrawer");
+    if (!sec || sec.style.display === "none" || !drawer || !drawer.classList.contains("open")) return;
+    if (document.hidden) return;
+    mdRefreshOwnerActive();
+  }, 15000);
 
   const mdEscapeHtml = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
