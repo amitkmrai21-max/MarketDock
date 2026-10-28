@@ -6520,7 +6520,30 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   const IM_DEFAULT_WATCHLIST_SYMBOLS = IM_DEFAULT_5_WATCHLISTS[0].symbols;
   let activeImWatchlistId = null;
 
+  // "★ Starred": every stock the user tapped the star on, in any list or the Scanner.
+  // It shows up as a last tab after the watchlists and is kept apart from them.
+  const IM_STARRED_KEY = "imStarredV1";
+  const IM_STARRED_ID = "wl-starred";
+
+  function getImStarredSymbols() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(IM_STARRED_KEY));
+      if (Array.isArray(saved)) return saved.map((x) => String(x).toUpperCase());
+    } catch (error) { /* ignore */ }
+    return [];
+  }
+
+  function setImStarredSymbols(symbols) {
+    try {
+      localStorage.setItem(IM_STARRED_KEY, JSON.stringify(symbols));
+    } catch (error) { /* ignore */ }
+  }
+
   function getImWatchlists() {
+    return getImSavedWatchlists().concat([{ id: IM_STARRED_ID, name: "★ Starred", symbols: getImStarredSymbols(), virtual: true }]);
+  }
+
+  function getImSavedWatchlists() {
     try {
       const saved = JSON.parse(localStorage.getItem(IM_WATCHLISTS_KEY));
       if (Array.isArray(saved) && saved.length > 0) return saved;
@@ -6535,8 +6558,10 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   }
 
   function saveImWatchlists(lists) {
+    const starred = lists.find((w) => w.virtual);
+    if (starred) setImStarredSymbols(starred.symbols);
     try {
-      localStorage.setItem(IM_WATCHLISTS_KEY, JSON.stringify(lists));
+      localStorage.setItem(IM_WATCHLISTS_KEY, JSON.stringify(lists.filter((w) => !w.virtual)));
     } catch (error) { /* ignore */ }
   }
 
@@ -6556,7 +6581,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     tabsEl.innerHTML =
       lists
         .map(
-          (w) => `<button class="im-watchlist-tab ${w.id === activeImWatchlistId ? "active" : ""}" type="button" data-watchlist-id="${escapeHtml(w.id)}">${escapeHtml(w.name)}</button>`
+          (w) => `<button class="im-watchlist-tab ${w.virtual ? "im-watchlist-tab-starred " : ""}${w.id === activeImWatchlistId ? "active" : ""}" type="button" data-watchlist-id="${escapeHtml(w.id)}">${escapeHtml(w.name)}</button>`
         )
         .join("") + `<button class="im-watchlist-tab-new" type="button" id="im-watchlist-new-btn">+ New</button>`;
 
@@ -6719,7 +6744,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
           <tr class="im-watchlist-row ${rowClass}" data-symbol="${symbol}" data-price="${row.last_price ?? ""}">
             <td class="im-col-symbol">
               <div class="im-stock-brand-cell">
-                ${imStarHtml(row.symbol, true)}
+                ${imStarHtml(row.symbol)}
                 <div class="im-stock-avatar im-watchlist-drag-handle" title="Drag to reorder" style="background:${meta.bg};color:${meta.color};">${meta.icon}</div>
                 <div class="im-stock-text-col">
                   <span class="im-stock-symbol-text">${symbol}</span>
@@ -6755,7 +6780,14 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     updateImWatchlistSearchCount();
 
     if (!Array.isArray(rows) || !rows.length) {
-      body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">No symbols in this watchlist yet. Add one above.</td></tr>`;
+      const emptyText = activeImWatchlistId === IM_STARRED_ID
+        ? "No starred stocks yet. Tap the ☆ before any stock in a watchlist or the Scanner and it shows up here."
+        : "No symbols in this watchlist yet. Add one above.";
+      body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">${emptyText}</td></tr>`;
+      ["buy", "neutral", "sell"].forEach((kind) => {
+        const el = document.getElementById(`im-summary-${kind}-count`);
+        if (el) el.textContent = "0";
+      });
       if (status) {
         status.hidden = false;
         status.textContent = "Empty";
@@ -6871,43 +6903,42 @@ async function fetchWatchlist() {
   }
 
   // ----- Star before every stock: filled = in the open watchlist, tap to add / remove -----
-  function isSymbolInActiveImWatchlist(symbol) {
-    const key = String(symbol || "").trim().toUpperCase();
-    return getActiveImWatchlist().symbols.includes(key);
+  function isImStarred(symbol) {
+    return getImStarredSymbols().includes(String(symbol || "").trim().toUpperCase());
   }
 
-  function imStarHtml(symbol, fixedOn) {
-    const on = fixedOn || isSymbolInActiveImWatchlist(symbol);
+  function imStarHtml(symbol) {
+    const on = isImStarred(symbol);
     const sym = escapeHtml(String(symbol || "").toUpperCase());
-    return `<button class="im-star${on ? " is-on" : ""}" type="button" data-star-symbol="${sym}"${fixedOn ? " data-star-fixed" : ""} aria-pressed="${on}" aria-label="${on ? "Remove from" : "Add to"} watchlist">${on ? "★" : "☆"}</button>`;
+    return `<button class="im-star${on ? " is-on" : ""}" type="button" data-star-symbol="${sym}" aria-pressed="${on}" aria-label="${on ? "Remove from" : "Add to"} Starred">${on ? "★" : "☆"}</button>`;
   }
 
   function refreshImStars() {
-    document.querySelectorAll(".im-star[data-star-symbol]:not([data-star-fixed])").forEach((btn) => {
-      const on = isSymbolInActiveImWatchlist(btn.dataset.starSymbol);
+    document.querySelectorAll(".im-star[data-star-symbol]").forEach((btn) => {
+      const on = isImStarred(btn.dataset.starSymbol);
       btn.classList.toggle("is-on", on);
       btn.textContent = on ? "★" : "☆";
       btn.setAttribute("aria-pressed", String(on));
-      btn.setAttribute("aria-label", `${on ? "Remove from" : "Add to"} watchlist`);
+      btn.setAttribute("aria-label", `${on ? "Remove from" : "Add to"} Starred`);
     });
   }
 
   function toggleSymbolInActiveImWatchlist(symbol) {
     const key = String(symbol || "").trim().toUpperCase();
     if (!key) return;
-    const lists = getImWatchlists();
-    const active = getActiveImWatchlist();
-    const target = lists.find((w) => w.id === active.id);
-    if (!target) return;
-    if (target.symbols.includes(key)) {
-      target.symbols = target.symbols.filter((x) => x !== key);
-      saveImWatchlists(lists);
-      refreshImStars();
-      if (document.getElementById("im-watchlist-body")) fetchWatchlist();
+    const starred = getImStarredSymbols();
+    if (starred.includes(key)) {
+      setImStarredSymbols(starred.filter((x) => x !== key));
     } else {
-      addSymbolToActiveWatchlist(key);
-      refreshImStars();
+      if (starred.length >= IM_MAX_SYMBOLS_PER_WATCHLIST) {
+        alert(`Starred already has ${IM_MAX_SYMBOLS_PER_WATCHLIST} stocks, the maximum. Un-star one before adding another.`);
+        return;
+      }
+      setImStarredSymbols(starred.concat(key));
     }
+    refreshImStars();
+    // On the Starred tab the list itself changes with the star.
+    if (activeImWatchlistId === IM_STARRED_ID && document.getElementById("im-watchlist-body")) fetchWatchlist();
   }
 
   // Capture phase: the star must not open the trade sheet, start a long-press or a drag of the row under it.
@@ -7074,12 +7105,12 @@ async function fetchWatchlist() {
 
   function deleteImWatchlistById(id) {
     const lists = getImWatchlists();
-    if (lists.length <= 1) {
+    if (lists.filter((w) => !w.virtual).length <= 1) {
       alert("You need at least one watchlist. Add another before deleting this one.");
       return;
     }
     const target = lists.find((w) => w.id === id);
-    if (!target) return;
+    if (!target || target.virtual) return;
     if (!window.confirm(`Delete watchlist "${target.name}"?`)) return;
     const remaining = lists.filter((w) => w.id !== id);
     saveImWatchlists(remaining);
@@ -7093,7 +7124,7 @@ async function fetchWatchlist() {
     if (!trimmed) return;
     const lists = getImWatchlists();
     const target = lists.find((w) => w.id === id);
-    if (!target || trimmed === target.name) return;
+    if (!target || target.virtual || trimmed === target.name) return;
     target.name = trimmed.slice(0, 40);
     saveImWatchlists(lists);
     renderImWatchlistTabs();
@@ -7107,7 +7138,7 @@ async function fetchWatchlist() {
 
     const lists = getImWatchlists();
     const target = lists.find((w) => w.id === id);
-    if (!target) return;
+    if (!target || target.virtual) return;
 
     const nameEl = document.getElementById("im-tab-menu-name");
     if (nameEl) nameEl.textContent = target.name;
@@ -7230,14 +7261,14 @@ async function fetchWatchlist() {
       tabsEl.addEventListener("click", (event) => {
         if (event.target.closest("#im-watchlist-new-btn")) {
           const lists = getImWatchlists();
-          if (lists.length >= IM_MAX_WATCHLISTS) {
+          if (lists.filter((w) => !w.virtual).length >= IM_MAX_WATCHLISTS) {
             alert(`You can have up to ${IM_MAX_WATCHLISTS} watchlists. Delete one before adding a new one.`);
             return;
           }
           const name = window.prompt("Name for the new watchlist:");
           if (!name || !name.trim()) return;
           const id = `wl${Date.now()}${Math.random().toString(16).slice(2, 6)}`;
-          lists.push({ id, name: name.trim().slice(0, 40), symbols: [] });
+          lists.splice(lists.findIndex((w) => w.virtual) < 0 ? lists.length : lists.findIndex((w) => w.virtual), 0, { id, name: name.trim().slice(0, 40), symbols: [] });
           saveImWatchlists(lists);
           activeImWatchlistId = id;
           renderImWatchlistTabs();

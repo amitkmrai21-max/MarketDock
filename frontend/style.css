@@ -10046,3 +10046,7 @@ body[data-theme="light"] .im-star:not(.is-on) { color: #64748b; }
   .indian-market-mode #im-watchlist .im-stock-avatar,
   .indian-market-mode #im-scanner .im-stock-avatar { width: 30px !important; height: 30px !important; font-size: 13px !important; }
 }
+
+.im-watchlist-tab-starred { color: #b45309; }
+.im-watchlist-tab-starred.active { color: #ffffff; }
+body:not([data-theme="light"]) .im-watchlist-tab-starred:not(.active) { color: #fbbf24; }
