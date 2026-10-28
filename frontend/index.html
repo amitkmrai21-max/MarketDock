@@ -37,7 +37,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261101-short-notes-1">
-  <link rel="stylesheet" href="/frontend/settings.css?v=20261106-settings-1">
+  <link rel="stylesheet" href="/frontend/settings.css?v=20261106-settings-2">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -3323,36 +3323,6 @@
       </div>
     </section>
 
-    <!-- AI API KEYS -->
-    <section class="cd-set-section">
-      <div class="cd-set-sec-head">
-        <span class="cd-set-sec-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
-        </span>
-        <div class="cd-set-sec-title-wrap">
-          <h3>AI API Keys</h3>
-          <span class="cd-set-badge-tag">Optional</span>
-        </div>
-      </div>
-
-      <div class="cd-set-card">
-        <label class="cd-set-sublabel" for="userGeminiKeyInput">Gemini API key</label>
-        <div class="settings-name-row">
-          <input id="userGeminiKeyInput" type="password" placeholder="Paste your Gemini API key" autocomplete="off" class="cd-set-input" />
-          <button id="saveGeminiKeyBtn" type="button" class="cd-set-btn-primary">Save</button>
-        </div>
-        <p class="settings-help">Your own key runs Gemini AI Analysis on your quota. Get a free key at Google AI Studio. Saved only in this browser.</p>
-        <p id="geminiKeyStatus" class="settings-help cd-set-status-msg" role="status"></p>
-        <label class="cd-set-sublabel" for="userGroqKeyInput" style="margin-top:16px;">Groq API key</label>
-        <div class="settings-name-row">
-          <input id="userGroqKeyInput" type="password" placeholder="Paste your Groq API key" autocomplete="off" class="cd-set-input" />
-          <button id="saveGroqKeyBtn" type="button" class="cd-set-btn-primary">Save</button>
-        </div>
-        <p class="settings-help">Your own key runs Groq requests on your quota. Get a free key at console.groq.com. Saved only in this browser.</p>
-        <p id="groqKeyStatus" class="settings-help cd-set-status-msg" role="status"></p>
-      </div>
-    </section>
-
     <!-- HELP & SUPPORT -->
 <!-- 6. HELP & LEGAL SECTION -->
     <section class="cd-set-section">
@@ -3475,7 +3445,7 @@
       <div id="mdMoreGrid" class="md-more-grid"></div>
     </div>
   </div>
-  <script defer src="/frontend/app.js?v=20261106-settings-1"></script>
+  <script defer src="/frontend/app.js?v=20261106-settings-2"></script>
   <script defer src="/frontend/tabbar.js?v=20261029-tabbar-2"></script>
   <script>
     if ("serviceWorker" in navigator) {
