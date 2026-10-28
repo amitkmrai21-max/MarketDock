@@ -444,6 +444,7 @@ AI_ADVICE_PATTERN = re.compile(
     r"position[\s-]?siz\w*|lot\s+size|risk[\s-]?reward|risk\s+per\s+trade|capital|"
     r"buy|sell|go\s+long|go\s+short|book\s+profits?|accumulate|"
     r"should|consider|recommend\w*|advis\w*|prudent|"
+    r"support|resistance|"
     r"kharid\w*|khareed\w*|bech\w*|lagaye\w*|lagayein|rakhein|karein"
     r")\b",
     re.IGNORECASE,
@@ -1293,13 +1294,13 @@ def calculate_confirmation_engine(market):
 
     confirmations.append(
         {
-            "name": "Support and resistance context",
+            "name": "Price position in range",
             "weight": 1,
             **status_from_bool(
                 level_signal,
-                "Price is in the upper half of its current research range.",
-                "Price is in the lower half of its current research range.",
-                "Price is at an important range midpoint or boundary.",
+                "Price is in the upper half of its recent range.",
+                "Price is in the lower half of its recent range.",
+                "Price is near the middle or an edge of its recent range.",
             ),
         }
     )
@@ -1332,7 +1333,7 @@ def calculate_confirmation_engine(market):
     # 4. Early Bearish Watch
     elif bearish_count >= 3:
         decision = 'BEARISH STRUCTURE FORMING'
-        decision_reason = f'Negative pressure building ({bearish_count}/{total_checks} checks). Tracking price action near support.'
+        decision_reason = f'Negative pressure building ({bearish_count}/{total_checks} checks). Tracking price action near the recent low.'
     # 5. Rangebound / Consolidation
     elif bullish_count <= 2 and bearish_count <= 2:
         decision = 'SIDEWAYS'
@@ -3051,7 +3052,6 @@ EMA 9 / EMA 21 / EMA 50: {analysis["indicators"]["ema_9"]} / {analysis["indicato
 VWAP: {analysis["indicators"]["vwap"]}
 MACD histogram: {analysis["indicators"]["macd_histogram"]}
 Volume ratio: {analysis["indicators"]["volume_ratio"]}
-Support / resistance: {analysis["levels"]["support"]} / {analysis["levels"]["resistance"]}
 
 Write a concise Hinglish review with exactly these five headings:
 1. Trend
@@ -3134,7 +3134,6 @@ EMA 9/21/50: {snapshot['ema_9']} / {snapshot['ema_21']} / {snapshot['ema_50']}
 VWAP: {snapshot['vwap']}
 MACD histogram: {snapshot['macd_histogram']}
 ATR(14): {snapshot['atr_14']}
-Support: {snapshot['support']} | Resistance: {snapshot['resistance']}
 Trend (5m/15m/1h): {snapshot['trend_5m']} / {snapshot['trend_15m']} / {snapshot['trend_1h']}
 Bollinger Bands: {snapshot['bollinger_bands']}
 Supertrend: {snapshot['supertrend']}
@@ -3160,7 +3159,7 @@ Write a concise Hinglish summary with exactly these five headings:
 Rules:
 - Base your analysis only on the numbers given above. Do not invent news, fundamentals, or data not shown.
 - Describe what the indicators show right now and what each reading commonly means in technical analysis. Do not predict where the price will go.
-- For "Chart Structure", name what the data shows (Trending / Pullback / Range / Near support / Near resistance / Mixed) — do not force a pattern if the indicators are mixed.
+- For "Chart Structure", name what the data shows (Trending / Pullback / Range / Near range low / Near range high / Mixed) — do not force a pattern if the indicators are mixed.
 - For "Volatility", describe the ATR and today's range in points only.
 - Never tell the reader what to do: no buy/sell, no entry or exit, no stop-loss, no target, no position size, no "should" or "consider" — not even as general guidance.
 - Keep the reply under 180 words.
@@ -3219,7 +3218,6 @@ EMA 9/21/50: {field('ema_9')} / {field('ema_21')} / {field('ema_50')}
 VWAP: {field('vwap')}
 MACD histogram: {field('macd_histogram')}
 ATR(14): {field('atr_14')}
-Support: {field('support')} | Resistance: {field('resistance')}
 Trend (5m/15m/1h): {field('trend_5m')} / {field('trend_15m')} / {field('trend_1h')}
 Volume vs 20-candle average: {field('volume_ratio')}x"""
 
@@ -3240,7 +3238,7 @@ Write a concise Hinglish summary with exactly these five headings:
 Rules:
 - Base your analysis only on the numbers given above. Do not invent news, fundamentals, or data not shown.
 - Describe what the indicators show right now and what each reading commonly means in technical analysis. Do not predict where the price will go.
-- For "Chart Structure", name what the data shows (Trending / Pullback / Range / Near support / Near resistance / Mixed) — do not force a pattern if the indicators are mixed.
+- For "Chart Structure", name what the data shows (Trending / Pullback / Range / Near range low / Near range high / Mixed) — do not force a pattern if the indicators are mixed.
 - For "Volatility", describe the ATR and today's range in points only.
 - Never tell the reader what to do: no buy/sell, no entry or exit, no stop-loss, no target, no position size, no "should" or "consider" — not even as general guidance.
 - Keep the reply under 180 words.
