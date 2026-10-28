@@ -6071,7 +6071,6 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     const st = data.indicators.supertrend || {};
     const adx = data.indicators.adx || {};
     const stoch = data.indicators.stochastic || {};
-    const pivots = data.indicators.pivot_points || {};
 
     const metrics = [
       ["Price", formatNumber(data.price)],
@@ -6087,8 +6086,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       ["Bollinger Bands", `${formatNumber(bb.lower)} / ${formatNumber(bb.middle)} / ${formatNumber(bb.upper)}`],
       ["Supertrend", `${formatNumber(st.value)} (${st.trend || "--"})`],
       ["ADX / +DI / -DI", `${adx.adx ?? "--"} / ${adx.plus_di ?? "--"} / ${adx.minus_di ?? "--"}`],
-      ["Stochastic %K/%D", `${stoch.k ?? "--"} / ${stoch.d ?? "--"}`],
-      ["Pivot (R1/S1)", `${formatNumber(pivots.pivot)} (${formatNumber(pivots.r1)} / ${formatNumber(pivots.s1)})`]
+      ["Stochastic %K/%D", `${stoch.k ?? "--"} / ${stoch.d ?? "--"}`]
     ];
 
     grid.innerHTML = metrics
@@ -6145,12 +6143,10 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     // Entry zone, stop-loss, targets and exit rule are intentionally not
     // shown here — those are specific tradable price levels, not just a
     // technical reading, and this dashboard doesn't hold the registration
-    // that requires. Decision and Support/Resistance stay: no price levels
-    // attached, just where the technical engine currently reads.
+    // that requires. Only the Decision stays: no price levels attached,
+    // just where the technical engine currently reads.
     const rows = [
-      ["Decision", data.decision.label],
-      ["Support", formatNumber(data.levels.support)],
-      ["Resistance", formatNumber(data.levels.resistance)]
+      ["Decision", data.decision.label]
     ];
 
     plan.innerHTML = rows
@@ -11719,8 +11715,6 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       ["VWAP", formatNumber(snapshot.vwap)],
       ["MACD Hist", snapshot.macd_histogram],
       ["EMA 21", formatNumber(snapshot.ema_21)],
-      ["Support", formatNumber(snapshot.support)],
-      ["Resistance", formatNumber(snapshot.resistance)],
       ["Trend (5m)", snapshot.trend_5m],
       ["ADX", snapshot.adx ? snapshot.adx.adx : "--"],
       ["Supertrend", snapshot.supertrend ? snapshot.supertrend.trend : "--"],
@@ -12103,8 +12097,6 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       ["VWAP", formatNumber(snapshot.vwap)],
       ["MACD Hist", snapshot.macd_histogram],
       ["EMA 9 / 21 / 50", `${formatNumber(snapshot.ema_9)} / ${formatNumber(snapshot.ema_21)} / ${formatNumber(snapshot.ema_50)}`],
-      ["Support", formatNumber(snapshot.support)],
-      ["Resistance", formatNumber(snapshot.resistance)],
       ["Trend (5m/15m/1h)", `${snapshot.trend_5m || "--"} / ${snapshot.trend_15m || "--"} / ${snapshot.trend_1h || "--"}`],
       ["ADX", snapshot.adx ? snapshot.adx.adx : "--"],
       ["Supertrend", snapshot.supertrend ? snapshot.supertrend.trend : "--"],
