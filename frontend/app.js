@@ -16021,17 +16021,29 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     }
   };
 
-  // How many people (distinct devices, app or website) used MarketDock in the last minute / 5 minutes.
+  // Owner only: how many people are using MarketDock right now. A signed-in person counts once
+  // by email (phone + laptop = 1); someone not signed in counts once per device.
+  async function mdAuthHeaders() {
+    const headers = {};
+    let token = window.marketDockSession?.access_token || "";
+    try {
+      const { data } = (await window.marketDockSupabase?.auth.getSession()) || {};
+      token = data?.session?.access_token || token;
+    } catch (error) { /* not signed in */ }
+    if (token) headers["Authorization"] = "Bearer " + token;
+    return headers;
+  }
+
   async function mdRefreshOwnerActive() {
     const nowEl = document.getElementById("mdOwnerActiveNow");
     const detailEl = document.getElementById("mdOwnerActiveDetail");
     if (!nowEl) return;
     try {
-      const res = await fetch("https://api.marketdock.in/api/upstox/stats", { cache: "no-store" });
+      const res = await fetch("/api/owner/active", { headers: await mdAuthHeaders(), cache: "no-store" });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
-      nowEl.textContent = data.clients_online != null ? data.clients_online : "--";
-      if (detailEl) detailEl.textContent = `App + website · last 1 min · 5 min: ${data.clients_online_5min != null ? data.clients_online_5min : "--"}`;
+      nowEl.textContent = data.now != null ? data.now : "--";
+      if (detailEl) detailEl.textContent = `${data.logged_in_now ?? 0} signed in + ${data.guests_now ?? 0} guest · 5 min: ${data.five_min ?? "--"}`;
     } catch (error) {
       nowEl.textContent = "--";
     }
@@ -16046,6 +16058,17 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (document.hidden) return;
     mdRefreshOwnerActive();
   }, 15000);
+
+  // The "I am here" beat every visitor sends while MarketDock is open and visible.
+  async function mdPresenceBeat() {
+    if (document.hidden) return;
+    try {
+      await fetch("/api/presence", { method: "POST", headers: await mdAuthHeaders(), keepalive: true });
+    } catch (error) { /* offline: the next beat will do */ }
+  }
+  setTimeout(mdPresenceBeat, 4000);
+  setInterval(mdPresenceBeat, 30000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) mdPresenceBeat(); });
 
   const mdEscapeHtml = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
