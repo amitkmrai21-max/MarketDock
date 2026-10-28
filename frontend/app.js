@@ -8907,8 +8907,13 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const tradable = Boolean(leg.instrument_key && tradingSymbol);
     const itmCls = itm ? " oc-itm" : "";
     // Either cell of a side (OI or LTP) opens that contract's Buy/Sell sheet.
+    // A contract that has not traded reports a price of 0 (and a "-100%" change
+    // against the previous close). Show that previous close instead, labelled,
+    // and use it as the price for a paper order rather than 0.
+    const noTrade = !(Number(leg.ltp) > 0) && Number(leg.close_price) > 0;
+    const shownLtp = noTrade ? Number(leg.close_price) : leg.ltp;
     const tradeAttrs = tradable
-      ? ` data-instrument-key="${escapeHtml(leg.instrument_key)}" data-trading-symbol="${escapeHtml(tradingSymbol)}" data-ltp="${Number.isFinite(Number(leg.ltp)) ? leg.ltp : ""}" data-lot-size="${Number.isFinite(Number(leg.lot_size)) ? leg.lot_size : ""}"`
+      ? ` data-instrument-key="${escapeHtml(leg.instrument_key)}" data-trading-symbol="${escapeHtml(tradingSymbol)}" data-ltp="${Number.isFinite(Number(shownLtp)) ? shownLtp : ""}" data-lot-size="${Number.isFinite(Number(leg.lot_size)) ? leg.lot_size : ""}"`
       : "";
     const iv = Number(leg.iv);
     const delta = Number(leg.delta);
@@ -8918,9 +8923,11 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const outerCell = tradable
       ? `<div class="oc-cell oc-${side} oc-oi oc-tradable${itmCls}"${tradeAttrs} aria-hidden="true">${outer}</div>`
       : `<div class="oc-cell oc-${side} oc-oi${itmCls}">${outer}</div>`;
-    const ltpInner = `<span class="oc-main">${formatOptionPrice(leg.ltp)}</span>${optionChangeHtml(leg.ltp, leg.close_price)}`;
+    const ltpInner = noTrade
+      ? `<span class="oc-main">${formatOptionPrice(shownLtp)}</span><span class="oc-sub" title="No trade yet today">prev close</span>`
+      : `<span class="oc-main">${formatOptionPrice(leg.ltp)}</span>${optionChangeHtml(leg.ltp, leg.close_price)}`;
     const ltpCell = tradable
-      ? `<button type="button" class="oc-cell oc-${side} oc-ltp oc-tradable${itmCls}"${tradeAttrs} aria-label="${escapeHtml(tradingSymbol)} ${formatOptionPrice(leg.ltp)}">${ltpInner}</button>`
+      ? `<button type="button" class="oc-cell oc-${side} oc-ltp oc-tradable${itmCls}"${tradeAttrs} aria-label="${escapeHtml(tradingSymbol)} ${formatOptionPrice(shownLtp)}">${ltpInner}</button>`
       : `<div class="oc-cell oc-${side} oc-ltp${itmCls}">${ltpInner}</div>`;
     return side === "call" ? outerCell + ltpCell : ltpCell + outerCell;
   }
@@ -8935,11 +8942,16 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       body.innerHTML = `<div class="oc-empty">No option chain data for this expiry.</div>`;
       return;
     }
-    if (meta) meta.hidden = true;
+    const anyTrade = rows.some((row) => [row.call, row.put].some((leg) => leg && (Number(leg.ltp) > 0 || Number(leg.oi) > 0 || Number(leg.volume) > 0)));
+    if (meta) {
+      meta.hidden = anyTrade;
+      if (!anyTrade) meta.textContent = "No trades in these options yet, so prices shown are the previous close.";
+    }
 
     const spot = Number(data.underlying_spot_price);
     const hasSpot = Number.isFinite(spot) && spot > 0;
-    const maxPainStrike = Number.isFinite(Number(data.max_pain)) ? Number(data.max_pain) : null;
+    // Max pain is worked out from open interest; with none it is just the first strike.
+    const maxPainStrike = anyTrade && Number.isFinite(Number(data.max_pain)) ? Number(data.max_pain) : null;
 
     // Nearest strike to spot is ATM (boxed, like Kite).
     let atmRow = null;
@@ -8977,7 +8989,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         </div>`;
     }).join("");
 
-    const pcr = Number(data.pcr);
+    const pcr = data.pcr === null || data.pcr === undefined ? NaN : Number(data.pcr); // null is "no data", not 0
     const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
     setText("im-stock-options-pcr", Number.isFinite(pcr) ? pcr.toFixed(2) : "--");
     setText("im-stock-options-max-pain", maxPainStrike !== null ? formatStrike(maxPainStrike) : "--");
