@@ -736,14 +736,39 @@ def calculate_atr(candles, period=14):
     return round(sum(true_ranges[-period:]) / period, 2)
 
 
+def latest_session_candles(candles):
+    """Candles of the most recent trading day only (VWAP restarts every
+    session; the 5-day series used for the other indicators must not leak
+    into it)."""
+    if not candles:
+        return candles
+    day = str(candles[-1].get("time", ""))[:10]
+    session = [c for c in candles if str(c.get("time", ""))[:10] == day]
+    return session or candles
+
+
+def has_volume_data(candles):
+    """Upstox sends volume 0 for the index feeds (NIFTY, SENSEX...), so
+    anything volume-weighted is meaningless there."""
+    return any(c.get("volume", 0) for c in candles)
+
+
 def calculate_vwap(candles):
+    candles = latest_session_candles(candles)
     cumulative_pv, cumulative_volume = 0.0, 0.0
     for candle in candles:
         typical_price = (candle["high"] + candle["low"] + candle["close"]) / 3
         cumulative_pv += typical_price * candle["volume"]
         cumulative_volume += candle["volume"]
     if cumulative_volume == 0:
-        return candles[-1]["close"] if candles else 0.0
+        # No volume (index feed): use the session's average price as the
+        # intraday anchor instead of the last close, which made "price vs
+        # VWAP" always read "at VWAP".
+        if not candles:
+            return 0.0
+        return round(
+            sum((c["high"] + c["low"] + c["close"]) / 3 for c in candles) / len(candles), 2
+        )
     return round(cumulative_pv / cumulative_volume, 2)
 
 
@@ -943,9 +968,10 @@ def build_technical_snapshot(name, candles_5m):
 
     closes = [c["close"] for c in candles_5m]
     price = closes[-1]
-    session_open = candles_5m[0]["open"]
-    session_high = max(c["high"] for c in candles_5m)
-    session_low = min(c["low"] for c in candles_5m)
+    today = latest_session_candles(candles_5m)
+    session_open = today[0]["open"]
+    session_high = max(c["high"] for c in today)
+    session_low = min(c["low"] for c in today)
     # Upstox's intraday endpoint only covers the current session, so the
     # session's own open is used as the reference point for change%.
     previous_close = session_open
@@ -970,6 +996,7 @@ def build_technical_snapshot(name, candles_5m):
         "low": round(session_low, 2),
         "previous_close": round(previous_close, 2),
         "volume_ratio": volume_ratio,
+        "volume_available": has_volume_data(candles_5m[-20:]),
         "rsi_14": calculate_rsi(closes),
         "ema_9": round(last_ema(closes, 9), 2),
         "ema_21": round(last_ema(closes, 21), 2),
@@ -1213,16 +1240,20 @@ def calculate_confirmation_engine(market):
         }
     )
 
+    volume_available = market.get("volume_available", True)
     volume_signal = 1 if volume_ratio >= 0.85 else 0
     confirmations.append(
         {
             "name": "Volume participation",
-            "weight": 1,
+            # An index feed has no volume: show the row but do not let it vote.
+            "weight": 1 if volume_available else 0,
             **status_from_bool(
-                volume_signal,
+                volume_signal if volume_available else 0,
                 f"Volume is {volume_ratio:.2f}x its reference average.",
                 "Volume filter does not support a bearish setup by itself.",
-                f"Volume is only {volume_ratio:.2f}x its reference average.",
+                f"Volume is only {volume_ratio:.2f}x its reference average."
+                if volume_available
+                else "This index feed has no volume data, so the volume check is skipped.",
             ),
         }
     )
@@ -1282,7 +1313,7 @@ def calculate_confirmation_engine(market):
     change_percent = (change / previous_close) * 100
 
     # Practical technical confluence engine (Active & Sensitive, SEBI-Compliant)
-    total_checks = len(confirmations) if confirmations else 7
+    total_checks = sum(1 for item in confirmations if item.get('weight', 1)) or 7
     bullish_count = sum(1 for item in confirmations if item.get('state') == 'bullish')
     bearish_count = sum(1 for item in confirmations if item.get('state') == 'bearish')
 
