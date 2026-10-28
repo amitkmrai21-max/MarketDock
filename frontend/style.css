@@ -9783,3 +9783,113 @@ body > header.topbar {
 .im-rrg-maintenance > span { font-size: 30px; }
 .im-rrg-maintenance h2 { font-size: 23px; margin: 16px 0 10px; }
 .im-rrg-maintenance p { line-height: 1.6; opacity: .75; }
+
+/* ================= Phone navigation: tab bar + More sheet (tabbar.js) ================= */
+.md-tabbar, .md-more-overlay { display: none; }
+@media (max-width: 760px) {
+  /* The tab bar replaces the scrolling sidebar on phones. */
+  .indian-market-mode .sidebar { display: none !important; }
+  .md-tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 56;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 94%, transparent);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.12);
+  }
+  .md-tabbar button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 2px 5px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: var(--muted);
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .md-tabbar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .md-tabbar button.is-active { color: var(--blue); background: color-mix(in srgb, var(--blue) 15%, transparent); }
+  .indian-market-mode .content { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+
+  .md-more-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: flex-end;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+  }
+  .md-more-overlay[hidden] { display: none; }
+  .md-more-sheet {
+    width: 100%;
+    max-height: 82vh;
+    overflow-y: auto;
+    padding: 8px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    border-radius: 22px 22px 0 0;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.3);
+  }
+  .md-more-handle { width: 42px; height: 4px; margin: 4px auto 10px; border-radius: 999px; background: var(--border); }
+  .md-more-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 17px; }
+  .md-more-close { width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--surface-soft); color: var(--text); font-size: 22px; line-height: 1; cursor: pointer; }
+  .md-more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .md-more-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 92px;
+    padding: 12px 4px;
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    background: var(--surface-soft);
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.12s ease;
+  }
+  .md-more-tile:active { transform: scale(0.96); }
+  .md-more-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 18px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    box-shadow: 0 3px 8px rgba(99, 102, 241, 0.3);
+  }
+  .md-more-icon svg { width: 19px; height: 19px; stroke-width: 2; }
+  .md-more-tile[data-more="im-holdings"] .md-more-icon { background: linear-gradient(135deg, #0ea5e9, #2563eb); }
+  .md-more-tile[data-more="im-commodities"] .md-more-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  .md-more-tile[data-more="im-stock-detail"] .md-more-icon { background: linear-gradient(135deg, #14b8a6, #0d9488); }
+  .md-more-tile[data-more="im-news"] .md-more-icon { background: linear-gradient(135deg, #64748b, #475569); }
+  .md-more-tile[data-more="im-rrg"] .md-more-icon { background: linear-gradient(135deg, #ec4899, #db2777); }
+  .md-more-tile[data-more="im-heatmap"] .md-more-icon { background: linear-gradient(135deg, #f97316, #ea580c); }
+  .md-more-tile[data-more="im-alerts"] .md-more-icon { background: linear-gradient(135deg, #22c55e, #16a34a); }
+  .md-more-tile[data-more-settings] .md-more-icon { background: linear-gradient(135deg, #94a3b8, #64748b); }
+  .md-more-tile.md-more-upgrade { border-color: rgba(245, 158, 11, 0.5); background: color-mix(in srgb, #fbbf24 14%, var(--surface-soft)); }
+  .md-more-tile.md-more-upgrade .md-more-icon { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 3px 8px rgba(245, 158, 11, 0.35); }
+}

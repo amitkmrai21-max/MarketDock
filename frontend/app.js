@@ -15735,7 +15735,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 // button calls mdCloseOpenCard() directly (see closeAnyOpenImOverlay).
 (function setupCardBackHandling() {
   const CARDS = ["md-pro-gate-modal", "md-trial-welcome-modal"];
-  const SHEETS = ["im-watchlist-action-sheet", "im-watchlist-delete-sheet", "im-watchlist-tab-menu-sheet"];
+  const SHEETS = ["im-watchlist-action-sheet", "im-watchlist-delete-sheet", "im-watchlist-tab-menu-sheet", "md-more-sheet"];
   const isNativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
   const cardOpen = (el) => Boolean(el) && el.style.display !== "none" && el.style.display !== "";
   const sheetOpen = (el) => Boolean(el) && !el.hidden;
@@ -15749,6 +15749,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   // Closes the top-most open card; true when something was closed.
   window.mdCloseOpenCard = function () {
+    if (typeof window.mdCloseMoreSheet === "function" && window.mdCloseMoreSheet()) return true;
     for (const id of CARDS) if (closeCard(id)) return true;
     return false;
   };
