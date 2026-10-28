@@ -9976,3 +9976,18 @@ body[data-theme="light"] .im-pos-card {
   background: #e9eef5 !important;
   border: 1px solid #cdd6e3 !important;
 }
+
+/* Light theme: prices in the Scanner and Dashboard movers were white (invisible) */
+body[data-theme="light"] .indian-market-mode .im-price-value,
+body[data-theme="light"] .indian-market-mode #im-scanner .im-price-value,
+body[data-theme="light"] .indian-market-mode #im-dashboard-movers .im-price-value {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .indian-market-mode #im-scanner .im-stock-symbol-text,
+body[data-theme="light"] .indian-market-mode #im-dashboard-movers .im-stock-symbol-text {
+  color: #0f172a !important;
+}
+body[data-theme="light"] .indian-market-mode #im-scanner .im-stock-name-text,
+body[data-theme="light"] .indian-market-mode #im-dashboard-movers .im-stock-name-text {
+  color: #64748b !important;
+}
