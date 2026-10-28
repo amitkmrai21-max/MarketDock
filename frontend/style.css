@@ -8278,10 +8278,10 @@ body[data-theme="light"] #im-stock-options .oc-main {
    ================================================================= */
 body[data-theme="light"] .indian-market-mode {
   --im-bg: #f8fafc !important;
-  --im-panel: #ffffff !important;
-  --im-panel-2: #f1f5f9 !important;
-  --im-card-bg: #ffffff !important;
-  --im-border: #e2e8f0 !important;
+  --im-panel: #e9eef5 !important;
+  --im-panel-2: #dde5ef !important;
+  --im-card-bg: #e9eef5 !important;
+  --im-border: #cdd6e3 !important;
   --im-text: #0f172a !important;
   --im-muted: #64748b !important;
   --im-blue: #2563eb !important;
@@ -8289,6 +8289,8 @@ body[data-theme="light"] .indian-market-mode {
   --im-red: #dc2626 !important;
   --im-yellow: #d97706 !important;
   --im-shadow: 0 4px 20px rgba(0, 0, 0, 0.06) !important;
+  --card-bg: #e9eef5 !important;
+  --border-color: #cdd6e3 !important;
 }
 /* 1. WATCHLIST & COMMODITY ROWS */
 body[data-theme="light"] .im-watchlist-row,
