@@ -6,6 +6,9 @@ import io
 import json
 import gzip
 import threading
+import hashlib
+import contextlib
+import collections
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote
 from datetime import datetime, timezone, timedelta
@@ -167,6 +170,188 @@ def now_utc():
     return datetime.now(timezone.utc).isoformat()
 
 
+# ===================== Upstox gate: one door for every Upstox call =====================
+# Nothing here runs on its own: Upstox is only ever called while answering a
+# request from someone's phone or browser, so with nobody online there are no
+# calls at all. Every call goes through upstox_get(), which
+#   - counts it (see /api/upstox/stats),
+#   - keeps the total under what Upstox allows, and
+#   - stops calling for a while after Upstox answers 429 (too many requests).
+UPSTOX_MAX_PER_SECOND = 20     # Upstox allows 50/s
+UPSTOX_MAX_PER_MINUTE = 300    # Upstox allows 500/min
+_upstox_lock = threading.Lock()
+_upstox_calls = collections.deque()          # (timestamp, path) of recent calls, last hour
+_upstox_paused_until = 0.0
+_upstox_totals = {"calls": 0, "rate_limited": 0, "refused": 0}
+
+
+class UpstoxBusy(RuntimeError):
+    """Raised instead of calling Upstox when the call budget is used up or Upstox asked us to slow down."""
+
+
+def _upstox_path():
+    try:
+        from flask import has_request_context
+        return request.path if has_request_context() else "(background)"
+    except Exception:
+        return "(unknown)"
+
+
+def upstox_get(url, headers=None, params=None, timeout=15, pause_on_429=True):
+    """requests.get for api.upstox.com, through the gate."""
+    global _upstox_paused_until
+    now = time.time()
+    with _upstox_lock:
+        if now < _upstox_paused_until:
+            _upstox_totals["refused"] += 1
+            raise UpstoxBusy(f"Upstox asked us to slow down; calling again in {int(_upstox_paused_until - now) + 1}s")
+        while _upstox_calls and now - _upstox_calls[0][0] > 3600:
+            _upstox_calls.popleft()
+        last_second = last_minute = 0
+        for stamp, _path in reversed(_upstox_calls):
+            age = now - stamp
+            if age > 60:
+                break
+            last_minute += 1
+            if age <= 1:
+                last_second += 1
+        if last_second >= UPSTOX_MAX_PER_SECOND or last_minute >= UPSTOX_MAX_PER_MINUTE:
+            _upstox_totals["refused"] += 1
+            raise UpstoxBusy("Upstox call budget used up for now")
+        _upstox_calls.append((now, _upstox_path()))
+        _upstox_totals["calls"] += 1
+    response = requests.get(url, headers=headers, params=params, timeout=timeout)
+    if response.status_code == 429 and pause_on_429:
+        note_upstox_rate_limited(response)
+    return response
+
+
+def note_upstox_rate_limited(response):
+    global _upstox_paused_until
+    try:
+        wait = float(response.headers.get("Retry-After") or 0)
+    except ValueError:
+        wait = 0
+    wait = min(max(wait, 5.0), 120.0)
+    with _upstox_lock:
+        _upstox_paused_until = max(_upstox_paused_until, time.time() + wait)
+        _upstox_totals["rate_limited"] += 1
+    app.logger.warning("Upstox answered 429; pausing calls for %.0fs", wait)
+
+
+# ===================== who is online (for the numbers only) =====================
+_clients_seen = {}
+_clients_lock = threading.Lock()
+CLIENT_ONLINE_SECONDS = 60
+
+
+def _client_id():
+    forwarded = (request.headers.get("X-Forwarded-For") or "").split(",")[0].strip()
+    raw = f"{forwarded or request.remote_addr}|{request.headers.get('User-Agent', '')}"
+    return hashlib.sha256(raw.encode("utf-8", "ignore")).hexdigest()[:12]
+
+
+def clients_online():
+    now = time.time()
+    with _clients_lock:
+        return sum(1 for seen in _clients_seen.values() if now - seen <= CLIENT_ONLINE_SECONDS)
+
+
+@app.before_request
+def _note_client_and_warm():
+    path = request.path
+    if not path.startswith("/api/") or path in ("/api/health", "/api/upstox/stats"):
+        return None
+    now = time.time()
+    with _clients_lock:
+        _clients_seen[_client_id()] = now
+        if len(_clients_seen) > 5000:
+            for key in [k for k, seen in _clients_seen.items() if now - seen > 300]:
+                _clients_seen.pop(key, None)
+    ensure_instrument_master_warm()
+    return None
+
+
+@app.get("/api/upstox/stats")
+def upstox_stats():
+    """How many times Upstox was called, and how many people are online. With
+    nobody online, 'calls_last_minute' falls to 0 within a minute."""
+    now = time.time()
+    with _upstox_lock:
+        recent = [(stamp, path) for stamp, path in _upstox_calls if now - stamp <= 3600]
+        last_minute = [path for stamp, path in recent if now - stamp <= 60]
+        by_path = collections.Counter(last_minute).most_common(8)
+        last_call = recent[-1][0] if recent else None
+        paused = max(0.0, _upstox_paused_until - now)
+        totals = dict(_upstox_totals)
+    return jsonify(
+        {
+            "ok": True,
+            "clients_online": clients_online(),
+            "calls_last_minute": len(last_minute),
+            "calls_last_hour": len(recent),
+            "last_call_seconds_ago": round(now - last_call, 1) if last_call else None,
+            "paused_for_seconds": round(paused, 1),
+            "limits": {"per_second": UPSTOX_MAX_PER_SECOND, "per_minute": UPSTOX_MAX_PER_MINUTE},
+            "busiest_last_minute": [{"path": path, "calls": count} for path, count in by_path],
+            "since_start": totals,
+            "markets_open": {"nse": market_open("nse"), "mcx": market_open("mcx")},
+            "uptime_seconds": int(now - APP_STARTED_AT),
+        }
+    )
+
+
+# ===================== one fetch for many identical requests =====================
+# When a cached answer expires, every request that arrives at that moment used
+# to fetch it again. Now the first one fetches and the rest wait for it and
+# read what it stored (so 50 people on the same list cost one Upstox call).
+_flight_guard = threading.Lock()
+_flight_locks = {}
+
+
+@contextlib.contextmanager
+def single_flight(key):
+    with _flight_guard:
+        entry = _flight_locks.setdefault(key, [threading.Lock(), 0])
+        entry[1] += 1
+    try:
+        with entry[0]:
+            yield
+    finally:
+        with _flight_guard:
+            entry[1] -= 1
+            if entry[1] <= 0:
+                _flight_locks.pop(key, None)
+
+
+# ===================== no point refreshing every 2s when the market is shut =====================
+CLOSED_MARKET_CACHE_SECONDS = 45
+# If Upstox cannot be reached (or asked us to slow down), keep showing what we last
+# had for this long rather than an empty screen.
+STALE_ON_ERROR_SECONDS = 300
+
+
+def _ist_now():
+    return datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+
+
+def market_open(kind="nse"):
+    """True on a weekday between a little before the open and a little after
+    the close (NSE/BSE 09:15-15:30, MCX 09:00-23:30). Exchange holidays count
+    as open, which only means those days refresh as often as a normal day."""
+    ist = _ist_now()
+    if ist.weekday() >= 5:
+        return False
+    minutes = ist.hour * 60 + ist.minute
+    end = 23 * 60 + 58 if kind == "mcx" else 15 * 60 + 45
+    return 8 * 60 + 55 <= minutes <= end
+
+
+def cache_ttl(base_seconds, kind="nse"):
+    """base_seconds while the market is open, longer once it is shut."""
+    return base_seconds if market_open(kind) else max(base_seconds, CLOSED_MARKET_CACHE_SECONDS)
+
+
 def describe_ai_error(error):
     """Classifies a Gemini OR Groq SDK exception into one of a few honest,
     specific reasons instead of one generic "temporarily unavailable" for
@@ -304,7 +489,7 @@ def _upstox_get(url, headers, timeout):
     and a single retry would have gone through fine."""
     last_response = None
     for attempt in range(3):
-        response = requests.get(url, headers=headers, timeout=timeout)
+        response = upstox_get(url, headers=headers, timeout=timeout, pause_on_429=False)
         if response.status_code not in (429, 502, 503, 504):
             return response
         last_response = response
@@ -315,6 +500,8 @@ def _upstox_get(url, headers, timeout):
             except ValueError:
                 delay = None
             time.sleep(delay if delay is not None else 0.6 * (attempt + 1))
+    if last_response is not None and last_response.status_code == 429:
+        note_upstox_rate_limited(last_response)  # still limited after the retries: stop calling for a while
     return last_response
 
 
@@ -810,30 +997,40 @@ def get_real_market_snapshot(market_key):
     consume it unchanged. Raises on failure so the caller can fall back."""
     market = UPSTOX_MARKETS[market_key]
     cache_key = f"market_snapshot:{market_key}"
-    
-    if redis_client:
-        try:
-            val = redis_client.get(cache_key)
-            if val:
-                return json.loads(val)
-        except Exception:
-            pass
-    else:
-        cached = _live_snapshot_cache.get(market_key)
-        if cached and time.time() - cached["fetched_at"] < LIVE_SNAPSHOT_CACHE_SECONDS:
-            return cached["data"]
+    ttl = cache_ttl(LIVE_SNAPSHOT_CACHE_SECONDS)
 
-    candles_5m = fetch_upstox_candles(market["instrument_key"], "minutes", 5, chart_history_days=5)
-    snapshot = build_technical_snapshot(market["name"], candles_5m)
-    snapshot["data_source"] = "live"
-    
-    if redis_client:
-        try:
-            redis_client.setex(cache_key, LIVE_SNAPSHOT_CACHE_SECONDS, json.dumps(snapshot))
-        except Exception:
-            pass
-    _live_snapshot_cache[market_key] = {"data": snapshot, "fetched_at": time.time()}
-    return snapshot
+    def cached_snapshot():
+        if redis_client:
+            try:
+                val = redis_client.get(cache_key)
+                if val:
+                    return json.loads(val)
+            except Exception:
+                pass
+        else:
+            cached = _live_snapshot_cache.get(market_key)
+            if cached and time.time() - cached["fetched_at"] < ttl:
+                return cached["data"]
+        return None
+
+    hit = cached_snapshot()
+    if hit is not None:
+        return hit
+    with single_flight(cache_key):
+        hit = cached_snapshot()
+        if hit is not None:
+            return hit
+        candles_5m = fetch_upstox_candles(market["instrument_key"], "minutes", 5, chart_history_days=5)
+        snapshot = build_technical_snapshot(market["name"], candles_5m)
+        snapshot["data_source"] = "live"
+
+        if redis_client:
+            try:
+                redis_client.setex(cache_key, max(1, int(ttl)), json.dumps(snapshot))
+            except Exception:
+                pass
+        _live_snapshot_cache[market_key] = {"data": snapshot, "fetched_at": time.time()}
+        return snapshot
 
 
 def get_stock_technical_snapshot(symbol):
@@ -842,31 +1039,41 @@ def get_stock_technical_snapshot(symbol):
     fixed index markets."""
     symbol_key = symbol.upper()
     cache_key = f"stock_snapshot:{symbol_key}"
-    
-    if redis_client:
-        try:
-            val = redis_client.get(cache_key)
-            if val:
-                return json.loads(val)
-        except Exception:
-            pass
-    else:
-        cached = _stock_snapshot_cache.get(symbol_key)
-        if cached and time.time() - cached["fetched_at"] < LIVE_SNAPSHOT_CACHE_SECONDS:
-            return cached["data"]
+    ttl = cache_ttl(LIVE_SNAPSHOT_CACHE_SECONDS)
 
-    instrument_key = resolve_instrument_key(symbol)
-    candles_5m = fetch_upstox_candles(instrument_key, "minutes", 5, chart_history_days=5)
-    snapshot = build_technical_snapshot(symbol_key, candles_5m)
-    
-    if redis_client:
-        try:
-            redis_client.setex(cache_key, LIVE_SNAPSHOT_CACHE_SECONDS, json.dumps(snapshot))
-        except Exception:
-            pass
-    _stock_snapshot_cache[symbol_key] = {"data": snapshot, "fetched_at": time.time()}
-    _prune_cache(_stock_snapshot_cache, 300)
-    return snapshot
+    def cached_snapshot():
+        if redis_client:
+            try:
+                val = redis_client.get(cache_key)
+                if val:
+                    return json.loads(val)
+            except Exception:
+                pass
+        else:
+            cached = _stock_snapshot_cache.get(symbol_key)
+            if cached and time.time() - cached["fetched_at"] < ttl:
+                return cached["data"]
+        return None
+
+    hit = cached_snapshot()
+    if hit is not None:
+        return hit
+    with single_flight(cache_key):
+        hit = cached_snapshot()
+        if hit is not None:
+            return hit
+        instrument_key = resolve_instrument_key(symbol)
+        candles_5m = fetch_upstox_candles(instrument_key, "minutes", 5, chart_history_days=5)
+        snapshot = build_technical_snapshot(symbol_key, candles_5m)
+
+        if redis_client:
+            try:
+                redis_client.setex(cache_key, max(1, int(ttl)), json.dumps(snapshot))
+            except Exception:
+                pass
+        _stock_snapshot_cache[symbol_key] = {"data": snapshot, "fetched_at": time.time()}
+        _prune_cache(_stock_snapshot_cache, 300)
+        return snapshot
 
 
 def get_market_snapshot_with_fallback(market_key):
@@ -1289,7 +1496,7 @@ def fetch_quotes_with_change(symbols, resolver=None):
         "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}",
     }
 
-    response = requests.get(url, headers=headers, timeout=20)
+    response = upstox_get(url, headers=headers, timeout=20)
     if not response.ok:
         raise RuntimeError(f"LTP quote request failed: status={response.status_code}")
 
@@ -1360,10 +1567,19 @@ def top_mover(index_key):
     if not UPSTOX_ACCESS_TOKEN:
         return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
 
-    cached = _top_mover_cache.get(index_key)
-    if cached and time.time() - cached["fetched_at"] < TOP_MOVER_CACHE_SECONDS:
-        return jsonify({"ok": True, "data": cached["data"]})
+    return _top_mover_response(index_key, index_names)
 
+
+def _top_mover_response(index_key, index_names):
+    ttl = cache_ttl(TOP_MOVER_CACHE_SECONDS) if market_open("nse") else max(TOP_MOVER_CACHE_SECONDS, 300)
+    with single_flight(f"top-mover:{index_key}"):
+        cached = _top_mover_cache.get(index_key)
+        if cached and time.time() - cached["fetched_at"] < ttl:
+            return jsonify({"ok": True, "data": cached["data"]})
+        return _top_mover_fetch(index_key, index_names)
+
+
+def _top_mover_fetch(index_key, index_names):
     try:
         constituents = fetch_index_constituents(index_names[index_key])
         if not constituents:
@@ -1406,7 +1622,7 @@ def resolve_instrument_key(trading_symbol, exchange="NSE", segment="EQ"):
     }
     params = {"query": trading_symbol, "exchanges": exchange, "segments": segment}
 
-    response = requests.get(url, headers=headers, params=params, timeout=15)
+    response = upstox_get(url, headers=headers, params=params, timeout=15)
     if not response.ok:
         raise RuntimeError(f"Instrument search failed for {trading_symbol}: status={response.status_code}")
 
@@ -1539,7 +1755,7 @@ def resolve_index_instrument_key(index_name):
     headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
     params = {"query": index_name, "exchanges": "NSE", "segments": "INDEX"}
 
-    response = requests.get(url, headers=headers, params=params, timeout=15)
+    response = upstox_get(url, headers=headers, params=params, timeout=15)
     if not response.ok:
         raise RuntimeError(f"Index search failed for {index_name}: status={response.status_code}")
 
@@ -1936,27 +2152,51 @@ def fetch_quotes_cached(symbols):
     list instead would give every distinct combination its own cache
     entry, so the same stock could show a slightly different price to
     different users purely because their other watchlist picks differed."""
-    now = time.time()
+    ttl = cache_ttl(WATCHLIST_CACHE_SECONDS)
     cached_rows = {}
-    stale_symbols = []
-    for symbol in symbols:
-        cached = _watchlist_cache.get(symbol)
-        if cached and now - cached["fetched_at"] < WATCHLIST_CACHE_SECONDS:
-            cached_rows[symbol] = cached
-        else:
-            stale_symbols.append(symbol)
 
+    def split_fresh():
+        now = time.time()
+        stale = []
+        for symbol in symbols:
+            cached = _watchlist_cache.get(symbol)
+            if cached and now - cached["fetched_at"] < ttl:
+                cached_rows[symbol] = cached
+            else:
+                cached_rows.pop(symbol, None)
+                stale.append(symbol)
+        return stale
+
+    stale_symbols = split_fresh()
     if stale_symbols:
-        fetched_rows = fetch_quotes_with_change(stale_symbols)
-        fetched_at = time.time()
-        for row in fetched_rows:
-            score, label = compute_ai_score(row.get("change_percent"))
-            row["ai_score"] = score
-            row["ai_label"] = label
-            entry = {"row": row, "fetched_at": fetched_at}
-            _watchlist_cache[row["symbol"]] = entry
-            cached_rows[row["symbol"]] = entry
-        _prune_cache(_watchlist_cache, 60)
+        # Others asking for the same stocks right now wait for this one fetch
+        # and then find them cached.
+        with single_flight("quotes:" + ",".join(sorted(stale_symbols))):
+            stale_symbols = split_fresh()
+            if stale_symbols:
+                try:
+                    fetched_rows = fetch_quotes_with_change(stale_symbols)
+                except Exception as error:
+                    # Upstox busy or down: use the last known price of each stock if it is recent.
+                    now_err = time.time()
+                    for symbol in stale_symbols:
+                        old = _watchlist_cache.get(symbol)
+                        if old and now_err - old["fetched_at"] < STALE_ON_ERROR_SECONDS:
+                            cached_rows[symbol] = old
+                    if not cached_rows:
+                        raise
+                    app.logger.warning("Quotes: showing last known prices (%s)", error)
+                    fetched_rows = []
+                fetched_at = time.time()
+                for row in fetched_rows:
+                    score, label = compute_ai_score(row.get("change_percent"))
+                    row["ai_score"] = score
+                    row["ai_label"] = label
+                    entry = {"row": row, "fetched_at": fetched_at}
+                    _watchlist_cache[row["symbol"]] = entry
+                    cached_rows[row["symbol"]] = entry
+                _prune_cache(_watchlist_cache, 60)
+    now = time.time()
 
     ordered = [cached_rows[s]["row"] for s in symbols if s in cached_rows]
     oldest_fetched_at = min((cached_rows[s]["fetched_at"] for s in symbols if s in cached_rows), default=now)
@@ -1996,16 +2236,30 @@ def index_quotes():
     if not UPSTOX_ACCESS_TOKEN:
         return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
 
-    if _index_quotes_cache["data"] is not None and time.time() - _index_quotes_cache["fetched_at"] < INDEX_QUOTES_CACHE_SECONDS:
+    ttl = cache_ttl(INDEX_QUOTES_CACHE_SECONDS)
+
+    def fresh():
+        return _index_quotes_cache["data"] is not None and time.time() - _index_quotes_cache["fetched_at"] < ttl
+
+    if fresh():
         return jsonify({"ok": True, "data": _index_quotes_cache["data"]})
 
     try:
-        quotes = fetch_quotes_with_change(
-            list(UPSTOX_MARKETS.keys()),
-            resolver=lambda market_key: UPSTOX_MARKETS[market_key]["instrument_key"],
-        )
-        _index_quotes_cache["data"] = quotes
-        _index_quotes_cache["fetched_at"] = time.time()
+        with single_flight("index-quotes"):
+            if fresh():
+                return jsonify({"ok": True, "data": _index_quotes_cache["data"]})
+            try:
+                quotes = fetch_quotes_with_change(
+                    list(UPSTOX_MARKETS.keys()),
+                    resolver=lambda market_key: UPSTOX_MARKETS[market_key]["instrument_key"],
+                )
+            except Exception as error:
+                if _index_quotes_cache["data"] is not None and time.time() - _index_quotes_cache["fetched_at"] < STALE_ON_ERROR_SECONDS:
+                    app.logger.warning("Index quotes: showing last known values (%s)", error)
+                    return jsonify({"ok": True, "data": _index_quotes_cache["data"]})
+                raise
+            _index_quotes_cache["data"] = quotes
+            _index_quotes_cache["fetched_at"] = time.time()
         return jsonify({"ok": True, "data": quotes})
     except Exception as error:
         app.logger.warning("Index quotes fetch failed: %s", error)
@@ -2028,19 +2282,29 @@ def ltp_by_instrument_key():
     if not keys:
         return jsonify({"ok": False, "error": "Pass one or more instrument_keys."}), 400
 
-    now = time.time()
+    # These are option legs and commodity contracts: refresh at the usual pace
+    # while either exchange is open, slowly once both are shut.
+    ttl = LTP_BY_KEY_CACHE_SECONDS if (market_open("nse") or market_open("mcx")) else max(LTP_BY_KEY_CACHE_SECONDS, CLOSED_MARKET_CACHE_SECONDS)
     rows = {}
-    stale = []
-    for key in keys:
-        cached = _ltp_by_key_cache.get(key)
-        if cached and now - cached["fetched_at"] < LTP_BY_KEY_CACHE_SECONDS:
-            rows[key] = cached["row"]
-        else:
-            stale.append(key)
 
+    def split_fresh():
+        now = time.time()
+        stale_keys = []
+        for key in keys:
+            cached = _ltp_by_key_cache.get(key)
+            if cached and now - cached["fetched_at"] < ttl:
+                rows[key] = cached["row"]
+            else:
+                rows.pop(key, None)
+                stale_keys.append(key)
+        return stale_keys
+
+    stale = split_fresh()
     if stale:
         try:
-            fetched = fetch_quotes_with_change(stale, resolver=lambda key: key)
+            with single_flight("ltp:" + ",".join(sorted(stale))):
+                stale = split_fresh()
+                fetched = fetch_quotes_with_change(stale, resolver=lambda key: key) if stale else []
         except Exception as error:
             app.logger.warning("LTP by key fetch failed: %s", error)
             if not rows:
@@ -2107,15 +2371,23 @@ def live_candles(market_key):
     unit, interval = UPSTOX_TIMEFRAMES[timeframe]
 
     cache_key = f"{market_key}:{timeframe}"
-    cached = _live_candles_cache.get(cache_key)
-    if cached and time.time() - cached["fetched_at"] < LIVE_CANDLES_CACHE_SECONDS:
-        return jsonify(cached["response"])
+    ttl = cache_ttl(LIVE_CANDLES_CACHE_SECONDS)
+
+    def cached_response():
+        cached = _live_candles_cache.get(cache_key)
+        return cached["response"] if cached and time.time() - cached["fetched_at"] < ttl else None
+
+    if cached_response():
+        return jsonify(cached_response())
 
     try:
-        candles = fetch_upstox_candles(
-            market["instrument_key"], unit, interval,
-            chart_history_days=CHART_HISTORY_DAYS.get(timeframe, 30),
-        )
+        with single_flight("candles:" + cache_key):
+            if cached_response():
+                return jsonify(cached_response())
+            candles = fetch_upstox_candles(
+                market["instrument_key"], unit, interval,
+                chart_history_days=CHART_HISTORY_DAYS.get(timeframe, 30),
+            )
 
         if not candles:
             return jsonify(
@@ -2348,7 +2620,7 @@ def fetch_full_quotes(instrument_keys):
 
     def _fetch(batch):
         url = f"https://api.upstox.com/v2/market-quote/quotes?instrument_key={quote(','.join(batch), safe=',')}"
-        response = requests.get(url, headers=headers, timeout=20)
+        response = upstox_get(url, headers=headers, timeout=20)
         response.raise_for_status()
         return (response.json() or {}).get("data") or {}
 
@@ -2467,7 +2739,7 @@ def option_expiries(market_key):
     headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
 
     try:
-        response = requests.get(url, headers=headers, timeout=15)
+        response = upstox_get(url, headers=headers, timeout=15)
         response.raise_for_status()
         contracts = (response.json() or {}).get("data", [])
         expiries = sorted({c.get("expiry") for c in contracts if c.get("expiry")})
@@ -2531,6 +2803,15 @@ def option_chain(market_key):
             {"ok": False, "error": "Live market data is not configured on the server."}
         ), 503
 
+    # Same chain asked for by many people at once: one builds it, the rest read it.
+    with single_flight(f"chain:{market_key.lower().strip()}:{expiry}"):
+        return _option_chain_response(market_key, expiry)
+
+
+def _option_chain_response(market_key, expiry):
+    is_mcx = bool(MCX_FUTURES_SYMBOL_PATTERN.match(market_key.strip().upper()))
+    ttl = cache_ttl(OPTION_CHAIN_CACHE_SECONDS, "mcx" if is_mcx else "nse")
+    redis_ttl = max(10, int(ttl))
     redis_opt_key = f"option_chain:{market_key.lower().strip()}:{expiry}"
     if redis_client:
         try:
@@ -2543,7 +2824,7 @@ def option_chain(market_key):
 
     cache_key = f"{market_key.lower().strip()}:{expiry}"
     cached = _option_chain_cache.get(cache_key)
-    if cached and time.time() - cached["fetched_at"] < OPTION_CHAIN_CACHE_SECONDS:
+    if cached and time.time() - cached["fetched_at"] < ttl:
         return jsonify({"ok": True, "updated_at": cached["updated_at"], "data": cached["data"]})
 
     if MCX_FUTURES_SYMBOL_PATTERN.match(market_key.strip().upper()):
@@ -2559,7 +2840,7 @@ def option_chain(market_key):
         _prune_cache(_option_chain_cache, 60, limit=40)
         if redis_client:
             try:
-                redis_client.setex(redis_opt_key, 10, json.dumps({"updated_at": updated_at, "data": result}))
+                redis_client.setex(redis_opt_key, redis_ttl, json.dumps({"updated_at": updated_at, "data": result}))
             except Exception:
                 pass
         return jsonify({"ok": True, "updated_at": updated_at, "data": result})
@@ -2577,7 +2858,7 @@ def option_chain(market_key):
     headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
 
     try:
-        response = requests.get(url, headers=headers, timeout=20)
+        response = upstox_get(url, headers=headers, timeout=20)
         response.raise_for_status()
         raw_chain = (response.json() or {}).get("data", [])
 
@@ -2678,7 +2959,7 @@ def option_chain(market_key):
         _prune_cache(_option_chain_cache, 60, limit=40)
         if redis_client:
             try:
-                redis_client.setex(redis_opt_key, 10, json.dumps({"updated_at": updated_at, "data": result}))
+                redis_client.setex(redis_opt_key, redis_ttl, json.dumps({"updated_at": updated_at, "data": result}))
             except Exception:
                 pass
         return jsonify({"ok": True, "updated_at": updated_at, "data": result})
@@ -3442,12 +3723,15 @@ def _load_instrument_master():
 
 
 def _ensure_instrument_master():
-    now = time.time()
-    if _instrument_master_cache["rows"] is None or (now - _instrument_master_cache["fetched_at"]) >= INSTRUMENT_MASTER_CACHE_SECONDS:
-        rows, by_key = _load_instrument_master()
-        _instrument_master_cache["rows"] = rows
-        _instrument_master_cache["by_key"] = by_key
-        _instrument_master_cache["fetched_at"] = now
+    def stale():
+        return _instrument_master_cache["rows"] is None or (time.time() - _instrument_master_cache["fetched_at"]) >= INSTRUMENT_MASTER_CACHE_SECONDS
+    if stale():
+        with single_flight("instrument-master"):
+            if stale():
+                rows, by_key = _load_instrument_master()
+                _instrument_master_cache["rows"] = rows
+                _instrument_master_cache["by_key"] = by_key
+                _instrument_master_cache["fetched_at"] = time.time()
     return _instrument_master_cache
 
 
@@ -3542,83 +3826,97 @@ def commodities():
         ), 503
 
     cache_key = "commodities:overview"
-    if redis_client:
-        try:
-            cached_raw = redis_client.get(cache_key)
-            if cached_raw:
-                cached_json = json.loads(cached_raw)
-                return jsonify({"ok": True, "updated_at": cached_json.get("updated_at"), "data": cached_json.get("data")})
-        except Exception:
-            pass
+    ttl = cache_ttl(COMMODITY_QUOTE_CACHE_SECONDS, "mcx")
 
-    now = time.time()
-    if _commodity_quote_cache["data"] is not None and (now - _commodity_quote_cache["fetched_at"]) < COMMODITY_QUOTE_CACHE_SECONDS:
-        return jsonify({"ok": True, "updated_at": _commodity_quote_cache["updated_at"], "data": _commodity_quote_cache["data"]})
-
-    try:
-        contracts = {}
-        for key in MCX_COMMODITIES:
-            contract = get_current_commodity_contract(key)
-            if contract:
-                contracts[key] = contract
-
-        if not contracts:
-            return jsonify(
-                {"ok": False, "error": "Could not resolve current commodity contracts."}
-            ), 502
-
-        instrument_keys = ",".join(c["instrument_key"] for c in contracts.values())
-        url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={quote(instrument_keys, safe=',')}"
-        headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
-
-        response = requests.get(url, headers=headers, timeout=20)
-        response.raise_for_status()
-        quote_data = (response.json().get("data") or {})
-
-        reverse_map = {contract["instrument_key"]: key for key, contract in contracts.items()}
-
-        results = []
-        for info in quote_data.values():
-            commodity_key = reverse_map.get(info.get("instrument_token", ""))
-            if not commodity_key:
-                continue
-
-            last_price = info.get("last_price")
-            previous_close = info.get("cp")
-            change_percent = None
-            if last_price is not None and previous_close:
-                change_percent = round(((last_price - previous_close) / previous_close) * 100, 2)
-
-            results.append(
-                {
-                    "key": commodity_key,
-                    "name": MCX_COMMODITIES[commodity_key]["name"],
-                    "trading_symbol": contracts[commodity_key]["trading_symbol"],
-                    "expiry": contracts[commodity_key]["expiry"],
-                    "lot_size": contracts[commodity_key].get("lot_size"),
-                    "last_price": last_price,
-                    "previous_close": previous_close,
-                    "change_percent": change_percent,
-                }
-            )
-
-        order = list(MCX_COMMODITIES.keys())
-        results.sort(key=lambda row: order.index(row["key"]) if row["key"] in order else 999)
-
-        updated_at = now_utc()
-        _commodity_quote_cache["data"] = results
-        _commodity_quote_cache["fetched_at"] = now
-        _commodity_quote_cache["updated_at"] = updated_at
-
+    def cached_response():
         if redis_client:
             try:
-                redis_client.setex(cache_key, COMMODITY_QUOTE_CACHE_SECONDS, json.dumps({"updated_at": updated_at, "data": results}))
+                cached_raw = redis_client.get(cache_key)
+                if cached_raw:
+                    cached_json = json.loads(cached_raw)
+                    return {"ok": True, "updated_at": cached_json.get("updated_at"), "data": cached_json.get("data")}
             except Exception:
                 pass
+        if _commodity_quote_cache["data"] is not None and (time.time() - _commodity_quote_cache["fetched_at"]) < ttl:
+            return {"ok": True, "updated_at": _commodity_quote_cache["updated_at"], "data": _commodity_quote_cache["data"]}
+        return None
 
-        return jsonify({"ok": True, "updated_at": updated_at, "data": results})
+    hit = cached_response()
+    if hit:
+        return jsonify(hit)
+
+    try:
+        with single_flight("commodities"):
+            hit = cached_response()
+            if hit:
+                return jsonify(hit)
+            now = time.time()
+            contracts = {}
+            for key in MCX_COMMODITIES:
+                contract = get_current_commodity_contract(key)
+                if contract:
+                    contracts[key] = contract
+
+            if not contracts:
+                return jsonify(
+                    {"ok": False, "error": "Could not resolve current commodity contracts."}
+                ), 502
+
+            instrument_keys = ",".join(c["instrument_key"] for c in contracts.values())
+            url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={quote(instrument_keys, safe=',')}"
+            headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
+
+            response = upstox_get(url, headers=headers, timeout=20)
+            response.raise_for_status()
+            quote_data = (response.json().get("data") or {})
+
+            reverse_map = {contract["instrument_key"]: key for key, contract in contracts.items()}
+
+            results = []
+            for info in quote_data.values():
+                commodity_key = reverse_map.get(info.get("instrument_token", ""))
+                if not commodity_key:
+                    continue
+
+                last_price = info.get("last_price")
+                previous_close = info.get("cp")
+                change_percent = None
+                if last_price is not None and previous_close:
+                    change_percent = round(((last_price - previous_close) / previous_close) * 100, 2)
+
+                results.append(
+                    {
+                        "key": commodity_key,
+                        "name": MCX_COMMODITIES[commodity_key]["name"],
+                        "trading_symbol": contracts[commodity_key]["trading_symbol"],
+                        "expiry": contracts[commodity_key]["expiry"],
+                        "lot_size": contracts[commodity_key].get("lot_size"),
+                        "last_price": last_price,
+                        "previous_close": previous_close,
+                        "change_percent": change_percent,
+                    }
+                )
+
+            order = list(MCX_COMMODITIES.keys())
+            results.sort(key=lambda row: order.index(row["key"]) if row["key"] in order else 999)
+
+            updated_at = now_utc()
+            _commodity_quote_cache["data"] = results
+            _commodity_quote_cache["fetched_at"] = now
+            _commodity_quote_cache["updated_at"] = updated_at
+
+            if redis_client:
+                try:
+                    redis_client.setex(cache_key, max(1, int(ttl)), json.dumps({"updated_at": updated_at, "data": results}))
+                except Exception:
+                    pass
+
+            return jsonify({"ok": True, "updated_at": updated_at, "data": results})
 
     except Exception as error:
+        if _commodity_quote_cache["data"] is not None and time.time() - _commodity_quote_cache["fetched_at"] < STALE_ON_ERROR_SECONDS:
+            app.logger.warning("Commodities: showing last known prices (%s)", error)
+            return jsonify({"ok": True, "updated_at": _commodity_quote_cache["updated_at"], "data": _commodity_quote_cache["data"]})
         app.logger.warning("Commodities fetch failed: %s", error)
         return jsonify(
             {"ok": False, "error": "Could not fetch commodity prices right now."}
@@ -3647,7 +3945,7 @@ def commodity_expiries(commodity_key):
         url = f"https://api.upstox.com/v3/market-quote/ltp?instrument_key={quote(instrument_keys, safe=',')}"
         headers = {"Accept": "application/json", "Authorization": f"Bearer {UPSTOX_ACCESS_TOKEN}"}
 
-        response = requests.get(url, headers=headers, timeout=20)
+        response = upstox_get(url, headers=headers, timeout=20)
         response.raise_for_status()
         quote_data = (response.json().get("data") or {})
         quote_by_instrument = {info.get("instrument_token", ""): info for info in quote_data.values()}
@@ -3770,20 +4068,28 @@ def all_stocks():
     return jsonify({"ok": True, "count": len(universe), "data": universe})
 
 
+_instrument_warm_started = False
+
+
 def _warm_nse_equity_universe():
     # Downloading and parsing Upstox's full instrument master (several MB
     # gzipped) is the slow part of every stock-search/heatmap/F&O request
-    # that hits a cold cache. Kick it off in the background as soon as the
-    # process starts (including under gunicorn, since this runs at import
-    # time) so a Render free-tier cold start doesn't stack that download on
-    # top of the instance already waking up.
+    # that hits a cold cache.
     try:
         get_nse_equity_universe()
     except Exception as error:
         app.logger.warning("Instrument master warmup failed: %s", error)
 
 
-threading.Thread(target=_warm_nse_equity_universe, daemon=True).start()
+def ensure_instrument_master_warm():
+    """Starts that download in the background the first time anyone uses the
+    API. It used to start the moment the server did, so a restart with nobody
+    online still hit Upstox; now an idle server makes no calls at all."""
+    global _instrument_warm_started
+    if _instrument_warm_started:
+        return
+    _instrument_warm_started = True
+    threading.Thread(target=_warm_nse_equity_universe, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)
