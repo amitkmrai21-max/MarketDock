@@ -9933,3 +9933,46 @@ body > header.topbar {
 @media (max-width: 760px) {
   .indian-market-mode .content { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* Light theme: Watchlist, Positions, Holdings and Scanner use the same soft grey-blue cards */
+body[data-theme="light"] .indian-market-mode #im-watchlist .table-wrap,
+body[data-theme="light"] .indian-market-mode #im-commodities .table-wrap,
+body[data-theme="light"] .indian-market-mode #im-scanner .table-wrap {
+  background: #e9eef5 !important;
+  border: 1px solid #cdd6e3 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+body[data-theme="light"] .im-watchlist-row,
+body[data-theme="light"] .indian-market-mode #im-watchlist .im-watchlist-row,
+body[data-theme="light"] .indian-market-mode #im-commodities .im-watchlist-row,
+body[data-theme="light"] .indian-market-mode #im-scanner .im-watchlist-row {
+  background: #e9eef5 !important;
+  border-bottom: 1px solid #cdd6e3 !important;
+}
+body[data-theme="light"] .im-watchlist-row:hover,
+body[data-theme="light"] .indian-market-mode #im-watchlist .im-watchlist-row:hover,
+body[data-theme="light"] .indian-market-mode #im-commodities .im-watchlist-row:hover,
+body[data-theme="light"] .indian-market-mode #im-scanner .im-watchlist-row:hover {
+  background: #dfe6f0 !important;
+}
+body[data-theme="light"] .im-watchlist-tab:not(.active),
+body[data-theme="light"] .im-watchlist-tab-new,
+body[data-theme="light"] .im-scanner-filter-btn:not(.active),
+body[data-theme="light"] .im-scanner-universe-btn:not(.active),
+body[data-theme="light"] .im-pos-filter-pill:not(.active) {
+  background: #e9eef5 !important;
+  border: 1px solid #cdd6e3 !important;
+}
+body[data-theme="light"] .indian-market-mode .im-watchlist-search-wrap input,
+body[data-theme="light"] .im-pos-search-input {
+  background: #e9eef5 !important;
+  border: 1px solid #cdd6e3 !important;
+}
+body[data-theme="light"] .im-pos-summary-card,
+body[data-theme="light"] .im-pos-row,
+body[data-theme="light"] .im-pos-closed-row,
+body[data-theme="light"] .im-pos-card {
+  background: #e9eef5 !important;
+  border: 1px solid #cdd6e3 !important;
+}
