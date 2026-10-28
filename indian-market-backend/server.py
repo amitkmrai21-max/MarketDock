@@ -3603,6 +3603,420 @@ def market_news():
     )
 
 
+# ===================== Market news (no AI) =====================
+# Headlines, a short summary, the story's picture, the source and a link to
+# the original article, straight from the publishers' own RSS feeds. English
+# and Hindi are separate lists. Cached for a few minutes; a feed that fails
+# is skipped, and only stories about the market are kept.
+import concurrent.futures
+import html as html_lib
+import urllib.parse
+import xml.etree.ElementTree as element_tree
+
+NEWS_CACHE_SECONDS = 180
+NEWS_FEED_TIMEOUT_SECONDS = 10
+NEWS_IMAGE_TIMEOUT_SECONDS = 6
+NEWS_MAX_AGE_SECONDS = 3 * 24 * 3600
+NEWS_LIMIT = 80
+NEWS_SOURCES = {
+    "en": [
+        {"name": "Economic Times", "site": "economictimes.indiatimes.com", "url": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms"},
+        {"name": "Economic Times Stocks", "site": "economictimes.indiatimes.com", "url": "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms"},
+        {"name": "Business Standard", "site": "business-standard.com", "url": "https://www.business-standard.com/rss/markets-106.rss"},
+        {"name": "Mint", "site": "livemint.com", "url": "https://www.livemint.com/rss/markets"},
+        {"name": "Financial Express", "site": "financialexpress.com", "url": "https://www.financialexpress.com/market/feed/"},
+        {"name": "Moneycontrol", "site": "moneycontrol.com", "url": "https://www.moneycontrol.com/rss/latestnews.xml"},
+        {"name": "The Hindu BusinessLine", "site": "thehindubusinessline.com", "url": "https://www.thehindubusinessline.com/markets/feeder/default.rss"},
+    ],
+    "hi": [
+        # Google News' Hindi search gathers stories from many Hindi publishers
+        # (its own feed has no pictures or direct links; both are filled in
+        # below). The business feeds add any market story they run.
+        {"name": "Google News", "site": "news.google.com", "google": True,
+         "url": "https://news.google.com/rss/search?q=" + requests.utils.quote("(शेयर बाजार OR सेंसेक्स OR निफ्टी OR स्टॉक OR आईपीओ) when:3d") + "&hl=hi&gl=IN&ceid=IN:hi"},
+        {"name": "News18 Hindi", "site": "hindi.news18.com", "url": "https://hindi.news18.com/rss/khabar/business/business.xml"},
+        {"name": "Amar Ujala", "site": "amarujala.com", "url": "https://www.amarujala.com/rss/business.xml"},
+        {"name": "India TV", "site": "indiatv.in", "url": "https://www.indiatv.in/rssnews/topstory-paisa.xml"},
+        {"name": "ABP News", "site": "abplive.com", "url": "https://www.abplive.com/business/feed"},
+        {"name": "TV9 Bharatvarsh", "site": "tv9hindi.com", "url": "https://www.tv9hindi.com/business/feed"},
+    ],
+}
+# A story counts as market news when it mentions one of these.
+NEWS_MARKET_WORDS = {
+    "en": ("nifty", "sensex", "bse", "nse", "stock", "share", "market", "ipo", "rbi", "sebi", "fii", "fpi", "dii", "earnings", "f&o", "mutual fund", "rupee", "gold", "silver", "crude", "dividend", "investor", "q1", "q2", "q3", "q4"),
+    "hi": ("शेयर", "सेंसेक्स", "निफ्टी", "स्टॉक", "बाजार", "आईपीओ", "निवेश", "म्यूचुअल फंड", "कारोबार", "सोना", "सोने", "चांदी", "कच्चा तेल", "रुपया", "रुपये", "आरबीआई", "सेबी", "तिमाही", "डिविडेंड", "एफआईआई", "मार्केट", "sensex", "nifty", "ipo", "share", "stock"),
+}
+# Short tags shown on a story (and used for the filter chips).
+NEWS_TAG_TERMS = {
+    "NIFTY": ("nifty 50", "nifty50", "nifty", "निफ्टी"),
+    "BANK NIFTY": ("bank nifty", "banknifty", "बैंक निफ्टी"),
+    "SENSEX": ("sensex", "सेंसेक्स"),
+    "IPO": ("ipo", "आईपीओ"),
+    "RBI": ("rbi", "reserve bank", "आरबीआई"),
+    "FII": ("fii", "fpi", "एफआईआई"),
+    "GOLD": ("gold", "सोना", "सोने"),
+    "SILVER": ("silver", "चांदी"),
+    "CRUDE": ("crude", "brent", "कच्चा तेल"),
+    "RUPEE": ("rupee", "रुपया", "रुपये"),
+    "RELIANCE": ("reliance", "रिलायंस"),
+    "TCS": ("tcs",),
+    "INFOSYS": ("infosys", "इंफोसिस"),
+    "HDFC BANK": ("hdfc bank", "एचडीएफसी बैंक"),
+    "ICICI BANK": ("icici bank", "आईसीआईसीआई"),
+    "SBI": ("sbi", "state bank", "एसबीआई"),
+    "ADANI": ("adani", "अडानी"),
+    "TATA": ("tata", "टाटा"),
+    "BAJAJ": ("bajaj", "बजाज"),
+    "MARUTI": ("maruti", "मारुति"),
+}
+_NEWS_TAG_RES = {tag: re.compile(r"(?<![\w])(" + "|".join(re.escape(t) for t in terms) + r")(?![\w])", re.I) for tag, terms in NEWS_TAG_TERMS.items()}
+
+NEWS_NS = {
+    "media": "http://search.yahoo.com/mrss/",
+    "content": "http://purl.org/rss/1.0/modules/content/",
+    "atom": "http://www.w3.org/2005/Atom",
+}
+NEWS_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; MarketDockNews/1.0; +https://marketdock.in)",
+    "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+}
+news_cache = {}
+news_image_cache = {}
+news_locks = {"en": threading.Lock(), "hi": threading.Lock()}
+_IMG_SRC_RE = re.compile(r"<img[^>]+src=[\"']([^\"']+)[\"']", re.I)
+_OG_IMAGE_RE = re.compile(r"<meta[^>]+(?:property|name|itemprop)=[\"'](?:og:image(?::url|:secure_url)?|twitter:image(?::src)?|image)[\"'][^>]*>", re.I)
+_CONTENT_ATTR_RE = re.compile(r"content=[\"']([^\"']+)[\"']", re.I)
+_LINK_IMAGE_RE = re.compile(r"<link[^>]+rel=[\"']image_src[\"'][^>]*href=[\"']([^\"']+)[\"']|<link[^>]+href=[\"']([^\"']+)[\"'][^>]*rel=[\"']image_src[\"']", re.I)
+_JSONLD_IMAGE_RE = re.compile(r'"image"\s*:\s*(?:\[\s*)?(?:\{[^{}]*?"url"\s*:\s*)?"(https?:[^"\s]+)"', re.I)
+# Article pages are fetched like a phone browser would; several Hindi
+# publishers refuse unknown bots and then no picture can be found.
+NEWS_PAGE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "hi-IN,hi;q=0.9,en-IN;q=0.8,en;q=0.7",
+}
+NEWS_IMAGE_RETRY_SECONDS = 1800
+
+
+def _news_text(node, path):
+    found = node.find(path, NEWS_NS)
+    return (found.text or "").strip() if found is not None and found.text else ""
+
+
+def _news_clean_url(url):
+    url = html_lib.unescape(str(url or "").strip())
+    return url if url.startswith(("https://", "http://")) else ""
+
+
+def _news_time(raw):
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = parsedate_to_datetime(raw)
+    except (TypeError, ValueError, IndexError):
+        try:
+            parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return int(parsed.timestamp())
+
+
+def _news_item_image(item, raw_html):
+    """The story's picture from the feed itself: media:content / media:thumbnail,
+    an image enclosure, or the first <img> in the article body."""
+    for media in item.findall("media:content", NEWS_NS) + item.findall("media:group/media:content", NEWS_NS):
+        url = _news_clean_url(media.get("url"))
+        kind = (media.get("medium") or media.get("type") or "").lower()
+        if url and ("image" in kind or re.search(r"\.(jpe?g|png|webp|gif)(\?|$)", url, re.I) or not kind):
+            return url
+    for thumb in item.findall("media:thumbnail", NEWS_NS) + item.findall("media:group/media:thumbnail", NEWS_NS):
+        url = _news_clean_url(thumb.get("url"))
+        if url:
+            return url
+    for enclosure in item.findall("enclosure") + item.findall("atom:link[@rel='enclosure']", NEWS_NS):
+        url = _news_clean_url(enclosure.get("url") or enclosure.get("href"))
+        if url and "image" in (enclosure.get("type") or "image").lower():
+            return url
+    for chunk in raw_html:
+        match = _IMG_SRC_RE.search(chunk or "")
+        if match:
+            url = _news_clean_url(match.group(1))
+            if url:
+                return url
+    return ""
+
+
+def _news_page_image(url):
+    """The article's picture from its page: og:image / twitter:image, then
+    <link rel=image_src>, then the JSON-LD "image". Cached; a page that gave
+    no picture is tried again after 30 minutes."""
+    now = time.time()
+    cached = news_image_cache.get(url)
+    if cached and (cached["image"] or now - cached["at"] < NEWS_IMAGE_RETRY_SECONDS):
+        return cached["image"]
+    image = ""
+    try:
+        response = requests.get(url, timeout=NEWS_IMAGE_TIMEOUT_SECONDS, headers=NEWS_PAGE_HEADERS, stream=True)
+        response.raise_for_status()
+        chunks, size = [], 0
+        for chunk in response.iter_content(32_768):
+            chunks.append(chunk)
+            size += len(chunk)
+            if size >= 600_000 or b"</head>" in chunk.lower():
+                break
+        response.close()
+        page = b"".join(chunks).decode(response.encoding or "utf-8", errors="ignore")
+        base = getattr(response, "url", None) or url
+        candidates = []
+        for tag in _OG_IMAGE_RE.findall(page):
+            content = _CONTENT_ATTR_RE.search(tag)
+            if content:
+                candidates.append(content.group(1))
+        candidates += [a or b for a, b in _LINK_IMAGE_RE.findall(page)]
+        candidates += _JSONLD_IMAGE_RE.findall(page)
+        for candidate in candidates:
+            full = _news_clean_url(urllib.parse.urljoin(base, html_lib.unescape(candidate.strip())))
+            if full:
+                image = full
+                break
+    except Exception:  # best effort: a story without a picture is fine
+        image = ""
+    if len(news_image_cache) > 3000:
+        news_image_cache.clear()
+    news_image_cache[url] = {"image": image, "at": now}
+    return image
+
+
+def _news_tags(text):
+    return [tag for tag, pattern in _NEWS_TAG_RES.items() if pattern.search(text)]
+
+
+def _fetch_news_feed(source, lang, now):
+    response = requests.get(source["url"], timeout=NEWS_FEED_TIMEOUT_SECONDS, headers=NEWS_HEADERS)
+    response.raise_for_status()
+    root = element_tree.fromstring(response.content)
+    nodes = root.findall(".//item") or root.findall(".//atom:entry", NEWS_NS)
+    words = NEWS_MARKET_WORDS[lang]
+    items = []
+    for node in nodes[:60]:
+        is_atom = node.tag.endswith("entry")
+        if is_atom:
+            title = _news_text(node, "atom:title")
+            link = node.find("atom:link[@rel='alternate']", NEWS_NS) or node.find("atom:link", NEWS_NS)
+            url = _news_clean_url(link.get("href") if link is not None else "")
+            body = _news_text(node, "atom:content")
+            summary_raw = _news_text(node, "atom:summary") or body
+            published = _news_time(_news_text(node, "atom:published") or _news_text(node, "atom:updated"))
+        else:
+            title = _news_text(node, "title")
+            url = _news_clean_url(_news_text(node, "link") or _news_text(node, "guid"))
+            body = _news_text(node, "content:encoded")
+            summary_raw = _news_text(node, "description") or body
+            published = _news_time(_news_text(node, "pubDate") or _news_text(node, "dc:date"))
+        title = strip_html_tags(html_lib.unescape(title))
+        summary = strip_html_tags(html_lib.unescape(summary_raw))
+        name, site = source["name"], source["site"]
+        if source.get("google"):
+            # "Headline - Publisher"; the description is only links, and the
+            # real publisher is in <source url="...">Publisher</source>.
+            publisher = node.find("source")
+            if publisher is not None and (publisher.text or "").strip():
+                name = publisher.text.strip()
+                domain = urllib.parse.urlparse(publisher.get("url") or "").netloc.lower()
+                site = domain[4:] if domain.startswith("www.") else (domain or site)
+                if title.endswith(" - " + name):
+                    title = title[: -len(name) - 3].strip()
+            summary = summary_raw = body = ""
+        if not title or not url:
+            continue
+        if published and now - published > NEWS_MAX_AGE_SECONDS:
+            continue
+        text = f"{title} {summary}"
+        lowered = text.lower()
+        # General business feeds carry much more than the market: keep only
+        # the stories that are about shares, indices, commodities, the rupee...
+        if not any(word in lowered for word in words):
+            continue
+        if len(summary) > 280:
+            summary = summary[:277].rsplit(" ", 1)[0] + "…"
+        items.append({
+            "id": hashlib.sha1(url.encode("utf-8")).hexdigest()[:16],
+            "title": title[:240],
+            "summary": summary,
+            "url": url[:1000],
+            "source": name,
+            "site": site,
+            "image": "" if source.get("google") else _news_item_image(node, (body, summary_raw)),
+            "published": published,
+            "coins": _news_tags(text),
+            "_google": bool(source.get("google")),
+        })
+    return items
+
+
+GNEWS_RESOLVE_PER_BUILD = 30
+GNEWS_RETRY_SECONDS = 1800
+gnews_cache = {}
+_GNEWS_SG_RE = re.compile(r'data-n-a-sg="([^"]+)"')
+_GNEWS_TS_RE = re.compile(r'data-n-a-ts="([^"]+)"')
+
+
+def _gnews_params(gn_url):
+    """Signature and timestamp Google News needs to reveal an article's real URL."""
+    match = re.search(r"/articles/([^?/#]+)", gn_url)
+    if not match:
+        return None
+    article_id = match.group(1)
+    for base in ("https://news.google.com/articles/", "https://news.google.com/rss/articles/"):
+        try:
+            response = requests.get(base + article_id, timeout=8, headers={"User-Agent": NEWS_HEADERS["User-Agent"]})
+            if response.status_code != 200:
+                continue
+            sg, ts = _GNEWS_SG_RE.search(response.text), _GNEWS_TS_RE.search(response.text)
+            if sg and ts and ts.group(1).isdigit():
+                return {"id": article_id, "sg": sg.group(1), "ts": ts.group(1)}
+        except requests.exceptions.RequestException:
+            continue
+    return None
+
+
+def _gnews_decode(batch):
+    """Real publisher URLs for a batch of Google News articles (same order)."""
+    requests_list = [[
+        "Fbv4je",
+        '["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],'
+        f'"{p["id"]}",{p["ts"]},"{p["sg"]}"]',
+    ] for p in batch]
+    response = requests.post(
+        "https://news.google.com/_/DotsSplashUi/data/batchexecute",
+        data={"f.req": json.dumps([requests_list])},
+        headers={"User-Agent": NEWS_HEADERS["User-Agent"], "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
+        timeout=10,
+    )
+    response.raise_for_status()
+    rows = [row for row in json.loads(response.text.split("\n\n", 1)[1]) if isinstance(row, list) and len(row) > 2 and row[0] == "wrb.fr"]
+    urls = []
+    for row in rows:
+        try:
+            urls.append(_news_clean_url(json.loads(row[2])[1]))
+        except (TypeError, ValueError, IndexError):
+            urls.append("")
+    return urls if len(urls) == len(batch) else [""] * len(batch)
+
+
+def _resolve_google_items(items):
+    """Swap Google News links for the publisher's own link and picture.
+    Results are cached; a story that can't be resolved keeps its Google
+    News link (which still opens the article) and is retried later."""
+    now = time.time()
+    todo, no_picture = [], []
+    for item in items:
+        cached = gnews_cache.get(item["url"])
+        if cached and (cached["url"] or now - cached["at"] < GNEWS_RETRY_SECONDS):
+            if cached["url"]:
+                item["url"], item["image"] = cached["url"], cached["image"]
+                if not item["image"]:
+                    no_picture.append(item)
+        elif len(todo) < GNEWS_RESOLVE_PER_BUILD:
+            todo.append(item)
+    if no_picture:
+        # Resolved earlier but the page gave no picture then; try again
+        # (_news_page_image waits 30 min between attempts per page).
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            for item, image in zip(no_picture, pool.map(lambda it: _news_page_image(it["url"]), no_picture)):
+                if image:
+                    item["image"] = image
+                    for entry in gnews_cache.values():
+                        if entry["url"] == item["url"]:
+                            entry["image"] = image
+    if not todo:
+        return
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
+        params = list(pool.map(lambda it: _gnews_params(it["url"]), todo))
+    ready = [(item, p) for item, p in zip(todo, params) if p]
+    resolved = {}
+    for start in range(0, len(ready), 10):
+        chunk = ready[start:start + 10]
+        try:
+            for (item, _), real in zip(chunk, _gnews_decode([p for _, p in chunk])):
+                if real and "news.google.com" not in real:
+                    resolved[item["url"]] = real
+        except Exception as error:  # Google changed something: keep Google links
+            print(f"Google News link decode failed: {error}")
+            break
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        images = dict(zip(resolved, pool.map(_news_page_image, resolved.values())))
+    if len(gnews_cache) > 3000:
+        gnews_cache.clear()
+    for item in todo:
+        original = item["url"]
+        real = resolved.get(original, "")
+        image = images.get(original, "") if real else ""
+        gnews_cache[original] = {"url": real, "image": image, "at": now}
+        if real:
+            item["url"], item["image"] = real, image
+
+
+def build_news(lang):
+    now = int(time.time())
+    sources = NEWS_SOURCES[lang]
+    collected, ok = [], 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(_fetch_news_feed, source, lang, now): source for source in sources}
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                collected.extend(future.result())
+                ok += 1
+            except Exception as error:  # one broken feed must not hide the others
+                print(f"News feed unavailable ({futures[future]['name']}): {error}")
+    seen_urls, seen_titles, items = set(), set(), []
+    for item in sorted(collected, key=lambda x: x["published"] or 0, reverse=True):
+        url_key = item["url"].split("?")[0].rstrip("/").lower()
+        title_key = re.sub(r"\W+", " ", item["title"].lower()).strip()
+        if url_key in seen_urls or title_key in seen_titles:
+            continue
+        seen_urls.add(url_key)
+        seen_titles.add(title_key)
+        items.append(item)
+        if len(items) >= NEWS_LIMIT:
+            break
+    google = [item for item in items if item.get("_google")]
+    if google:
+        _resolve_google_items(google)
+    # Stories whose feed has no picture: take the article's own og:image.
+    missing = [item for item in items if not item["image"] and not item.get("_google")]
+    if missing:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            for item, image in zip(missing, pool.map(lambda it: _news_page_image(it["url"]), missing)):
+                item["image"] = image
+    for item in items:
+        item.pop("_google", None)
+    return {"lang": lang, "items": items, "updated_at": now, "sources_ok": ok, "sources_total": len(sources)}
+
+
+@app.get("/api/news")
+def news():
+    """Latest Indian market news (no AI): title, summary, picture, source and link."""
+    lang = "hi" if str(request.args.get("lang", "en")).lower().startswith("hi") else "en"
+    cached = news_cache.get(lang)
+    now = time.time()
+    if cached and now - cached["at"] < NEWS_CACHE_SECONDS:
+        return jsonify(cached["data"])
+    with news_locks[lang]:
+        cached = news_cache.get(lang)
+        if cached and time.time() - cached["at"] < NEWS_CACHE_SECONDS:
+            return jsonify(cached["data"])
+        data = build_news(lang)
+        if not data["items"] and cached:
+            # Every feed failed this time: keep showing the last good list.
+            return jsonify({**cached["data"], "stale": True})
+        news_cache[lang] = {"data": data, "at": time.time()}
+        return jsonify(data)
+
+
 def parse_json_from_model(text):
     cleaned = str(text or "").strip()
 

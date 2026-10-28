@@ -1,10 +1,12 @@
-const CACHE_NAME = "marketdock-shell-v40";
+const CACHE_NAME = "marketdock-shell-v41";
 const APP_SHELL = [
   "/frontend/index.html",
   "/frontend/style.css",
   "/frontend/settings.css",
+  "/frontend/news.css",
   "/frontend/app.js",
   "/frontend/tabbar.js",
+  "/frontend/news.js",
   "/frontend/image-1.png",
   "/frontend/icon-192.png",
   "/frontend/icon-512.png"
