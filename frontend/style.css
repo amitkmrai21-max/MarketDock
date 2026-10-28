@@ -9899,3 +9899,16 @@ body > header.topbar {
 @media (max-width: 760px) {
   #topSettingsMenuButton { display: none !important; }
 }
+
+/* Watchlist pages: the strip holds the list on screen with the previous and next
+   list parked beside it, and slides sideways with the finger. */
+.im-wl-pager { position: relative; overflow-x: clip; touch-action: pan-y; }
+/* The table wrappers inside are scroll containers; they need it too or the browser takes the sideways drag. */
+.im-wl-pager * { touch-action: pan-y; }
+/* ...and so does the card around them, or the browser still claims the sideways drag. */
+#im-watchlist, #im-watchlist .section-card { touch-action: pan-y; }
+.im-wl-strip { position: relative; will-change: transform; }
+.im-wl-pane { position: absolute; top: 0; width: 100%; pointer-events: none; }
+.im-wl-pane[data-pane="prev"] { left: -100%; }
+.im-wl-pane[data-pane="next"] { left: 100%; }
+.im-wl-pane:empty { display: none; }

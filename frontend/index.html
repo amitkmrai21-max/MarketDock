@@ -36,7 +36,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="/frontend/style.css?v=20261029-tabbar-3">
+  <link rel="stylesheet" href="/frontend/style.css?v=20261031-wl-slide-1">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1248,19 +1248,25 @@
             </div>
           </div>
 
-          <div class="table-wrap">
-            <table class="im-watchlist-table">
-              <thead>
-                <tr>
-                  <th class="im-th-symbol">STOCKS</th>
-                  <th class="im-th-price-chg">PRICE</th>
-                  <th class="im-th-mom">MOMENTUM</th>
-                </tr>
-              </thead>
-              <tbody id="im-watchlist-body">
-                <tr><td colspan="3">Loading watchlist…</td></tr>
-              </tbody>
-            </table>
+          <div class="im-wl-pager" id="im-wl-pager">
+            <div class="im-wl-strip" id="im-wl-strip">
+              <div class="im-wl-pane" data-pane="prev" aria-hidden="true"></div>
+            <div class="table-wrap">
+              <table class="im-watchlist-table">
+                <thead>
+                  <tr>
+                    <th class="im-th-symbol">STOCKS</th>
+                    <th class="im-th-price-chg">PRICE</th>
+                    <th class="im-th-mom">MOMENTUM</th>
+                  </tr>
+                </thead>
+                <tbody id="im-watchlist-body">
+                  <tr><td colspan="3">Loading watchlist…</td></tr>
+                </tbody>
+              </table>
+            </div>
+              <div class="im-wl-pane" data-pane="next" aria-hidden="true"></div>
+            </div>
           </div>
 
           <p id="im-watchlist-ai-note" class="im-chart-status">1. Momentum score (0-100): formula-based from today's % change, not AI/LLM or financial advice. 60-100 Bullish, 41-59 Neutral, 0-40 Bearish. Up to 100 stocks/watchlist, 10 watchlists.<br>2. Tap a stock for Paper Trade. Press and hold to remove it. Drag the &#8942; handle to reorder.</p>
@@ -3397,7 +3403,7 @@
       <div id="mdMoreGrid" class="md-more-grid"></div>
     </div>
   </div>
-  <script defer src="/frontend/app.js?v=20261030-funds-1cr"></script>
+  <script defer src="/frontend/app.js?v=20261031-wl-slide-1"></script>
   <script defer src="/frontend/tabbar.js?v=20261029-tabbar-2"></script>
   <script>
     if ("serviceWorker" in navigator) {
