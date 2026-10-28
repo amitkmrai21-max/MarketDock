@@ -1,0 +1,151 @@
+/* Market news page (news.js): picture cards, English / हिंदी. Same layout as CryptoDock. */
+/* ================= Crypto News (news.js) ================= */
+.im-nw-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.im-nw-head h2 { margin: 0; }
+.im-nw-meta { margin: 2px 0 0; font-size: 12px; color: var(--im-muted); }
+.im-nw-page .im-nw-pills { margin-bottom: 10px; }
+.im-nw-notes { margin: 14px 0 0; padding-left: 18px; color: var(--im-muted); font-size: 12px; }
+.im-nw-lang .im-nw-pill { min-width: 92px; text-align: center; }
+.im-nw-tags { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.im-nw-tags::-webkit-scrollbar { display: none; }
+.im-nw-tags:empty { display: none; }
+.im-nw-tags .im-nw-pill { flex: 0 0 auto; padding: 5px 12px; font-size: 12px; }
+.im-nw-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.im-nw-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--im-border);
+  border-radius: 16px;
+  background: var(--im-panel);
+  overflow: hidden;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.im-nw-card:hover { border-color: var(--im-blue); }
+.im-nw-card:active { transform: scale(0.995); }
+.im-nw-card.is-lead { grid-column: 1 / -1; }
+.im-nw-main { display: flex; gap: 12px; padding: 12px; color: inherit; text-decoration: none; min-width: 0; flex: 1; }
+.im-nw-card.is-lead .im-nw-main { flex-direction: column; padding: 0 0 4px; gap: 0; }
+.im-nw-card.is-lead .im-nw-body { padding: 12px 14px 0; }
+.im-nw-body { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.im-nw-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--im-muted); font-size: 11.5px; font-weight: 700; }
+.im-nw-fav { width: 16px; height: 16px; border-radius: 4px; background: #fff; }
+.im-nw-src { color: var(--im-blue); }
+.im-nw-dot { opacity: 0.6; }
+.im-nw-tag { padding: 1px 6px; border-radius: 6px; background: var(--im-panel-2); color: var(--im-yellow, #fbbf24); font-size: 10px; font-weight: 800; letter-spacing: 0.3px; }
+.im-nw-title {
+  margin: 0;
+  font-family: "Sora", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.im-nw-card.is-lead .im-nw-title { font-size: 19px; -webkit-line-clamp: 4; }
+.im-nw-sum {
+  margin: 0;
+  color: var(--im-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.im-nw-card.is-lead .im-nw-sum { -webkit-line-clamp: 3; font-size: 13.5px; }
+.im-nw-list.is-hindi .im-nw-title { font-family: "Manrope", "Noto Sans Devanagari", system-ui, sans-serif; line-height: 1.5; }
+.im-nw-img {
+  position: relative;
+  flex: 0 0 112px;
+  width: 112px;
+  height: 84px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #312e81, #0f172a 60%, #134e4a);
+  align-self: flex-start;
+}
+.im-nw-img.is-big { flex: none; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 0; }
+.im-nw-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.im-nw-noimg { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.85); font-family: "Sora", system-ui, sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+.im-nw-img.is-big .im-nw-noimg { font-size: 42px; }
+.im-nw-img.is-empty .im-nw-noimg { display: flex; }
+.im-nw-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 12px 12px; }
+.im-nw-card.is-lead .im-nw-actions { padding: 8px 14px 14px; }
+.im-nw-actions a, .im-nw-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.im-nw-actions .im-nw-hi { border-color: rgba(251, 191, 36, 0.45); color: var(--im-yellow, #fbbf24); }
+.im-nw-actions .im-nw-share { margin-left: auto; color: var(--im-muted); }
+.im-nw-card.is-skeleton .im-nw-body i { display: block; height: 12px; border-radius: 6px; background: var(--im-panel-2); animation: imNwPulse 1.2s ease-in-out infinite; }
+.im-nw-card.is-skeleton .im-nw-body i:nth-child(1) { width: 40%; }
+.im-nw-card.is-skeleton .im-nw-body i:nth-child(2) { width: 95%; height: 16px; }
+.im-nw-card.is-skeleton .im-nw-body i:nth-child(3) { width: 75%; }
+.im-nw-card.is-skeleton .im-nw-img { animation: imNwPulse 1.2s ease-in-out infinite; }
+.im-nw-card.is-skeleton .im-nw-main { padding: 12px; }
+@keyframes imNwPulse { 50% { opacity: 0.5; } }
+@media (max-width: 760px) {
+.im-nw-list { grid-template-columns: 1fr; gap: 10px; }
+.im-nw-img { flex-basis: 96px; width: 96px; height: 72px; }
+.im-nw-title { font-size: 14px; }
+.im-nw-card.is-lead .im-nw-title { font-size: 17px; }
+.im-nw-sum { display: none; }
+.im-nw-card.is-lead .im-nw-sum { display: -webkit-box; }
+}
+
+.im-nw-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.im-nw-pill {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.im-nw-pill.is-active { color: var(--im-text); border-color: var(--im-blue); background: var(--im-panel); }
+.im-nw-more {
+  display: block;
+  margin: 10px auto 2px;
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-text);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.im-nw-empty { margin: 14px 0 6px; color: var(--im-muted); text-align: center; font-size: 13.5px; }
+.im-nw-ghost {
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.im-nw-page { max-width: 1100px; }
+body[data-theme="light"] .im-nw-card { border-color: #cdd6e3; }
+body[data-theme="light"] .im-nw-tag { color: #b45309; }
+.im-nw-img.is-big { max-height: 340px; }

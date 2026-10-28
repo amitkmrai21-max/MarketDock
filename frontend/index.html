@@ -38,6 +38,7 @@
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261107-row-line-2">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261106-settings-2">
+  <link rel="stylesheet" href="/frontend/news.css?v=20261108-news-4">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -1407,18 +1408,22 @@
       </section>
 
       <section class="page" id="im-news">
-        <article class="card section-card">
-          <div class="section-heading">
+        <div class="im-nw-page">
+          <div class="im-nw-head">
             <div>
-              <p id="im-news-updated">Loading market news…</p>
+              <p class="im-nw-meta" id="imNwUpdated">Loading the latest headlines…</p>
             </div>
-            <button class="setup-badge" id="im-news-refresh-btn" type="button" style="cursor:pointer;">Refresh</button>
+            <button type="button" class="im-nw-ghost" id="imNwRefresh">↻ Refresh</button>
           </div>
-
-          <div id="im-news-list" class="im-news-list">
-            <p class="empty-note">Loading market news…</p>
+          <div class="im-nw-pills im-nw-lang" id="imNwLang">
+            <button type="button" class="im-nw-pill is-active" data-news-lang="en">English</button>
+            <button type="button" class="im-nw-pill" data-news-lang="hi">हिंदी</button>
           </div>
-        </article>
+          <div class="im-nw-pills im-nw-tags" id="imNwTags"></div>
+          <div id="imNwList" class="im-nw-list" aria-live="polite"></div>
+          <button type="button" class="im-nw-more" id="imNwMore" hidden>Show more news</button>
+          <ul class="im-nw-notes"><li>Headlines from the publishers' own feeds</li><li>Tap a story to read it on the source website</li></ul>
+        </div>
       </section>
 
       <section class="page" id="im-alerts">
@@ -3395,8 +3400,9 @@
       <div id="mdMoreGrid" class="md-more-grid"></div>
     </div>
   </div>
-  <script defer src="/frontend/app.js?v=20261107-row-line-2"></script>
+  <script defer src="/frontend/app.js?v=20261108-news-2"></script>
   <script defer src="/frontend/tabbar.js?v=20261029-tabbar-2"></script>
+  <script defer src="/frontend/news.js?v=20261108-news-2"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
