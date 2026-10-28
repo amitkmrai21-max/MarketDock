@@ -3624,7 +3624,8 @@ NEWS_SOURCES = {
         {"name": "Economic Times Stocks", "site": "economictimes.indiatimes.com", "url": "https://economictimes.indiatimes.com/markets/stocks/rssfeeds/2146842.cms"},
         {"name": "Business Standard", "site": "business-standard.com", "url": "https://www.business-standard.com/rss/markets-106.rss"},
         {"name": "Mint", "site": "livemint.com", "url": "https://www.livemint.com/rss/markets"},
-        {"name": "Financial Express", "site": "financialexpress.com", "url": "https://www.financialexpress.com/market/feed/"},
+        {"name": "Mint Companies", "site": "livemint.com", "url": "https://www.livemint.com/rss/companies"},
+        {"name": "Hindustan Times", "site": "hindustantimes.com", "url": "https://www.hindustantimes.com/feeds/rss/business/rssfeed.xml"},
         {"name": "Moneycontrol", "site": "moneycontrol.com", "url": "https://www.moneycontrol.com/rss/latestnews.xml"},
         {"name": "The Hindu BusinessLine", "site": "thehindubusinessline.com", "url": "https://www.thehindubusinessline.com/markets/feeder/default.rss"},
     ],
@@ -3677,7 +3678,7 @@ NEWS_NS = {
     "atom": "http://www.w3.org/2005/Atom",
 }
 NEWS_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; MarketDockNews/1.0; +https://marketdock.in)",
+    "User-Agent": "Mozilla/5.0 (compatible; MarketDockNews/1.0)",
     "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
 }
 news_cache = {}
