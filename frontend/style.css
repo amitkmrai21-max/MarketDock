@@ -9893,3 +9893,9 @@ body > header.topbar {
   .md-more-tile.md-more-upgrade { border-color: rgba(245, 158, 11, 0.5); background: color-mix(in srgb, #fbbf24 14%, var(--surface-soft)); }
   .md-more-tile.md-more-upgrade .md-more-icon { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 3px 8px rgba(245, 158, 11, 0.35); }
 }
+
+/* Phones: Settings opens from the More sheet (tabbar.js), like CryptoDock, so
+   the floating round button is hidden. The More tile still clicks it. */
+@media (max-width: 760px) {
+  #topSettingsMenuButton { display: none !important; }
+}
