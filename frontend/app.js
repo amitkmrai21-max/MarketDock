@@ -6599,6 +6599,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
   let imWatchlistSortMode = "manual"; // "manual" | "alpha" | "change" | "price"
   let imWatchlistLastRows = [];
+  const imWatchlistRowsCache = {}; // list id -> { rows, at }, for the lists next to the one on screen
 
   function sortImWatchlistRows(rows) {
     if (imWatchlistSortMode === "manual") return rows;
@@ -6670,33 +6671,9 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     };
   }
 
-  function renderWatchlist(rows) {
-    const body = document.getElementById("im-watchlist-body");
-    const status = document.getElementById("im-watchlist-status");
-    if (!body) return;
-    if (imWatchlistDragPointerId !== null) return;
-
-    updateImWatchlistSearchCount();
-
-    if (!Array.isArray(rows) || !rows.length) {
-      body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">No symbols in this watchlist yet. Add one above.</td></tr>`;
-      if (status) {
-        status.hidden = false;
-        status.textContent = "Empty";
-      }
-      return;
-    }
-
-    body.classList.toggle("im-watchlist-body-sorted", imWatchlistSortMode !== "manual");
-
-    const sortedRows = sortImWatchlistRows(rows);
-
-    let buyCount = 0;
-    let neutralCount = 0;
-    let sellCount = 0;
-
-    body.innerHTML = sortedRows
-      .map((row, index) => {
+  // One watchlist row's markup and its momentum label — shared by the live
+  // table and the neighbouring lists shown while swiping.
+  function imBuildWatchlistRow(row) {
         const symbol = escapeHtml(row.symbol);
         const meta = getStockMeta(symbol);
         const changeNum = Number(row.change_percent);
@@ -6728,9 +6705,6 @@ function updateRrgMaintenanceView(allowed, checking = false) {
         // pill displays — a separate label-only pass previously undercounted
         // everything as neutral, since the backend's label text ("Bullish"/
         // "Bearish") never literally contains the substring "BUY"/"SELL".
-        if (action === "BULLISH") buyCount++;
-        else if (action === "BEARISH") sellCount++;
-        else neutralCount++;
 
         let changeHtml = '<span class="im-change-value im-change-neutral">— 0.00%</span>';
         if (Number.isFinite(changeNum)) {
@@ -6740,7 +6714,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
           changeHtml = `<span class="im-change-value ${cls}">${arrow} ${sign}${changeNum.toFixed(2)}%</span>`;
         }
 
-        return `
+        const html = `
           <tr class="im-watchlist-row ${rowClass}" data-symbol="${symbol}" data-price="${row.last_price ?? ""}">
             <td class="im-col-symbol">
               <div class="im-stock-brand-cell">
@@ -6767,6 +6741,44 @@ function updateRrgMaintenanceView(allowed, checking = false) {
             </td>
           </tr>
         `;
+        return { html, action };
+  }
+
+  function renderWatchlist(rows) {
+    const body = document.getElementById("im-watchlist-body");
+    const status = document.getElementById("im-watchlist-status");
+    if (!body) return;
+    if (imWatchlistDragPointerId !== null) return;
+
+    updateImWatchlistSearchCount();
+
+    if (!Array.isArray(rows) || !rows.length) {
+      body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">No symbols in this watchlist yet. Add one above.</td></tr>`;
+      if (status) {
+        status.hidden = false;
+        status.textContent = "Empty";
+      }
+      return;
+    }
+
+    body.classList.toggle("im-watchlist-body-sorted", imWatchlistSortMode !== "manual");
+
+    const sortedRows = sortImWatchlistRows(rows);
+
+    let buyCount = 0;
+    let neutralCount = 0;
+    let sellCount = 0;
+
+    body.innerHTML = sortedRows
+      .map((row) => {
+        const built = imBuildWatchlistRow(row);
+        // Tallied here (rather than in a separate pass over row.ai_label)
+        // so the summary chips always match exactly what each row's own
+        // pill displays.
+        if (built.action === "BULLISH") buyCount++;
+        else if (built.action === "BEARISH") sellCount++;
+        else neutralCount++;
+        return built.html;
       })
       .join("");
 
@@ -6783,6 +6795,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 async function fetchWatchlist() {
     const status = document.getElementById("im-watchlist-status");
     const watchlist = getActiveImWatchlist();
+    const requestedId = watchlist.id;
 
     if (!watchlist.symbols.length) {
       imWatchlistLastRows = [];
@@ -6803,13 +6816,18 @@ async function fetchWatchlist() {
         if (accessToken) fetchHeaders.Authorization = `Bearer ${accessToken}`;
       } catch (sessionError) { /* not logged in — use the shared account */ }
 
-      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${watchlist.symbols.join(",")}`, { headers: fetchHeaders });
+      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(watchlist.symbols.join(","))}`, { headers: fetchHeaders });
       const result = await response.json();
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "Watchlist request failed.");
       }
-      imWatchlistLastRows = Array.isArray(result.data) ? result.data : [];
+      const fetchedRows = Array.isArray(result.data) ? result.data : [];
+      imWatchlistRowsCache[requestedId] = { rows: fetchedRows, at: Date.now() };
+      // The user may have moved to another list while this was loading.
+      if (activeImWatchlistId !== requestedId) return;
+      imWatchlistLastRows = fetchedRows;
       renderWatchlist(result.data);
+      if (typeof window.imPrefetchNeighbourLists === "function") window.imPrefetchNeighbourLists();
 
       if (typeof checkImPaperTrades === "function" && Array.isArray(result.data)) {
         result.data.forEach((row) => {
@@ -7175,9 +7193,13 @@ async function fetchWatchlist() {
 
         const tabBtn = event.target.closest("[data-watchlist-id]");
         if (tabBtn) {
-          activeImWatchlistId = tabBtn.dataset.watchlistId;
-          renderImWatchlistTabs();
-          fetchWatchlist();
+          if (typeof window.imSlideToWatchlist === "function") {
+            window.imSlideToWatchlist(tabBtn.dataset.watchlistId);
+          } else {
+            activeImWatchlistId = tabBtn.dataset.watchlistId;
+            renderImWatchlistTabs();
+            fetchWatchlist();
+          }
         }
       });
     }
@@ -7190,187 +7212,207 @@ async function fetchWatchlist() {
     renderImWatchlistTabs();
   }
 
+  // Swipe (or tap a tab) to move between watchlists like pages: the list follows
+  // the finger, the next or previous list slides in beside it, and it settles
+  // on release. The neighbours are drawn from the rows already fetched for them.
   function setupImWatchlistSwipe() {
-    const watchlistPage = document.getElementById("im-watchlist");
-    if (!watchlistPage || watchlistPage.dataset.swipeWired) return;
-    watchlistPage.dataset.swipeWired = "true";
+    const page = document.getElementById("im-watchlist");
+    const pager = document.getElementById("im-wl-pager");
+    const strip = document.getElementById("im-wl-strip");
+    const prevPane = strip && strip.querySelector('[data-pane="prev"]');
+    const nextPane = strip && strip.querySelector('[data-pane="next"]');
+    const realTable = strip && strip.querySelector(".table-wrap");
+    if (!page || !pager || !prevPane || !nextPane || !realTable || page.dataset.swipeWired) return;
+    page.dataset.swipeWired = "true";
 
-    let touchStartX = 0;
-    let touchStartY = 0;
-    let touchStartTime = 0;
-    let isSwiping = false;
-    let isHorizontalGesture = null; // null | true | false
-    let currentDeltaX = 0;
+    const SLIDE_MS = 300;
+    const EASE = "cubic-bezier(0.22, 0.8, 0.3, 1)";
+    const reduceMotion = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let animating = false;
 
-    const getTableWrap = () => watchlistPage.querySelector(".table-wrap");
-
-    watchlistPage.addEventListener(
-      "touchstart",
-      (e) => {
-        if (e.touches.length !== 1) return;
-        if (e.target.closest("input, select, textarea, .im-watchlist-sort-panel, .im-terminal-sheet, .im-watchlist-drag-handle, .im-watchlist-tabs")) {
-          return;
-        }
-        const touch = e.touches[0];
-        touchStartX = touch.clientX;
-        touchStartY = touch.clientY;
-        touchStartTime = Date.now();
-        isSwiping = true;
-        isHorizontalGesture = null;
-        currentDeltaX = 0;
-
-        const tableWrap = getTableWrap();
-        if (tableWrap) {
-          tableWrap.scrollLeft = 0;
-          tableWrap.style.transition = "none";
-        }
-      },
-      { passive: true }
-    );
-
-    watchlistPage.addEventListener(
-      "touchmove",
-      (e) => {
-        if (!isSwiping || e.touches.length !== 1) return;
-        const touch = e.touches[0];
-        const dx = touch.clientX - touchStartX;
-        const dy = touch.clientY - touchStartY;
-
-        // Determine gesture direction on first significant movement
-        if (isHorizontalGesture === null) {
-          if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
-            if (Math.abs(dx) > Math.abs(dy) * 1.1) {
-              isHorizontalGesture = true;
-            } else {
-              isHorizontalGesture = false;
-              isSwiping = false;
-              return;
-            }
-          }
-        }
-
-        if (isHorizontalGesture === true) {
-          currentDeltaX = dx;
-          const tableWrap = getTableWrap();
-          if (tableWrap) {
-            // Smooth natural rubberband drag feedback
-            const dampedDx = dx * 0.35;
-            const opacity = Math.max(0.65, 1 - Math.abs(dx) / 500);
-            tableWrap.style.transform = `translateX(${dampedDx}px)`;
-            tableWrap.style.opacity = opacity;
-          }
-        }
-      },
-      { passive: true }
-    );
-
-    const finishSwipe = (e) => {
-      if (!isSwiping) return;
-      isSwiping = false;
-
-      const tableWrap = getTableWrap();
-      const elapsed = Date.now() - touchStartTime;
-      const dx = currentDeltaX;
-
-      if (tableWrap) {
-        tableWrap.scrollLeft = 0;
-      }
-
-      if (isHorizontalGesture && Math.abs(dx) >= 42 && elapsed < 700) {
-        const lists = getImWatchlists();
-        if (lists.length <= 1) {
-          resetWrap(tableWrap);
-          return;
-        }
-        const currentIndex = lists.findIndex((w) => w.id === activeImWatchlistId);
-        if (currentIndex === -1) {
-          resetWrap(tableWrap);
-          return;
-        }
-
-        let nextIndex = currentIndex;
-        if (dx < 0 && currentIndex < lists.length - 1) {
-          // Swipe Left -> next watchlist
-          nextIndex = currentIndex + 1;
-        } else if (dx > 0 && currentIndex > 0) {
-          // Swipe Right -> previous watchlist
-          nextIndex = currentIndex - 1;
-        }
-
-        if (nextIndex !== currentIndex) {
-          // A short, modest slide-out/in (not a near-full fade to 15-20%
-          // opacity, and not two separately-timed phases with a static gap
-          // between them) — the previous version dipped almost to
-          // invisible then held there for 140ms before an instant jump-cut
-          // to the other side, which read as a "blink"/stutter rather than
-          // one continuous motion. Keeping opacity no lower than ~0.5, and
-          // matching it exactly at the jump-cut point, means the position
-          // swap underneath is imperceptible and the whole thing reads as
-          // a single smooth glide.
-          const slideOutX = dx < 0 ? -28 : 28;
-          const slideInX = dx < 0 ? 28 : -28;
-          const midOpacity = "0.5";
-
-          if (tableWrap) {
-            tableWrap.style.transition = "transform 0.15s cubic-bezier(0.3, 0, 0.6, 1), opacity 0.15s ease";
-            tableWrap.style.transform = `translateX(${slideOutX}px)`;
-            tableWrap.style.opacity = midOpacity;
-          }
-
-          setTimeout(() => {
-            activeImWatchlistId = lists[nextIndex].id;
-            renderImWatchlistTabs();
-            fetchWatchlist();
-
-            if (tableWrap) {
-              tableWrap.scrollLeft = 0;
-              tableWrap.style.transition = "none";
-              tableWrap.style.transform = `translateX(${slideInX}px)`;
-              tableWrap.style.opacity = midOpacity;
-
-              requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                  tableWrap.style.transition = "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.24s ease";
-                  tableWrap.style.transform = "translateX(0)";
-                  tableWrap.style.opacity = "1";
-                  setTimeout(() => {
-                    if (tableWrap) {
-                      tableWrap.style.transition = "";
-                      tableWrap.style.transform = "";
-                      tableWrap.style.opacity = "";
-                      tableWrap.scrollLeft = 0;
-                    }
-                  }, 260);
-                });
-              });
-            }
-          }, 150);
-          return;
-        }
-      }
-
-      // Snap back if swipe threshold not met or at the boundary
-      resetWrap(tableWrap);
+    const listAt = (offset) => {
+      const lists = getImWatchlists();
+      const index = lists.findIndex((w) => w.id === activeImWatchlistId);
+      return index < 0 ? null : lists[index + offset] || null;
     };
 
-    function resetWrap(tableWrap) {
-      if (tableWrap) {
-        tableWrap.style.transition = "transform 0.2s ease, opacity 0.2s ease";
-        tableWrap.style.transform = "translateX(0)";
-        tableWrap.style.opacity = "1";
-        setTimeout(() => {
-          if (tableWrap) {
-            tableWrap.style.transition = "";
-            tableWrap.style.transform = "";
-            tableWrap.style.opacity = "";
-            tableWrap.scrollLeft = 0;
-          }
-        }, 220);
+    // Rows for a list, in its own order, from what was fetched before.
+    function cachedRows(list) {
+      const entry = imWatchlistRowsCache[list.id];
+      if (!entry || !Array.isArray(entry.rows)) return null;
+      const bySymbol = new Map(entry.rows.map((r) => [r.symbol, r]));
+      const rows = list.symbols.map((sym) => bySymbol.get(sym)).filter(Boolean);
+      return rows.length ? rows : null;
+    }
+
+    function fillPane(pane, list) {
+      const head = realTable.querySelector("thead");
+      const rows = cachedRows(list);
+      const note = (text) => `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">${text}</td></tr>`;
+      const body = !list.symbols.length
+        ? note("No symbols in this watchlist yet. Add one above.")
+        : rows
+          ? sortImWatchlistRows(rows).map((r) => imBuildWatchlistRow(r).html).join("")
+          : note(`Loading ${escapeHtml(list.name)}…`);
+      pane.innerHTML = `<div class="table-wrap"><table class="im-watchlist-table">${head ? head.outerHTML : ""}<tbody>${body}</tbody></table></div>`;
+    }
+
+    function highlightTab(id) {
+      const tabsEl = document.getElementById("im-watchlist-tabs");
+      if (!tabsEl) return;
+      let active = null;
+      tabsEl.querySelectorAll("[data-watchlist-id]").forEach((b) => {
+        const on = b.dataset.watchlistId === id;
+        b.classList.toggle("active", on);
+        if (on) active = b;
+      });
+      if (active && active.scrollIntoView) active.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+
+    // Make the list the one on screen: same steps as a plain tab tap, but with
+    // the cached rows drawn first so nothing blinks while the fresh ones load.
+    function commit(list) {
+      activeImWatchlistId = list.id;
+      renderImWatchlistTabs();
+      const rows = cachedRows(list);
+      if (rows) {
+        imWatchlistLastRows = rows;
+        renderWatchlist(rows);
+      } else {
+        imWatchlistLastRows = [];
+        const body = document.getElementById("im-watchlist-body");
+        if (body) body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">Loading ${escapeHtml(list.name)}…</td></tr>`;
       }
     }
 
-    watchlistPage.addEventListener("touchend", finishSwipe, { passive: true });
-    watchlistPage.addEventListener("touchcancel", finishSwipe, { passive: true });
+    function settle(dir, list) {
+      animating = true;
+      const width = pager.clientWidth;
+      strip.style.transition = `transform ${SLIDE_MS}ms ${EASE}`;
+      strip.style.transform = `translate3d(${-dir * width}px, 0, 0)`;
+      highlightTab(list.id);
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        strip.removeEventListener("transitionend", onEnd);
+        commit(list);
+        strip.style.transition = "none";
+        strip.style.transform = "";
+        prevPane.innerHTML = "";
+        nextPane.innerHTML = "";
+        animating = false;
+        fetchWatchlist();
+      };
+      const onEnd = (e) => { if (e.target === strip && e.propertyName === "transform") finish(); };
+      strip.addEventListener("transitionend", onEnd);
+      setTimeout(finish, SLIDE_MS + 120);
+    }
+
+    function springBack() {
+      strip.style.transition = `transform 240ms ${EASE}`;
+      strip.style.transform = "translate3d(0, 0, 0)";
+      setTimeout(() => {
+        strip.style.transition = "";
+        strip.style.transform = "";
+        prevPane.innerHTML = "";
+        nextPane.innerHTML = "";
+      }, 260);
+    }
+
+    // Tapping a tab: slide from the right (a later list) or the left (an earlier one).
+    window.imSlideToWatchlist = function (targetId) {
+      const lists = getImWatchlists();
+      const from = lists.findIndex((w) => w.id === activeImWatchlistId);
+      const to = lists.findIndex((w) => w.id === targetId);
+      if (to < 0 || to === from) return;
+      const visible = page.classList.contains("active") && pager.clientWidth > 0;
+      if (!visible || animating || reduceMotion()) {
+        activeImWatchlistId = targetId;
+        renderImWatchlistTabs();
+        fetchWatchlist();
+        return;
+      }
+      const dir = to > from ? 1 : -1;
+      fillPane(dir > 0 ? nextPane : prevPane, lists[to]);
+      // Let the pane paint at its off-screen spot, then glide.
+      strip.style.transition = "none";
+      strip.style.transform = "translate3d(0, 0, 0)";
+      requestAnimationFrame(() => requestAnimationFrame(() => settle(dir, lists[to])));
+    };
+
+    // Rows for the lists beside the one on screen, fetched quietly so the
+    // neighbour is real (not "Loading") the moment a swipe begins.
+    const prefetching = new Set();
+    window.imPrefetchNeighbourLists = function () {
+      if (document.visibilityState !== "visible" || !page.classList.contains("active")) return;
+      [-1, 1].forEach(async (offset) => {
+        const list = listAt(offset);
+        if (!list || !list.symbols.length || prefetching.has(list.id)) return;
+        const entry = imWatchlistRowsCache[list.id];
+        if (entry && Date.now() - entry.at < 60000) return;
+        prefetching.add(list.id);
+        try {
+          const headers = {};
+          try {
+            const { data } = (await window.marketDockSupabase?.auth.getSession()) || {};
+            if (data?.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
+          } catch (e) { /* not signed in */ }
+          const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(list.symbols.join(","))}`, { headers });
+          const result = await response.json();
+          if (response.ok && result.ok && Array.isArray(result.data)) imWatchlistRowsCache[list.id] = { rows: result.data, at: Date.now() };
+        } catch (e) { /* the swipe falls back to "Loading" for that list */ } finally {
+          prefetching.delete(list.id);
+        }
+      });
+    };
+
+    // ----- finger (Pointer Events: with touch-action: pan-y the browser keeps
+    // sending every move of a sideways drag, where touch events get cut off) -----
+    let touch = null;
+    page.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch" || !e.isPrimary || animating) return;
+      if (e.target.closest("input, select, textarea, .im-watchlist-sort-panel, .im-terminal-sheet, .im-watchlist-drag-handle, .im-watchlist-tabs")) return;
+      if (!e.target.closest("#im-wl-pager")) return;
+      touch = { id: e.pointerId, x: e.clientX, y: e.clientY, at: Date.now(), dx: 0, horizontal: null, filled: 0 };
+      strip.style.transition = "none";
+    });
+
+    page.addEventListener("pointermove", (e) => {
+      if (!touch || e.pointerId !== touch.id) return;
+      const dx = e.clientX - touch.x;
+      const dy = e.clientY - touch.y;
+      if (touch.horizontal === null) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        touch.horizontal = Math.abs(dx) > Math.abs(dy) * 1.1;
+        if (!touch.horizontal) { touch = null; return; }
+      }
+      touch.dx = dx;
+      const side = dx < 0 ? 1 : -1; // swiping left brings the next list
+      const neighbour = listAt(side);
+      if (neighbour && touch.filled !== side) {
+        fillPane(side > 0 ? nextPane : prevPane, neighbour);
+        touch.filled = side;
+      }
+      // No list on that side: resist, like the end of a scroll.
+      strip.style.transform = `translate3d(${neighbour ? dx : dx * 0.25}px, 0, 0)`;
+    });
+
+    const release = (e) => {
+      if (!touch || (e && e.pointerId !== touch.id)) return;
+      const { dx, at, horizontal } = touch;
+      touch = null;
+      if (!horizontal) return;
+      const side = dx < 0 ? 1 : -1;
+      const neighbour = listAt(side);
+      const width = pager.clientWidth || 1;
+      const speed = Math.abs(dx) / Math.max(1, Date.now() - at); // px per ms
+      const far = Math.abs(dx) > width * 0.28 || (speed > 0.45 && Math.abs(dx) > 30);
+      if (neighbour && far) settle(side, neighbour);
+      else springBack();
+    };
+    page.addEventListener("pointerup", release);
+    page.addEventListener("pointercancel", release);
   }
 
   let imWatchlistDragPointerId = null;
