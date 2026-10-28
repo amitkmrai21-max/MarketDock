@@ -9912,3 +9912,22 @@ body > header.topbar {
 .im-wl-pane[data-pane="prev"] { left: -100%; }
 .im-wl-pane[data-pane="next"] { left: 100%; }
 .im-wl-pane:empty { display: none; }
+
+/* Short notes under the lists: less text, less space. */
+#im-watchlist-ai-note {
+  margin: 8px 4px 2px !important;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.im-regulatory-footer {
+  margin: 4px auto 0 !important;
+  padding: 8px 12px 6px !important;
+}
+.im-regulatory-p {
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+}
+.im-regulatory-content { gap: 0; }
+@media (max-width: 760px) {
+  .indian-market-mode .content { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+}

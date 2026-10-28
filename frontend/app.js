@@ -6675,7 +6675,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   // table and the neighbouring lists shown while swiping.
   function imBuildWatchlistRow(row) {
         const symbol = escapeHtml(row.symbol);
-        const meta = getStockMeta(symbol);
+        const meta = getStockMeta(row.symbol); // the raw symbol: escaping it first turned "M&M" into "M&AMP;M"
         const changeNum = Number(row.change_percent);
         const isUp = Number.isFinite(changeNum) && changeNum >= 0;
         const isDown = Number.isFinite(changeNum) && changeNum < 0;
