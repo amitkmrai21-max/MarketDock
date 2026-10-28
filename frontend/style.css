@@ -9991,3 +9991,32 @@ body[data-theme="light"] .indian-market-mode #im-scanner .im-stock-name-text,
 body[data-theme="light"] .indian-market-mode #im-dashboard-movers .im-stock-name-text {
   color: #64748b !important;
 }
+
+/* Watchlist and Commodities: a thin line under every stock that starts strong at the coloured bar and fades out to the right */
+.indian-market-mode #im-watchlist .im-watchlist-row,
+.indian-market-mode #im-commodities .im-watchlist-row {
+  border-bottom: 0 !important;
+}
+.indian-market-mode #im-watchlist .im-watchlist-row td.im-col-symbol,
+.indian-market-mode #im-commodities .im-watchlist-row td.im-col-symbol {
+  position: relative;
+}
+.indian-market-mode #im-watchlist .im-watchlist-row td.im-col-symbol::after,
+.indian-market-mode #im-commodities .im-watchlist-row td.im-col-symbol::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(148, 163, 184, 0.6) 0%, rgba(148, 163, 184, 0.34) 30%, rgba(148, 163, 184, 0.14) 60%, rgba(148, 163, 184, 0.04) 85%, rgba(148, 163, 184, 0) 100%);
+}
+body[data-theme="light"] .indian-market-mode #im-watchlist .im-watchlist-row td.im-col-symbol::after,
+body[data-theme="light"] .indian-market-mode #im-commodities .im-watchlist-row td.im-col-symbol::after {
+  background: linear-gradient(to right, rgba(71, 85, 105, 0.55) 0%, rgba(71, 85, 105, 0.3) 30%, rgba(71, 85, 105, 0.12) 60%, rgba(71, 85, 105, 0.04) 85%, rgba(71, 85, 105, 0) 100%);
+}
+.indian-market-mode #im-watchlist .im-watchlist-row td,
+.indian-market-mode #im-commodities .im-watchlist-row td {
+  border-bottom: 0 !important;
+}
