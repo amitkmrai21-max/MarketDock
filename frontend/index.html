@@ -37,6 +37,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261101-short-notes-1">
+  <link rel="stylesheet" href="/frontend/settings.css?v=20261106-settings-1">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -2999,347 +3000,420 @@
 
     <div id="settingsBackdrop" class="settings-backdrop" aria-hidden="true"></div>
 
-    <aside id="settingsDrawer" class="settings-drawer" aria-label="Dashboard preferences">
-    <div class="settings-drawer-header">
+      <aside id="settingsDrawer" class="settings-drawer cd-settings-drawer-v2" aria-label="Dashboard preferences">
+    <div class="cd-set-head">
       <div>
-        <p class="settings-eyebrow">Dashboard preferences</p>
-        <h2>Settings</h2>
+        <h2 class="cd-set-title">Settings</h2>
+        <p class="cd-set-subtitle">Account, preferences and paper-trading funds.</p>
       </div>
-
-      <button id="settingsCloseButton" class="settings-close" type="button" aria-label="Close settings">
-        ×
+      <button id="settingsCloseButton" class="cd-set-close-btn" type="button" aria-label="Close settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
       </button>
     </div>
 
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+    <!-- 1. ACCOUNT SECTION -->
+<!-- 1. ACCOUNT SECTION -->
+    <section class="cd-set-section">
+      <div class="cd-set-sec-head">
+        <span class="cd-set-sec-icon">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         </span>
-        <div>
-          <h3>Account</h3>
-          <p class="settings-section-desc">Sign in or create an account for live paper trading</p>
-        </div>
+        <h3>Account</h3>
       </div>
 
-      <div class="settings-group settings-group--plain" id="accountLoggedInGroup">
-        <p class="settings-account-user-text" style="margin: 0 0 14px; font-size: 14.5px; color: var(--text, #f1f5f9);">Logged in as <span id="accountEmailDisplay" style="font-weight: 600;">--</span></p>
-        <button id="accountLogoutBtn" class="reset-settings-btn" type="button">Log Out</button>
-      </div>
-
-      <div class="settings-group settings-group--plain" id="accountLoggedOutGroup" hidden>
-        <p class="settings-account-user-text" style="margin: 0 0 14px; font-size: 14px; color: var(--text-soft, #94a3b8);">You are currently not signed in.</p>
-        <button id="accountOpenAuthBtn" class="account-primary-btn" type="button" style="width: 100%; justify-content: center; padding: 11px;">Sign In / Sign Up</button>
-      </div>
-    </section>
-
-    <!-- ================= OWNER ANALYTICS & SUBSCRIBERS (amitkmrai21@gmail.com Only) ================= -->
-    <section id="mdOwnerAnalyticsSection" class="settings-section" style="display: none;">
-      <div class="settings-section-header" style="justify-content: space-between; align-items: center;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="settings-section-icon" style="color: #f59e0b;">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
-          </span>
-          <div>
-            <h3 style="color: #fbbf24; margin: 0; font-size: 15px;">Owner Analytics</h3>
-            <p class="settings-section-desc" style="margin: 2px 0 0; font-size: 12px; color: #94a3b8;">Subscribers &amp; registered users</p>
+      <div class="cd-set-card">
+        <!-- Logged Out State -->
+        <div id="accountLoggedOutGroup" class="cd-set-auth-group">
+          <button id="accountGoogleBtn" class="account-google-btn cd-set-google-btn" type="button">
+            <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.96 10.71A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l3 2.33C4.67 5.16 6.66 3.58 9 3.58z"/></svg>
+            Continue with Google
+          </button>
+          <div class="settings-divider"><span>or</span></div>
+          <div class="settings-name-row">
+            <input id="accountEmailInput" type="email" placeholder="Email" autocomplete="email" class="cd-set-input" />
           </div>
-        </div>
-        <span style="font-size: 10.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35); text-transform: uppercase; letter-spacing: 0.05em;">
-          OWNER ONLY
-        </span>
-      </div>
-
-      <div class="settings-group settings-group--plain" style="margin-top: 10px;">
-        <div style="background: linear-gradient(180deg, rgba(30, 24, 15, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 12px; padding: 14px; box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-            <span style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Live Overview</span>
-            <button id="mdOwnerRefreshBtn" type="button" style="background: none; border: none; color: #38bdf8; font-size: 12px; cursor: pointer; font-weight: 600; padding: 2px 6px; display: inline-flex; align-items: center; gap: 4px;">
-              ↻ Refresh
+          <div class="settings-password-field cd-set-pwd-field">
+            <input id="accountPasswordInput" type="password" placeholder="Password" autocomplete="current-password" class="cd-set-input" />
+            <button id="accountPasswordToggle" class="password-toggle-btn" type="button" aria-label="Show password" aria-pressed="false">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
           </div>
+          <div class="settings-account-actions">
+            <button id="accountLoginBtn" class="account-primary-btn cd-set-btn-primary" type="button">Log In</button>
+            <button id="accountSignupBtn" class="cd-set-btn-outline" type="button">Sign Up</button>
+          </div>
+          <p id="accountAuthStatus" class="settings-help cd-set-status-msg" role="status"></p>
+        </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; padding: 12px 8px; text-align: center;">
-              <div style="font-size: 12px; color: #94a3b8; font-weight: 600; margin-bottom: 4px;">👥 Registered</div>
-              <div id="mdOwnerTotalUsers" style="font-size: 24px; font-weight: 800; color: #38bdf8; line-height: 1.2;">--</div>
-              <div style="font-size: 10.5px; color: #64748b; margin-top: 3px;">Total Accounts</div>
-            </div>
-
-            <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 10px; padding: 12px 8px; text-align: center;">
-              <div style="font-size: 12px; color: #4ade80; font-weight: 600; margin-bottom: 4px;">⭐ Subscribers</div>
-              <div id="mdOwnerTotalSubscribers" style="font-size: 24px; font-weight: 800; color: #4ade80; line-height: 1.2;">--</div>
-              <div id="mdOwnerSubDetail" style="font-size: 10.5px; color: #64748b; margin-top: 3px;">-- Active / -- Total</div>
+        <!-- Logged In State -->
+        <div id="accountLoggedInGroup" class="cd-set-auth-logged-in" hidden>
+          <div class="cd-set-user-identity">
+            <div class="account-avatar cd-set-avatar" id="accountAvatar">--</div>
+            <div class="cd-set-user-info">
+              <p class="account-identity-email cd-set-email" id="accountEmailDisplay">--</p>
             </div>
           </div>
 
-          <!-- Subscriber List Toggle & Container -->
-          <div style="margin-top: 14px;">
-            <button id="mdOwnerToggleSubsBtn" type="button" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; color: #fbbf24; font-size: 13px; font-weight: 600; cursor: pointer;">
-              <span id="mdOwnerSubsToggleLabel">📋 View Subscribers List (0)</span>
-              <span id="mdOwnerSubsArrow" style="transition: transform 0.2s ease;">▼</span>
-            </button>
+          <!-- Change Password Accordion -->
+          <details class="cd-set-accordion">
+            <summary class="cd-set-row-btn">
+              <span class="cd-set-row-label">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                Change Password
+              </span>
+              <span class="cd-set-chevron">›</span>
+            </summary>
+            <div class="cd-set-accordion-content">
+              <div class="settings-password-field cd-set-pwd-field">
+                <input id="accountNewPasswordInput" type="password" placeholder="New password (min 6 chars)" autocomplete="new-password" class="cd-set-input" />
+                <button id="accountNewPasswordToggle" class="password-toggle-btn" type="button" aria-label="Show password" aria-pressed="false">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+              <button id="accountChangePasswordBtn" class="account-primary-btn cd-set-btn-primary full-width" type="button">Update Password</button>
+              <p id="accountChangePasswordStatus" class="settings-help cd-set-status-msg" role="status"></p>
+            </div>
+          </details>
 
-            <div id="mdOwnerSubsListContainer" style="display: none; margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; background: rgba(0, 0, 0, 0.35); padding: 8px;">
-              <div id="mdOwnerSubsList" style="display: flex; flex-direction: column; gap: 8px;">
-                <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 12px 0;">No subscribers yet.</p>
+          <!-- Edit Display Name -->
+          <details class="cd-set-accordion">
+            <summary class="cd-set-row-btn">
+              <span class="cd-set-row-label">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                Edit Name
+              </span>
+              <span class="cd-set-chevron">›</span>
+            </summary>
+            <div class="cd-set-accordion-content">
+              <div class="settings-name-row">
+                <input id="userNameInput" type="text" placeholder="Your name" autocomplete="name" class="cd-set-input" />
+                <button id="saveUserNameBtn" type="button" class="cd-set-btn-primary">Save</button>
               </div>
             </div>
-          </div>
+          </details>
 
-          <div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #64748b;">
-            <span>Owner: <span style="color: #cbd5e1;">amitkmrai21@gmail.com</span></span>
-            <span id="mdOwnerStatsTime">--:--</span>
-          </div>
+          <!-- Log Out Button -->
+          <button id="accountLogoutBtn" class="cd-set-logout-btn" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+            <span>Log Out</span>
+            <span class="cd-set-chevron">›</span>
+          </button>
         </div>
       </div>
     </section>
 
+    <!-- OWNER ANALYTICS (amitkmrai21@gmail.com Only) -->
+    <section id="mdOwnerAnalyticsSection" class="cd-set-section" style="display:none;">
+      <div class="cd-set-sec-head" style="justify-content: space-between;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="cd-set-sec-icon" style="color: #f59e0b;">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+          </span>
+          <h3>Owner Analytics</h3>
+        </div>
+        <span class="cd-set-badge-tag" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.35);">OWNER ONLY</span>
+      </div>
 
-        <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg>
+      <div class="cd-set-card" style="border: 1px solid rgba(245, 158, 11, 0.35); background: linear-gradient(180deg, rgba(30, 24, 15, 0.75) 0%, rgba(18, 24, 38, 0.85) 100%);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <span style="font-size:0.75rem; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:0.04em;">Live Overview</span>
+          <button id="mdOwnerRefreshBtn" type="button" style="background:none; border:none; color:#38bdf8; font-size:0.75rem; cursor:pointer; font-weight:600; padding:2px 4px;">↻ Refresh</button>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+          <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 12px; padding: 12px 8px; text-align: center;">
+            <div style="font-size: 0.72rem; color: #94a3b8; font-weight: 600; margin-bottom: 4px;">👥 Registered</div>
+            <div id="mdOwnerTotalUsers" style="font-size: 1.5rem; font-weight: 800; color: #38bdf8; line-height: 1.2;">--</div>
+            <div style="font-size: 0.65rem; color: #64748b; margin-top: 3px;">Total Accounts</div>
+          </div>
+          <div style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(34, 197, 94, 0.25); border-radius: 12px; padding: 12px 8px; text-align: center;">
+            <div style="font-size: 0.72rem; color: #4ade80; font-weight: 600; margin-bottom: 4px;">⭐ Subscribers</div>
+            <div id="mdOwnerTotalSubscribers" style="font-size: 1.5rem; font-weight: 800; color: #4ade80; line-height: 1.2;">--</div>
+            <div id="mdOwnerSubDetail" style="font-size: 0.65rem; color: #64748b; margin-top: 3px;">-- Active / -- Total</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 12px;">
+          <button id="mdOwnerToggleSubsBtn" type="button" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 10px; color: #fbbf24; font-size: 0.82rem; font-weight: 600; cursor: pointer;">
+            <span id="mdOwnerSubsToggleLabel">📋 View Subscribers List (0)</span>
+            <span id="mdOwnerSubsArrow" style="transition: transform 0.2s ease;">▼</span>
+          </button>
+          <div id="mdOwnerSubsListContainer" style="display: none; margin-top: 10px; max-height: 280px; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; background: rgba(0, 0, 0, 0.35); padding: 8px;">
+            <div id="mdOwnerSubsList" style="display: flex; flex-direction: column; gap: 8px;">
+              <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 12px 0;">No subscribers yet.</p>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:10px; padding-top:8px; border-top:1px solid rgba(255, 255, 255, 0.06); display:flex; justify-content:space-between; align-items:center; font-size: 0.68rem; color:#64748b;">
+          <span>Restricted to: <span style="color:#cbd5e1;">amitkmrai21@gmail.com</span></span>
+          <span id="mdOwnerStatsTime">--:--</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIRTUAL FUNDS -->
+    <section class="cd-set-section">
+      <div class="cd-set-sec-head">
+        <span class="cd-set-sec-icon">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path><path d="M16 15h2"></path></svg>
         </span>
-        <div>
-          <h3>Funds</h3>
-          <p class="settings-section-desc">Virtual paper-trading balance &amp; margins</p>
+        <div class="cd-set-sec-title-wrap">
+          <h3>Virtual Funds</h3>
+          <span class="cd-set-badge-tag">Paper Trading</span>
         </div>
       </div>
 
-      <div class="settings-group settings-group--plain">
-        <button id="openFundsModalBtn" class="settings-funds-trigger-btn" type="button">
-          <div class="settings-funds-trigger-left">
-            <span class="settings-funds-trigger-title">Paper Trading Funds</span>
-            <span class="settings-funds-trigger-sub" id="settingsFundsSubtitlePreview">Available: ₹1,00,00,000</span>
+      <div class="cd-set-card cd-set-funds-card">
+        <div class="cd-set-funds-hero">
+          <strong id="settingsPaperFundsAvailable" class="cd-set-huge-balance">₹1,00,00,000</strong>
+          <span class="cd-set-sub-balance">Available balance</span>
+        </div>
+
+        <div class="cd-set-funds-metrics">
+          <div class="cd-set-metric-box">
+            <span class="cd-set-metric-label">Margin Used</span>
+            <strong id="settingsPaperFundsUsed" class="cd-set-metric-val">₹0.00</strong>
           </div>
-          <div class="settings-funds-trigger-right">
-            <span class="settings-funds-view-pill">View</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg>
+          <div class="cd-set-metric-box">
+            <span class="cd-set-metric-label">Realized P&amp;L</span>
+            <strong id="settingsPaperFundsRealized" class="cd-set-metric-val">₹0.00</strong>
           </div>
+        </div>
+
+        <span id="settingsPaperFundsOpening" style="display:none;"></span>
+        <span id="settingsFundsSubtitlePreview" style="display:none;">Available: ₹1,00,00,000</span>
+
+        <button id="openFundsModalBtn" type="button" class="cd-set-reset-funds-btn">
+          <span>Funds details</span>
+        </button>
+        <button id="settingsResetFundsBtn" type="button" class="cd-set-reset-funds-btn" style="margin-top:8px;" onclick="document.getElementById('resetFundsBtn')?.click()">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg>
+          <span>Reset Funds</span>
         </button>
       </div>
     </section>
 
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+    <!-- 3. GENERAL SECTION -->
+<!-- 3. GENERAL SECTION -->
+    <section class="cd-set-section">
+      <div class="cd-set-sec-head">
+        <span class="cd-set-sec-icon">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </span>
-        <div>
-          <h3>Profile</h3>
-        </div>
+        <h3>General</h3>
       </div>
 
-      <div class="settings-group settings-group--plain">
-        <label for="userNameInput">Your name</label>
-
-        <div class="settings-name-row">
-          <input id="userNameInput" type="text" placeholder="Your name" autocomplete="name" />
-          <button id="saveUserNameBtn" type="button">Save</button>
-        </div>
-
-        <p class="settings-help">Your name is saved only in this browser.</p>
-      </div>
-    </section>
-
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"></path></svg>
-        </span>
-        <div>
-          <h3>General</h3>
-        </div>
-      </div>
-
-
-
-      <div class="settings-group settings-group--plain">
-        <label class="settings-toggle-row" for="privacyModeToggle">
-          <input id="privacyModeToggle" type="checkbox" />
-          <span>
-            <strong>Privacy mode</strong>
-            <small>Blurs paper-trading balances and P&amp;L so they aren't readable over your shoulder or in a screen share.</small>
+      <div class="cd-set-card">
+        <label class="cd-set-toggle-row" for="privacyModeToggle">
+          <div class="cd-set-toggle-info">
+            <span class="cd-set-row-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+            </span>
+            <div>
+              <strong>Privacy Mode</strong>
+              <small>Hide portfolio values and P&amp;L</small>
+            </div>
+          </div>
+          <span class="cd-set-switch">
+            <input id="privacyModeToggle" type="checkbox" />
+            <span class="cd-set-slider"></span>
           </span>
         </label>
       </div>
     </section>
 
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+    <!-- 4. APPEARANCE SECTION -->
+<!-- 4. APPEARANCE SECTION -->
+    <section class="cd-set-section">
+      <div class="cd-set-sec-head">
+        <span class="cd-set-sec-icon">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a7 7 0 0 0 0 14v6a1 1 0 0 0 1-1v-4a7 7 0 0 0 0-14z"></path></svg>
         </span>
-        <div>
-          <h3>Appearance</h3>
-        </div>
+        <h3>Appearance</h3>
       </div>
 
-      <div class="settings-group settings-group--plain">
-        <label>Theme</label>
-
-        <div class="settings-option-grid">
-          <button class="settings-choice theme-choice" type="button" data-theme-choice="dark">
-            <svg class="settings-choice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      <div class="cd-set-card">
+        <label class="cd-set-sublabel">Theme</label>
+        <div class="cd-set-theme-grid">
+          <button class="settings-choice theme-choice active" type="button" data-theme-choice="dark">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
             <span>Dark</span>
           </button>
           <button class="settings-choice theme-choice" type="button" data-theme-choice="light">
-            <svg class="settings-choice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
             <span>Light</span>
           </button>
           <button class="settings-choice theme-choice" type="button" data-theme-choice="midnight">
-            <svg class="settings-choice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             <span>Midnight</span>
           </button>
         </div>
-      </div>
 
-      <div class="settings-group settings-group--plain">
-        <label>Accent color</label>
-
-        <div class="settings-option-grid">
-          <button class="settings-choice accent-choice" type="button" data-accent-choice="blue"><span class="accent-swatch"></span><span>Blue</span></button>
-          <button class="settings-choice accent-choice" type="button" data-accent-choice="purple"><span class="accent-swatch"></span><span>Purple</span></button>
-          <button class="settings-choice accent-choice" type="button" data-accent-choice="gold"><span class="accent-swatch"></span><span>Gold</span></button>
-          <button class="settings-choice accent-choice" type="button" data-accent-choice="green"><span class="accent-swatch"></span><span>Green</span></button>
+        <label class="cd-set-sublabel" style="margin-top: 16px;">Accent Color</label>
+        <div class="cd-set-accent-grid">
+          <button class="settings-choice accent-choice active" type="button" data-accent-choice="blue">
+            <span class="accent-swatch cd-swatch-cyan"></span>
+            <span>Blue</span>
+          </button>
+          <button class="settings-choice accent-choice" type="button" data-accent-choice="purple">
+            <span class="accent-swatch cd-swatch-purple"></span>
+            <span>Purple</span>
+          </button>
+          <button class="settings-choice accent-choice" type="button" data-accent-choice="gold">
+            <span class="accent-swatch cd-swatch-gold"></span>
+            <span>Gold</span>
+          </button>
+          <button class="settings-choice accent-choice" type="button" data-accent-choice="green">
+            <span class="accent-swatch cd-swatch-green"></span>
+            <span>Green</span>
+          </button>
         </div>
-      </div>
 
-      <div class="settings-group settings-group--plain">
-        <label>Text size</label>
-
-        <div class="settings-option-grid">
+        <label class="cd-set-sublabel" style="margin-top: 16px;">Text Size</label>
+        <div class="cd-set-segmented full-width">
           <button class="settings-choice text-size-choice" type="button" data-text-size-choice="compact">Compact</button>
-          <button class="settings-choice text-size-choice" type="button" data-text-size-choice="normal">Normal</button>
+          <button class="settings-choice text-size-choice active" type="button" data-text-size-choice="normal">Normal</button>
           <button class="settings-choice text-size-choice" type="button" data-text-size-choice="large">Large</button>
         </div>
       </div>
-
-      <div class="settings-group settings-group--plain settings-preferences-note">
-        <p>Theme, accent, text size and your last opened tab are saved on this device.</p>
-      </div>
     </section>
 
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+    <!-- 5. ALERTS & NOTIFICATIONS SECTION -->
+<!-- 5. ALERTS & NOTIFICATIONS SECTION -->
+    <section class="cd-set-section">
+      <div class="cd-set-sec-head">
+        <span class="cd-set-sec-icon">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
         </span>
-        <div>
-          <h3>Alerts &amp; notifications</h3>
-          <p class="settings-section-desc">Manage real-time alerts and notifications</p>
-        </div>
+        <h3>Alerts &amp; Notifications</h3>
       </div>
 
-      <div class="settings-group settings-group--plain">
-        <span id="settingsNotificationBadge" class="notification-permission-badge settings-notification-badge">Notifications: Checking...</span>
-        <div class="settings-account-actions">
-          <button id="settingsEnableNotificationsBtn" class="account-primary-btn" type="button">Enable Browser Alerts</button>
-          <button id="settingsTestNotificationBtn" type="button">Test Alert</button>
+      <div class="cd-set-card">
+        <div class="cd-set-notif-box">
+          <div class="cd-set-notif-info">
+            <span id="settingsNotificationBadge" class="notification-permission-badge settings-notification-badge">Notifications: Checking...</span>
+            <strong style="margin-top:8px;">Push Notifications</strong>
+            <small>Get a browser alert when a price or signal alert fires while MarketDock is open.</small>
+          </div>
+          <div class="cd-set-notif-actions">
+            <button id="settingsTestNotificationBtn" class="cd-set-pill-btn" type="button">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span>Test Alert</span>
+            </button>
+            <button id="settingsEnableNotificationsBtn" class="cd-set-pill-btn cd-set-pill-primary" type="button">Enable Browser Alerts</button>
+          </div>
+          <p id="settingsNotificationStatus" class="settings-help cd-set-status-msg" role="status"></p>
         </div>
-        <p id="settingsNotificationStatus" class="settings-help" role="status"></p>
-      </div>
 
-      <div class="settings-group settings-group--plain">
-        <label class="settings-toggle-row" for="settingsSoundAlertToggle">
-          <input id="settingsSoundAlertToggle" type="checkbox" />
-          <span>
-            <strong>Sound on alert</strong>
-            <small>Plays a short beep when a price or signal alert fires, even if this tab isn't focused.</small>
+        <label class="cd-set-toggle-row" for="settingsSoundAlertToggle" style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+          <div class="cd-set-toggle-info">
+            <span class="cd-set-row-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+            </span>
+            <div>
+              <strong>Sound on Alert</strong>
+              <small>Play sound when an alert is triggered</small>
+            </div>
+          </div>
+          <span class="cd-set-switch">
+            <input id="settingsSoundAlertToggle" type="checkbox" />
+            <span class="cd-set-slider"></span>
           </span>
         </label>
       </div>
     </section>
 
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
+    <!-- AI API KEYS -->
+    <section class="cd-set-section">
+      <div class="cd-set-sec-head">
+        <span class="cd-set-sec-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"></path></svg>
         </span>
-        <div>
-          <h3>AI API keys</h3>
-          <p class="settings-section-desc">Optional — use your own quota</p>
+        <div class="cd-set-sec-title-wrap">
+          <h3>AI API Keys</h3>
+          <span class="cd-set-badge-tag">Optional</span>
         </div>
       </div>
 
-      <div class="settings-group settings-group--plain">
-        <label for="userGeminiKeyInput">Gemini API key</label>
-        <p class="settings-help">If you add your own key, Gemini AI Analysis runs on your quota instead of the site's shared one. Get a free key at Google AI Studio. Saved only in this browser.</p>
+      <div class="cd-set-card">
+        <label class="cd-set-sublabel" for="userGeminiKeyInput">Gemini API key</label>
         <div class="settings-name-row">
-          <input id="userGeminiKeyInput" type="password" placeholder="Paste your Gemini API key" autocomplete="off" />
-          <button id="saveGeminiKeyBtn" type="button">Save</button>
+          <input id="userGeminiKeyInput" type="password" placeholder="Paste your Gemini API key" autocomplete="off" class="cd-set-input" />
+          <button id="saveGeminiKeyBtn" type="button" class="cd-set-btn-primary">Save</button>
         </div>
-        <p id="geminiKeyStatus" class="settings-help"></p>
-      </div>
-
-      <div class="settings-group settings-group--plain">
-        <label for="userGroqKeyInput">Groq API key</label>
-        <p class="settings-help">If you add your own key, Groq requests run on your quota (and skip the shared cooldown). Get a free key at console.groq.com. Saved only in this browser.</p>
+        <p class="settings-help">Your own key runs Gemini AI Analysis on your quota. Get a free key at Google AI Studio. Saved only in this browser.</p>
+        <p id="geminiKeyStatus" class="settings-help cd-set-status-msg" role="status"></p>
+        <label class="cd-set-sublabel" for="userGroqKeyInput" style="margin-top:16px;">Groq API key</label>
         <div class="settings-name-row">
-          <input id="userGroqKeyInput" type="password" placeholder="Paste your Groq API key" autocomplete="off" />
-          <button id="saveGroqKeyBtn" type="button">Save</button>
+          <input id="userGroqKeyInput" type="password" placeholder="Paste your Groq API key" autocomplete="off" class="cd-set-input" />
+          <button id="saveGroqKeyBtn" type="button" class="cd-set-btn-primary">Save</button>
         </div>
-        <p id="groqKeyStatus" class="settings-help"></p>
+        <p class="settings-help">Your own key runs Groq requests on your quota. Get a free key at console.groq.com. Saved only in this browser.</p>
+        <p id="groqKeyStatus" class="settings-help cd-set-status-msg" role="status"></p>
       </div>
     </section>
 
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+    <!-- HELP & SUPPORT -->
+<!-- 6. HELP & LEGAL SECTION -->
+    <section class="cd-set-section">
+      <div class="cd-set-sec-head">
+        <span class="cd-set-sec-icon">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </span>
-        <div>
-          <h3>Help &amp; Support</h3>
-        </div>
+        <h3>Help &amp; Support</h3>
       </div>
 
-      <div class="settings-group settings-group--plain">
-        <div class="settings-account-actions">
-          <a href="https://github.com/amitkmrai21-max/MarketDock/issues" target="_blank" rel="noopener">Report an Issue</a>
-          <a href="mailto:amitkmrai21@gmail.com?subject=MarketDock%20Feedback">Send Feedback</a>
-        </div>
-        <p class="settings-help">Found a bug or have a feature idea? Report it on GitHub or send feedback by email.</p>
+      <div class="cd-set-card cd-set-links-card">
+        <a href="mailto:amitkmrai21@gmail.com?subject=MarketDock%20Feedback" class="cd-set-link-row">
+          <span class="cd-set-row-label">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            Send Feedback — message us
+          </span>
+          <span class="cd-set-chevron">›</span>
+        </a>
+        <a href="https://github.com/amitkmrai21-max/MarketDock/issues" target="_blank" rel="noopener" class="cd-set-link-row">
+          <span class="cd-set-row-label">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+            Report an Issue
+          </span>
+          <span class="cd-set-chevron">›</span>
+        </a>
       </div>
+
+      <p class="settings-help" style="margin-top:10px;">MarketDock is a research and education tool for Indian markets, with virtual paper trading only. It is not financial advice.</p>
     </section>
 
-    <section class="settings-section">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+    <!-- DANGER ZONE -->
+<!-- 7. DANGER ZONE SECTION -->
+    <section class="cd-set-section cd-set-section-danger">
+      <div class="cd-set-sec-head cd-set-sec-danger">
+        <span class="cd-set-sec-icon cd-icon-danger">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
         </span>
-        <div>
-          <h3>About</h3>
-        </div>
+        <h3>Danger Zone</h3>
       </div>
 
-      <div class="settings-group settings-group--plain">
-        <p class="settings-help">MarketDock v1.0.0 — Indian Market research dashboard for NIFTY 50, Bank Nifty, Stocks, F&amp;O and Commodities. Research and education only — not financial advice.</p>
-        <p class="settings-help">Built with TradingView widget, Lightweight Charts, Chart.js and Upstox market data.</p>
+      <div class="cd-set-card cd-set-danger-card">
+        <div class="cd-set-danger-grid">
+          <button id="resetSettingsBtn" class="cd-danger-btn" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/></svg>
+            <span>Reset Settings</span>
+          </button>
+          <button id="clearMyDataBtn" class="cd-danger-btn" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            <span>Clear My Data</span>
+          </button>
+          <button id="accountDeleteBtn" class="cd-danger-btn" type="button">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+            <span>Delete Account</span>
+          </button>
+        </div>
+        <p id="accountDeleteStatus" class="settings-help cd-set-status-msg" role="status"></p>
       </div>
     </section>
 
-    <section class="settings-section settings-section--danger">
-      <div class="settings-section-header">
-        <span class="settings-section-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        </span>
-        <div>
-          <h3>Danger zone</h3>
-        </div>
-      </div>
-
-      <p class="settings-help">Reset Settings clears theme/accent/name preferences only. Clear My Data removes your trading history below.</p>
-
-      <button id="resetSettingsBtn" class="reset-settings-btn" type="button">Reset Settings</button>
-
-      <div class="settings-subsection">
-        <button id="clearMyDataBtn" class="reset-settings-btn" type="button">Clear My Data</button>
-        <p class="settings-help">Removes paper trades, watchlists, chart drawings, alerts, and backtest history saved on this device.</p>
-      </div>
-    </section>
-
-    <p class="settings-help" id="appBuildVersion">Version: --</p>
+    <!-- Version Footer -->
+    <p id="appBuildVersion" class="cd-set-version-footer">Version: --</p>
   </aside>
 
   <!-- Dedicated Funds Surface Modal -->
@@ -3401,7 +3475,7 @@
       <div id="mdMoreGrid" class="md-more-grid"></div>
     </div>
   </div>
-  <script defer src="/frontend/app.js?v=20261105-quiet-polling-1"></script>
+  <script defer src="/frontend/app.js?v=20261106-settings-1"></script>
   <script defer src="/frontend/tabbar.js?v=20261029-tabbar-2"></script>
   <script>
     if ("serviceWorker" in navigator) {
