@@ -1,8 +1,3 @@
-// True when this page load is the return from a broker login (Upstox sends
-// the user back with ?broker_connected=… or ?broker_error=…). Read once, up
-// front, because the Settings broker script strips those params on load.
-const MD_BROKER_OAUTH_RETURN = /[?&]broker_(connected|error)=/.test(window.location.search);
-
 // Paper trades — and the funds, positions, holdings and order book built
 // from them — belong strictly to individual MarketDock accounts.
 // Each email has its own isolated key and starts with clean initial funds.
@@ -2652,44 +2647,10 @@ setInterval(loadRrg, 300000);
         }
       }
 
-      // Step 1 (connect a broker) is offered once per user — it used to
-      // open on every page load, including the reload right after
-      // returning from Upstox, so Connect → Upstox → back → OK looped
-      // straight back to Connect. The Pro trial welcome is no longer part of
-      // sign-in: the Pro gate shows it the first time a Pro feature is used.
+      // The Pro trial welcome is not part of sign-in: the Pro gate shows it
+      // the first time a Pro feature is used.
       function showBrokerModalOrTrial(data = {}) {
-        const brokerModal = document.getElementById("md-broker-connect-modal");
-        const skipBrokerBtn = document.getElementById("md-skip-broker-btn");
         if (Number.isFinite(Number(data.days_left))) window.mdTrialDaysLeft = Number(data.days_left);
-
-        function openTrialModal() {
-          if (brokerModal) brokerModal.style.display = "none";
-        }
-
-        const brokerStepKey = `md_broker_step_done_${email}`;
-        const markBrokerStepDone = () => {
-          try { localStorage.setItem(brokerStepKey, "1"); } catch (e) {}
-        };
-        let brokerStepDone = MD_BROKER_OAUTH_RETURN;
-        try { brokerStepDone = brokerStepDone || localStorage.getItem(brokerStepKey) === "1"; } catch (e) {}
-        if (brokerStepDone) markBrokerStepDone();
-
-        if (skipBrokerBtn) {
-          skipBrokerBtn.onclick = function() {
-            markBrokerStepDone();
-            openTrialModal();
-          };
-        }
-        brokerModal?.querySelectorAll('a[href^="/api/broker/login"]').forEach((link) => {
-          link.href = `/api/broker/login?broker=upstox&email=${encodeURIComponent(email)}`;
-          link.onclick = markBrokerStepDone;
-        });
-
-        if (brokerModal && !brokerStepDone) {
-          brokerModal.style.display = "flex";
-        } else {
-          openTrialModal();
-        }
       }
 
       // Check Server DB for this Email
@@ -6834,10 +6795,7 @@ async function fetchWatchlist() {
     }
 
     try {
-      // A signed-in user with their own connected Upstox account (see the
-      // account settings' "Connect your broker" section) gets their
-      // Watchlist served from their own account instead of MarketDock's
-      // shared one — the backend looks that up from this session token.
+      // The session token, when there is one, goes along with the request.
       const fetchHeaders = {};
       try {
         const { data } = (await window.marketDockSupabase?.auth.getSession()) || {};
@@ -15769,15 +15727,14 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
 // ================= BACK CLOSES CARDS =================
 // The website has no history entries of its own, so Back on a full-screen
-// card (trial card, Pro gate, Connect Broker) or the Watchlist's Buy/Sell
-// sheet used to leave MarketDock for whatever page came before it — often
-// Upstox's login page from an earlier connect, which looked like the
-// Connect Upstox card opening by itself. Each of these now adds a history
+// card (trial card, Pro gate) or the Watchlist's Buy/Sell
+// sheet used to leave MarketDock for whatever page came before it. Each of
+// these now adds a history
 // entry while it's open, and Back closes it instead. Closing one with its
 // own buttons drops that entry again. In the Android app the hardware back
 // button calls mdCloseOpenCard() directly (see closeAnyOpenImOverlay).
 (function setupCardBackHandling() {
-  const CARDS = ["md-pro-gate-modal", "md-trial-welcome-modal", "md-broker-connect-modal"];
+  const CARDS = ["md-pro-gate-modal", "md-trial-welcome-modal"];
   const SHEETS = ["im-watchlist-action-sheet", "im-watchlist-delete-sheet", "im-watchlist-tab-menu-sheet"];
   const isNativeApp = Boolean(window.Capacitor?.isNativePlatform?.());
   const cardOpen = (el) => Boolean(el) && el.style.display !== "none" && el.style.display !== "";
@@ -15786,10 +15743,6 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   function closeCard(id) {
     const el = document.getElementById(id);
     if (!cardOpen(el)) return false;
-    // Backing out of Connect Broker counts as skipping it, so it doesn't
-    // come back on the next visit.
-    const skip = id === "md-broker-connect-modal" && document.getElementById("md-skip-broker-btn");
-    if (skip) skip.click();
     el.style.display = "none";
     return true;
   }
