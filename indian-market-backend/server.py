@@ -3963,7 +3963,7 @@ def _resolve_google_items(items):
 def build_news(lang):
     now = int(time.time())
     sources = NEWS_SOURCES[lang]
-    collected, ok = [], 0
+    collected, ok, failed = [], 0, []
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         futures = {pool.submit(_fetch_news_feed, source, lang, now): source for source in sources}
         for future in concurrent.futures.as_completed(futures):
@@ -3971,7 +3971,8 @@ def build_news(lang):
                 collected.extend(future.result())
                 ok += 1
             except Exception as error:  # one broken feed must not hide the others
-                print(f"News feed unavailable ({futures[future]['name']}): {error}")
+                app.logger.warning("News feed unavailable (%s): %s", futures[future]["name"], error)
+                failed.append({"name": futures[future]["name"], "error": f"{type(error).__name__}: {error}"[:160]})
     seen_urls, seen_titles, items = set(), set(), []
     for item in sorted(collected, key=lambda x: x["published"] or 0, reverse=True):
         url_key = item["url"].split("?")[0].rstrip("/").lower()
@@ -3994,7 +3995,7 @@ def build_news(lang):
                 item["image"] = image
     for item in items:
         item.pop("_google", None)
-    return {"lang": lang, "items": items, "updated_at": now, "sources_ok": ok, "sources_total": len(sources)}
+    return {"lang": lang, "items": items, "updated_at": now, "sources_ok": ok, "sources_total": len(sources), "failed": failed}
 
 
 @app.get("/api/news")
