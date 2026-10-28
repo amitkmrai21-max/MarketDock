@@ -10001,12 +10001,19 @@ body[data-theme="light"] .indian-market-mode #im-dashboard-movers .im-stock-name
 .indian-market-mode #im-commodities .im-watchlist-row td.im-col-symbol {
   position: relative;
 }
+/* Same length on both pages: a share of the whole list width, not of the first column */
+.indian-market-mode #im-watchlist .table-wrap,
+.indian-market-mode #im-commodities .table-wrap {
+  container-type: inline-size;
+}
 .indian-market-mode #im-watchlist .im-watchlist-row td.im-col-symbol::after,
 .indian-market-mode #im-commodities .im-watchlist-row td.im-col-symbol::after {
   content: "";
   position: absolute;
   left: 0;
-  right: 0;
+  right: auto;
+  width: 100%;
+  width: 70cqw;
   bottom: 0;
   height: 1px;
   pointer-events: none;
