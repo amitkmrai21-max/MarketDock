@@ -7725,6 +7725,9 @@ async function fetchWatchlist() {
   }
 
   let imSheetOpenedAt = 0;
+  // Bumped when a sheet opens, so a slide-away that is still pending (the Buy/Sell
+  // sheet closing just before the commodity expiry picker opens) doesn't hide it.
+  let imSheetCloseToken = 0;
 
   function closeImWatchlistSheets(force = false) {
     if (!force && (Date.now() - imSheetOpenedAt < 450)) {
@@ -7744,14 +7747,18 @@ async function fetchWatchlist() {
       actionSheet.classList.remove("im-sheet-visible");
       actionSheet.classList.add("im-sheet-closing");
       if (backdrop) backdrop.classList.add("im-backdrop-closing");
+      const closeToken = ++imSheetCloseToken;
       setTimeout(() => {
-        if (backdrop) {
+        // Another sheet opened meanwhile: finish hiding only this action sheet.
+        const reopened = closeToken !== imSheetCloseToken;
+        if (backdrop && !reopened) {
           backdrop.hidden = true;
           backdrop.style.display = "none";
           backdrop.classList.remove("im-backdrop-closing");
           backdrop.style.opacity = "";
         }
         sheetsToClose.forEach(s => {
+          if (reopened && s !== actionSheet) return;
           s.hidden = true;
           s.style.display = "none";
           s.classList.remove("im-sheet-open", "im-sheet-visible", "im-sheet-closing");
@@ -9377,6 +9384,10 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (nameEl) nameEl.textContent = commodityName;
     listEl.innerHTML = `<p class="status-line">Loading contracts…</p>`;
 
+    // The Buy/Sell sheet was just told to close; keep that from taking this one with it.
+    imSheetCloseToken += 1;
+    backdrop.classList.remove("im-backdrop-closing");
+    backdrop.style.opacity = "";
     backdrop.hidden = false;
     backdrop.style.display = "block";
     sheet.hidden = false;
