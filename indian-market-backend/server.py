@@ -257,6 +257,12 @@ def clients_online():
         return sum(1 for seen in _clients_seen.values() if now - seen <= CLIENT_ONLINE_SECONDS)
 
 
+def clients_seen_within(seconds):
+    now = time.time()
+    with _clients_lock:
+        return sum(1 for seen in _clients_seen.values() if now - seen <= seconds)
+
+
 @app.before_request
 def _note_client_and_warm():
     path = request.path
@@ -288,6 +294,7 @@ def upstox_stats():
         {
             "ok": True,
             "clients_online": clients_online(),
+            "clients_online_5min": clients_seen_within(300),
             "calls_last_minute": len(last_minute),
             "calls_last_hour": len(recent),
             "last_call_seconds_ago": round(now - last_call, 1) if last_call else None,
