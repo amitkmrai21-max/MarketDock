@@ -318,6 +318,79 @@ def _verified_session_email(authorization: str = None) -> str:
         pass
     return ""
 
+# ================= WHO IS USING MARKETDOCK RIGHT NOW (owner sees the count) =================
+# The app and the website send a small "I am here" beat every 30 seconds while
+# they are open and visible. A signed-in person counts once by email, however
+# many phones, tabs or browsers they have open; someone not signed in counts
+# once per device. Only the counts leave this module, never who they are.
+PRESENCE_WINDOW_SECONDS = 60
+PRESENCE_FIVE_MIN_SECONDS = 300
+PRESENCE_KEEP_SECONDS = 900
+_presence = {}          # key -> last seen (key is "e:<email>" or "d:<device hash>")
+_presence_lock = threading.Lock()
+_presence_token_emails = {}   # sha256(token) -> (email, expires_at): spares Supabase a call per beat
+PRESENCE_TOKEN_CACHE_SECONDS = 300
+
+
+def _presence_email(authorization):
+    if not authorization or not authorization.lower().startswith("bearer "):
+        return ""
+    token = authorization.split(" ", 1)[1].strip()
+    key = hashlib.sha256(token.encode("utf-8", "ignore")).hexdigest()
+    now = time.time()
+    cached = _presence_token_emails.get(key)
+    if cached and cached[1] > now:
+        return cached[0]
+    email = _verified_session_email(authorization)
+    if len(_presence_token_emails) > 2000:
+        for stale in [k for k, (_, exp) in _presence_token_emails.items() if exp <= now]:
+            _presence_token_emails.pop(stale, None)
+    if email:
+        _presence_token_emails[key] = (email, now + PRESENCE_TOKEN_CACHE_SECONDS)
+    return email
+
+
+def _presence_device_key(request):
+    forwarded = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    ip = forwarded or (request.client.host if request.client else "")
+    raw = f"{ip}|{request.headers.get('user-agent', '')}"
+    return "d:" + hashlib.sha256(raw.encode("utf-8", "ignore")).hexdigest()[:16]
+
+
+@app.post("/api/presence")
+def presence_beat(request: Request, authorization: str = Header(None)):
+    email = _presence_email(authorization)
+    key = f"e:{email}" if email else _presence_device_key(request)
+    now = time.time()
+    with _presence_lock:
+        _presence[key] = now
+        if len(_presence) > 5000:
+            for stale in [k for k, seen in _presence.items() if now - seen > PRESENCE_KEEP_SECONDS]:
+                _presence.pop(stale, None)
+    return {"ok": True}
+
+
+def _presence_counts():
+    now = time.time()
+    with _presence_lock:
+        recent = [(key, now - seen) for key, seen in _presence.items()]
+    last_minute = [key for key, age in recent if age <= PRESENCE_WINDOW_SECONDS]
+    five_min = [key for key, age in recent if age <= PRESENCE_FIVE_MIN_SECONDS]
+    return {
+        "now": len(last_minute),
+        "five_min": len(five_min),
+        "logged_in_now": sum(1 for key in last_minute if key.startswith("e:")),
+        "guests_now": sum(1 for key in last_minute if key.startswith("d:")),
+    }
+
+
+@app.get("/api/owner/active")
+def get_owner_active(authorization: str = Header(None)):
+    if _verified_session_email(authorization) != "amitkmrai21@gmail.com":
+        raise HTTPException(status_code=403, detail="Unauthorized: Owner account only")
+    return {"ok": True, **_presence_counts()}
+
+
 @app.get("/api/owner/analytics")
 def get_owner_analytics(authorization: str = Header(None)):
     owner_mail = "amitkmrai21@gmail.com"
