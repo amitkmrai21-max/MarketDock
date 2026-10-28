@@ -5669,7 +5669,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   // it is the open position ("open") until it's squared off ("closed").
   // "filled" marks an order that was used up entirely closing an opposite
   // position; "cancelled" is a pending order that expired or was withdrawn.
-  const IM_PAPER_STARTING_FUNDS = 20000000;
+  const IM_PAPER_STARTING_FUNDS = 10000000;
   const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
   // Epoch ms of the IST hh:mm cutoff that applies to something created at
@@ -14952,7 +14952,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (resetBtn) {
       resetBtn.addEventListener("click", () => {
         const confirmed = window.confirm(
-          "Kya aap paper trading funds ko wapas ₹2,00,00,000 par reset karna chahte hain? Sabhi paper positions aur trade history clear ho jayegi."
+          "Kya aap paper trading funds ko wapas ₹1,00,00,000 par reset karna chahte hain? Sabhi paper positions aur trade history clear ho jayegi."
         );
         if (!confirmed) return;
 
@@ -14968,7 +14968,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         // on screen after a reset. Redraw through the module's own hook.
         if (window.mdRefreshPaperViews) window.mdRefreshPaperViews();
 
-        window.alert("Paper trading funds wapas ₹2,00,00,000 par restore ho gaye hain!");
+        window.alert("Paper trading funds wapas ₹1,00,00,000 par restore ho gaye hain!");
       });
     }
   }
