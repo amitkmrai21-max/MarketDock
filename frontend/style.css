@@ -9883,7 +9883,7 @@ body > header.topbar {
   }
   .md-more-icon svg { width: 19px; height: 19px; stroke-width: 2; }
   .md-more-tile[data-more="im-holdings"] .md-more-icon { background: linear-gradient(135deg, #0ea5e9, #2563eb); }
-  .md-more-tile[data-more="im-commodities"] .md-more-icon { background: linear-gradient(135deg, #f59e0b, #d97706); }
+  .md-more-tile[data-more="im-scanner"] .md-more-icon { background: linear-gradient(135deg, #06b6d4, #0891b2); }
   .md-more-tile[data-more="im-stock-detail"] .md-more-icon { background: linear-gradient(135deg, #14b8a6, #0d9488); }
   .md-more-tile[data-more="im-news"] .md-more-icon { background: linear-gradient(135deg, #64748b, #475569); }
   .md-more-tile[data-more="im-rrg"] .md-more-icon { background: linear-gradient(135deg, #ec4899, #db2777); }
