@@ -6697,6 +6697,30 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     };
   }
 
+  // Small arrow in front of BULLISH / BEARISH when the score is strong (70+ or 30-):
+  // it follows what the price is doing right now, not the score. At 70+ the arrow points up
+  // while the price rises and flips down as soon as it falls (so a holder sees the drop even
+  // though the score is still high); at 30- it points down, and flips up when the price rises.
+  // Between 30 and 70 there is no arrow.
+  const imMomentumLastPrice = {};
+  const imMomentumDirection = {};
+
+  function imMomentumArrowHtml(key, price, score) {
+    const p = Number(price);
+    if (Number.isFinite(p) && p > 0) {
+      const last = imMomentumLastPrice[key];
+      if (last !== undefined && p !== last) imMomentumDirection[key] = p > last ? 1 : -1;
+      imMomentumLastPrice[key] = p;
+    }
+    if (!Number.isFinite(Number(score))) return "";
+    const strong = score >= 70 ? 1 : score <= 30 ? -1 : 0;
+    if (!strong) return "";
+    const dir = imMomentumDirection[key] || strong; // no move seen yet: point the way the score points
+    const up = dir > 0;
+    const hint = up ? "Price is rising now" : "Price is falling now";
+    return `<span class="im-mom-arrow ${up ? "is-up" : "is-down"}" title="${hint}" aria-label="${hint}">${up ? "▲" : "▼"}</span>`;
+  }
+
   // One watchlist row's markup and its momentum label — shared by the live
   // table and the neighbouring lists shown while swiping.
   function imBuildWatchlistRow(row) {
@@ -6761,7 +6785,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
             <td class="im-col-momentum">
               <div class="im-mom-wrapper">
                 <div class="im-mom-pill ${momPillClass}">
-                  <span class="im-mom-txt">${action}</span>
+                  ${imMomentumArrowHtml("wl:" + row.symbol, row.last_price, score)}<span class="im-mom-txt">${action}</span>
                   <span class="im-mom-bubble">${score}</span>
                 </div>
               </div>
@@ -9449,7 +9473,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
             <td class="im-col-momentum">
               <div class="im-mom-wrapper">
                 <div class="im-mom-pill ${momPillClass}">
-                  <span class="im-mom-txt">${action}</span>
+                  ${imMomentumArrowHtml("cm:" + key, row.last_price, score)}<span class="im-mom-txt">${action}</span>
                   <span class="im-mom-bubble">${score}</span>
                 </div>
               </div>
