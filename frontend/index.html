@@ -284,7 +284,7 @@
           </div>
           <div class="onboarding-feat-text">
             <strong>Track P/L and ledger</strong>
-            <span>Positions, executed order book &amp; portfolio ledger</span>
+            <span>Positions, orders &amp; portfolio ledger</span>
           </div>
         </div>
       </div>
@@ -433,6 +433,11 @@
         <button class="nav-button" data-page="im-broker-account" type="button">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3 10l9-6 9 6M5 10v9h14v-9M9 19v-5h6v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           Positions
+        </button>
+
+        <button class="nav-button" data-page="im-orders" type="button">
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M9 8h6M9 12h6M9 16h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+          Orders
         </button>
 
         <button class="nav-button" data-page="im-holdings" type="button">
@@ -2580,6 +2585,20 @@
         <div id="im-holdings-list" class="im-pos-list"></div>
       </section>
 
+      <section class="page" id="im-orders">
+          <article class="card section-card" id="im-pos-orders-section">
+            <p class="settings-help" style="margin:0 0 8px;">Open orders can be cancelled here. Executed and cancelled orders show for today only.</p>
+            <div class="im-pos-filter-row" id="im-broker-orders-filter-row">
+              <button class="im-pos-filter-pill active" type="button" data-order-filter="all">All</button>
+              <button class="im-pos-filter-pill" type="button" data-order-filter="open">Open</button>
+              <button class="im-pos-filter-pill" type="button" data-order-filter="executed">Executed</button>
+              <button class="im-pos-filter-pill" type="button" data-order-filter="cancelled">Cancelled</button>
+            </div>
+            <div class="im-ob-head"><span>Order</span><span>Qty</span><span>Status</span></div>
+            <div class="im-ob-list" id="im-broker-orders-body"><p class="settings-help">Loading…</p></div>
+          </article>
+      </section>
+
       <section class="page" id="im-broker-account">
         <div id="im-broker-connected-content">
           <div class="im-pos-summary-row">
@@ -2609,7 +2628,6 @@
             <button type="button" class="im-pos-filter-pill" data-segment="EQ">Equity</button>
             <button type="button" class="im-pos-filter-pill" data-segment="FO">F&amp;O</button>
             <button type="button" class="im-pos-filter-pill" data-segment="MCX">Commodity</button>
-            <button type="button" class="im-pos-filter-pill" data-segment="ORDERS">Order Book</button>
           </div>
 
           <p id="im-broker-positions-status" class="status-line"></p>
@@ -2618,18 +2636,6 @@
             <h3 class="im-section-label">Positions</h3>
             <div id="im-pos-list" class="im-pos-list"></div>
           </section>
-
-          <article class="card section-card im-pos-view-section" id="im-pos-orders-section">
-            <h3 class="im-section-label">Order Book</h3>
-            <div class="im-pos-filter-row" id="im-broker-orders-filter-row">
-              <button class="im-pos-filter-pill active" type="button" data-order-filter="all">All</button>
-              <button class="im-pos-filter-pill" type="button" data-order-filter="open">Open</button>
-              <button class="im-pos-filter-pill" type="button" data-order-filter="executed">Executed</button>
-              <button class="im-pos-filter-pill" type="button" data-order-filter="cancelled">Cancelled</button>
-            </div>
-            <div class="im-ob-head"><span>Order</span><span>Qty</span><span>Status</span></div>
-            <div class="im-ob-list" id="im-broker-orders-body"><p class="settings-help">Loading…</p></div>
-          </article>
         </div>
       </section>
 
@@ -3408,7 +3414,7 @@
       <div id="mdMoreGrid" class="md-more-grid"></div>
     </div>
   </div>
-  <script defer src="/frontend/app.js?v=20261110-arrow-2"></script>
+  <script defer src="/frontend/app.js?v=20261111-orders-1"></script>
   <script defer src="/frontend/tabbar.js?v=20261029-tabbar-2"></script>
   <script defer src="/frontend/news.js?v=20261108-news-2"></script>
   <script>

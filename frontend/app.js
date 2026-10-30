@@ -4924,9 +4924,13 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       title: "Paper Trading Journal",
       subtitle: "Record research setups only. No real-money order execution."
     },
+    "im-orders": {
+      title: "Orders",
+      subtitle: "Your paper orders — open, executed and cancelled. Paper trading, no real money."
+    },
     "im-broker-account": {
       title: "Positions",
-      subtitle: "Intraday, F&O and commodity positions plus the order book. Paper trading — no real money."
+      subtitle: "Intraday, F&O and commodity positions. Paper trading — no real money."
     },
     "im-holdings": {
       title: "Holdings",
@@ -5087,6 +5091,9 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       stopDashboardMoversPolling();
     }
 
+    if (pageId === "im-orders" && typeof renderBrokerOrdersList === "function") {
+      renderBrokerOrdersList();
+    }
     if ((pageId === "im-broker-account" || pageId === "im-holdings") && typeof loadBrokerAccountPage === "function") {
       loadBrokerAccountPage();
     }
@@ -11441,18 +11448,16 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     renderImPaperFunds();
   }
 
-  // Which part of the Positions page is on screen, from the filter pills:
-  // ALL shows positions and the order book together; EQ/FO/MCX show just
-  // that segment's positions; ORDERS shows only the order book. Holdings
-  // has its own page (im-holdings).
+  // Which positions are on screen, from the filter pills: ALL, or just one
+  // segment (EQ / FO / MCX). The order book has its own page (im-orders);
+  // Holdings has its own page (im-holdings).
   function applyImPosView() {
     const view = imPosActiveSegment;
     const show = (id, visible) => {
       const el = document.getElementById(id);
       if (el) el.hidden = !visible;
     };
-    show("im-pos-positions-section", view !== "ORDERS");
-    show("im-pos-orders-section", view === "ALL" || view === "ORDERS");
+    show("im-pos-positions-section", true);
   }
 
   function imPositionCardHtml(r) {
@@ -11599,7 +11604,6 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   document.getElementById("im-holdings-search-input")?.addEventListener("input", renderPositionsList);
   document.getElementById("im-pos-search-input")?.addEventListener("input", () => {
     renderPositionsList();
-    renderBrokerOrdersList();
   });
 
   const imPosSegmentPills = document.querySelectorAll("#im-pos-segment-filter-row .im-pos-filter-pill");
@@ -11641,7 +11645,6 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   function renderBrokerOrdersList() {
     const today = imIstDayKey(Date.now());
-    const searchTerm = (document.getElementById("im-pos-search-input")?.value || "").trim().toUpperCase();
     const allRows = loadTrades()
       .map((trade, index) => ({ trade, index }))
       .filter(({ trade }) => !trade.isSplit && trade.status)
@@ -11654,7 +11657,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         if (!Number.isFinite(tradeTime)) return true;
         return imIstDayKey(tradeTime) === today;
       })
-      .filter(({ trade }) => !searchTerm || imTradeMarketLabel(trade.index).toUpperCase().includes(searchTerm));
+    ;
     const rows = imBrokerOrdersActiveFilter === "all"
       ? allRows
       : allRows.filter(({ trade }) => classifyOrderStatus(trade.status) === imBrokerOrdersActiveFilter);
@@ -11722,8 +11725,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const isActive = (id) => document.getElementById(id)?.classList.contains("active");
     if (isActive("im-broker-account") || isActive("im-holdings")) {
       renderPositionsList();
-      renderBrokerOrdersList();
     }
+    if (isActive("im-orders")) renderBrokerOrdersList();
   }
 
   // Marks every open position and pending order to market every 2s,
@@ -15757,6 +15760,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 (function setupProGate() {
   const PRO_PAGES = {
     "im-broker-account": "Paper Trading",
+    "im-orders": "Paper Trading",
     "im-holdings": "Paper Trading",
     "im-heatmap": "Heatmap",
     "im-rrg": "RRG",
