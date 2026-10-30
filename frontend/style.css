@@ -10071,3 +10071,21 @@ body:not([data-theme="light"]) .im-watchlist-tab-starred:not(.active) { color: #
 .im-mom-arrow.is-down { color: #fca5a5; }
 .im-mom-pill-neutral .im-mom-arrow.is-up { color: #4ade80; }
 .im-mom-pill-neutral .im-mom-arrow.is-down { color: #f87171; }
+
+/* Orders: All / Open / Cancelled / Executed stay on one line, even on a narrow phone */
+#im-broker-orders-filter-row {
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#im-broker-orders-filter-row::-webkit-scrollbar { display: none; }
+#im-broker-orders-filter-row .im-pos-filter-pill {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: 8px;
+  padding-right: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  text-align: center;
+}
