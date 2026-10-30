@@ -6697,27 +6697,40 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     };
   }
 
-  // Small arrow in front of BULLISH / BEARISH when the score is strong (70+ or 30-):
-  // it follows what the price is doing right now, not the score. At 70+ the arrow points up
-  // while the price rises and flips down as soon as it falls (so a holder sees the drop even
-  // though the score is still high); at 30- it points down, and flips up when the price rises.
-  // Between 30 and 70 there is no arrow.
-  const imMomentumLastPrice = {};
-  const imMomentumDirection = {};
+  // Small arrow in front of BULLISH / BEARISH when the score is strong (70+ or 30-).
+  // The arrow shows the real direction the price is moving, not the last tick: it only turns
+  // when the price has reversed by IM_MOM_REVERSAL from its latest high (to down) or low (to up),
+  // so small wiggles never flip it. At 70+ it points up while the price climbs and turns down
+  // once it really falls; at 30- it points down and turns up once it really rises. Until a real
+  // move is seen it points the way the score points. Between 30 and 70 there is no arrow.
+  const IM_MOM_REVERSAL = 0.0015; // 0.15%
+  const imMomentumTrend = {}; // key -> { dir: 1 | -1 | 0, anchor }
 
-  function imMomentumArrowHtml(key, price, score) {
+  // Called with fresh prices only (never with older cached ones).
+  function imMomentumFeed(key, price) {
     const p = Number(price);
-    if (Number.isFinite(p) && p > 0) {
-      const last = imMomentumLastPrice[key];
-      if (last !== undefined && p !== last) imMomentumDirection[key] = p > last ? 1 : -1;
-      imMomentumLastPrice[key] = p;
+    if (!key || !Number.isFinite(p) || p <= 0) return;
+    const t = imMomentumTrend[key];
+    if (!t) { imMomentumTrend[key] = { dir: 0, anchor: p }; return; }
+    if (t.dir === 0) {
+      if (p >= t.anchor * (1 + IM_MOM_REVERSAL)) { t.dir = 1; t.anchor = p; }
+      else if (p <= t.anchor * (1 - IM_MOM_REVERSAL)) { t.dir = -1; t.anchor = p; }
+    } else if (t.dir === 1) {
+      if (p > t.anchor) t.anchor = p;
+      else if (p <= t.anchor * (1 - IM_MOM_REVERSAL)) { t.dir = -1; t.anchor = p; }
+    } else {
+      if (p < t.anchor) t.anchor = p;
+      else if (p >= t.anchor * (1 + IM_MOM_REVERSAL)) { t.dir = 1; t.anchor = p; }
     }
+  }
+
+  function imMomentumArrowHtml(key, score) {
     if (!Number.isFinite(Number(score))) return "";
     const strong = score >= 70 ? 1 : score <= 30 ? -1 : 0;
     if (!strong) return "";
-    const dir = imMomentumDirection[key] || strong; // no move seen yet: point the way the score points
+    const dir = (imMomentumTrend[key] && imMomentumTrend[key].dir) || strong;
     const up = dir > 0;
-    const hint = up ? "Price is rising now" : "Price is falling now";
+    const hint = up ? "Price is moving up" : "Price is moving down";
     return `<span class="im-mom-arrow ${up ? "is-up" : "is-down"}" title="${hint}" aria-label="${hint}">${up ? "▲" : "▼"}</span>`;
   }
 
@@ -6785,7 +6798,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
             <td class="im-col-momentum">
               <div class="im-mom-wrapper">
                 <div class="im-mom-pill ${momPillClass}">
-                  ${imMomentumArrowHtml("wl:" + row.symbol, row.last_price, score)}<span class="im-mom-txt">${action}</span>
+                  ${imMomentumArrowHtml("wl:" + row.symbol, score)}<span class="im-mom-txt">${action}</span>
                   <span class="im-mom-bubble">${score}</span>
                 </div>
               </div>
@@ -6878,6 +6891,7 @@ async function fetchWatchlist() {
       // The user may have moved to another list while this was loading.
       if (activeImWatchlistId !== requestedId) return;
       imWatchlistLastRows = fetchedRows;
+      if (Array.isArray(result.data)) result.data.forEach((row) => imMomentumFeed("wl:" + row.symbol, row.last_price));
       renderWatchlist(result.data);
       if (typeof window.imPrefetchNeighbourLists === "function") window.imPrefetchNeighbourLists();
 
@@ -9398,6 +9412,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       return;
     }
 
+    rows.forEach((row) => imMomentumFeed("cm:" + String(row.key || "").toLowerCase(), row.last_price));
+
     // Solid backgrounds (not the low-opacity tints this used to have) —
     // Watchlist's per-stock avatars (getStockMeta()) are solid, fully
     // opaque colors, and the same washed-out translucent look here read as
@@ -9473,7 +9489,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
             <td class="im-col-momentum">
               <div class="im-mom-wrapper">
                 <div class="im-mom-pill ${momPillClass}">
-                  ${imMomentumArrowHtml("cm:" + key, row.last_price, score)}<span class="im-mom-txt">${action}</span>
+                  ${imMomentumArrowHtml("cm:" + key, score)}<span class="im-mom-txt">${action}</span>
                   <span class="im-mom-bubble">${score}</span>
                 </div>
               </div>
