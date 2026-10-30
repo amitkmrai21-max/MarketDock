@@ -6842,15 +6842,9 @@ async function fetchWatchlist() {
     }
 
     try {
-      // The session token, when there is one, goes along with the request.
-      const fetchHeaders = {};
-      try {
-        const { data } = (await window.marketDockSupabase?.auth.getSession()) || {};
-        const accessToken = data?.session?.access_token;
-        if (accessToken) fetchHeaders.Authorization = `Bearer ${accessToken}`;
-      } catch (sessionError) { /* not logged in — use the shared account */ }
-
-      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(watchlist.symbols.join(","))}`, { headers: fetchHeaders });
+      // Prices are the same for everyone, so no login token goes with this request
+      // (a big token made some requests too large for the server, and it forced an extra preflight call every poll).
+      const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(watchlist.symbols.join(","))}`);
       const result = await response.json();
       if (!response.ok || !result.ok) {
         throw new Error(result.error || "Watchlist request failed.");
@@ -7440,12 +7434,7 @@ async function fetchWatchlist() {
         if (entry && Date.now() - entry.at < 60000) return;
         prefetching.add(list.id);
         try {
-          const headers = {};
-          try {
-            const { data } = (await window.marketDockSupabase?.auth.getSession()) || {};
-            if (data?.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
-          } catch (e) { /* not signed in */ }
-          const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(list.symbols.join(","))}`, { headers });
+          const response = await fetch(`${API_BASE_URL}/api/watchlist?symbols=${encodeURIComponent(list.symbols.join(","))}`);
           const result = await response.json();
           if (response.ok && result.ok && Array.isArray(result.data)) imWatchlistRowsCache[list.id] = { rows: result.data, at: Date.now() };
         } catch (e) { /* the swipe falls back to "Loading" for that list */ } finally {
