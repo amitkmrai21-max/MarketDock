@@ -11488,8 +11488,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     return `<span class="im-pc-icon" style="background:${meta.bg};color:${meta.color}">${escapeHtml(String(meta.icon || "").slice(0, 3))}</span>`;
   }
 
-  const imPcChevron = '<svg class="im-pc-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
-  const imPcInfo = '<svg class="im-pc-info" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/></svg>';
+  // "Qty 30 | Avg ₹1,87,013.00 | LTP ₹1,87,350.00": every part in its own span with a thin line between them.
+  const imMetaParts = (parts) => parts.map((text) => `<span>${text}</span>`).join('<i class="im-meta-sep" aria-hidden="true"></i>');
   const imRs = (value) => `₹${formatNumber(Math.abs(value))}`;
   const imSigned = (value) => `${value >= 0 ? "+" : "−"}${imRs(value)}`;
 
@@ -11499,7 +11499,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     // Side is shown the way brokers do it — a short position's quantity is
     // negative — rather than with a separate BUY/SELL badge.
     const signedQty = (r.direction === "SELL" ? -1 : 1) * Math.round(r.quantity);
-    const valueLine = r.isHolding ? ` • Cur. ${imRs(r.lastPrice * r.quantity)}` : "";
+    const valueLine = r.isHolding ? `Cur. ${imRs(r.lastPrice * r.quantity)}` : "";
     return `
       <div class="im-pos-row im-pos-card" data-segment="${r.segment}" data-pos-key="${escapeHtml(r.key)}" role="button" tabindex="0" aria-label="${escapeHtml(r.symbol)} — tap to add or exit">
         <div class="im-pc-top">
@@ -11514,8 +11514,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
             ${pctText ? `<span class="im-pos-pnl-pct ${cls}">${pctText}</span>` : ""}
           </div>
         </div>
-        <div class="im-pos-row-meta">Qty ${signedQty.toLocaleString("en-IN")} • Avg ${imRs(r.avgPrice)} • LTP ${imRs(r.lastPrice)}${valueLine}</div>
-        <div class="im-pc-more"><span>${imPcInfo}View details</span>${imPcChevron}</div>
+        <div class="im-pos-row-meta">${imMetaParts([`Qty ${signedQty.toLocaleString("en-IN")}`, `Avg ${imRs(r.avgPrice)}`, `LTP ${imRs(r.lastPrice)}`].concat(valueLine ? [valueLine] : []))}</div>
       </div>
     `;
   }
@@ -11557,7 +11556,6 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     const closedHtml = closedToday.map((r) => {
       const cls = r.pnl >= 0 ? "im-change-up" : "im-change-down";
-      const how = r.reason ? ` • ${escapeHtml(r.reason)}` : "";
       return `
         <div class="im-pos-row im-pos-card im-pos-card-closed" data-segment="${r.segment}">
           <div class="im-pc-top">
@@ -11575,7 +11573,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
               <span class="im-pos-pnl-pct">Realized</span>
             </div>
           </div>
-          <div class="im-pos-row-meta">Qty 0 • Exit ${imRs(r.exitPrice)}${how}</div>
+          <div class="im-pos-row-meta">${imMetaParts(["Qty 0", `Exit ${imRs(r.exitPrice)}`].concat(r.reason ? [escapeHtml(r.reason)] : []))}</div>
         </div>
       `;
     }).join("");
