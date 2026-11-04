@@ -37,6 +37,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <link rel="stylesheet" href="/frontend/style.css?v=20261104-dockwide-3">
+  <link rel="stylesheet" href="/frontend/positions-ui.css?v=20261105-pos-3">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261109-active-1">
   <link rel="stylesheet" href="/frontend/news.css?v=20261108-news-4">
   <link rel="stylesheet" href="/frontend/focus-radar.css?v=20261104-radar-pro-v9">
@@ -2610,18 +2611,20 @@
 
       <section class="page" id="im-broker-account">
         <div id="im-broker-connected-content">
+          <div class="im-pos-head">
+            <h2 class="im-pos-head-title">Positions</h2>
+            <span class="im-pos-live" id="im-pos-live"><i></i><span id="im-pos-live-text">Live</span></span>
+          </div>
+
           <div class="im-pos-summary-row">
             <div class="im-pos-summary-card">
+              <span class="im-pos-sc-icon is-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="12" width="4" height="8" rx="1"/><rect x="10" y="4" width="4" height="16" rx="1"/><rect x="16" y="9" width="4" height="11" rx="1"/></svg></span>
               <span class="im-pos-summary-label">Total P&amp;L</span>
               <span class="im-pos-summary-value" id="im-pos-total-pnl">--</span>
               <span class="im-pos-summary-pct" id="im-pos-total-pnl-pct"></span>
             </div>
-            <div class="im-pos-summary-card">
-              <span class="im-pos-summary-label">Open Positions</span>
-              <span class="im-pos-summary-value" id="im-pos-day-pnl">--</span>
-              <span class="im-pos-summary-pct" id="im-pos-day-pnl-pct"></span>
-            </div>
             <div class="im-pos-summary-card im-pos-funds-card">
+              <span class="im-pos-sc-icon is-blue" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h11a1 1 0 0 1 0 2H6v1h12a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7zm12 6.5a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4z"/></svg></span>
               <span class="im-pos-summary-label">Available Funds</span>
               <span class="im-pos-summary-value im-pos-funds-value" id="im-pos-funds-available">--</span>
               <span class="im-pos-summary-pct" id="im-pos-funds-used"></span>
@@ -2629,6 +2632,7 @@
           </div>
 
           <div class="im-pos-search-row">
+            <svg class="im-pos-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
             <input type="text" id="im-pos-search-input" class="im-pos-search-input" placeholder="Search positions" autocomplete="off" />
           </div>
 
@@ -2642,7 +2646,7 @@
           <p id="im-broker-positions-status" class="status-line"></p>
 
           <section class="im-pos-view-section" id="im-pos-positions-section">
-            <h3 class="im-section-label">Positions</h3>
+            <h3 class="im-section-label im-pos-section-head">Open Positions <span class="im-pos-count" id="im-pos-open-count">0</span></h3>
             <div id="im-pos-list" class="im-pos-list"></div>
           </section>
         </div>
@@ -3423,7 +3427,7 @@
       <div id="mdMoreGrid" class="md-more-grid"></div>
     </div>
   </div>
-  <script defer src="/frontend/app.js?v=20261111-orders-4"></script>
+  <script defer src="/frontend/app.js?v=20261105-pos-2"></script>
   <script defer src="/frontend/tabbar.js?v=20261029-tabbar-2"></script>
   <script defer src="/frontend/news.js?v=20261108-news-2"></script>
   <script defer src="/frontend/focus-radar.js?v=20261104-radar-pro-v9"></script>

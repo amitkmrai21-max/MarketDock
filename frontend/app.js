@@ -5005,6 +5005,8 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     const info = pageInfo[pageId];
     // The option chain is a full-screen, broker-style view with its own header.
     root.classList.toggle("im-oc-active", pageId === "im-stock-options");
+    // The Positions page draws its own big heading, so the shared title block is hidden there.
+    root.classList.toggle("im-pos-active", pageId === "im-broker-account");
 
     if (info && pageTitle && pageSubtitle) {
       pageTitle.textContent = info.title;
@@ -11437,17 +11439,20 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     // Big figures drop the paise so they fit the card on one line.
     const totalText = Math.abs(totalPnl) >= 10000
-      ? Math.round(totalPnl).toLocaleString("en-IN")
-      : formatNumber(totalPnl);
-    if (totalEl) { totalEl.textContent = `${totalPnl >= 0 ? "+" : ""}${totalText}`; totalEl.className = `im-pos-summary-value ${totalCls}`; }
+      ? Math.round(Math.abs(totalPnl)).toLocaleString("en-IN")
+      : formatNumber(Math.abs(totalPnl));
+    if (totalEl) { totalEl.textContent = `${totalPnl >= 0 ? "+" : "−"}₹${totalText}`; totalEl.className = `im-pos-summary-value ${totalCls}`; }
 
     const invested = rows.reduce((sum, r) => sum + r.avgPrice * r.quantity, 0);
     const totalPct = invested ? (totalPnl / invested) * 100 : null;
-    if (totalPctEl) { totalPctEl.textContent = Number.isFinite(totalPct) ? `(${totalPct >= 0 ? "+" : ""}${totalPct.toFixed(2)}%)` : ""; totalPctEl.className = `im-pos-summary-pct ${totalCls}`; }
+    if (totalPctEl) { totalPctEl.textContent = Number.isFinite(totalPct) ? `${totalPct >= 0 ? "+" : "−"}${Math.abs(totalPct).toFixed(2)}%` : ""; totalPctEl.className = `im-pos-summary-pct ${totalCls}`; }
 
     const openCount = rows.filter((r) => !r.isHolding).length;
     if (countEl) { countEl.textContent = String(openCount); countEl.className = "im-pos-summary-value"; }
     if (countSubEl) { countSubEl.textContent = openCount === 1 ? "open position" : "open positions"; countSubEl.className = "im-pos-summary-pct"; }
+
+    const openBadge = document.getElementById("im-pos-open-count");
+    if (openBadge) openBadge.textContent = String(openCount);
 
     renderImPaperFunds();
   }
@@ -11464,27 +11469,53 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     show("im-pos-positions-section", true);
   }
 
+  // Round icon tile of a position card: gold and silver bars, an emoji tile for the other commodities,
+  // "F&O" for option legs and the company's coloured initials for shares.
+  const IM_POS_ICON_SVG = {
+    GOLD: '<svg viewBox="0 0 48 48"><path d="M6 30l8-9h22l6 9z" fill="#f5c542"/><path d="M6 30h36v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" fill="#d49a1e"/><path d="M14 21l4-6h14l4 6z" fill="#ffe08a"/><path d="M18 15h14l1.5 2H16.5z" fill="#fff3c4"/></svg>',
+    SILVER: '<svg viewBox="0 0 48 48"><path d="M6 30l8-9h22l6 9z" fill="#c3cad4"/><path d="M6 30h36v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" fill="#7d8896"/><path d="M14 21l4-6h14l4 6z" fill="#dfe4ea"/><path d="M18 15h14l1.5 2H16.5z" fill="#f4f6f8"/></svg>'
+  };
+  const IM_POS_ICON_EMOJI = { CRUDEOIL: ["🛢️", "#fee2e2"], NATURALGAS: ["🔥", "#dbeafe"], COPPER: ["🔶", "#ffedd5"], ZINC: ["⚙️", "#ede9fe"], ALUMINIUM: ["🪨", "#ccfbf1"] };
+  function imPosIconHtml(r) {
+    if (r.isCommodity && !r.isOptionLeg) {
+      const prefix = String(r.symbolKey || "").toUpperCase().replace(/\d{2}[A-Z]{3}FUT$/, "");
+      if (IM_POS_ICON_SVG[prefix]) return `<span class="im-pc-icon is-bars">${IM_POS_ICON_SVG[prefix]}</span>`;
+      const [emoji, bg] = IM_POS_ICON_EMOJI[prefix] || ["📦", "#e2e8f0"];
+      return `<span class="im-pc-icon" style="background:${bg}">${emoji}</span>`;
+    }
+    if (r.isOptionLeg || r.segment === "FO") return `<span class="im-pc-icon is-fo">F&amp;O</span>`;
+    const meta = getStockMeta(r.symbolKey);
+    return `<span class="im-pc-icon" style="background:${meta.bg};color:${meta.color}">${escapeHtml(String(meta.icon || "").slice(0, 3))}</span>`;
+  }
+
+  const imPcChevron = '<svg class="im-pc-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  const imPcInfo = '<svg class="im-pc-info" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5v.5"/></svg>';
+  const imRs = (value) => `₹${formatNumber(Math.abs(value))}`;
+  const imSigned = (value) => `${value >= 0 ? "+" : "−"}${imRs(value)}`;
+
   function imPositionCardHtml(r) {
     const cls = r.pnl >= 0 ? "im-change-up" : "im-change-down";
-    const pctText = Number.isFinite(r.pnlPct) ? `(${r.pnlPct >= 0 ? "+" : ""}${r.pnlPct.toFixed(2)}%)` : "";
+    const pctText = Number.isFinite(r.pnlPct) ? `${r.pnlPct >= 0 ? "+" : "−"}${Math.abs(r.pnlPct).toFixed(2)}%` : "";
     // Side is shown the way brokers do it — a short position's quantity is
     // negative — rather than with a separate BUY/SELL badge.
     const signedQty = (r.direction === "SELL" ? -1 : 1) * Math.round(r.quantity);
-    const valueLine = r.isHolding ? ` · Cur. ${formatNumber(r.lastPrice * r.quantity)}` : "";
+    const valueLine = r.isHolding ? ` • Cur. ${imRs(r.lastPrice * r.quantity)}` : "";
     return `
       <div class="im-pos-row im-pos-card" data-segment="${r.segment}" data-pos-key="${escapeHtml(r.key)}" role="button" tabindex="0" aria-label="${escapeHtml(r.symbol)} — tap to add or exit">
-        <div class="im-pos-card-left">
-          <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
-          <div class="im-pos-badges">
-            <span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span>
+        <div class="im-pc-top">
+          ${imPosIconHtml(r)}
+          <div class="im-pc-id">
+            <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
+            <div class="im-pos-badges"><span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span></div>
+            <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
           </div>
-          <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
-          <div class="im-pos-row-meta">Qty. ${signedQty.toLocaleString("en-IN")} · Avg ${formatNumber(r.avgPrice)} · LTP ${formatNumber(r.lastPrice)}${valueLine}</div>
+          <div class="im-pos-card-pnl">
+            <span class="im-pos-pnl ${cls}">${imSigned(r.pnl)}</span>
+            ${pctText ? `<span class="im-pos-pnl-pct ${cls}">${pctText}</span>` : ""}
+          </div>
         </div>
-        <div class="im-pos-card-pnl">
-          <span class="im-pos-pnl ${cls}">${r.pnl >= 0 ? "+" : ""}${formatNumber(r.pnl)}</span>
-          <span class="im-pos-pnl-pct ${cls}">${pctText}</span>
-        </div>
+        <div class="im-pos-row-meta">Qty ${signedQty.toLocaleString("en-IN")} • Avg ${imRs(r.avgPrice)} • LTP ${imRs(r.lastPrice)}${valueLine}</div>
+        <div class="im-pc-more"><span>${imPcInfo}View details</span>${imPcChevron}</div>
       </div>
     `;
   }
@@ -11526,22 +11557,25 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     const closedHtml = closedToday.map((r) => {
       const cls = r.pnl >= 0 ? "im-change-up" : "im-change-down";
-      const how = r.reason ? ` · ${escapeHtml(r.reason)}` : "";
+      const how = r.reason ? ` • ${escapeHtml(r.reason)}` : "";
       return `
         <div class="im-pos-row im-pos-card im-pos-card-closed" data-segment="${r.segment}">
-          <div class="im-pos-card-left">
-            <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
-            <div class="im-pos-badges">
-              <span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span>
-              <span class="im-pos-badge im-pos-badge-closed">CLOSED</span>
+          <div class="im-pc-top">
+            ${imPosIconHtml(r)}
+            <div class="im-pc-id">
+              <div class="im-pos-symbol">${escapeHtml(r.symbol)}</div>
+              <div class="im-pos-badges">
+                <span class="im-pos-badge im-pos-badge-product">${escapeHtml(r.product)}</span>
+                <span class="im-pos-badge im-pos-badge-closed">CLOSED</span>
+              </div>
+              <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
             </div>
-            <div class="im-pos-segment-text">${escapeHtml(r.segmentLabel)}</div>
-            <div class="im-pos-row-meta">Qty. 0 · Exit ${formatNumber(r.exitPrice)}${how}</div>
+            <div class="im-pos-card-pnl">
+              <span class="im-pos-pnl ${cls}">${imSigned(r.pnl)}</span>
+              <span class="im-pos-pnl-pct">Realized</span>
+            </div>
           </div>
-          <div class="im-pos-card-pnl">
-            <span class="im-pos-pnl ${cls}">${r.pnl >= 0 ? "+" : ""}${formatNumber(r.pnl)}</span>
-            <span class="im-pos-pnl-pct">Realized</span>
-          </div>
+          <div class="im-pos-row-meta">Qty 0 • Exit ${imRs(r.exitPrice)}${how}</div>
         </div>
       `;
     }).join("");
@@ -11562,6 +11596,23 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       renderPositionsList();
     }
   } catch (e) {}
+
+  // The "Live" pill on the Positions heading follows the market status shown in the ticker bar.
+  (function syncPositionsLivePill() {
+    const pill = document.getElementById("im-pos-live");
+    const text = document.getElementById("im-pos-live-text");
+    const source = document.getElementById("im-ticker-status-text");
+    if (!pill || !text || !source) return;
+    const apply = () => {
+      const label = (source.textContent || "").trim();
+      const live = /live/i.test(label);
+      pill.classList.toggle("is-live", live);
+      pill.classList.toggle("is-closed", !live);
+      text.textContent = live ? "Live" : (label && !/connecting/i.test(label) ? label : "Connecting…");
+    };
+    new MutationObserver(apply).observe(source, { childList: true, characterData: true, subtree: true });
+    apply();
+  })();
 
   function newImOrderId() {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
