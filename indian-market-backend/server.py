@@ -2974,7 +2974,7 @@ def find_mcx_option_contracts(future_symbol):
                     "option_type": option_type,
                     "strike": int(strike) if strike.is_integer() else strike,
                     "expiry": expiry.isoformat(),
-                    "lot_size": _parse_int(row.get("lot_size")),
+                    "lot_size": mcx_lot_size(prefix, _parse_int(row.get("lot_size"))),
                     "underlying_future": f"{prefix}{token}FUT",
                 }
             )
@@ -4553,6 +4553,26 @@ def get_instrument_master_index():
     return _ensure_instrument_master()["by_key"]
 
 
+# Upstox's instrument master states a contract's lot in the exchange's own unit, but the price on screen is quoted
+# per another unit, so price x lot_size is only a real order value when both match. Checked against the live
+# master: Silver (30 kg, per kg), Crude Oil (100 barrels), Natural Gas (1250 mmBtu) and Copper (2500 kg, per kg)
+# already match. These three do not:
+#   Gold      master 1     = 1 kg lot, price per 10 g   -> 100 price units per lot
+#   Zinc      master 5     = 5 tonne lot, price per kg  -> 5000 price units per lot
+#   Aluminium master 5     = 5 tonne lot, price per kg  -> 5000 price units per lot
+# The correction only applies while the master still carries the old value, so it never doubles up if Upstox
+# later fixes its data.
+MCX_LOT_FIX = {"GOLD": (1, 100), "ZINC": (5, 5000), "ALUMINIUM": (5, 5000)}
+
+
+def mcx_lot_size(prefix, raw_lot):
+    """Lot size in price units (what price x lot_size needs) for an MCX contract of the given commodity prefix."""
+    fix = MCX_LOT_FIX.get(str(prefix or "").upper())
+    if fix and raw_lot == fix[0]:
+        return fix[1]
+    return raw_lot
+
+
 def find_all_mcx_futures(prefix):
     """Finds every not-yet-expired, standard-lot MCX future for the given
     commodity prefix (GOLD/SILVER/CRUDEOIL/...), nearest expiry first —
@@ -4582,7 +4602,7 @@ def find_all_mcx_futures(prefix):
             "instrument_key": row.get("instrument_key"),
             "trading_symbol": row.get("tradingsymbol"),
             "expiry": expiry_date.isoformat(),
-            "lot_size": _parse_int(row.get("lot_size")),
+            "lot_size": mcx_lot_size(prefix, _parse_int(row.get("lot_size"))),
         }
         for expiry_date, row in candidates
     ]
