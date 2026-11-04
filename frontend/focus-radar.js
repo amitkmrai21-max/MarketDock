@@ -8,6 +8,7 @@
 
   let activeTab = "swings";     // 'swings' | 'breakouts' (Swings is the first tab)
   let dirFilter = "all";       // 'all' | 'bullish' | 'bearish'
+  const MIN_VOLUME = 1.15, MIN_VOLUME_MCX = 1.3; // the same limits the scanner uses for breakouts
   let segment = "all";         // 'all' | 'nse' | 'mcx'
   const SEGMENTS = [["all", "All"], ["nse", "NSE Stocks"], ["mcx", "MCX Commodities"]];
   const inSegment = (s) => segment === "all" || (segment === "mcx") === (s.market === "mcx");
@@ -83,12 +84,32 @@
     const entry = Number(s.entry), price = Number(s.price);
     const gain = (v) => (entry ? Math.abs(Number(v) - entry) / entry * 100 : 0);
     const vr = Number(s.volume_ratio) || 0;
-    const aboveVwap = bull ? price >= Number(s.vwap) : price <= Number(s.vwap);
+    // Entry, SL and targets (and the paper ticket) show only when all three confirm:
+    // volume (1.15x for stocks, 1.3x for commodities), price on the right side of VWAP, RSI in the direction's band.
+    const minVol = s.market === "mcx" ? MIN_VOLUME_MCX : MIN_VOLUME;
+    const rsiNum = Number(s.rsi);
+    const volOk = vr >= minVol;
+    const vwapOk = bull ? price >= Number(s.vwap) : price <= Number(s.vwap);
+    const rsiOk = Number.isFinite(rsiNum) && (bull ? rsiNum >= 50 && rsiNum <= 68 : rsiNum >= 32 && rsiNum <= 50);
+    const confirmed = volOk && vwapOk && rsiOk;
+    const missing = [!volOk && "Volume", !vwapOk && "VWAP", !rsiOk && "RSI"].filter(Boolean);
     const steps = [
-      step("Volume", `${vr.toFixed(2)}× avg`, vr >= 1.2 ? "live" : "wait"),
-      step("VWAP", `${bull ? "Above" : "Below"} ${rupee(s.vwap)}`, aboveVwap ? "ok" : "wait"),
-      step("RSI", esc(s.rsi), "ok"),
+      step("Volume", volOk ? `${vr.toFixed(2)}× avg` : `${vr.toFixed(2)}× · need ${minVol}×`, volOk ? "ok" : "wait"),
+      step("VWAP", `${bull ? "Above" : "Below"} ${rupee(s.vwap)}`, vwapOk ? "ok" : "wait"),
+      step("RSI", rsiOk ? esc(s.rsi) : `${esc(s.rsi)} · need ${bull ? "50-68" : "32-50"}`, rsiOk ? "ok" : "wait"),
     ].join("");
+    const details = confirmed ? `
+      <div class="imfr-levels">
+        <div><span>Entry</span><b>${rupee(s.entry)}</b><em></em></div>
+        <div><span>SL</span><b class="imfr-down">${rupee(s.stop_loss)}</b><em class="imfr-down">(−${Number(s.risk_pct).toFixed(1)}%)</em></div>
+        <div><span>Target 1</span><b>${rupee(s.target_1)}</b><em class="imfr-up">(+${gain(s.target_1).toFixed(1)}%)</em></div>
+        <div><span>Target 2</span><b>${rupee(s.target_2)}</b><em class="imfr-up">(+${gain(s.target_2).toFixed(1)}%)</em></div>
+      </div>
+      <small class="imfr-ema"><i>20 EMA</i> <b>${rupee(s.ema_20)}</b>${s.ema_50 ? ` · <i>50 EMA</i> <b>${rupee(s.ema_50)}</b>` : ""}</small>
+      ${s.reason ? `<p class="imfr-reason">${esc(s.reason)}</p>` : ""}` : `
+      <p class="imfr-wait">⏳ Waiting for ${missing.join(" + ")} to confirm. Entry, SL and targets show once Volume, VWAP and RSI are all ✓.</p>`;
+    const ticket = confirmed
+      ? `<button type="button" class="imfr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="1"${orderData(s)} data-fr-side="${bull ? "buy" : "sell"}" data-fr-price="${esc(s.price)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>` : "";
     return `<article class="imfr-card ${bull ? "is-bull" : "is-bear"}" data-symbol="${esc(s.symbol)}">
       <div class="imfr-head">
         <span class="imfr-avatar-wrap">${avatar(String(s.symbol), s)}</span>
@@ -97,16 +118,9 @@
       </div>
       <div class="imfr-tags"><span class="imfr-pill">${bull ? "↗ BULLISH BUY · LONG" : "↘ BEARISH · SHORT"}</span><span class="imfr-tag">${esc(s.trigger)}</span></div>
       <div class="imfr-steps imfr-steps-wide">${steps}</div>
-      <div class="imfr-levels">
-        <div><span>Entry</span><b>${rupee(s.entry)}</b><em></em></div>
-        <div><span>SL</span><b class="imfr-down">${rupee(s.stop_loss)}</b><em class="imfr-down">(−${Number(s.risk_pct).toFixed(1)}%)</em></div>
-        <div><span>Target 1</span><b>${rupee(s.target_1)}</b><em class="imfr-up">(+${gain(s.target_1).toFixed(1)}%)</em></div>
-        <div><span>Target 2</span><b>${rupee(s.target_2)}</b><em class="imfr-up">(+${gain(s.target_2).toFixed(1)}%)</em></div>
-      </div>
-      <small class="imfr-ema"><i>20 EMA</i> <b>${rupee(s.ema_20)}</b>${s.ema_50 ? ` · <i>50 EMA</i> <b>${rupee(s.ema_50)}</b>` : ""}</small>
-      ${s.reason ? `<p class="imfr-reason">${esc(s.reason)}</p>` : ""}
-      <div class="imfr-actions">
-        <button type="button" class="imfr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="1"${orderData(s)} data-fr-side="${bull ? "buy" : "sell"}" data-fr-price="${esc(s.price)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
+      ${details}
+      <div class="imfr-actions${confirmed ? "" : " imfr-actions-one"}">
+        ${ticket}
         <button type="button" class="imfr-analysis" data-fr-coin="1"${orderData(s)} data-fr-price="${esc(s.price)}">📊 Analysis</button>
       </div>
     </article>`;
@@ -162,7 +176,7 @@
       ? rows.map(card).join("")
       : `<div class="imfr-empty"><strong>${EMPTY[activeTab][0]}</strong><p>${EMPTY[activeTab][1]}</p></div>`;
     const note = all.length
-      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. Breakouts also need a tight base before the move, price within 3% of the 20 EMA, RSI not overheated and, for commodities, 1.3× volume. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST and MCX until late evening; outside market hours the cards show the last session. Commodity cards trade the current MCX futures contract.</p>' : "";
+      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. A card shows Entry, SL and targets only when Volume, VWAP and RSI all confirm. Breakouts also need a tight base before the move, price within 3% of the 20 EMA, RSI not overheated and, for commodities, 1.3× volume. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST and MCX until late evening; outside market hours the cards show the last session. Commodity cards trade the current MCX futures contract.</p>' : "";
     const bull = all.filter((s) => s.type === "BULLISH").length;
     body.innerHTML = shell(summary(data) + cards + note, `${bull} bullish, ${all.length - bull} bearish`);
   }

@@ -101,3 +101,5 @@ body[data-theme="light"] #im-focus-radar .imfr-card { box-shadow: 0 2px 8px colo
 #im-focus-radar .imfr-segbtn.is-active { color: var(--im-text); border-color: var(--im-blue); background: color-mix(in srgb, var(--im-blue) 18%, transparent); }
 /* The page title is bolder here (the same as the CryptoDock Focus Radar). */
 body:has(#im-focus-radar.active) #im-page-title { font-weight: 800; }
+#im-focus-radar .imfr-wait { margin: 0; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--im-border); font-size: 11px; line-height: 1.45; text-align: center; color: var(--im-muted); }
+#im-focus-radar .imfr-actions.imfr-actions-one { grid-template-columns: 1fr; }
