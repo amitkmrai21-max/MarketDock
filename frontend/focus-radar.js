@@ -162,7 +162,7 @@
       ? rows.map(card).join("")
       : `<div class="imfr-empty"><strong>${EMPTY[activeTab][0]}</strong><p>${EMPTY[activeTab][1]}</p></div>`;
     const note = all.length
-      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST and MCX until late evening; outside market hours the cards show the last session. Commodity cards trade the current MCX futures contract.</p>' : "";
+      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. Breakouts also need a tight base before the move, price within 3% of the 20 EMA, RSI not overheated and, for commodities, 1.3× volume. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST and MCX until late evening; outside market hours the cards show the last session. Commodity cards trade the current MCX futures contract.</p>' : "";
     const bull = all.filter((s) => s.type === "BULLISH").length;
     body.innerHTML = shell(summary(data) + cards + note, `${bull} bullish, ${all.length - bull} bearish`);
   }
