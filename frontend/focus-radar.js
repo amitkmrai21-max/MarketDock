@@ -1,4 +1,4 @@
-// Focus Radar (owner only): 1H swing setups (EMA 20/50 pullback) and 1H breakouts for Nifty 50 stocks.
+// Focus Radar (owner only): 1H swing setups (EMA 20/50 pullback) and 1H breakouts for Nifty 50 + Nifty Bank stocks.
 // Rules on closed candles; not a prediction. Server: /api/owner/focus-radar (+ /swing, /access), shared caches.
 // Only the signed-in owner can see it: the menu entry stays hidden until the server confirms the owner session,
 // and every request is checked again on the server.
@@ -155,7 +155,7 @@
 
   // ---------- render ----------
   const EMPTY = {
-    swing: ["No swing setup right now", "No Nifty 50 stock is in a 1H EMA 20/50 pullback. That is normal; check again later."],
+    swing: ["No swing setup right now", "No Nifty 50 or Bank stock is in a 1H EMA 20/50 pullback. That is normal; check again later."],
     breakouts: ["No qualifying setups right now", "Wait for a confirmed 1-hour breakout or breakdown with volume and trend agreement."],
   };
   function summary() {
@@ -191,7 +191,7 @@
     if (tab === "swing") {
       const rows = body.setups;
       const bull = rows.filter((r) => r.side === "bullish").length;
-      meta.textContent = `Nifty 50 · ${bull} bullish, ${rows.length - bull} bearish`;
+      meta.textContent = `Nifty 50 + Bank · ${bull} bullish, ${rows.length - bull} bearish`;
       cards = rows.filter((r) => dirFilter === "all" || r.side === dirFilter).map(swingCard);
     } else {
       meta.textContent = `Scanned ${body.scanned || 0} stocks · updated ${new Date((body.at || Date.now() / 1000) * 1000).toLocaleTimeString()}`;

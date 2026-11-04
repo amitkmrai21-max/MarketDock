@@ -2129,7 +2129,7 @@ def require_rrg_maintenance_owner():
 FOCUS_RADAR_OWNER_EMAIL = "amitkmrai21@gmail.com"
 FOCUS_SCAN_TTL = 300             # one shared scan for 5 minutes
 FOCUS_CANDLES_TTL = 600          # per stock candles for 10 minutes
-FOCUS_MAX_STOCKS = 50
+FOCUS_MAX_STOCKS = 70
 FOCUS_SWING_LOOKBACK = 4         # the rejection candle must be among the last 4 closed hours
 FOCUS_SWING_MAX_RISK = 0.05      # skip setups whose stop is more than 5% away
 FOCUS_FALLBACK_SYMBOLS = [
@@ -2187,12 +2187,19 @@ def _focus_candle_end(t):
 
 
 def _focus_universe():
-    """(symbols, names): the Nifty 50 constituents, or a fixed list of liquid names if the list is not available."""
-    constituents = fetch_index_constituents("Nifty 50")
-    pairs = [((c.get("symbol") or "").strip().upper(), (c.get("name") or "").strip()) for c in constituents]
-    pairs = [(s, n) for s, n in pairs if s]
-    if len(pairs) >= 20:
-        pairs = pairs[:FOCUS_MAX_STOCKS]
+    """(symbols, names): Nifty 50 plus Nifty Bank (no duplicates), or a fixed list of liquid names if the Nifty 50 list is not available."""
+    pairs = []
+    for index_name in ("Nifty 50", "Nifty Bank"):
+        constituents = fetch_index_constituents(index_name)
+        pairs += [((c.get("symbol") or "").strip().upper(), (c.get("name") or "").strip()) for c in constituents]
+    seen = set()
+    unique = []
+    for s, n in pairs:
+        if s and s not in seen:
+            seen.add(s)
+            unique.append((s, n))
+    if len(unique) >= 20:
+        pairs = unique[:FOCUS_MAX_STOCKS]
     else:
         pairs = [(s, "") for s in FOCUS_FALLBACK_SYMBOLS]
     return [s for s, _ in pairs], {s: n for s, n in pairs}
@@ -2319,7 +2326,7 @@ def focus_breakout(candles, price, now):
 
 
 def _focus_scan(kind):
-    """kind: 'swing' or 'breakouts'. Runs over the Nifty 50 with a small worker pool."""
+    """kind: 'swing' or 'breakouts'. Runs over the Nifty 50 + Nifty Bank with a small worker pool."""
     symbols, names = _focus_universe()
     now = time.time()
     state = {"scanned": 0, "latest": 0}
