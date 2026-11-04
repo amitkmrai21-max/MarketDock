@@ -2197,7 +2197,50 @@ def scan_single_stock_focus_radar(stock_info):
     except Exception as error:
         app.logger.warning("Focus Radar snapshot failed for %s: %s", symbol, error)
         return None
+    return _focus_radar_setups(snapshot, symbol, name, sector)
 
+
+def get_commodity_technical_snapshot(commodity_key, contract):
+    """Same snapshot as for a stock, from the 5-minute candles of the commodity's current MCX future."""
+    cache_key = f"mcx:{commodity_key}"
+    ttl = cache_ttl(LIVE_SNAPSHOT_CACHE_SECONDS, "mcx")
+    cached = _stock_snapshot_cache.get(cache_key)
+    if cached and time.time() - cached["fetched_at"] < ttl:
+        return cached["data"]
+    candles_5m = fetch_upstox_candles(contract["instrument_key"], "minutes", 5, chart_history_days=5)
+    snapshot = build_technical_snapshot(commodity_key.upper(), candles_5m)
+    _stock_snapshot_cache[cache_key] = {"data": snapshot, "fetched_at": time.time()}
+    return snapshot
+
+
+def scan_single_commodity_focus_radar(commodity_key):
+    """The same breakout / pullback rules as for stocks, on an MCX commodity future; the card carries what the Buy/Sell sheet needs."""
+    try:
+        contract = get_current_commodity_contract(commodity_key)
+        if not contract or not contract.get("instrument_key"):
+            return None
+        snapshot = get_commodity_technical_snapshot(commodity_key, contract)
+    except Exception as error:
+        app.logger.warning("Focus Radar commodity snapshot failed for %s: %s", commodity_key, error)
+        return None
+    cfg = MCX_COMMODITIES[commodity_key]
+    result = _focus_radar_setups(snapshot, commodity_key.upper(), cfg["name"] + " Futures", "MCX")
+    if not result:
+        return None
+    for setup in (result.get("breakout"), result.get("swing")):
+        if setup:
+            setup.update({
+                "market": "mcx",
+                "commodity_key": commodity_key,
+                "commodity_name": cfg["name"],
+                "trading_symbol": contract.get("trading_symbol"),
+                "lot_size": contract.get("lot_size"),
+                "expiry": contract.get("expiry"),
+            })
+    return result
+
+
+def _focus_radar_setups(snapshot, symbol, name, sector):
     if not isinstance(snapshot, dict):
         return None
 
@@ -2351,6 +2394,9 @@ def scan_single_stock_focus_radar(stock_info):
                 "reason": f"Downtrend relief rally retesting overhead resistance at {retest_level_name} (₹{round(retest_val,2)}). Selling pressure entry with stop above resistance.",
             }
 
+    for setup in (breakout_setup, swing_setup):
+        if setup:
+            setup["ema_50"] = round(ema_50, 2)
     return {"breakout": breakout_setup, "swing": swing_setup}
 
 
@@ -2367,11 +2413,15 @@ def focus_radar_scan():
 
     breakouts = []
     swings = []
+    commodities_scanned = 0
     scanned_count = len(FOCUS_RADAR_STOCKS)
 
     try:
         with ThreadPoolExecutor(max_workers=8) as executor:
             results = list(executor.map(scan_single_stock_focus_radar, FOCUS_RADAR_STOCKS))
+            commodity_results = list(executor.map(scan_single_commodity_focus_radar, list(MCX_COMMODITIES.keys())))
+        commodities_scanned = sum(1 for r in commodity_results if r is not None)
+        results += commodity_results
 
         for res in results:
             if not res:
@@ -2390,7 +2440,10 @@ def focus_radar_scan():
     session_status = "live" if is_nse_market_hours() else "closed"
     payload = {
         "market_status": session_status,
-        "scanned_count": scanned_count,
+        "mcx_status": "live" if market_open("mcx") else "closed",
+        "scanned_count": scanned_count + commodities_scanned,
+        "stocks_count": scanned_count,
+        "commodities_count": commodities_scanned,
         "updated_at": now_utc(),
         "breakouts": breakouts,
         "swings": swings,
