@@ -2128,7 +2128,8 @@ def require_rrg_maintenance_owner():
 # Rules on closed candles; not a prediction. The signed-in owner is verified with Auth on every request.
 FOCUS_RADAR_OWNER_EMAIL = "amitkmrai21@gmail.com"
 FOCUS_SCAN_TTL = 300             # one shared scan for 5 minutes
-FOCUS_CANDLES_TTL = 600          # per stock candles for 10 minutes
+FOCUS_CANDLES_TTL = 900          # per stock candles for 15 minutes
+FOCUS_BUDGET_SHARE = 170         # Focus Radar pauses when this many Upstox calls were made in the last minute (limit is 300), so other pages keep working
 FOCUS_MAX_STOCKS = 70
 FOCUS_SWING_LOOKBACK = 4         # the rejection candle must be among the last 4 closed hours
 FOCUS_SWING_MAX_RISK = 0.05      # skip setups whose stop is more than 5% away
@@ -2223,13 +2224,45 @@ def _focus_universe():
     return [s for s, _ in pairs], {s: n for s, n in pairs}
 
 
+_focus_eq_keys = {"at": 0, "map": {}}
+
+
+def _focus_equity_key(symbol):
+    """NSE equity instrument_key from the instrument master already in memory (no Upstox call); falls back to the search call."""
+    now = time.time()
+    if not _focus_eq_keys["map"] or now - _focus_eq_keys["at"] > INSTRUMENT_MASTER_CACHE_SECONDS:
+        try:
+            _focus_eq_keys["map"] = {
+                (row.get("tradingsymbol") or "").upper(): row.get("instrument_key")
+                for row in get_instrument_master_rows()
+                if row.get("exchange") == "NSE_EQ" and str(row.get("instrument_key") or "").startswith("NSE_EQ|INE")
+            }
+            _focus_eq_keys["at"] = now
+        except Exception as error:
+            app.logger.info("Focus Radar: instrument master unavailable (%s); using search", error)
+    return _focus_eq_keys["map"].get(symbol.upper()) or resolve_instrument_key(symbol)
+
+
+def _focus_wait_for_budget(max_wait=45):
+    """Let the rest of the app have most of the Upstox budget: wait (up to max_wait seconds) while Focus Radar's scan would push the last minute over its share."""
+    deadline = time.time() + max_wait
+    while time.time() < deadline:
+        with _upstox_lock:
+            now = time.time()
+            used = sum(1 for stamp, _p in _upstox_calls if now - stamp <= 60)
+        if used < FOCUS_BUDGET_SHARE:
+            return
+        time.sleep(1.0)
+
+
 def _focus_candles(symbol, instrument_key=None):
     """[epoch, open, high, low, close, volume] 1H candles, oldest first (about 30 days), cached 10 min."""
     cache_key = instrument_key or symbol
     cached = _focus_candles_cache.get(cache_key)
     if cached and time.time() - cached["at"] < FOCUS_CANDLES_TTL:
         return cached["data"]
-    raw = fetch_upstox_candles(instrument_key or resolve_instrument_key(symbol), "hours", 1, chart_history_days=30)
+    _focus_wait_for_budget()
+    raw = fetch_upstox_candles(instrument_key or _focus_equity_key(symbol), "hours", 1, chart_history_days=30)
     out = []
     for c in raw:
         try:
