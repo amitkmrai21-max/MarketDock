@@ -1,5 +1,5 @@
 /* Positions page look: big heading with a Live pill, two summary cards, search, filter chips,
-   "Open positions" with a count, and one card per position (icon, symbol, P&L, qty/avg/LTP, View details).
+   "Open positions" with a count, and one card per position (icon, symbol, P&L, qty/avg/LTP).
    Everything is scoped to the Positions and Holdings pages. Light theme follows the design mock; the other
    themes get the same layout in their own colours. */
 
@@ -132,11 +132,7 @@ body[data-theme="light"] :is(#im-broker-account, #im-holdings) {
 :is(#im-broker-account, #im-holdings) .im-pos-card .im-change-down { color: var(--pu-red) !important; }
 :is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-pnl-pct.im-change-up { background: var(--pu-green-bg); }
 :is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-pnl-pct.im-change-down { background: var(--pu-red-bg); }
-:is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-row-meta { margin: 8px 0 0 !important; padding-top: 8px; border-top: 1px solid var(--pu-border); font-size: 12.5px !important; line-height: 1.4; color: var(--pu-muted) !important; white-space: normal; }
-:is(#im-broker-account, #im-holdings) .im-pc-more { display: flex; align-items: center; justify-content: space-between; margin-top: 7px; color: var(--pu-blue); font-size: 13px; font-weight: 600; }
-:is(#im-broker-account, #im-holdings) .im-pc-more span { display: inline-flex; align-items: center; gap: 7px; }
-:is(#im-broker-account, #im-holdings) .im-pc-info { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
-:is(#im-broker-account, #im-holdings) .im-pc-chev { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+:is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-row-meta { margin: 8px 0 0 !important; padding-top: 8px; border-top: 1px solid var(--pu-border); font-size: 12.5px !important; line-height: 1.4; color: var(--pu-muted) !important; white-space: normal; display: flex; flex-wrap: wrap; align-items: center; row-gap: 3px; }
 :is(#im-broker-account, #im-holdings) .im-pos-card.im-pos-card-closed { cursor: default; opacity: 0.88; }
 
 @media (max-width: 360px) {
@@ -146,3 +142,5 @@ body[data-theme="light"] :is(#im-broker-account, #im-holdings) {
   :is(#im-broker-account, #im-holdings) .im-pc-id .im-pos-symbol { font-size: 13px !important; }
   :is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-pnl { font-size: 14px !important; }
 }
+:is(#im-broker-account, #im-holdings) .im-pos-row-meta .im-meta-sep { align-self: center; width: 1px; height: 13px; margin: 0 9px; background: var(--pu-border); flex: 0 0 auto; }
+:is(#im-broker-account, #im-holdings) .im-pos-card { padding-bottom: 11px !important; }
