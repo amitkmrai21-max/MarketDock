@@ -5904,8 +5904,8 @@ body.im-chart-fullscreen-open {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+  gap: 8px;
+  padding: 10px 7px calc(12px + env(safe-area-inset-bottom, 0px));
   background: #0b0f17;
   border-top: 1px solid #1e293b;
   flex-shrink: 0;
