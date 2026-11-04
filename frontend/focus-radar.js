@@ -167,7 +167,7 @@
     const body = data[tab] || data.swing || data.breakouts;
     const scanned = body ? body.scanned : 0;
     const open = body ? body.market_open : null;
-    const sub = body ? (open === false ? "Market closed · last session's candles" : `Updated ${agoText(body.at)}`) : "Live market opportunities";
+    const sub = body ? (open === false ? "Market closed · last session" : `Updated ${agoText(body.at)}`) : "Live market opportunities";
     return `<div class="imfr-summary"><svg class="imfr-radar" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="27"/><circle cx="30" cy="30" r="18"/><circle cx="30" cy="30" r="9"/><path d="M30 30 L52 14"/></svg>
       <div><b>Scanning ${scanned} stocks</b><small>${sub}</small></div><div class="imfr-ticks">${row("NIFTY", "nifty")}${row("BANKNIFTY", "banknifty")}${row("SENSEX", "sensex")}</div></div>`;
   }
