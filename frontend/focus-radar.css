@@ -96,3 +96,7 @@ body[data-theme="light"] #im-focus-radar .imfr-card { box-shadow: 0 2px 8px colo
 #im-focus-radar .imfr-tags > .imfr-pill { flex: 0 0 auto; white-space: nowrap; }
 #im-focus-radar .imfr-tags > .imfr-tag { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 #im-focus-radar .imfr-reason { margin: 0; font-size: 10.5px; line-height: 1.45; color: var(--im-muted); text-align: center; }
+#im-focus-radar .imfr-seg { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+#im-focus-radar .imfr-seg::-webkit-scrollbar { display: none; }
+#im-focus-radar .imfr-segbtn { flex: 0 0 auto; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--im-border); background: var(--im-panel-2); color: var(--im-muted); font: inherit; font-size: 11.5px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+#im-focus-radar .imfr-segbtn.is-active { color: var(--im-text); border-color: var(--im-blue); background: color-mix(in srgb, var(--im-blue) 18%, transparent); }

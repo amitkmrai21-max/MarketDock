@@ -8,6 +8,9 @@
 
   let activeTab = "breakouts"; // 'breakouts' | 'swings'
   let dirFilter = "all";       // 'all' | 'bullish' | 'bearish'
+  let segment = "all";         // 'all' | 'nse' | 'mcx'
+  const SEGMENTS = [["all", "All"], ["nse", "NSE Stocks"], ["mcx", "MCX Commodities"]];
+  const inSegment = (s) => segment === "all" || (segment === "mcx") === (s.market === "mcx");
   let lastData = null;
   let isLoading = false;
   let indexQuotes = [];
@@ -36,7 +39,15 @@
     return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`;
   };
   const COLOURS = ["#0052cc", "#172b4d", "#00875a", "#de350b", "#5243aa", "#00a3bf", "#ff5630", "#403294"];
-  function avatar(symbol) {
+  const COMMODITY_ICONS = {
+    gold: ["🪙", "#b45309"], silver: ["🥈", "#475569"], crudeoil: ["🛢️", "#991b1b"], naturalgas: ["⚡", "#1d4ed8"],
+    copper: ["🔶", "#c2410c"], zinc: ["⚙️", "#6d28d9"], aluminium: ["🪨", "#0f766e"],
+  };
+  function avatar(symbol, s) {
+    if (s && s.market === "mcx") {
+      const [icon, bg] = COMMODITY_ICONS[s.commodity_key] || ["📦", "#334155"];
+      return `<span class="imfr-avatar" style="background:${bg};font-size:16px">${icon}</span>`;
+    }
     let hash = 0;
     for (const ch of symbol) hash = ch.charCodeAt(0) + ((hash << 5) - hash);
     return `<span class="imfr-avatar" style="background:${COLOURS[Math.abs(hash) % COLOURS.length]}">${esc(symbol.slice(0, 3))}</span>`;
@@ -44,6 +55,25 @@
   function step(title, sub, state) { // state: ok | live | wait
     const mark = state === "ok" ? "✓" : state === "live" ? "⚡" : "⏳";
     return `<div class="imfr-step is-${state}"><b>${title}</b><i>${mark}</i><small>${sub}</small></div>`;
+  }
+
+  // Commodity cards trade the real current MCX contract (e.g. CRUDEOIL26DECFUT), stocks trade the NSE symbol.
+  function orderData(s) {
+    return s.market === "mcx"
+      ? ` data-fr-mcx="1" data-fr-order="${esc(s.trading_symbol)}" data-fr-key="${esc(s.commodity_key)}" data-fr-cname="${esc(s.commodity_name)}" data-fr-lot="${esc(s.lot_size ?? "")}" data-fr-chg="${esc(s.change_pct ?? "")}"`
+      : ` data-fr-order="${esc(s.symbol)}"`;
+  }
+  function openSheet(el, price) {
+    const d = el.dataset;
+    if (d.frMcx) {
+      const base = String(d.frOrder).replace(/\d{2}[A-Z]{3}FUT$/, "");
+      window.openImWatchlistActionSheet?.(d.frOrder, price, {
+        chartSymbol: `MCX:${base}1!`, isCommodity: true, changePercent: Number(d.frChg), lotSize: Number(d.frLot) || undefined,
+        commodityKey: d.frKey, commodityName: d.frCname,
+      });
+    } else {
+      window.openImWatchlistActionSheet?.(d.frOrder, price);
+    }
   }
 
   // ---------- cards (same look as the CryptoDock Focus Radar; the numbers come from the scanner as before) ----------
@@ -61,8 +91,8 @@
     ].join("");
     return `<article class="imfr-card ${bull ? "is-bull" : "is-bear"}" data-symbol="${esc(s.symbol)}">
       <div class="imfr-head">
-        <span class="imfr-avatar-wrap">${avatar(String(s.symbol))}</span>
-        <div class="imfr-id"><strong>${esc(s.symbol)}<span>·NSE</span></strong><small>${esc(s.name)}${s.sector ? " · " + esc(s.sector) : ""}</small></div>
+        <span class="imfr-avatar-wrap">${avatar(String(s.symbol), s)}</span>
+        <div class="imfr-id"><strong>${esc(s.symbol)}<span>·${s.market === "mcx" ? "MCX" : "NSE"}</span></strong><small>${s.market === "mcx" ? esc(s.trading_symbol || s.name) : esc(s.name) + (s.sector ? " · " + esc(s.sector) : "")}</small></div>
         <div class="imfr-px"><b>${rupee(price)}</b><small class="${change >= 0 ? "imfr-up" : "imfr-down"}">${pct(change, true)}</small></div>
       </div>
       <div class="imfr-tags"><span class="imfr-pill">${bull ? "↗ BULLISH BUY · LONG" : "↘ BEARISH · SHORT"}</span><span class="imfr-tag">${esc(s.trigger)}</span></div>
@@ -73,11 +103,11 @@
         <div><span>Target 1</span><b>${rupee(s.target_1)}</b><em class="imfr-up">(+${gain(s.target_1).toFixed(1)}%)</em></div>
         <div><span>Target 2</span><b>${rupee(s.target_2)}</b><em class="imfr-up">(+${gain(s.target_2).toFixed(1)}%)</em></div>
       </div>
-      <small class="imfr-ema"><i>20 EMA</i> <b>${rupee(s.ema_20)}</b></small>
+      <small class="imfr-ema"><i>20 EMA</i> <b>${rupee(s.ema_20)}</b>${s.ema_50 ? ` · <i>50 EMA</i> <b>${rupee(s.ema_50)}</b>` : ""}</small>
       ${s.reason ? `<p class="imfr-reason">${esc(s.reason)}</p>` : ""}
       <div class="imfr-actions">
-        <button type="button" class="imfr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="${esc(s.symbol)}" data-fr-side="${bull ? "buy" : "sell"}" data-fr-price="${esc(s.price)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
-        <button type="button" class="imfr-analysis" data-fr-coin="${esc(s.symbol)}" data-fr-price="${esc(s.price)}">📊 Analysis</button>
+        <button type="button" class="imfr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="1"${orderData(s)} data-fr-side="${bull ? "buy" : "sell"}" data-fr-price="${esc(s.price)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
+        <button type="button" class="imfr-analysis" data-fr-coin="1"${orderData(s)} data-fr-price="${esc(s.price)}">📊 Analysis</button>
       </div>
     </article>`;
   }
@@ -88,20 +118,20 @@
       const c = q ? Number(q.change_percent) : NaN;
       return Number.isFinite(c) ? `<div><span><i class="${c >= 0 ? "is-up" : "is-down"}"></i>${name}</span> <b class="${c >= 0 ? "imfr-up" : "imfr-down"}">${pct(c, true)}</b></div>` : "";
     };
-    const live = data.market_status === "live";
+    const live = data.market_status === "live" || data.mcx_status === "live";
     const sub = live ? `Updated ${agoText(data.updated_at)}` : "Market closed · last session";
     return `<div class="imfr-summary"><svg class="imfr-radar" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="27"/><circle cx="30" cy="30" r="18"/><circle cx="30" cy="30" r="9"/><path d="M30 30 L52 14"/></svg>
-      <div><b>Scanning ${Number(data.scanned_count) || 0} stocks</b><small>${sub}</small></div><div class="imfr-ticks">${row("NIFTY", "nifty")}${row("BANKNIFTY", "banknifty")}${row("SENSEX", "sensex")}</div></div>`;
+      <div><b>Scanning ${Number(data.scanned_count) || 0} markets</b><small>${sub}</small></div><div class="imfr-ticks">${row("NIFTY", "nifty")}${row("BANKNIFTY", "banknifty")}${row("SENSEX", "sensex")}</div></div>`;
   }
 
   const EMPTY = {
-    breakouts: ["No breakout right now", "No liquid stock is breaking out or down with volume. That is normal; check again later."],
-    swings: ["No swing pullback right now", "No stock is retesting VWAP or the 20 EMA in its entry zone. That is normal; check again later."],
+    breakouts: ["No breakout right now", "No stock or commodity is breaking out or down with volume. That is normal; check again later."],
+    swings: ["No swing pullback right now", "No stock or commodity is retesting VWAP or the 20 EMA in its entry zone. That is normal; check again later."],
   };
 
   function shell(inner, metaText) {
-    const bo = lastData ? (lastData.breakouts || []).length : null;
-    const sw = lastData ? (lastData.swings || []).length : null;
+    const bo = lastData ? (lastData.breakouts || []).filter(inSegment).length : null;
+    const sw = lastData ? (lastData.swings || []).filter(inSegment).length : null;
     const label = (name, n) => `${name}${n === null ? "" : ` (${n})`}`;
     return `<div class="imfr-page">
       <div class="imfr-top">
@@ -114,26 +144,27 @@
         <div class="imfr-tabs"><button type="button" class="imfr-pilltab ${activeTab === "breakouts" ? "is-active" : ""}" data-fr-tab="breakouts">${label("Breakouts", bo)}</button><button type="button" class="imfr-pilltab ${activeTab === "swings" ? "is-active" : ""}" data-fr-tab="swings">${label("Swings", sw)}</button></div>
         <button id="imFrFilter" class="imfr-filter" type="button" aria-label="Filter direction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span>${FILTER_LABEL[dirFilter]}</span></button>
       </div>
+      <div class="imfr-seg">${SEGMENTS.map(([k, t]) => `<button type="button" class="imfr-segbtn ${segment === k ? "is-active" : ""}" data-fr-seg="${k}">${t}</button>`).join("")}</div>
       <p class="imfr-meta">${metaText}</p>
       <div class="imfr-results" aria-live="polite">${inner}</div>
     </div>`;
   }
 
   function renderLoading() {
-    body.innerHTML = shell('<p class="imfr-loading">Scanning liquid NSE stocks… this can take a few seconds.</p>', "Checking market setup…");
+    body.innerHTML = shell('<p class="imfr-loading">Scanning NSE stocks and MCX commodities… this can take a few seconds.</p>', "Checking market setup…");
   }
 
   function renderView(data) {
     if (!data) return;
-    const all = activeTab === "breakouts" ? (data.breakouts || []) : (data.swings || []);
+    const all = (activeTab === "breakouts" ? (data.breakouts || []) : (data.swings || [])).filter(inSegment);
     const rows = all.filter((s) => dirFilter === "all" || String(s.type).toLowerCase() === dirFilter);
     const cards = rows.length
       ? rows.map(card).join("")
       : `<div class="imfr-empty"><strong>${EMPTY[activeTab][0]}</strong><p>${EMPTY[activeTab][1]}</p></div>`;
     const note = all.length
-      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST; outside market hours the cards show the last session.</p>' : "";
+      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST and MCX until late evening; outside market hours the cards show the last session. Commodity cards trade the current MCX futures contract.</p>' : "";
     const bull = all.filter((s) => s.type === "BULLISH").length;
-    body.innerHTML = shell(summary(data) + cards + note, `Liquid NSE stocks · ${bull} bullish, ${all.length - bull} bearish`);
+    body.innerHTML = shell(summary(data) + cards + note, `${bull} bullish, ${all.length - bull} bearish`);
   }
 
   async function loadIndexQuotes() {
@@ -147,20 +178,22 @@
   // ---------- clicks (the content is re-rendered, so one listener on the page body) ----------
   const FILTERS = ["all", "bullish", "bearish"];
   body.addEventListener("click", (event) => {
+    const segBtn = event.target.closest("[data-fr-seg]");
+    if (segBtn) { segment = segBtn.dataset.frSeg; if (lastData) renderView(lastData); return; }
     const tabBtn = event.target.closest("[data-fr-tab]");
     if (tabBtn) { activeTab = tabBtn.dataset.frTab; if (lastData) renderView(lastData); return; }
     if (event.target.closest("#imFrFilter")) { dirFilter = FILTERS[(FILTERS.indexOf(dirFilter) + 1) % FILTERS.length]; if (lastData) renderView(lastData); return; }
     if (event.target.closest("#imFrRefresh")) { fetchRadarData(true); return; }
     const ticket = event.target.closest("[data-fr-ticket]");
     if (ticket) {
-      const { frTicket: symbol, frSide: side, frPrice: price } = ticket.dataset;
-      window.openImWatchlistActionSheet?.(symbol, Number(price));
+      const { frSide: side, frPrice: price } = ticket.dataset;
+      openSheet(ticket, Number(price));
       // The stock sheet is open: tap its own Buy / Sell so the order form opens straight away.
       document.getElementById(side === "buy" ? "im-action-sheet-buy-btn" : "im-action-sheet-sell-btn")?.click();
       return;
     }
     const analysis = event.target.closest("[data-fr-coin]");
-    if (analysis) window.openImWatchlistActionSheet?.(analysis.dataset.frCoin, Number(analysis.dataset.frPrice));
+    if (analysis) openSheet(analysis, Number(analysis.dataset.frPrice));
   });
 
   async function fetchRadarData(force = false) {
