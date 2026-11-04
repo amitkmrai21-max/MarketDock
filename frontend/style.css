@@ -5936,15 +5936,15 @@ body.im-chart-fullscreen-open {
   filter: brightness(0.92);
 }
 .im-btn-accent {
-  font-size: 15px !important;
+  font-size: 18px !important;
   font-weight: 800 !important;
-  letter-spacing: 0.6px !important;
+  letter-spacing: 0.7px !important;
   color: #ffffff !important;
   line-height: 1.1 !important;
 }
 .im-btn-sub {
-  font-size: 10px !important;
-  font-weight: 600 !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
   letter-spacing: 0.4px !important;
   opacity: 0.88 !important;
   color: #ffffff !important;
