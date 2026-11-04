@@ -2123,7 +2123,7 @@ def require_rrg_maintenance_owner():
 
 
 # ================= FOCUS RADAR (owner only) =================
-# 1H swing setups (EMA 20/50 pullback, bullish and bearish) and 1H breakouts for NSE stocks.
+# 1H swing setups (EMA 20/50 pullback, bullish and bearish) and 1H breakouts for NSE stocks and MCX commodity futures.
 # Same rules as the CryptoDock Focus Radar, on Upstox 1H candles of the Nifty 50 stocks.
 # Rules on closed candles; not a prediction. The signed-in owner is verified with Auth on every request.
 FOCUS_RADAR_OWNER_EMAIL = "amitkmrai21@gmail.com"
@@ -2181,9 +2181,27 @@ def _focus_day_close_ts(t):
     return ist_day * 86400 - 19800 + 55800
 
 
-def _focus_candle_end(t):
-    """A 1H NSE candle ends an hour after it starts, except the last one of the day which ends at 15:30."""
+def _focus_candle_end(t, mcx=False):
+    """A 1H NSE candle ends an hour after it starts, except the last one of the day which ends at 15:30.
+    MCX trades until late evening (23:30 or 23:55), so there a candle is treated as closed one hour after it starts."""
+    if mcx:
+        return int(t) + 3600
     return min(int(t) + 3600, _focus_day_close_ts(t))
+
+
+def _focus_commodities():
+    """{key: {name, trading_symbol, instrument_key, lot_size}} for the current MCX future of each commodity (empty if unavailable)."""
+    out = {}
+    for key, cfg in MCX_COMMODITIES.items():
+        try:
+            contract = get_current_commodity_contract(key)
+        except Exception as error:
+            app.logger.info("Focus Radar: no contract for %s: %s", key, error)
+            continue
+        if contract and contract.get("instrument_key"):
+            out[key] = {"name": cfg["name"], "trading_symbol": contract.get("trading_symbol"),
+                        "instrument_key": contract["instrument_key"], "lot_size": contract.get("lot_size")}
+    return out
 
 
 def _focus_universe():
@@ -2205,12 +2223,13 @@ def _focus_universe():
     return [s for s, _ in pairs], {s: n for s, n in pairs}
 
 
-def _focus_candles(symbol):
+def _focus_candles(symbol, instrument_key=None):
     """[epoch, open, high, low, close, volume] 1H candles, oldest first (about 30 days), cached 10 min."""
-    cached = _focus_candles_cache.get(symbol)
+    cache_key = instrument_key or symbol
+    cached = _focus_candles_cache.get(cache_key)
     if cached and time.time() - cached["at"] < FOCUS_CANDLES_TTL:
         return cached["data"]
-    raw = fetch_upstox_candles(resolve_instrument_key(symbol), "hours", 1, chart_history_days=30)
+    raw = fetch_upstox_candles(instrument_key or resolve_instrument_key(symbol), "hours", 1, chart_history_days=30)
     out = []
     for c in raw:
         try:
@@ -2218,7 +2237,7 @@ def _focus_candles(symbol):
         except (KeyError, ValueError, TypeError):
             continue
     out.sort(key=lambda c: c[0])
-    _focus_candles_cache[symbol] = {"at": time.time(), "data": out}
+    _focus_candles_cache[cache_key] = {"at": time.time(), "data": out}
     return out
 
 
@@ -2231,9 +2250,9 @@ def _focus_change_percent(candles):
     return round((candles[-1][4] / prev[-1][4] - 1) * 100, 2) if prev and prev[-1][4] else 0.0
 
 
-def focus_swing_setup(candles, price, now):
+def focus_swing_setup(candles, price, now, mcx=False):
     """One stock's setup from 1H candles [t, o, h, l, c, v]; None if no trend / nothing to show."""
-    closed = [c for c in candles if _focus_candle_end(c[0]) <= now]
+    closed = [c for c in candles if _focus_candle_end(c[0], mcx) <= now]
     if len(closed) < 60 or not price or price <= 0:
         return None
     closes = [c[4] for c in closed]
@@ -2299,9 +2318,9 @@ def focus_swing_setup(candles, price, now):
             "rejection_at": closed[rej_index][0], "score": score}
 
 
-def focus_breakout(candles, price, now):
+def focus_breakout(candles, price, now, mcx=False):
     """24-candle 1H breakout with volume and EMA trend agreeing; None if not."""
-    bars = [c for c in candles if _focus_candle_end(c[0]) <= now]
+    bars = [c for c in candles if _focus_candle_end(c[0], mcx) <= now]
     if len(bars) < 55 or not price or price <= 0:
         return None
     closes = [c[4] for c in bars]
@@ -2326,36 +2345,52 @@ def focus_breakout(candles, price, now):
 
 
 def _focus_scan(kind):
-    """kind: 'swing' or 'breakouts'. Runs over the Nifty 50 + Nifty Bank with a small worker pool."""
+    """kind: 'swing' or 'breakouts'. Runs over the Nifty 50 + Nifty Bank stocks and the MCX commodity futures with a small worker pool."""
     symbols, names = _focus_universe()
+    commodities = _focus_commodities()
     now = time.time()
-    state = {"scanned": 0, "latest": 0}
+    state = {"stocks": 0, "commodities": 0, "latest": 0, "latest_mcx": 0}
+    jobs = [(symbol, None) for symbol in symbols] + [(key.upper(), meta | {"key": key}) for key, meta in commodities.items()]
 
-    def one(symbol):
+    def one(job):
+        symbol, meta = job
+        mcx = meta is not None
         try:
-            candles = _focus_candles(symbol)
-        except Exception as error:  # a stock that fails is skipped, the rest still count
+            candles = _focus_candles(symbol, meta["instrument_key"] if mcx else None)
+        except Exception as error:  # a symbol that fails is skipped, the rest still count
             app.logger.info("Focus Radar skipped %s: %s", symbol, error)
             return None
         if not candles:
             return None
-        state["scanned"] += 1
-        state["latest"] = max(state["latest"], candles[-1][0])
+        if mcx:
+            state["commodities"] += 1
+            state["latest_mcx"] = max(state["latest_mcx"], candles[-1][0])
+        else:
+            state["stocks"] += 1
+            state["latest"] = max(state["latest"], candles[-1][0])
         price = candles[-1][4]
-        found = focus_swing_setup(candles, price, now) if kind == "swing" else focus_breakout(candles, price, now)
+        found = (focus_swing_setup(candles, price, now, mcx) if kind == "swing" else focus_breakout(candles, price, now, mcx))
         if not found:
             return None
-        return {"base": symbol, "name": names.get(symbol, ""), "price": price,
+        item = {"base": symbol, "name": (meta["name"] + " Futures") if mcx else names.get(symbol, ""), "price": price,
                 "change_percent": _focus_change_percent(candles), "timeframe": "1H",
                 "spark": [round(c[4], 4) for c in candles[-24:]], **found}
+        if mcx:
+            item.update({"market": "mcx", "commodity_key": meta["key"], "commodity_name": meta["name"],
+                         "trading_symbol": meta["trading_symbol"], "lot_size": meta["lot_size"]})
+        return item
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        results = [r for r in pool.map(one, symbols) if r]
+        results = [r for r in pool.map(one, jobs) if r]
     today_ist = (int(now) + 19800) // 86400
     latest_day = (state["latest"] + 19800) // 86400 if state["latest"] else 0
-    market_open = latest_day == today_ist and now <= _focus_day_close_ts(now) + 60
-    out = {"ok": True, "at": int(now), "scanned": state["scanned"], "universe": len(symbols),
-           "market_open": market_open, "last_candle_at": state["latest"]}
+    nse_open = latest_day == today_ist and now <= _focus_day_close_ts(now) + 60
+    # MCX: open while its newest hourly candle is still forming (started within the last hour).
+    mcx_open = bool(state["latest_mcx"]) and 0 <= now - state["latest_mcx"] <= 3660
+    out = {"ok": True, "at": int(now), "scanned": state["stocks"] + state["commodities"],
+           "stocks_scanned": state["stocks"], "commodities_scanned": state["commodities"],
+           "universe": len(jobs), "market_open": nse_open or mcx_open, "nse_open": nse_open, "mcx_open": mcx_open,
+           "last_candle_at": max(state["latest"], state["latest_mcx"])}
     if kind == "swing":
         order = {"ready": 0, "triggered": 1, "target1": 2, "zone": 3}
         results.sort(key=lambda r: order.get(r["state"], 9))

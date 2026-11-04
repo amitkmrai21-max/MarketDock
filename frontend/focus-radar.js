@@ -1,4 +1,4 @@
-// Focus Radar (owner only): 1H swing setups (EMA 20/50 pullback) and 1H breakouts for Nifty 50 + Nifty Bank stocks.
+// Focus Radar (owner only): 1H swing setups (EMA 20/50 pullback) and 1H breakouts for Nifty 50 + Nifty Bank stocks and MCX commodity futures.
 // Rules on closed candles; not a prediction. Server: /api/owner/focus-radar (+ /swing, /access), shared caches.
 // Only the signed-in owner can see it: the menu entry stays hidden until the server confirms the owner session,
 // and every request is checked again on the server.
@@ -20,7 +20,15 @@
   const pct = (v, signed) => (Number.isFinite(v) ? (signed && v > 0 ? "+" : "") + v.toFixed(2) + "%" : "--");
   const agoText = (ts) => { const m = Math.max(0, Math.round((Date.now() / 1000 - ts) / 60)); return m < 60 ? `${m}m ago` : m < 1440 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`; };
   const COLOURS = ["#0052cc", "#172b4d", "#00875a", "#de350b", "#5243aa", "#00a3bf", "#ff5630", "#403294"];
-  function avatar(symbol) {
+  const COMMODITY_ICONS = {
+    gold: ["🪙", "#b45309"], silver: ["🥈", "#475569"], crudeoil: ["🛢️", "#991b1b"], naturalgas: ["⚡", "#1d4ed8"],
+    copper: ["🔶", "#c2410c"], zinc: ["⚙️", "#6d28d9"], aluminium: ["🪨", "#0f766e"],
+  };
+  function avatar(symbol, item) {
+    if (item && item.market === "mcx") {
+      const [icon, bg] = COMMODITY_ICONS[item.commodity_key] || ["📦", "#334155"];
+      return `<span class="imfr-avatar" style="background:${bg};font-size:16px">${icon}</span>`;
+    }
     let hash = 0;
     for (const ch of symbol) hash = ch.charCodeAt(0) + ((hash << 5) - hash);
     return `<span class="imfr-avatar" style="background:${COLOURS[Math.abs(hash) % COLOURS.length]}">${esc(symbol.slice(0, 3))}</span>`;
@@ -80,16 +88,35 @@
   }
   function head(item, price, change, sparkData, up) {
     return `<div class="imfr-head">
-      <span class="imfr-avatar-wrap">${avatar(item.base)}</span>
-      <div class="imfr-id"><strong>${esc(item.base)}<span>·NSE</span></strong>${item.name ? `<small>${esc(item.name)}</small>` : ""}</div>
+      <span class="imfr-avatar-wrap">${avatar(item.base, item)}</span>
+      <div class="imfr-id"><strong>${esc(item.base)}<span>·${item.market === "mcx" ? "MCX" : "NSE"}</span></strong>${item.name ? `<small>${esc(item.name)}</small>` : ""}</div>
       ${spark(sparkData, up)}
       <div class="imfr-px"><b>${rupee(price)}</b><small class="${change >= 0 ? "imfr-up" : "imfr-down"}">${pct(change, true)}</small></div>
     </div>`;
   }
+  // Commodity cards trade the real current MCX contract (e.g. GOLD26DECFUT), stocks trade the NSE symbol.
+  function orderData(item) {
+    return item.market === "mcx"
+      ? ` data-fr-mcx="1" data-fr-order="${esc(item.trading_symbol)}" data-fr-key="${esc(item.commodity_key)}" data-fr-cname="${esc(item.commodity_name)}" data-fr-lot="${esc(item.lot_size ?? "")}" data-fr-chg="${esc(item.change_percent ?? "")}"`
+      : ` data-fr-order="${esc(item.base)}"`;
+  }
+  function openSheet(el, price) {
+    const d = el.dataset;
+    if (d.frMcx) {
+      const base = String(d.frOrder).replace(/\d{2}[A-Z]{3}FUT$/, "");
+      window.openImWatchlistActionSheet?.(d.frOrder, price, {
+        chartSymbol: `MCX:${base}1!`, isCommodity: true, changePercent: Number(d.frChg), lotSize: Number(d.frLot) || undefined,
+        commodityKey: d.frKey, commodityName: d.frCname,
+      });
+    } else {
+      window.openImWatchlistActionSheet?.(d.frOrder, price);
+    }
+  }
   function actions(item, bull) {
+    const od = orderData(item);
     return `<div class="imfr-actions">
-      <button type="button" class="imfr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="${esc(item.base)}" data-fr-side="${bull ? "buy" : "sell"}" data-fr-price="${esc(item.price)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
-      <button type="button" class="imfr-analysis" data-fr-coin="${esc(item.base)}" data-fr-price="${esc(item.price)}">📊 Analysis</button>
+      <button type="button" class="imfr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="1"${od} data-fr-side="${bull ? "buy" : "sell"}" data-fr-price="${esc(item.price)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
+      <button type="button" class="imfr-analysis" data-fr-coin="1"${od} data-fr-price="${esc(item.price)}">📊 Analysis</button>
     </div>`;
   }
 
@@ -155,7 +182,7 @@
 
   // ---------- render ----------
   const EMPTY = {
-    swing: ["No swing setup right now", "No Nifty 50 or Bank stock is in a 1H EMA 20/50 pullback. That is normal; check again later."],
+    swing: ["No swing setup right now", "No stock or commodity is in a 1H EMA 20/50 pullback. That is normal; check again later."],
     breakouts: ["No qualifying setups right now", "Wait for a confirmed 1-hour breakout or breakdown with volume and trend agreement."],
   };
   function summary() {
@@ -169,7 +196,7 @@
     const open = body ? body.market_open : null;
     const sub = body ? (open === false ? "Market closed · last session" : `Updated ${agoText(body.at)}`) : "Live market opportunities";
     return `<div class="imfr-summary"><svg class="imfr-radar" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="27"/><circle cx="30" cy="30" r="18"/><circle cx="30" cy="30" r="9"/><path d="M30 30 L52 14"/></svg>
-      <div><b>Scanning ${scanned} stocks</b><small>${sub}</small></div><div class="imfr-ticks">${row("NIFTY", "nifty")}${row("BANKNIFTY", "banknifty")}${row("SENSEX", "sensex")}</div></div>`;
+      <div><b>Scanning ${scanned} markets</b><small>${sub}</small></div><div class="imfr-ticks">${row("NIFTY", "nifty")}${row("BANKNIFTY", "banknifty")}${row("SENSEX", "sensex")}</div></div>`;
   }
   function counts() {
     const sw = data.swing ? data.swing.setups.length : null;
@@ -184,21 +211,21 @@
     const body = data[tab];
     if (!body) {
       meta.textContent = errors[tab] ? "Scan unavailable" : "Using closed 1-hour candles";
-      results.innerHTML = errors[tab] ? `<p class="imfr-error">${esc(errors[tab])}</p>` : '<p class="imfr-loading">Scanning the stocks… this can take a few seconds.</p>';
+      results.innerHTML = errors[tab] ? `<p class="imfr-error">${esc(errors[tab])}</p>` : '<p class="imfr-loading">Scanning stocks and commodities… this can take a few seconds.</p>';
       return;
     }
     let cards;
     if (tab === "swing") {
       const rows = body.setups;
       const bull = rows.filter((r) => r.side === "bullish").length;
-      meta.textContent = `Nifty 50 + Bank · ${bull} bullish, ${rows.length - bull} bearish`;
+      meta.textContent = `Stocks + Commodities · ${bull} bullish, ${rows.length - bull} bearish`;
       cards = rows.filter((r) => dirFilter === "all" || r.side === dirFilter).map(swingCard);
     } else {
-      meta.textContent = `Scanned ${body.scanned || 0} stocks · updated ${new Date((body.at || Date.now() / 1000) * 1000).toLocaleTimeString()}`;
+      meta.textContent = `Scanned ${body.scanned || 0} markets · updated ${new Date((body.at || Date.now() / 1000) * 1000).toLocaleTimeString()}`;
       cards = (body.signals || []).filter((r) => dirFilter === "all" || r.direction.toLowerCase() === dirFilter).map(breakoutCard);
     }
     const note = tab === "swing"
-      ? '<p class="imfr-note">Score = trend strength 40% + rejection candle quality 35% + stop tightness 25%. It rates how complete and clean the setup looks, not the chance of winning. A card still waiting in the zone has earned only the trend part, so its score stays low until a rejection candle forms. Trigger only becomes active after that candle forms and price crosses its high (bullish) or low (bearish). NSE hourly candles run 9:15 to 15:30 IST; outside market hours the cards show the last session.</p>' : "";
+      ? '<p class="imfr-note">Score = trend strength 40% + rejection candle quality 35% + stop tightness 25%. It rates how complete and clean the setup looks, not the chance of winning. A card still waiting in the zone has earned only the trend part, so its score stays low until a rejection candle forms. Trigger only becomes active after that candle forms and price crosses its high (bullish) or low (bearish). NSE hourly candles run 9:15 to 15:30 IST; MCX commodities trade until late evening. Outside market hours the cards show the last session. Commodity cards trade the current MCX futures contract.</p>' : "";
     results.innerHTML = summary() + (cards.length ? cards.join("") : `<div class="imfr-empty"><strong>${EMPTY[tab][0]}</strong><p>${EMPTY[tab][1]}</p></div>`) + note;
   }
 
@@ -250,14 +277,14 @@
   results.addEventListener("click", (event) => {
     const ticket = event.target.closest("[data-fr-ticket]");
     if (ticket) {
-      const { frTicket: symbol, frSide: side, frPrice: price } = ticket.dataset;
-      window.openImWatchlistActionSheet?.(symbol, Number(price));
+      const { frSide: side, frPrice: price } = ticket.dataset;
+      openSheet(ticket, Number(price));
       // The stock sheet is open: tap its own Buy / Sell so the order form opens straight away.
       document.getElementById(side === "buy" ? "im-action-sheet-buy-btn" : "im-action-sheet-sell-btn")?.click();
       return;
     }
     const analysis = event.target.closest("[data-fr-coin]");
-    if (analysis) window.openImWatchlistActionSheet?.(analysis.dataset.frCoin, Number(analysis.dataset.frPrice));
+    if (analysis) openSheet(analysis, Number(analysis.dataset.frPrice));
   });
 
   // Opening the page (from the menu, or coming back to it) starts a scan.
