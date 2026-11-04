@@ -1,0 +1,149 @@
+/* Positions page look: big heading with a Live pill, two summary cards, search, filter chips,
+   "Open positions" with a count, and one card per position (icon, symbol, P&L, qty/avg/LTP, View details).
+   Everything is scoped to the Positions and Holdings pages. Light theme follows the design mock; the other
+   themes get the same layout in their own colours. */
+
+:is(#im-broker-account, #im-holdings) {
+  --pu-card: var(--im-panel, #121a2e);
+  --pu-border: var(--im-border, #243052);
+  --pu-text: var(--im-text, #e8edff);
+  --pu-muted: var(--im-muted, #98a5c8);
+  --pu-chip: var(--im-panel-2, #10163a);
+  --pu-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  --pu-tile: rgba(59, 130, 246, 0.16);
+  --pu-blue: #60a5fa;
+  --pu-blue-solid: #2563eb;
+  --pu-red: #f87171;
+  --pu-red-bg: rgba(239, 68, 68, 0.16);
+  --pu-green: #34d399;
+  --pu-green-bg: rgba(16, 185, 129, 0.16);
+  --pu-badge-bg: rgba(59, 130, 246, 0.2);
+  --pu-badge-text: #93c5fd;
+  --pu-live-bg: rgba(16, 185, 129, 0.18);
+  --pu-live-text: #34d399;
+  --pu-closed-bg: rgba(245, 158, 11, 0.16);
+  --pu-closed-text: #fbbf24;
+}
+body[data-theme="light"] :is(#im-broker-account, #im-holdings) {
+  --pu-card: #ffffff;
+  --pu-border: #e3e9f5;
+  --pu-text: #0f1b3d;
+  --pu-muted: #556583;
+  --pu-chip: #ffffff;
+  --pu-shadow: 0 6px 18px rgba(40, 70, 130, 0.09);
+  --pu-tile: #e7efff;
+  --pu-blue: #1d5cf0;
+  --pu-blue-solid: #1f6bff;
+  --pu-red: #dc2626;
+  --pu-red-bg: #fde4e4;
+  --pu-green: #0f9d6b;
+  --pu-green-bg: #d9f7e8;
+  --pu-badge-bg: #e1ebff;
+  --pu-badge-text: #1d4ed8;
+  --pu-live-bg: #d6f5e3;
+  --pu-live-text: #15803d;
+  --pu-closed-bg: #fef0d4;
+  --pu-closed-text: #b45309;
+}
+
+/* The shared page title is replaced by the big heading below. */
+.indian-market-mode.im-pos-active .content > .topbar { display: none !important; }
+
+/* ---------- heading ---------- */
+#im-broker-account .im-pos-head { display: flex; align-items: center; gap: 12px; margin: 4px 2px 16px; }
+#im-broker-account .im-pos-head-title { margin: 0; font-size: 34px; line-height: 1.1; font-weight: 800; letter-spacing: -0.02em; color: var(--pu-text); }
+#im-broker-account .im-pos-live { display: inline-flex; align-items: center; gap: 7px; padding: 5px 13px; border-radius: 999px; font-size: 14px; font-weight: 700; background: var(--pu-live-bg); color: var(--pu-live-text); }
+#im-broker-account .im-pos-live i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+#im-broker-account .im-pos-live.is-closed { background: var(--pu-closed-bg); color: var(--pu-closed-text); }
+
+/* ---------- summary cards ---------- */
+#im-broker-account .im-pos-summary-row { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-bottom: 16px; }
+#im-broker-account .im-pos-summary-card {
+  display: grid !important; align-content: start; gap: 4px; min-width: 0;
+  padding: 16px !important; border-radius: 20px !important;
+  background: var(--pu-card) !important; border: 1px solid var(--pu-border) !important; box-shadow: var(--pu-shadow) !important;
+  color: var(--pu-text) !important;
+}
+#im-broker-account .im-pos-sc-icon { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; background: var(--pu-tile); margin-bottom: 6px; }
+#im-broker-account .im-pos-sc-icon svg { width: 24px; height: 24px; fill: var(--pu-blue); }
+#im-broker-account .im-pos-summary-label { font-size: 15px !important; font-weight: 500 !important; color: var(--pu-muted) !important; letter-spacing: 0 !important; text-transform: none !important; }
+#im-broker-account .im-pos-summary-value { font-size: 26px !important; line-height: 1.15 !important; font-weight: 800 !important; letter-spacing: -0.02em; color: var(--pu-text) !important; white-space: nowrap; }
+#im-broker-account .im-pos-summary-value.im-change-up { color: var(--pu-green) !important; }
+#im-broker-account .im-pos-summary-value.im-change-down { color: var(--pu-red) !important; }
+#im-broker-account .im-pos-funds-value { color: var(--pu-blue) !important; font-size: 22px !important; }
+#im-broker-account .im-pos-summary-pct { justify-self: start; padding: 3px 12px; border-radius: 999px; font-size: 14px !important; font-weight: 700 !important; }
+#im-broker-account .im-pos-summary-pct:empty { display: none; }
+#im-broker-account .im-pos-summary-pct.im-change-up { background: var(--pu-green-bg); color: var(--pu-green) !important; }
+#im-broker-account .im-pos-summary-pct.im-change-down { background: var(--pu-red-bg); color: var(--pu-red) !important; }
+#im-broker-account #im-pos-funds-used { justify-self: stretch; margin-top: 8px; padding: 10px 0 0; border-top: 1px solid var(--pu-border); border-radius: 0; background: none; color: var(--pu-muted) !important; font-size: 15px !important; font-weight: 500 !important; }
+#im-broker-account #im-pos-funds-used .im-funds-used-amount { display: block; margin-top: 2px; font-size: 17px; font-weight: 700; color: var(--pu-text); }
+
+/* ---------- search and filters ---------- */
+#im-broker-account .im-pos-search-row { position: relative; margin: 0 0 14px; }
+#im-broker-account .im-pos-search-icon { position: absolute; left: 17px; top: 50%; width: 22px; height: 22px; transform: translateY(-50%); fill: none; stroke: var(--pu-muted); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+#im-broker-account .im-pos-search-input {
+  width: 100%; box-sizing: border-box; height: 54px; padding: 0 16px 0 50px !important; border-radius: 18px !important;
+  background: var(--pu-card) !important; border: 1px solid var(--pu-border) !important; color: var(--pu-text) !important;
+  font-size: 17px !important; box-shadow: none !important;
+}
+#im-broker-account .im-pos-search-input::placeholder { color: var(--pu-muted) !important; opacity: 1; }
+#im-broker-account .im-pos-filter-row { display: flex; flex-wrap: nowrap; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-bottom: 8px; padding: 2px 0; }
+#im-broker-account .im-pos-filter-row::-webkit-scrollbar { display: none; }
+#im-broker-account .im-pos-filter-pill {
+  flex: 1 1 auto; text-align: center; padding: 11px 12px !important; border-radius: 999px !important; font-size: 15px !important; white-space: nowrap; font-weight: 600 !important;
+  background: var(--pu-chip) !important; border: 1px solid var(--pu-border) !important; color: var(--pu-text) !important; box-shadow: none !important;
+}
+#im-broker-account .im-pos-filter-pill.active { background: var(--pu-blue-solid) !important; border-color: var(--pu-blue-solid) !important; color: #fff !important; font-weight: 700 !important; }
+
+/* ---------- section heading ---------- */
+#im-broker-account .im-pos-section-head { display: flex; align-items: center; gap: 10px; margin: 20px 2px 12px; font-size: 17px; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase; color: var(--pu-text); }
+#im-broker-account .im-pos-count { min-width: 30px; height: 30px; padding: 0 9px; box-sizing: border-box; border-radius: 999px; display: inline-grid; place-items: center; font-size: 14px; font-weight: 800; letter-spacing: 0; background: var(--pu-badge-bg); color: var(--pu-badge-text); }
+
+/* ---------- position cards (Positions and Holdings) ---------- */
+:is(#im-broker-account, #im-holdings) .im-pos-list { display: grid; gap: 14px; }
+:is(#im-broker-account, #im-holdings) .im-pos-card {
+  display: block !important; margin: 0 !important; padding: 14px 14px 12px !important; border-radius: 20px !important;
+  background: var(--pu-card) !important; border: 1px solid var(--pu-border) !important; box-shadow: var(--pu-shadow) !important;
+  color: var(--pu-text) !important; cursor: pointer;
+}
+:is(#im-broker-account, #im-holdings) .im-pos-card:active { transform: scale(0.992); }
+:is(#im-broker-account, #im-holdings) .im-pc-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+:is(#im-broker-account, #im-holdings) .im-pc-icon {
+  width: 54px; height: 54px; border-radius: 15px; display: grid; place-items: center; font-size: 15px; font-weight: 800; letter-spacing: 0.02em;
+  background: var(--pu-tile); overflow: hidden;
+}
+:is(#im-broker-account, #im-holdings) .im-pc-icon.is-bars { background: transparent; border: 1px solid var(--pu-border); }
+:is(#im-broker-account, #im-holdings) .im-pc-icon.is-bars svg { width: 42px; height: 42px; }
+:is(#im-broker-account, #im-holdings) .im-pc-icon:not(.is-bars):not(.is-fo) { font-size: 26px; }
+:is(#im-broker-account, #im-holdings) .im-pc-icon.is-fo { color: var(--pu-badge-text); background: var(--pu-badge-bg); font-size: 14px; }
+:is(#im-broker-account, #im-holdings) .im-pc-id { min-width: 0; display: grid; gap: 5px; justify-items: start; }
+:is(#im-broker-account, #im-holdings) .im-pc-id .im-pos-symbol {
+  max-width: 100% !important; margin: 0 !important; font-size: 17px !important; line-height: 1.2; font-weight: 800 !important;
+  color: var(--pu-text) !important; white-space: normal !important; overflow: visible !important; text-overflow: clip !important; overflow-wrap: anywhere;
+}
+:is(#im-broker-account, #im-holdings) .im-pos-badges { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 !important; }
+:is(#im-broker-account, #im-holdings) .im-pos-badge { padding: 3px 12px !important; border-radius: 8px !important; font-size: 13px !important; font-weight: 700 !important; background: var(--pu-badge-bg) !important; color: var(--pu-badge-text) !important; border: 0 !important; }
+:is(#im-broker-account, #im-holdings) .im-pos-badge-closed { background: var(--pu-chip) !important; color: var(--pu-muted) !important; border: 1px solid var(--pu-border) !important; }
+:is(#im-broker-account, #im-holdings) .im-pos-segment-text { margin: 0 !important; font-size: 15px !important; color: var(--pu-muted) !important; }
+:is(#im-broker-account, #im-holdings) .im-pos-card-pnl { display: grid; justify-items: end; gap: 6px; text-align: right; }
+:is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-pnl { font-size: 19px !important; line-height: 1.15; font-weight: 800 !important; white-space: nowrap; }
+:is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-pnl-pct { padding: 3px 12px; border-radius: 999px; font-size: 14px !important; font-weight: 700 !important; background: transparent; color: var(--pu-muted) !important; }
+:is(#im-broker-account, #im-holdings) .im-pos-card .im-change-up { color: var(--pu-green) !important; }
+:is(#im-broker-account, #im-holdings) .im-pos-card .im-change-down { color: var(--pu-red) !important; }
+:is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-pnl-pct.im-change-up { background: var(--pu-green-bg); }
+:is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-pnl-pct.im-change-down { background: var(--pu-red-bg); }
+:is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-row-meta { margin: 12px 0 0 !important; padding-top: 12px; border-top: 1px solid var(--pu-border); font-size: 15.5px !important; line-height: 1.4; color: var(--pu-muted) !important; white-space: normal; }
+:is(#im-broker-account, #im-holdings) .im-pc-more { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; color: var(--pu-blue); font-size: 17px; font-weight: 600; }
+:is(#im-broker-account, #im-holdings) .im-pc-more span { display: inline-flex; align-items: center; gap: 9px; }
+:is(#im-broker-account, #im-holdings) .im-pc-info { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+:is(#im-broker-account, #im-holdings) .im-pc-chev { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+:is(#im-broker-account, #im-holdings) .im-pos-card.im-pos-card-closed { cursor: default; opacity: 0.88; }
+
+@media (max-width: 360px) {
+  #im-broker-account .im-pos-head-title { font-size: 30px; }
+  #im-broker-account .im-pos-summary-value { font-size: 24px !important; }
+  #im-broker-account .im-pos-funds-value { font-size: 22px !important; }
+  :is(#im-broker-account, #im-holdings) .im-pc-icon { width: 50px; height: 50px; }
+  :is(#im-broker-account, #im-holdings) .im-pc-id .im-pos-symbol { font-size: 16px !important; }
+  :is(#im-broker-account, #im-holdings) .im-pos-card .im-pos-pnl { font-size: 18px !important; }
+}
