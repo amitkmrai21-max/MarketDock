@@ -103,3 +103,6 @@ body[data-theme="light"] #im-focus-radar .imfr-card { box-shadow: 0 2px 8px colo
 body:has(#im-focus-radar.active) #im-page-title { font-weight: 800; }
 #im-focus-radar .imfr-wait { margin: 0; padding: 8px 10px; border-radius: 10px; border: 1px dashed var(--im-border); font-size: 11px; line-height: 1.45; text-align: center; color: var(--im-muted); }
 #im-focus-radar .imfr-actions.imfr-actions-one { grid-template-columns: 1fr; }
+/* Pull down to refresh: the browser's own pull-to-refresh (a full page reload) is switched off on this page. */
+html:has(#im-focus-radar.active), body:has(#im-focus-radar.active) { overscroll-behavior-y: contain; }
+#im-focus-radar .imfr-ptr { height: 0; overflow: hidden; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--im-muted); }
