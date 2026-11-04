@@ -6,7 +6,7 @@
   if (!page || !navButton || !body) return;
   const API = window.MD_API_BASE || "https://api.marketdock.in";
 
-  let activeTab = "breakouts"; // 'breakouts' | 'swings'
+  let activeTab = "swings";     // 'swings' | 'breakouts' (Swings is the first tab)
   let dirFilter = "all";       // 'all' | 'bullish' | 'bearish'
   let segment = "all";         // 'all' | 'nse' | 'mcx'
   const SEGMENTS = [["all", "All"], ["nse", "NSE Stocks"], ["mcx", "MCX Commodities"]];
@@ -141,7 +141,7 @@
       </div>
       <p class="imfr-notice">Owner-only · rule-based filter, not a prediction. Verify the chart and manage risk yourself.</p>
       <div class="imfr-bar">
-        <div class="imfr-tabs"><button type="button" class="imfr-pilltab ${activeTab === "breakouts" ? "is-active" : ""}" data-fr-tab="breakouts">${label("Breakouts", bo)}</button><button type="button" class="imfr-pilltab ${activeTab === "swings" ? "is-active" : ""}" data-fr-tab="swings">${label("Swings", sw)}</button></div>
+        <div class="imfr-tabs"><button type="button" class="imfr-pilltab ${activeTab === "swings" ? "is-active" : ""}" data-fr-tab="swings">${label("Swings", sw)}</button><button type="button" class="imfr-pilltab ${activeTab === "breakouts" ? "is-active" : ""}" data-fr-tab="breakouts">${label("Breakouts", bo)}</button></div>
         <button id="imFrFilter" class="imfr-filter" type="button" aria-label="Filter direction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span>${FILTER_LABEL[dirFilter]}</span></button>
       </div>
       <div class="imfr-seg">${SEGMENTS.map(([k, t]) => `<button type="button" class="imfr-segbtn ${segment === k ? "is-active" : ""}" data-fr-seg="${k}">${t}</button>`).join("")}</div>
