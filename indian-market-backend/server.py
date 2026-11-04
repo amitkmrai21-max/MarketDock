@@ -2122,6 +2122,287 @@ def require_rrg_maintenance_owner():
     return None
 
 
+# ================= FOCUS RADAR (owner only) =================
+# 1H swing setups (EMA 20/50 pullback, bullish and bearish) and 1H breakouts for NSE stocks.
+# Same rules as the CryptoDock Focus Radar, on Upstox 1H candles of the Nifty 50 stocks.
+# Rules on closed candles; not a prediction. The signed-in owner is verified with Auth on every request.
+FOCUS_RADAR_OWNER_EMAIL = "amitkmrai21@gmail.com"
+FOCUS_SCAN_TTL = 300             # one shared scan for 5 minutes
+FOCUS_CANDLES_TTL = 600          # per stock candles for 10 minutes
+FOCUS_MAX_STOCKS = 50
+FOCUS_SWING_LOOKBACK = 4         # the rejection candle must be among the last 4 closed hours
+FOCUS_SWING_MAX_RISK = 0.05      # skip setups whose stop is more than 5% away
+FOCUS_FALLBACK_SYMBOLS = [
+    "RELIANCE", "HDFCBANK", "ICICIBANK", "INFY", "TCS", "SBIN", "BHARTIARTL", "ITC", "LT", "KOTAKBANK",
+    "AXISBANK", "HINDUNILVR", "BAJFINANCE", "MARUTI", "SUNPHARMA", "TATAMOTORS", "NTPC", "POWERGRID", "ONGC", "TITAN",
+    "ASIANPAINT", "ADANIENT", "ADANIPORTS", "WIPRO", "HCLTECH", "TATASTEEL", "COALINDIA", "CIPLA", "BAJAJFINSV", "INDUSINDBK",
+]
+_focus_candles_cache = {}
+_focus_scan_cache = {}
+_focus_lock = threading.Lock()
+
+
+def require_focus_radar_owner():
+    """Verify the access token with Auth (never a browser-provided email); only the owner passes."""
+    authorization = request.headers.get("Authorization", "")
+    if not authorization.startswith("Bearer ") or not authorization[7:].strip():
+        return jsonify({"ok": False, "error": "Sign in to access Focus Radar."}), 401
+    try:
+        response = requests.get(
+            SUPABASE_AUTH_URL,
+            headers={"apikey": SUPABASE_PUBLISHABLE_KEY, "Authorization": authorization},
+            timeout=8,
+        )
+    except requests.RequestException:
+        return jsonify({"ok": False, "error": "Focus Radar access check unavailable."}), 503
+    if response.status_code != 200:
+        return jsonify({"ok": False, "error": "Sign in again to access Focus Radar."}), 401
+    try:
+        user = response.json()
+    except ValueError:
+        return jsonify({"ok": False, "error": "Focus Radar access check unavailable."}), 503
+    email = (user.get("email") or "").strip().lower()
+    if not user.get("id") or not user.get("email_confirmed_at") or email != FOCUS_RADAR_OWNER_EMAIL:
+        return jsonify({"ok": False, "error": "Focus Radar is available to the owner account only."}), 403
+    return None
+
+
+def _focus_ema(values, span):
+    out, k, prev = [], 2 / (span + 1), None
+    for v in values:
+        prev = v if prev is None else prev + k * (v - prev)
+        out.append(prev)
+    return out
+
+
+def _focus_day_close_ts(t):
+    """Unix time of 15:30 IST on the day the candle starting at t belongs to."""
+    ist_day = (int(t) + 19800) // 86400
+    return ist_day * 86400 - 19800 + 55800
+
+
+def _focus_candle_end(t):
+    """A 1H NSE candle ends an hour after it starts, except the last one of the day which ends at 15:30."""
+    return min(int(t) + 3600, _focus_day_close_ts(t))
+
+
+def _focus_universe():
+    """(symbols, names): the Nifty 50 constituents, or a fixed list of liquid names if the list is not available."""
+    constituents = fetch_index_constituents("Nifty 50")
+    pairs = [((c.get("symbol") or "").strip().upper(), (c.get("name") or "").strip()) for c in constituents]
+    pairs = [(s, n) for s, n in pairs if s]
+    if len(pairs) >= 20:
+        pairs = pairs[:FOCUS_MAX_STOCKS]
+    else:
+        pairs = [(s, "") for s in FOCUS_FALLBACK_SYMBOLS]
+    return [s for s, _ in pairs], {s: n for s, n in pairs}
+
+
+def _focus_candles(symbol):
+    """[epoch, open, high, low, close, volume] 1H candles, oldest first (about 30 days), cached 10 min."""
+    cached = _focus_candles_cache.get(symbol)
+    if cached and time.time() - cached["at"] < FOCUS_CANDLES_TTL:
+        return cached["data"]
+    raw = fetch_upstox_candles(resolve_instrument_key(symbol), "hours", 1, chart_history_days=30)
+    out = []
+    for c in raw:
+        try:
+            out.append([int(datetime.fromisoformat(c["time"]).timestamp()), c["open"], c["high"], c["low"], c["close"], c.get("volume") or 0])
+        except (KeyError, ValueError, TypeError):
+            continue
+    out.sort(key=lambda c: c[0])
+    _focus_candles_cache[symbol] = {"at": time.time(), "data": out}
+    return out
+
+
+def _focus_change_percent(candles):
+    """Latest price against the previous trading day's last close."""
+    if not candles:
+        return 0.0
+    last_day = (candles[-1][0] + 19800) // 86400
+    prev = [c for c in candles if (c[0] + 19800) // 86400 < last_day]
+    return round((candles[-1][4] / prev[-1][4] - 1) * 100, 2) if prev and prev[-1][4] else 0.0
+
+
+def focus_swing_setup(candles, price, now):
+    """One stock's setup from 1H candles [t, o, h, l, c, v]; None if no trend / nothing to show."""
+    closed = [c for c in candles if _focus_candle_end(c[0]) <= now]
+    if len(closed) < 60 or not price or price <= 0:
+        return None
+    closes = [c[4] for c in closed]
+    e20, e50 = _focus_ema(closes, 20), _focus_ema(closes, 50)
+    spread = (e20[-1] - e50[-1]) / e50[-1]
+    if spread > 0.001 and e50[-1] > e50[-6]:
+        long = True
+    elif spread < -0.001 and e50[-1] < e50[-6]:
+        long = False
+    else:
+        return None
+    # Trend strength 0-1: EMA gap (1% = full) and EMA50 slope over 5 candles (0.4% = full).
+    trend_c = 0.5 * min(1.0, abs(spread) / 0.01) + 0.5 * min(1.0, abs(e50[-1] / e50[-6] - 1) / 0.004)
+    base_info = {"side": "bullish" if long else "bearish", "ema20": e20[-1], "ema50": e50[-1],
+                 "spark": [round(v, 4) for v in closes[-24:]], "trend_score": round(100 * trend_c)}
+
+    rej_index, wick_ratio = None, 0.0
+    for i in range(len(closed) - 1, len(closed) - 1 - FOCUS_SWING_LOOKBACK, -1):
+        _, o, h, l, c = closed[i][:5]
+        rng = h - l
+        if rng <= 0:
+            continue
+        body = abs(c - o)
+        if long:
+            wick = min(o, c) - l
+            ok = (l <= e20[i] and l >= e50[i] * 0.995 and c >= e50[i]
+                  and (wick >= 0.5 * rng or wick >= 2 * body) and c >= l + 0.5 * rng)
+        else:
+            wick = h - max(o, c)
+            ok = (h >= e20[i] and h <= e50[i] * 1.005 and c <= e50[i]
+                  and (wick >= 0.5 * rng or wick >= 2 * body) and c <= h - 0.5 * rng)
+        if ok:
+            rej_index, wick_ratio = i, wick / rng
+            break
+
+    if rej_index is None:
+        # Trend is intact and price sits inside the pullback zone: wait for the rejection candle.
+        zone_lo, zone_hi = min(e20[-1], e50[-1]), max(e20[-1], e50[-1])
+        return {**base_info, "state": "zone"} if zone_lo <= price <= zone_hi else None
+
+    rh, rl = closed[rej_index][2], closed[rej_index][3]
+    entry = rh if long else rl
+    stop = rl * 0.999 if long else rh * 1.001
+    risk = abs(entry - stop)
+    if risk <= 0 or risk / entry > FOCUS_SWING_MAX_RISK:
+        return None
+    sign = 1 if long else -1
+    t1, t2 = entry + sign * 1.5 * risk, entry + sign * 2.5 * risk
+    after = closed[rej_index + 1:]
+    # Already stopped out, or already past the second target: nothing left to show.
+    if (any((c[3] < stop) if long else (c[2] > stop) for c in after)
+            or (price < stop if long else price > stop)
+            or (price >= t2 if long else price <= t2)):
+        return None
+    triggered = (price > entry if long else price < entry) or any((c[2] > entry) if long else (c[3] < entry) for c in after)
+    t1_hit = price >= t1 if long else price <= t1
+    state = "target1" if triggered and t1_hit else "triggered" if triggered else "ready"
+    trend_part = trend_c
+    rej_c = min(1.0, max(0.0, (wick_ratio - 0.4) / 0.4))
+    tight_c = max(0.0, 1 - (risk / entry) / FOCUS_SWING_MAX_RISK)
+    score = round(100 * (0.4 * trend_part + 0.35 * rej_c + 0.25 * tight_c))
+    return {**base_info, "state": state, "entry": entry, "stop": stop, "t1": t1, "t2": t2,
+            "rejection_at": closed[rej_index][0], "score": score}
+
+
+def focus_breakout(candles, price, now):
+    """24-candle 1H breakout with volume and EMA trend agreeing; None if not."""
+    bars = [c for c in candles if _focus_candle_end(c[0]) <= now]
+    if len(bars) < 55 or not price or price <= 0:
+        return None
+    closes = [c[4] for c in bars]
+    highs = [c[2] for c in bars]
+    lows = [c[3] for c in bars]
+    level_high, level_low = max(highs[-25:-1]), min(lows[-25:-1])
+    ema20, ema50 = _focus_ema(closes, 20)[-1], _focus_ema(closes, 50)[-1]
+    # NSE's first hour always trades heavy, so the last bar's volume is compared with the same hour of
+    # the previous days (at least 3 of them), not with the average of all hours.
+    slot = (bars[-1][0] + 19800) % 86400
+    same_slot = [c[5] for c in bars[:-1] if (c[0] + 19800) % 86400 == slot][-10:]
+    pool = same_slot if len(same_slot) >= 3 else [c[5] for c in bars[-21:-1]]
+    baseline = sum(pool) / len(pool) if pool else 0
+    volume_ratio = bars[-1][5] / baseline if baseline > 0 else 0
+    if volume_ratio < 1.5:
+        return None
+    if closes[-1] > level_high and price > level_high and ema20 > ema50:
+        return {"direction": "BULLISH", "break_level": level_high, "volume_ratio": round(volume_ratio, 2)}
+    if closes[-1] < level_low and price < level_low and ema20 < ema50:
+        return {"direction": "BEARISH", "break_level": level_low, "volume_ratio": round(volume_ratio, 2)}
+    return None
+
+
+def _focus_scan(kind):
+    """kind: 'swing' or 'breakouts'. Runs over the Nifty 50 with a small worker pool."""
+    symbols, names = _focus_universe()
+    now = time.time()
+    state = {"scanned": 0, "latest": 0}
+
+    def one(symbol):
+        try:
+            candles = _focus_candles(symbol)
+        except Exception as error:  # a stock that fails is skipped, the rest still count
+            app.logger.info("Focus Radar skipped %s: %s", symbol, error)
+            return None
+        if not candles:
+            return None
+        state["scanned"] += 1
+        state["latest"] = max(state["latest"], candles[-1][0])
+        price = candles[-1][4]
+        found = focus_swing_setup(candles, price, now) if kind == "swing" else focus_breakout(candles, price, now)
+        if not found:
+            return None
+        return {"base": symbol, "name": names.get(symbol, ""), "price": price,
+                "change_percent": _focus_change_percent(candles), "timeframe": "1H",
+                "spark": [round(c[4], 4) for c in candles[-24:]], **found}
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        results = [r for r in pool.map(one, symbols) if r]
+    today_ist = (int(now) + 19800) // 86400
+    latest_day = (state["latest"] + 19800) // 86400 if state["latest"] else 0
+    market_open = latest_day == today_ist and now <= _focus_day_close_ts(now) + 60
+    out = {"ok": True, "at": int(now), "scanned": state["scanned"], "universe": len(symbols),
+           "market_open": market_open, "last_candle_at": state["latest"]}
+    if kind == "swing":
+        order = {"ready": 0, "triggered": 1, "target1": 2, "zone": 3}
+        results.sort(key=lambda r: order.get(r["state"], 9))
+        out["setups"] = results
+    else:
+        results.sort(key=lambda r: -r["volume_ratio"])
+        out["signals"] = results[:20]
+    return out
+
+
+def _focus_cached_scan(kind):
+    entry = _focus_scan_cache.get(kind)
+    if entry and time.time() - entry["at"] < FOCUS_SCAN_TTL:
+        return entry["data"]
+    with _focus_lock:  # one scan at a time; the others wait and reuse its result
+        entry = _focus_scan_cache.get(kind)
+        if entry and time.time() - entry["at"] < FOCUS_SCAN_TTL:
+            return entry["data"]
+        data = _focus_scan(kind)
+        _focus_scan_cache[kind] = {"at": time.time(), "data": data}
+        return data
+
+
+@app.get("/api/owner/focus-radar/access")
+def focus_radar_access():
+    denied = require_focus_radar_owner()
+    if denied:
+        return denied
+    return jsonify({"ok": True, "available": True})
+
+
+def _focus_endpoint(kind):
+    denied = require_focus_radar_owner()
+    if denied:
+        return denied
+    if not UPSTOX_ACCESS_TOKEN:
+        return jsonify({"ok": False, "error": "Live market data is not configured on the server."}), 503
+    try:
+        return jsonify(_focus_cached_scan(kind))
+    except Exception as error:
+        app.logger.warning("Focus Radar %s scan failed: %s", kind, error)
+        return jsonify({"ok": False, "error": "Scan is temporarily unavailable. Please try again shortly."}), 503
+
+
+@app.get("/api/owner/focus-radar/swing")
+def focus_radar_swing():
+    return _focus_endpoint("swing")
+
+
+@app.get("/api/owner/focus-radar")
+def focus_radar_breakouts():
+    return _focus_endpoint("breakouts")
+
+
 _rrg_quotes_cache = {"data": None, "fetched_at": 0}
 RRG_QUOTES_CACHE_SECONDS = 60
 
