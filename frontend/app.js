@@ -4896,6 +4896,10 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       title: "Commodities (MCX)",
       subtitle: "Current-month MCX futures for Gold, Silver, Crude Oil, Natural Gas, Copper, Zinc, and Aluminium."
     },
+    "im-focus-radar": {
+      title: "Focus Radar",
+      subtitle: ""
+    },
     "im-news": {
       title: "Market News",
       subtitle: "Latest Indian equity-market headlines from financial publishers."

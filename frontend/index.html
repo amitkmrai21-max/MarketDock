@@ -39,6 +39,7 @@
   <link rel="stylesheet" href="/frontend/style.css?v=20261111-orders-4">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261109-active-1">
   <link rel="stylesheet" href="/frontend/news.css?v=20261108-news-4">
+  <link rel="stylesheet" href="/frontend/focus-radar.css?v=20261140-fr-2">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -486,6 +487,11 @@
         <button class="nav-button" data-page="im-update" type="button" id="sidebarUpdateBtn">
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span>
           Update
+        </button>
+
+        <button class="nav-button" data-page="im-focus-radar" type="button" hidden>
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-6"/></svg></span>
+          Focus Radar
         </button>
 
         <button class="nav-button website-settings-nav" data-open-settings type="button">
@@ -1428,6 +1434,23 @@
           <div id="imNwList" class="im-nw-list" aria-live="polite"></div>
           <button type="button" class="im-nw-more" id="imNwMore" hidden>Show more news</button>
           <ul class="im-nw-notes"><li>Headlines from the publishers' own feeds</li><li>Tap a story to read it on the source website</li></ul>
+        </div>
+      </section>
+
+      <section class="page" id="im-focus-radar">
+        <div class="imfr-page">
+          <div class="imfr-top">
+            <span class="imfr-logo" aria-hidden="true">🎯</span>
+            <div><small>TRADE SMARTER. FASTER.</small></div>
+            <button id="imFrRefresh" class="imfr-iconbtn" type="button" aria-label="Refresh"><svg class="imfr-spin" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+          </div>
+          <p class="imfr-notice">Owner-only · rule-based filter, not a prediction. Verify the chart and manage risk yourself.</p>
+          <div class="imfr-bar">
+            <div class="imfr-tabs" id="imFrTabs"><button type="button" class="imfr-pilltab is-active" data-fr-tab="swing">1H Swings</button><button type="button" class="imfr-pilltab" data-fr-tab="breakouts">Breakouts</button></div>
+            <button id="imFrFilter" class="imfr-filter" type="button" aria-label="Filter direction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span>All</span></button>
+          </div>
+          <p id="imFrMeta" class="imfr-meta">Checking market setup…</p>
+          <div id="imFrResults" class="imfr-results" aria-live="polite"></div>
         </div>
       </section>
 
@@ -3416,6 +3439,7 @@
   <script defer src="/frontend/app.js?v=20261111-orders-4"></script>
   <script defer src="/frontend/tabbar.js?v=20261029-tabbar-2"></script>
   <script defer src="/frontend/news.js?v=20261108-news-2"></script>
+  <script defer src="/frontend/focus-radar.js?v=20261140-fr-2"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
