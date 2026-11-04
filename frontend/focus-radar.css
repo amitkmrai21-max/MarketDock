@@ -11,8 +11,7 @@
 #im-focus-radar .imfr-spin { width: 18px; height: 18px; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform-origin: 50% 50%; }
 @keyframes imfrSpin { to { transform: rotate(360deg); } }
 #im-focus-radar.is-loading .imfr-spin { animation: imfrSpin .9s linear infinite; }
-#im-focus-radar.is-loading .imfr-logo { animation: imfrSpin 1.6s linear infinite; }
-@media (prefers-reduced-motion: reduce) { #im-focus-radar.is-loading .imfr-spin, #im-focus-radar.is-loading .imfr-logo { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #im-focus-radar.is-loading .imfr-spin { animation: none; } }
 #im-focus-radar .imfr-notice { margin: 0; font-size: 10.5px; line-height: 1.4; color: var(--im-muted); }
 #im-focus-radar .imfr-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #im-focus-radar .imfr-tabs { display: flex; gap: 8px; flex-wrap: nowrap; }
@@ -100,3 +99,5 @@ body[data-theme="light"] #im-focus-radar .imfr-card { box-shadow: 0 2px 8px colo
 #im-focus-radar .imfr-seg::-webkit-scrollbar { display: none; }
 #im-focus-radar .imfr-segbtn { flex: 0 0 auto; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--im-border); background: var(--im-panel-2); color: var(--im-muted); font: inherit; font-size: 11.5px; font-weight: 700; white-space: nowrap; cursor: pointer; }
 #im-focus-radar .imfr-segbtn.is-active { color: var(--im-text); border-color: var(--im-blue); background: color-mix(in srgb, var(--im-blue) 18%, transparent); }
+/* The page title is bolder here (the same as the CryptoDock Focus Radar). */
+body:has(#im-focus-radar.active) #im-page-title { font-weight: 800; }
