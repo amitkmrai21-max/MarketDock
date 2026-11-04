@@ -137,7 +137,7 @@
       <div class="imfr-top">
         <span class="imfr-logo" aria-hidden="true">🎯</span>
         <div><small>TRADE SMARTER. FASTER.</small></div>
-        <button id="imFrRefresh" class="imfr-iconbtn" type="button" aria-label="Refresh" ${isLoading ? "disabled" : ""}><svg class="imfr-spin" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+        <button id="imFrRefresh" class="imfr-iconbtn" type="button" aria-label="Refresh"><svg class="imfr-spin" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
       </div>
       <p class="imfr-notice">Owner-only · rule-based filter, not a prediction. Verify the chart and manage risk yourself.</p>
       <div class="imfr-bar">
