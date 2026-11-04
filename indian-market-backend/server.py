@@ -2161,6 +2161,246 @@ def focus_radar_access():
     return jsonify({"ok": True, "available": True})
 
 
+_focus_radar_cache = {"data": None, "fetched_at": 0}
+FOCUS_RADAR_CACHE_SECONDS = 30
+
+FOCUS_RADAR_STOCKS = [
+    {"symbol": "RELIANCE", "name": "Reliance Industries", "sector": "Energy / Retail"},
+    {"symbol": "HDFCBANK", "name": "HDFC Bank", "sector": "Banking"},
+    {"symbol": "ICICIBANK", "name": "ICICI Bank", "sector": "Banking"},
+    {"symbol": "INFY", "name": "Infosys", "sector": "IT"},
+    {"symbol": "TCS", "name": "Tata Consultancy Services", "sector": "IT"},
+    {"symbol": "TATAMOTORS", "name": "Tata Motors", "sector": "Auto"},
+    {"symbol": "SBIN", "name": "State Bank of India", "sector": "PSU Bank"},
+    {"symbol": "BHARTIARTL", "name": "Bharti Airtel", "sector": "Telecom"},
+    {"symbol": "LT", "name": "Larsen & Toubro", "sector": "Infra"},
+    {"symbol": "AXISBANK", "name": "Axis Bank", "sector": "Banking"},
+    {"symbol": "MARUTI", "name": "Maruti Suzuki", "sector": "Auto"},
+    {"symbol": "KOTAKBANK", "name": "Kotak Mahindra Bank", "sector": "Banking"},
+    {"symbol": "BAJFINANCE", "name": "Bajaj Finance", "sector": "Finance"},
+    {"symbol": "TITAN", "name": "Titan Company", "sector": "Consumer"},
+    {"symbol": "ITC", "name": "ITC Ltd", "sector": "FMCG"},
+    {"symbol": "SUNPHARMA", "name": "Sun Pharma", "sector": "Pharma"},
+    {"symbol": "M&M", "name": "Mahindra & Mahindra", "sector": "Auto"},
+    {"symbol": "TATASTEEL", "name": "Tata Steel", "sector": "Metals"},
+    {"symbol": "HINDUNILVR", "name": "Hindustan Unilever", "sector": "FMCG"},
+    {"symbol": "ADANIENT", "name": "Adani Enterprises", "sector": "Conglomerate"},
+]
+
+
+def scan_single_stock_focus_radar(stock_info):
+    symbol = stock_info["symbol"]
+    name = stock_info["name"]
+    sector = stock_info.get("sector", "")
+    try:
+        snapshot = get_stock_technical_snapshot(symbol)
+    except Exception as error:
+        app.logger.warning("Focus Radar snapshot failed for %s: %s", symbol, error)
+        return None
+
+    if not isinstance(snapshot, dict):
+        return None
+
+    price = snapshot.get("price") or 0.0
+    if not price:
+        return None
+
+    high = snapshot.get("high") or price
+    low = snapshot.get("low") or price
+    open_p = snapshot.get("open") or price
+    prev_close = snapshot.get("previous_close") or open_p
+    volume_ratio = snapshot.get("volume_ratio") or 1.0
+    rsi = snapshot.get("rsi_14") or 50.0
+    ema_9 = snapshot.get("ema_9") or price
+    ema_21 = snapshot.get("ema_21") or price
+    ema_50 = snapshot.get("ema_50") or ema_21
+    vwap = snapshot.get("vwap") or price
+    atr = snapshot.get("atr_14") or max(price * 0.012, 1.0)
+    support = snapshot.get("support") or low
+    resistance = snapshot.get("resistance") or high
+    trend_5m = str(snapshot.get("trend_5m") or "neutral").lower()
+    trend_15m = str(snapshot.get("trend_15m") or "neutral").lower()
+    trend_1h = str(snapshot.get("trend_1h") or "neutral").lower()
+
+    day_change_pct = round(((price - prev_close) / prev_close) * 100, 2) if prev_close else 0.0
+
+    breakout_setup = None
+    swing_setup = None
+
+    # 1. Breakout / Breakdown Scanner
+    if (price >= high * 0.997 or price >= resistance * 0.997) and price > vwap and price > ema_21 and volume_ratio >= 1.15 and rsi >= 50:
+        entry = round(price, 2)
+        sl_base = max(vwap * 0.997, price - max(1.2 * atr, price * 0.008))
+        stop_loss = round(sl_base, 2)
+        risk = max(round(entry - stop_loss, 2), round(price * 0.005, 2))
+        target_1 = round(entry + 1.5 * risk, 2)
+        target_2 = round(entry + 2.5 * risk, 2)
+        risk_pct = round((risk / entry) * 100, 2)
+        breakout_setup = {
+            "symbol": symbol,
+            "name": name,
+            "sector": sector,
+            "type": "BULLISH",
+            "trigger": "Day High / Resistance Breakout",
+            "price": entry,
+            "change_pct": day_change_pct,
+            "entry": entry,
+            "stop_loss": stop_loss,
+            "target_1": target_1,
+            "target_2": target_2,
+            "risk_pct": risk_pct,
+            "rr_ratio": "1:1.5 / 1:2.5",
+            "volume_ratio": volume_ratio,
+            "vwap": round(vwap, 2),
+            "ema_20": round(ema_21, 2),
+            "rsi": round(rsi, 1),
+            "reason": f"Strong buying volume ({volume_ratio}x avg). Price breaking session high above VWAP (₹{round(vwap,2)}) with bullish EMA momentum.",
+        }
+    elif (price <= low * 1.003 or price <= support * 1.003) and price < vwap and price < ema_21 and volume_ratio >= 1.15 and rsi <= 50:
+        entry = round(price, 2)
+        sl_base = min(vwap * 1.003, price + max(1.2 * atr, price * 0.008))
+        stop_loss = round(sl_base, 2)
+        risk = max(round(stop_loss - entry, 2), round(price * 0.005, 2))
+        target_1 = round(entry - 1.5 * risk, 2)
+        target_2 = round(entry - 2.5 * risk, 2)
+        risk_pct = round((risk / entry) * 100, 2)
+        breakout_setup = {
+            "symbol": symbol,
+            "name": name,
+            "sector": sector,
+            "type": "BEARISH",
+            "trigger": "Day Low / Support Breakdown",
+            "price": entry,
+            "change_pct": day_change_pct,
+            "entry": entry,
+            "stop_loss": stop_loss,
+            "target_1": target_1,
+            "target_2": target_2,
+            "risk_pct": risk_pct,
+            "rr_ratio": "1:1.5 / 1:2.5",
+            "volume_ratio": volume_ratio,
+            "vwap": round(vwap, 2),
+            "ema_20": round(ema_21, 2),
+            "rsi": round(rsi, 1),
+            "reason": f"Heavy selling volume ({volume_ratio}x avg). Price cracking session low below VWAP (₹{round(vwap,2)}) with bearish momentum.",
+        }
+
+    # 2. Swing Pullback Scanner (VWAP & 20 EMA Institutional Retest)
+    dist_vwap = abs(price - vwap) / price
+    dist_ema = abs(price - ema_21) / price
+    is_near_retest = (dist_vwap <= 0.008 or dist_ema <= 0.008)
+
+    if is_near_retest:
+        retest_level_name = "VWAP" if dist_vwap <= dist_ema else "20 EMA"
+        retest_val = vwap if dist_vwap <= dist_ema else ema_21
+
+        if (ema_21 >= ema_50 or trend_15m == "bullish" or trend_1h == "bullish") and price >= retest_val * 0.994 and 40 <= rsi <= 64:
+            entry = round(price, 2)
+            sl_base = min(vwap, ema_21) - max(0.8 * atr, price * 0.006)
+            stop_loss = round(sl_base, 2)
+            risk = max(round(entry - stop_loss, 2), round(price * 0.005, 2))
+            target_1 = round(entry + 1.5 * risk, 2)
+            target_2 = round(entry + 2.5 * risk, 2)
+            risk_pct = round((risk / entry) * 100, 2)
+            swing_setup = {
+                "symbol": symbol,
+                "name": name,
+                "sector": sector,
+                "type": "BULLISH",
+                "trigger": f"Bullish Pullback Bounce at {retest_level_name}",
+                "price": entry,
+                "change_pct": day_change_pct,
+                "entry": entry,
+                "stop_loss": stop_loss,
+                "target_1": target_1,
+                "target_2": target_2,
+                "risk_pct": risk_pct,
+                "rr_ratio": "1:1.5 / 1:2.5",
+                "volume_ratio": volume_ratio,
+                "vwap": round(vwap, 2),
+                "ema_20": round(ema_21, 2),
+                "rsi": round(rsi, 1),
+                "reason": f"Uptrend pullback holding institutional support at {retest_level_name} (₹{round(retest_val,2)}). Low-risk entry with stop below support.",
+            }
+        elif (ema_21 <= ema_50 or trend_15m == "bearish" or trend_1h == "bearish") and price <= retest_val * 1.006 and 36 <= rsi <= 60:
+            entry = round(price, 2)
+            sl_base = max(vwap, ema_21) + max(0.8 * atr, price * 0.006)
+            stop_loss = round(sl_base, 2)
+            risk = max(round(stop_loss - entry, 2), round(price * 0.005, 2))
+            target_1 = round(entry - 1.5 * risk, 2)
+            target_2 = round(entry - 2.5 * risk, 2)
+            risk_pct = round((risk / entry) * 100, 2)
+            swing_setup = {
+                "symbol": symbol,
+                "name": name,
+                "sector": sector,
+                "type": "BEARISH",
+                "trigger": f"Bearish Rejection Pullback at {retest_level_name}",
+                "price": entry,
+                "change_pct": day_change_pct,
+                "entry": entry,
+                "stop_loss": stop_loss,
+                "target_1": target_1,
+                "target_2": target_2,
+                "risk_pct": risk_pct,
+                "rr_ratio": "1:1.5 / 1:2.5",
+                "volume_ratio": volume_ratio,
+                "vwap": round(vwap, 2),
+                "ema_20": round(ema_21, 2),
+                "rsi": round(rsi, 1),
+                "reason": f"Downtrend relief rally retesting overhead resistance at {retest_level_name} (₹{round(retest_val,2)}). Selling pressure entry with stop above resistance.",
+            }
+
+    return {"breakout": breakout_setup, "swing": swing_setup}
+
+
+@app.get("/api/owner/focus-radar")
+def focus_radar_scan():
+    denied = require_focus_radar_owner()
+    if denied:
+        return denied
+
+    force_refresh = request.args.get("refresh", "").lower() in {"1", "true"}
+    cached = _focus_radar_cache.get("data")
+    if not force_refresh and cached and (time.time() - _focus_radar_cache.get("fetched_at", 0)) < FOCUS_RADAR_CACHE_SECONDS:
+        return jsonify({"ok": True, "cached": True, **cached})
+
+    breakouts = []
+    swings = []
+    scanned_count = len(FOCUS_RADAR_STOCKS)
+
+    try:
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            results = list(executor.map(scan_single_stock_focus_radar, FOCUS_RADAR_STOCKS))
+
+        for res in results:
+            if not res:
+                continue
+            if res.get("breakout"):
+                breakouts.append(res["breakout"])
+            if res.get("swing"):
+                swings.append(res["swing"])
+
+    except Exception as error:
+        app.logger.warning("Focus Radar bulk scan error: %s", error)
+
+    breakouts.sort(key=lambda x: x.get("volume_ratio", 0), reverse=True)
+    swings.sort(key=lambda x: x.get("volume_ratio", 0), reverse=True)
+
+    session_status = "live" if is_nse_market_hours() else "closed"
+    payload = {
+        "market_status": session_status,
+        "scanned_count": scanned_count,
+        "updated_at": now_utc(),
+        "breakouts": breakouts,
+        "swings": swings,
+    }
+    _focus_radar_cache["data"] = payload
+    _focus_radar_cache["fetched_at"] = time.time()
+
+    return jsonify({"ok": True, **payload})
+
+
 _rrg_quotes_cache = {"data": None, "fetched_at": 0}
 RRG_QUOTES_CACHE_SECONDS = 60
 
