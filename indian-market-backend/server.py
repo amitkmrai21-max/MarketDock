@@ -966,6 +966,19 @@ def classify_trend(candles, fast_period=9, slow_period=21):
     return "neutral"
 
 
+def calculate_range_contraction(candles):
+    """Average candle range of the 5 candles before the latest one divided by that of the 20 before them.
+    Below 1 means the market was quiet (a tight base) just before the latest candle. None if there is not enough history."""
+    if len(candles) < 26:
+        return None
+    base = [c["high"] - c["low"] for c in candles[-6:-1]]
+    prior = [c["high"] - c["low"] for c in candles[-26:-6]]
+    prior_avg = sum(prior) / 20
+    if prior_avg <= 0:
+        return None
+    return round((sum(base) / 5) / prior_avg, 2)
+
+
 def build_technical_snapshot(name, candles_5m):
     """Computes the full technical readout (RSI/EMA/VWAP/MACD/ATR/support-
     resistance/trend/Bollinger/Supertrend/ADX/Stochastic/Pivots) from 5-
@@ -1023,6 +1036,7 @@ def build_technical_snapshot(name, candles_5m):
         "adx": calculate_adx(candles_5m),
         "stochastic": calculate_stochastic(candles_5m),
         "pivot_points": calculate_pivot_points(candles_5m),
+        "range_contraction": calculate_range_contraction(candles_5m),
     }
 
 
@@ -2163,6 +2177,10 @@ def focus_radar_access():
 
 _focus_radar_cache = {"data": None, "fetched_at": 0}
 FOCUS_RADAR_CACHE_SECONDS = 30
+FOCUS_BREAKOUT_MIN_VOLUME = 1.15       # stocks
+FOCUS_BREAKOUT_MIN_VOLUME_MCX = 1.3    # commodities
+FOCUS_BREAKOUT_MAX_RSI = 68            # long breakouts above this are overheated (shorts: below 100 - 68)
+FOCUS_BREAKOUT_MAX_EMA_GAP = 0.03      # price within 3% of the 20 EMA
 
 FOCUS_RADAR_STOCKS = [
     {"symbol": "RELIANCE", "name": "Reliance Industries", "sector": "Energy / Retail"},
@@ -2271,7 +2289,13 @@ def _focus_radar_setups(snapshot, symbol, name, sector):
     swing_setup = None
 
     # 1. Breakout / Breakdown Scanner
-    if (price >= high * 0.997 or price >= resistance * 0.997) and price > vwap and price > ema_21 and volume_ratio >= 1.15 and rsi >= 50:
+    # Commodities need stronger volume than stocks. Both need a tight base just before the move (so a market that
+    # already ran is not chased), price within 3% of the 20 EMA, and an RSI that is not overheated / washed out.
+    min_volume = FOCUS_BREAKOUT_MIN_VOLUME_MCX if sector == "MCX" else FOCUS_BREAKOUT_MIN_VOLUME
+    contraction = snapshot.get("range_contraction")
+    base_is_tight = contraction is not None and contraction < 1.0
+    near_ema = abs(price - ema_21) / ema_21 <= FOCUS_BREAKOUT_MAX_EMA_GAP if ema_21 else False
+    if (price >= high * 0.997 or price >= resistance * 0.997) and price > vwap and price > ema_21 and volume_ratio >= min_volume and 50 <= rsi <= FOCUS_BREAKOUT_MAX_RSI and base_is_tight and near_ema:
         entry = round(price, 2)
         sl_base = max(vwap * 0.997, price - max(1.2 * atr, price * 0.008))
         stop_loss = round(sl_base, 2)
@@ -2299,7 +2323,7 @@ def _focus_radar_setups(snapshot, symbol, name, sector):
             "rsi": round(rsi, 1),
             "reason": f"Strong buying volume ({volume_ratio}x avg). Price breaking session high above VWAP (₹{round(vwap,2)}) with bullish EMA momentum.",
         }
-    elif (price <= low * 1.003 or price <= support * 1.003) and price < vwap and price < ema_21 and volume_ratio >= 1.15 and rsi <= 50:
+    elif (price <= low * 1.003 or price <= support * 1.003) and price < vwap and price < ema_21 and volume_ratio >= min_volume and 100 - FOCUS_BREAKOUT_MAX_RSI <= rsi <= 50 and base_is_tight and near_ema:
         entry = round(price, 2)
         sl_base = min(vwap * 1.003, price + max(1.2 * atr, price * 0.008))
         stop_loss = round(sl_base, 2)
