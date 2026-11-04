@@ -7012,10 +7012,9 @@ body.im-chart-fullscreen-open {
   min-width: 0;
 }
 .im-pos-symbol {
-  color: #0f172a !important;
+  color: var(--im-text, #0f172a) !important;
   font-size: 14px;
   font-weight: 700;
-  color: #ffffff;
   margin-bottom: 6px;
 }
 .im-pos-badges {
@@ -7571,7 +7570,7 @@ body[data-theme="light"] .indian-market-mode #im-pos-funds-available {
   flex: 1;
 }
 .im-pos-card .im-pos-symbol {
-  color: #0f172a !important;
+  color: var(--im-text, #0f172a) !important;
   font-size: 18px;
   font-weight: 800;
   overflow-wrap: anywhere;
