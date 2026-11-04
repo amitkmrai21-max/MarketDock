@@ -7,8 +7,11 @@
   const API = window.MD_API_BASE || "https://api.marketdock.in";
 
   let activeTab = "breakouts"; // 'breakouts' | 'swings'
+  let dirFilter = "all";       // 'all' | 'bullish' | 'bearish'
   let lastData = null;
   let isLoading = false;
+  let indexQuotes = [];
+  const FILTER_LABEL = { all: "All", bullish: "Bullish", bearish: "Bearish" };
 
   async function getOwnerToken() {
     try {
@@ -19,192 +22,158 @@
     }
   }
 
-  // Render Skeleton / Loading state
-  function renderLoading() {
-    body.innerHTML = `
-      <div class="fr-container">
-        <div class="fr-header">
-          <div class="fr-badge-row">
-            <span class="fr-owner-pill">🎯 PRO DOCK • OWNER RADAR</span>
-          </div>
-          <h2 class="fr-title">Focus Radar PRO</h2>
-          <p class="fr-subtitle">Scanning liquid NSE market leaders for institutional Breakouts and VWAP / 20 EMA Pullback setups.</p>
-        </div>
-        <div class="fr-loading-card">
-          <div class="fr-spinner"></div>
-          <div class="fr-loading-text">Scanning liquid NSE markets...</div>
-          <div class="fr-loading-sub">Computing VWAP, 20 EMA, ATR &amp; Volume ratios across 20 liquid leaders.</div>
-        </div>
-      </div>
-    `;
+  // ---------- small helpers ----------
+  const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  const rupee = (value) => {
+    const v = Number(value);
+    return Number.isFinite(v) ? "₹" + v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "--";
+  };
+  const pct = (v, signed) => (Number.isFinite(v) ? (signed && v > 0 ? "+" : "") + v.toFixed(2) + "%" : "--");
+  const agoText = (ts) => {
+    const t = typeof ts === "number" ? ts * 1000 : Date.parse(ts);
+    if (!Number.isFinite(t)) return "just now";
+    const m = Math.max(0, Math.round((Date.now() - t) / 60000));
+    return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`;
+  };
+  const COLOURS = ["#0052cc", "#172b4d", "#00875a", "#de350b", "#5243aa", "#00a3bf", "#ff5630", "#403294"];
+  function avatar(symbol) {
+    let hash = 0;
+    for (const ch of symbol) hash = ch.charCodeAt(0) + ((hash << 5) - hash);
+    return `<span class="imfr-avatar" style="background:${COLOURS[Math.abs(hash) % COLOURS.length]}">${esc(symbol.slice(0, 3))}</span>`;
+  }
+  function step(title, sub, state) { // state: ok | live | wait
+    const mark = state === "ok" ? "✓" : state === "live" ? "⚡" : "⏳";
+    return `<div class="imfr-step is-${state}"><b>${title}</b><i>${mark}</i><small>${sub}</small></div>`;
   }
 
-  // Render Full View
-  function renderView(data) {
-    if (!data) return;
-    const breakouts = data.breakouts || [];
-    const swings = data.swings || [];
-    const isLive = data.market_status === "live";
-
-    const currentList = activeTab === "breakouts" ? breakouts : swings;
-
-    body.innerHTML = `
-      <div class="fr-container">
-        <div class="fr-header">
-          <div class="fr-badge-row">
-            <span class="fr-owner-pill">🎯 PRO DOCK • OWNER RADAR</span>
-            <span class="fr-market-pill ${isLive ? "is-live" : "is-closed"}">
-              ${isLive ? "● NSE Market Live" : "🌙 Market Closed (Last Session Data)"}
-            </span>
-          </div>
-          <div class="fr-title-row">
-            <div>
-              <h2 class="fr-title">Focus Radar PRO</h2>
-              <p class="fr-subtitle">High-probability Breakouts and Institutional VWAP / 20 EMA Pullback setups for liquid NSE Equities.</p>
-            </div>
-            <button type="button" class="fr-refresh-btn" id="frRefreshBtn" ${isLoading ? "disabled" : ""}>
-              <span class="fr-refresh-icon ${isLoading ? "is-spinning" : ""}">↻</span>
-              <span>Refresh Scan</span>
-            </button>
-          </div>
-
-          <div class="fr-tabs">
-            <button type="button" class="fr-tab ${activeTab === "breakouts" ? "is-active" : ""}" data-tab="breakouts">
-              <span>⚡ Breakouts &amp; Breakdowns</span>
-              <span class="fr-tab-count">${breakouts.length}</span>
-            </button>
-            <button type="button" class="fr-tab ${activeTab === "swings" ? "is-active" : ""}" data-tab="swings">
-              <span>🌊 Swing Pullbacks (VWAP &amp; 20 EMA)</span>
-              <span class="fr-tab-count">${swings.length}</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="fr-content">
-          ${currentList.length === 0 ? renderEmptyState() : renderCards(currentList)}
-        </div>
-
-        <div class="fr-disclaimer">
-          ⚠️ <strong>Research &amp; Paper Trading Guidance Only:</strong> Setups are algorithmically identified based on institutional volume, VWAP retests, and EMA alignment. Always confirm with price action and maintain strict stop-loss discipline.
-        </div>
+  // ---------- cards (same look as the CryptoDock Focus Radar; the numbers come from the scanner as before) ----------
+  function card(s) {
+    const bull = s.type === "BULLISH";
+    const change = Number(s.change_pct) || 0;
+    const entry = Number(s.entry), price = Number(s.price);
+    const gain = (v) => (entry ? Math.abs(Number(v) - entry) / entry * 100 : 0);
+    const vr = Number(s.volume_ratio) || 0;
+    const aboveVwap = bull ? price >= Number(s.vwap) : price <= Number(s.vwap);
+    const steps = [
+      step("Volume", `${vr.toFixed(2)}× avg`, vr >= 1.2 ? "live" : "wait"),
+      step("VWAP", `${bull ? "Above" : "Below"} ${rupee(s.vwap)}`, aboveVwap ? "ok" : "wait"),
+      step("RSI", esc(s.rsi), "ok"),
+    ].join("");
+    return `<article class="imfr-card ${bull ? "is-bull" : "is-bear"}" data-symbol="${esc(s.symbol)}">
+      <div class="imfr-head">
+        <span class="imfr-avatar-wrap">${avatar(String(s.symbol))}</span>
+        <div class="imfr-id"><strong>${esc(s.symbol)}<span>·NSE</span></strong><small>${esc(s.name)}${s.sector ? " · " + esc(s.sector) : ""}</small></div>
+        <div class="imfr-px"><b>${rupee(price)}</b><small class="${change >= 0 ? "imfr-up" : "imfr-down"}">${pct(change, true)}</small></div>
       </div>
-    `;
-
-    // Bind tab clicks
-    body.querySelectorAll(".fr-tab").forEach(btn => {
-      btn.addEventListener("click", () => {
-        activeTab = btn.dataset.tab;
-        renderView(lastData);
-      });
-    });
-
-    // Bind refresh click
-    const refreshBtn = document.getElementById("frRefreshBtn");
-    if (refreshBtn) {
-      refreshBtn.addEventListener("click", () => fetchRadarData(true));
-    }
+      <div class="imfr-tags"><span class="imfr-pill">${bull ? "↗ BULLISH BUY · LONG" : "↘ BEARISH · SHORT"}</span><span class="imfr-tag">${esc(s.trigger)}</span></div>
+      <div class="imfr-steps imfr-steps-wide">${steps}</div>
+      <div class="imfr-levels">
+        <div><span>Entry</span><b>${rupee(s.entry)}</b><em></em></div>
+        <div><span>SL</span><b class="imfr-down">${rupee(s.stop_loss)}</b><em class="imfr-down">(−${Number(s.risk_pct).toFixed(1)}%)</em></div>
+        <div><span>Target 1</span><b>${rupee(s.target_1)}</b><em class="imfr-up">(+${gain(s.target_1).toFixed(1)}%)</em></div>
+        <div><span>Target 2</span><b>${rupee(s.target_2)}</b><em class="imfr-up">(+${gain(s.target_2).toFixed(1)}%)</em></div>
+      </div>
+      <small class="imfr-ema"><i>20 EMA</i> <b>${rupee(s.ema_20)}</b></small>
+      ${s.reason ? `<p class="imfr-reason">${esc(s.reason)}</p>` : ""}
+      <div class="imfr-actions">
+        <button type="button" class="imfr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="${esc(s.symbol)}" data-fr-side="${bull ? "buy" : "sell"}" data-fr-price="${esc(s.price)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
+        <button type="button" class="imfr-analysis" data-fr-coin="${esc(s.symbol)}" data-fr-price="${esc(s.price)}">📊 Analysis</button>
+      </div>
+    </article>`;
   }
 
-  function renderEmptyState() {
-    const isBreakout = activeTab === "breakouts";
-    return `
-      <div class="fr-empty-card">
-        <div class="fr-empty-icon">${isBreakout ? "⚡" : "🌊"}</div>
-        <h3 class="fr-empty-title">No Qualifying ${isBreakout ? "Breakout" : "Swing Pullback"} Setups Right Now</h3>
-        <p class="fr-empty-sub">
-          ${isBreakout
-            ? "The scanner requires strong volume expansion (1.15x+) and clean breakout beyond session range above VWAP. Currently, liquid stocks are consolidating."
-            : "The pullback scanner looks for stocks holding precise support at VWAP or 20 EMA with trend alignment. Currently, no qualifying retest is in the entry zone."}
-        </p>
-        <p class="fr-empty-hint">Check the other tab or tap Refresh to re-scan.</p>
-      </div>
-    `;
+  function summary(data) {
+    const row = (name, key) => {
+      const q = indexQuotes.find((x) => String(x.symbol || "").toLowerCase() === key);
+      const c = q ? Number(q.change_percent) : NaN;
+      return Number.isFinite(c) ? `<div><span><i class="${c >= 0 ? "is-up" : "is-down"}"></i>${name}</span> <b class="${c >= 0 ? "imfr-up" : "imfr-down"}">${pct(c, true)}</b></div>` : "";
+    };
+    const live = data.market_status === "live";
+    const sub = live ? `Updated ${agoText(data.updated_at)}` : "Market closed · last session";
+    return `<div class="imfr-summary"><svg class="imfr-radar" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="27"/><circle cx="30" cy="30" r="18"/><circle cx="30" cy="30" r="9"/><path d="M30 30 L52 14"/></svg>
+      <div><b>Scanning ${Number(data.scanned_count) || 0} stocks</b><small>${sub}</small></div><div class="imfr-ticks">${row("NIFTY", "nifty")}${row("BANKNIFTY", "banknifty")}${row("SENSEX", "sensex")}</div></div>`;
   }
 
-  function renderCards(list) {
-    return `<div class="fr-cards-grid">
-      ${list.map(renderCard).join("")}
+  const EMPTY = {
+    breakouts: ["No breakout right now", "No liquid stock is breaking out or down with volume. That is normal; check again later."],
+    swings: ["No swing pullback right now", "No stock is retesting VWAP or the 20 EMA in its entry zone. That is normal; check again later."],
+  };
+
+  function shell(inner, metaText) {
+    const bo = lastData ? (lastData.breakouts || []).length : null;
+    const sw = lastData ? (lastData.swings || []).length : null;
+    const label = (name, n) => `${name}${n === null ? "" : ` (${n})`}`;
+    return `<div class="imfr-page">
+      <div class="imfr-top">
+        <span class="imfr-logo" aria-hidden="true">🎯</span>
+        <div><small>TRADE SMARTER. FASTER.</small></div>
+        <button id="imFrRefresh" class="imfr-iconbtn" type="button" aria-label="Refresh" ${isLoading ? "disabled" : ""}><svg class="imfr-spin" viewBox="0 0 24 24" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
+      </div>
+      <p class="imfr-notice">Owner-only · rule-based filter, not a prediction. Verify the chart and manage risk yourself.</p>
+      <div class="imfr-bar">
+        <div class="imfr-tabs"><button type="button" class="imfr-pilltab ${activeTab === "breakouts" ? "is-active" : ""}" data-fr-tab="breakouts">${label("Breakouts", bo)}</button><button type="button" class="imfr-pilltab ${activeTab === "swings" ? "is-active" : ""}" data-fr-tab="swings">${label("Swings", sw)}</button></div>
+        <button id="imFrFilter" class="imfr-filter" type="button" aria-label="Filter direction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span>${FILTER_LABEL[dirFilter]}</span></button>
+      </div>
+      <p class="imfr-meta">${metaText}</p>
+      <div class="imfr-results" aria-live="polite">${inner}</div>
     </div>`;
   }
 
-  function renderCard(s) {
-    const isBull = s.type === "BULLISH";
-    const changeSign = s.change_pct >= 0 ? "+" : "";
-    const changeClass = s.change_pct >= 0 ? "is-up" : "is-down";
-    const volHigh = (s.volume_ratio || 1) >= 1.2;
-
-    return `
-      <div class="fr-card ${isBull ? "is-bullish" : "is-bearish"}">
-        <div class="fr-card-head">
-          <div class="fr-card-symbol-wrap">
-            <span class="fr-card-symbol">${s.symbol}</span>
-            <span class="fr-card-name">${s.name} ${s.sector ? "• " + s.sector : ""}</span>
-          </div>
-          <div class="fr-card-badges">
-            <span class="fr-dir-pill ${isBull ? "is-bull" : "is-bear"}">
-              ${isBull ? "▲ BULLISH BUY" : "▼ BEARISH SHORT"}
-            </span>
-            <span class="fr-trigger-pill">${s.trigger}</span>
-          </div>
-        </div>
-
-        <div class="fr-price-row">
-          <div class="fr-ltp-wrap">
-            <span class="fr-ltp">₹${Number(s.price).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            <span class="fr-change ${changeClass}">${changeSign}${s.change_pct}%</span>
-          </div>
-          <div class="fr-tech-pills">
-            <span class="fr-tech-pill ${volHigh ? "is-highlight" : ""}">Vol: ${s.volume_ratio}x avg</span>
-            <span class="fr-tech-pill">VWAP: ₹${Number(s.vwap).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-            <span class="fr-tech-pill">20 EMA: ₹${Number(s.ema_20).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
-            <span class="fr-tech-pill">RSI: ${s.rsi}</span>
-          </div>
-        </div>
-
-        <div class="fr-plan-grid">
-          <div class="fr-plan-box is-entry">
-            <div class="fr-box-label">ENTRY LEVEL</div>
-            <div class="fr-box-val">₹${Number(s.entry).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-            <div class="fr-box-sub">Ideal entry price</div>
-          </div>
-          <div class="fr-plan-box is-sl">
-            <div class="fr-box-label">STOP-LOSS</div>
-            <div class="fr-box-val">₹${Number(s.stop_loss).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-            <div class="fr-box-sub">${s.risk_pct}% Risk</div>
-          </div>
-          <div class="fr-plan-box is-tgt">
-            <div class="fr-box-label">TARGET 1</div>
-            <div class="fr-box-val">₹${Number(s.target_1).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-            <div class="fr-box-sub">1:1.5 Risk-Reward</div>
-          </div>
-          <div class="fr-plan-box is-tgt2">
-            <div class="fr-box-label">TARGET 2</div>
-            <div class="fr-box-val">₹${Number(s.target_2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-            <div class="fr-box-sub">1:2.5 Risk-Reward</div>
-          </div>
-        </div>
-
-        <div class="fr-card-reason">
-          <span class="fr-reason-icon">💡</span>
-          <span class="fr-reason-text">${s.reason}</span>
-        </div>
-      </div>
-    `;
+  function renderLoading() {
+    body.innerHTML = shell('<p class="imfr-loading">Scanning liquid NSE stocks… this can take a few seconds.</p>', "Checking market setup…");
   }
+
+  function renderView(data) {
+    if (!data) return;
+    const all = activeTab === "breakouts" ? (data.breakouts || []) : (data.swings || []);
+    const rows = all.filter((s) => dirFilter === "all" || String(s.type).toLowerCase() === dirFilter);
+    const cards = rows.length
+      ? rows.map(card).join("")
+      : `<div class="imfr-empty"><strong>${EMPTY[activeTab][0]}</strong><p>${EMPTY[activeTab][1]}</p></div>`;
+    const note = all.length
+      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST; outside market hours the cards show the last session.</p>' : "";
+    const bull = all.filter((s) => s.type === "BULLISH").length;
+    body.innerHTML = shell(summary(data) + cards + note, `Liquid NSE stocks · ${bull} bullish, ${all.length - bull} bearish`);
+  }
+
+  async function loadIndexQuotes() {
+    try {
+      const r = await fetch(API + "/api/index-quotes");
+      const j = await r.json();
+      if (j && Array.isArray(j.data)) indexQuotes = j.data;
+    } catch (e) { /* the strip just shows no index change */ }
+  }
+
+  // ---------- clicks (the content is re-rendered, so one listener on the page body) ----------
+  const FILTERS = ["all", "bullish", "bearish"];
+  body.addEventListener("click", (event) => {
+    const tabBtn = event.target.closest("[data-fr-tab]");
+    if (tabBtn) { activeTab = tabBtn.dataset.frTab; if (lastData) renderView(lastData); return; }
+    if (event.target.closest("#imFrFilter")) { dirFilter = FILTERS[(FILTERS.indexOf(dirFilter) + 1) % FILTERS.length]; if (lastData) renderView(lastData); return; }
+    if (event.target.closest("#imFrRefresh")) { fetchRadarData(true); return; }
+    const ticket = event.target.closest("[data-fr-ticket]");
+    if (ticket) {
+      const { frTicket: symbol, frSide: side, frPrice: price } = ticket.dataset;
+      window.openImWatchlistActionSheet?.(symbol, Number(price));
+      // The stock sheet is open: tap its own Buy / Sell so the order form opens straight away.
+      document.getElementById(side === "buy" ? "im-action-sheet-buy-btn" : "im-action-sheet-sell-btn")?.click();
+      return;
+    }
+    const analysis = event.target.closest("[data-fr-coin]");
+    if (analysis) window.openImWatchlistActionSheet?.(analysis.dataset.frCoin, Number(analysis.dataset.frPrice));
+  });
 
   async function fetchRadarData(force = false) {
     if (isLoading) return;
     isLoading = true;
+    page.classList.add("is-loading"); // the target and the refresh arrow spin until the result shows
+    const minSpin = new Promise((resolve) => setTimeout(resolve, 800));
     if (!lastData) renderLoading();
-    else {
-      const btn = document.getElementById("frRefreshBtn");
-      if (btn) btn.querySelector(".fr-refresh-icon")?.classList.add("is-spinning");
-    }
 
     try {
       const token = await getOwnerToken();
       if (!token) {
-        body.innerHTML = `<div class="fr-error-card">Please sign in with your owner account to access Focus Radar.</div>`;
+        body.innerHTML = shell(`<p class="imfr-error">Please sign in with your owner account to access Focus Radar.</p>`, "Scan unavailable");
         return;
       }
 
@@ -213,7 +182,7 @@
       });
 
       if (res.status === 401 || res.status === 403) {
-        body.innerHTML = `<div class="fr-error-card">Focus Radar is locked. It is available only for the owner account.</div>`;
+        body.innerHTML = shell(`<p class="imfr-error">Focus Radar is locked. It is available only for the owner account.</p>`, "Scan unavailable");
         return;
       }
 
@@ -221,27 +190,20 @@
         throw new Error("Scan request failed");
       }
 
-      const data = await res.json();
+      const [data] = await Promise.all([res.json(), loadIndexQuotes(), minSpin]);
       if (data.ok) {
         lastData = data;
         renderView(data);
       } else {
-        body.innerHTML = `<div class="fr-error-card">${data.error || "Could not complete scan right now."}</div>`;
+        body.innerHTML = shell(`<p class="imfr-error">${esc(data.error || "Could not complete scan right now.")}</p>`, "Scan unavailable");
       }
     } catch (err) {
       if (!lastData) {
-        body.innerHTML = `
-          <div class="fr-error-card">
-            <p>Could not connect to Focus Radar scanner.</p>
-            <button type="button" class="fr-retry-btn" id="frRetryBtn">Retry</button>
-          </div>
-        `;
-        document.getElementById("frRetryBtn")?.addEventListener("click", () => fetchRadarData(true));
+        body.innerHTML = shell('<p class="imfr-error">Could not connect to Focus Radar scanner. Tap the refresh arrow to try again.</p>', "Scan unavailable");
       }
     } finally {
       isLoading = false;
-      const btn = document.getElementById("frRefreshBtn");
-      if (btn) btn.querySelector(".fr-refresh-icon")?.classList.remove("is-spinning");
+      page.classList.remove("is-loading");
     }
   }
 
