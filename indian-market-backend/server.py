@@ -2361,7 +2361,7 @@ def _focus_radar_setups(snapshot, symbol, name, sector):
         retest_level_name = "VWAP" if dist_vwap <= dist_ema else "20 EMA"
         retest_val = vwap if dist_vwap <= dist_ema else ema_21
 
-        if (ema_21 >= ema_50 or trend_15m == "bullish" or trend_1h == "bullish") and price >= retest_val * 0.994 and 40 <= rsi <= 64:
+        if (ema_21 >= ema_50 or trend_15m == "bullish" or trend_1h == "bullish") and price >= retest_val * 0.994 and 40 <= rsi <= 65:
             entry = round(price, 2)
             sl_base = min(vwap, ema_21) - max(0.8 * atr, price * 0.006)
             stop_loss = round(sl_base, 2)
@@ -2389,7 +2389,7 @@ def _focus_radar_setups(snapshot, symbol, name, sector):
                 "rsi": round(rsi, 1),
                 "reason": f"Uptrend pullback holding institutional support at {retest_level_name} (₹{round(retest_val,2)}). Low-risk entry with stop below support.",
             }
-        elif (ema_21 <= ema_50 or trend_15m == "bearish" or trend_1h == "bearish") and price <= retest_val * 1.006 and 36 <= rsi <= 60:
+        elif (ema_21 <= ema_50 or trend_15m == "bearish" or trend_1h == "bearish") and price <= retest_val * 1.006 and 35 <= rsi <= 60:
             entry = round(price, 2)
             sl_base = max(vwap, ema_21) + max(0.8 * atr, price * 0.006)
             stop_loss = round(sl_base, 2)
