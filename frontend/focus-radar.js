@@ -97,13 +97,19 @@
     const rsiNum = Number(s.rsi);
     const volOk = vr >= minVol;
     const vwapOk = bull ? price >= Number(s.vwap) : price <= Number(s.vwap);
-    const rsiOk = Number.isFinite(rsiNum) && (bull ? rsiNum >= 50 && rsiNum <= 68 : rsiNum >= 32 && rsiNum <= 50);
-    const confirmed = volOk && vwapOk && rsiOk;
+    // MCX swing pullbacks: a dip normally has LOW volume and RSI near 40-45, so the breakout lock (1.3x volume, price beyond
+    // VWAP, RSI 50-68) would block every pullback. For them Entry, SL, targets and the ticket show straight away and RSI
+    // only has to sit in the pullback band (40-65 long, 35-60 short). Volume and VWAP are still shown as information.
+    const pullbackFree = activeTab === "swings" && s.market === "mcx";
+    const rsiOk = Number.isFinite(rsiNum) && (pullbackFree
+      ? (bull ? rsiNum >= 40 && rsiNum <= 65 : rsiNum >= 35 && rsiNum <= 60)
+      : (bull ? rsiNum >= 50 && rsiNum <= 68 : rsiNum >= 32 && rsiNum <= 50));
+    const confirmed = pullbackFree || (volOk && vwapOk && rsiOk);
     const missing = [!volOk && "Volume", !vwapOk && "VWAP", !rsiOk && "RSI"].filter(Boolean);
     const steps = [
-      step("Volume", volOk ? `${vr.toFixed(2)}× avg` : `${vr.toFixed(2)}× · need ${minVol}×`, volOk ? "ok" : "wait"),
+      step("Volume", volOk || pullbackFree ? `${vr.toFixed(2)}× avg` : `${vr.toFixed(2)}× · need ${minVol}×`, volOk ? "ok" : "wait"),
       step("VWAP", `${bull ? "Above" : "Below"} ${rupee(s.vwap)}`, vwapOk ? "ok" : "wait"),
-      step("RSI", rsiOk ? esc(s.rsi) : `${esc(s.rsi)} · need ${bull ? "50-68" : "32-50"}`, rsiOk ? "ok" : "wait"),
+      step("RSI", rsiOk ? esc(s.rsi) : `${esc(s.rsi)} · need ${pullbackFree ? (bull ? "40-65" : "35-60") : (bull ? "50-68" : "32-50")}`, rsiOk ? "ok" : "wait"),
     ].join("");
     const details = confirmed ? `
       <div class="imfr-levels">
@@ -183,7 +189,7 @@
       ? rows.map(card).join("")
       : `<div class="imfr-empty"><strong>${EMPTY[activeTab][0]}</strong><p>${EMPTY[activeTab][1]}</p></div>`;
     const note = all.length
-      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. A card shows Entry, SL and targets only when Volume, VWAP and RSI all confirm. Breakouts also need a tight base before the move, price within 3% of the 20 EMA, RSI not overheated and, for commodities, 1.3× volume. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST and MCX until late evening; outside market hours the cards show the last session. Commodity cards trade the current MCX futures contract.</p>' : "";
+      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. Breakout cards and NSE swing cards show Entry, SL and targets only when Volume, VWAP and RSI all confirm; MCX swing pullbacks show them straight away (RSI 40-65 long, 35-60 short). Breakouts also need a tight base before the move, price within 3% of the 20 EMA, RSI not overheated and, for commodities, 1.3× volume. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST and MCX until late evening; outside market hours the cards show the last session. Commodity cards trade the current MCX futures contract.</p>' : "";
     const bull = all.filter((s) => s.type === "BULLISH").length;
     body.innerHTML = shell(summary(data) + cards + note, `${bull} bullish, ${all.length - bull} bearish`);
   }
