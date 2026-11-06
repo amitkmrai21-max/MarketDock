@@ -979,6 +979,38 @@ def calculate_range_contraction(candles):
     return round((sum(base) / 5) / prior_avg, 2)
 
 
+def calculate_adx_wilder(candles, period=14):
+    """ADX(14) with Wilder smoothing (the TradingView / CryptoDock Catch Accuracy way). Returns None without enough candles."""
+    if len(candles) < period * 3:
+        return None
+    plus, minus, tr = [], [], []
+    for i in range(1, len(candles)):
+        up = candles[i]["high"] - candles[i - 1]["high"]
+        down = candles[i - 1]["low"] - candles[i]["low"]
+        plus.append(up if up > down and up > 0 else 0.0)
+        minus.append(down if down > up and down > 0 else 0.0)
+        pc = candles[i - 1]["close"]
+        tr.append(max(candles[i]["high"] - candles[i]["low"], abs(candles[i]["high"] - pc), abs(candles[i]["low"] - pc)))
+
+    def wilder(values):
+        out = [sum(values[:period]) / period]
+        for v in values[period:]:
+            out.append((out[-1] * (period - 1) + v) / period)
+        return out
+
+    s_tr, s_p, s_m = wilder(tr), wilder(plus), wilder(minus)
+    dx = []
+    for t, p_, m_ in zip(s_tr, s_p, s_m):
+        if not t:
+            dx.append(0.0)
+            continue
+        pdi, mdi = 100 * p_ / t, 100 * m_ / t
+        dx.append(0.0 if pdi + mdi == 0 else 100 * abs(pdi - mdi) / (pdi + mdi))
+    if len(dx) < period:
+        return None
+    return round(wilder(dx)[-1], 1)
+
+
 def build_technical_snapshot(name, candles_5m):
     """Computes the full technical readout (RSI/EMA/VWAP/MACD/ATR/support-
     resistance/trend/Bollinger/Supertrend/ADX/Stochastic/Pivots) from 5-
@@ -1034,6 +1066,7 @@ def build_technical_snapshot(name, candles_5m):
         "bollinger_bands": calculate_bollinger_bands(closes),
         "supertrend": calculate_supertrend(candles_5m),
         "adx": calculate_adx(candles_5m),
+        "adx_1h": calculate_adx_wilder(candles_1h),
         "stochastic": calculate_stochastic(candles_5m),
         "pivot_points": calculate_pivot_points(candles_5m),
         "range_contraction": calculate_range_contraction(candles_5m),
@@ -2421,6 +2454,7 @@ def _focus_radar_setups(snapshot, symbol, name, sector):
     for setup in (breakout_setup, swing_setup):
         if setup:
             setup["ema_50"] = round(ema_50, 2)
+            setup["adx"] = snapshot.get("adx_1h")
     return {"breakout": breakout_setup, "swing": swing_setup}
 
 
