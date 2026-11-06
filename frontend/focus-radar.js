@@ -8,10 +8,9 @@
 
   let activeTab = "swings";     // 'swings' | 'breakouts' (Swings is the first tab)
   let dirFilter = "all";       // 'all' | 'bullish' | 'bearish'
-  const MIN_VOLUME = 1.15, MIN_VOLUME_MCX = 1.3; // the same limits the scanner uses for breakouts
-  let segment = "all";         // 'all' | 'nse' | 'mcx'
-  const SEGMENTS = [["all", "All"], ["nse", "NSE Stocks"], ["mcx", "MCX Commodities"]];
-  const inSegment = (s) => segment === "all" || (segment === "mcx") === (s.market === "mcx");
+  const MIN_VOLUME = 1.15; // the same limit the scanner uses for breakouts
+  // Stocks only: the MCX commodity setups live on their own page (Commodity Radar).
+  const inSegment = (s) => s.market !== "mcx";
   let lastData = null;
   let isLoading = false;
   let indexQuotes = [];
@@ -47,15 +46,7 @@
     return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`;
   };
   const COLOURS = ["#0052cc", "#172b4d", "#00875a", "#de350b", "#5243aa", "#00a3bf", "#ff5630", "#403294"];
-  const COMMODITY_ICONS = {
-    gold: ["🪙", "#b45309"], silver: ["🥈", "#475569"], crudeoil: ["🛢️", "#991b1b"], naturalgas: ["⚡", "#1d4ed8"],
-    copper: ["🔶", "#c2410c"], zinc: ["⚙️", "#6d28d9"], aluminium: ["🪨", "#0f766e"],
-  };
-  function avatar(symbol, s) {
-    if (s && s.market === "mcx") {
-      const [icon, bg] = COMMODITY_ICONS[s.commodity_key] || ["📦", "#334155"];
-      return `<span class="imfr-avatar" style="background:${bg};font-size:16px">${icon}</span>`;
-    }
+  function avatar(symbol) {
     let hash = 0;
     for (const ch of symbol) hash = ch.charCodeAt(0) + ((hash << 5) - hash);
     return `<span class="imfr-avatar" style="background:${COLOURS[Math.abs(hash) % COLOURS.length]}">${esc(symbol.slice(0, 3))}</span>`;
@@ -65,23 +56,9 @@
     return `<div class="imfr-step is-${state}"><b>${title}</b><i>${mark}</i><small>${sub}</small></div>`;
   }
 
-  // Commodity cards trade the real current MCX contract (e.g. CRUDEOIL26DECFUT), stocks trade the NSE symbol.
-  function orderData(s) {
-    return s.market === "mcx"
-      ? ` data-fr-mcx="1" data-fr-order="${esc(s.trading_symbol)}" data-fr-key="${esc(s.commodity_key)}" data-fr-cname="${esc(s.commodity_name)}" data-fr-lot="${esc(s.lot_size ?? "")}" data-fr-chg="${esc(s.change_pct ?? "")}"`
-      : ` data-fr-order="${esc(s.symbol)}"`;
-  }
+  const orderData = (s) => ` data-fr-order="${esc(s.symbol)}"`;
   function openSheet(el, price) {
-    const d = el.dataset;
-    if (d.frMcx) {
-      const base = String(d.frOrder).replace(/\d{2}[A-Z]{3}FUT$/, "");
-      window.openImWatchlistActionSheet?.(d.frOrder, price, {
-        chartSymbol: `MCX:${base}1!`, isCommodity: true, changePercent: Number(d.frChg), lotSize: Number(d.frLot) || undefined,
-        commodityKey: d.frKey, commodityName: d.frCname,
-      });
-    } else {
-      window.openImWatchlistActionSheet?.(d.frOrder, price);
-    }
+    window.openImWatchlistActionSheet?.(el.dataset.frOrder, price);
   }
 
   // ---------- cards (same look as the CryptoDock Focus Radar; the numbers come from the scanner as before) ----------
@@ -92,24 +69,17 @@
     const gain = (v) => (entry ? Math.abs(Number(v) - entry) / entry * 100 : 0);
     const vr = Number(s.volume_ratio) || 0;
     // Entry, SL and targets (and the paper ticket) show only when all three confirm:
-    // volume (1.15x for stocks, 1.3x for commodities), price on the right side of VWAP, RSI in the direction's band.
-    const minVol = s.market === "mcx" ? MIN_VOLUME_MCX : MIN_VOLUME;
+    // volume (1.15x), price on the right side of VWAP, RSI in the direction's band.
     const rsiNum = Number(s.rsi);
-    const volOk = vr >= minVol;
+    const volOk = vr >= MIN_VOLUME;
     const vwapOk = bull ? price >= Number(s.vwap) : price <= Number(s.vwap);
-    // MCX swing pullbacks: a dip normally has LOW volume and RSI near 40-45, so the breakout lock (1.3x volume, price beyond
-    // VWAP, RSI 50-68) would block every pullback. For them Entry, SL, targets and the ticket show straight away and RSI
-    // only has to sit in the pullback band (40-65 long, 35-60 short). Volume and VWAP are still shown as information.
-    const pullbackFree = activeTab === "swings" && s.market === "mcx";
-    const rsiOk = Number.isFinite(rsiNum) && (pullbackFree
-      ? (bull ? rsiNum >= 40 && rsiNum <= 65 : rsiNum >= 35 && rsiNum <= 60)
-      : (bull ? rsiNum >= 50 && rsiNum <= 68 : rsiNum >= 32 && rsiNum <= 50));
-    const confirmed = pullbackFree || (volOk && vwapOk && rsiOk);
+    const rsiOk = Number.isFinite(rsiNum) && (bull ? rsiNum >= 50 && rsiNum <= 68 : rsiNum >= 32 && rsiNum <= 50);
+    const confirmed = volOk && vwapOk && rsiOk;
     const missing = [!volOk && "Volume", !vwapOk && "VWAP", !rsiOk && "RSI"].filter(Boolean);
     const steps = [
-      step("Volume", volOk || pullbackFree ? `${vr.toFixed(2)}× avg` : `${vr.toFixed(2)}× · need ${minVol}×`, volOk ? "ok" : "wait"),
+      step("Volume", volOk ? `${vr.toFixed(2)}× avg` : `${vr.toFixed(2)}× · need ${MIN_VOLUME}×`, volOk ? "ok" : "wait"),
       step("VWAP", `${bull ? "Above" : "Below"} ${rupee(s.vwap)}`, vwapOk ? "ok" : "wait"),
-      step("RSI", rsiOk ? esc(s.rsi) : `${esc(s.rsi)} · need ${pullbackFree ? (bull ? "40-65" : "35-60") : (bull ? "50-68" : "32-50")}`, rsiOk ? "ok" : "wait"),
+      step("RSI", rsiOk ? esc(s.rsi) : `${esc(s.rsi)} · need ${bull ? "50-68" : "32-50"}`, rsiOk ? "ok" : "wait"),
     ].join("");
     const details = confirmed ? `
       <div class="imfr-levels">
@@ -125,8 +95,8 @@
       ? `<button type="button" class="imfr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="1"${orderData(s)} data-fr-side="${bull ? "buy" : "sell"}" data-fr-price="${esc(s.price)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>` : "";
     return `<article class="imfr-card ${bull ? "is-bull" : "is-bear"}" data-symbol="${esc(s.symbol)}">
       <div class="imfr-head">
-        <span class="imfr-avatar-wrap">${avatar(String(s.symbol), s)}</span>
-        <div class="imfr-id"><strong>${esc(s.symbol)}<span>·${s.market === "mcx" ? "MCX" : "NSE"}</span></strong><small>${s.market === "mcx" ? esc(s.trading_symbol || s.name) : esc(s.name) + (s.sector ? " · " + esc(s.sector) : "")}</small></div>
+        <span class="imfr-avatar-wrap">${avatar(String(s.symbol))}</span>
+        <div class="imfr-id"><strong>${esc(s.symbol)}<span>·NSE</span></strong><small>${esc(s.name) + (s.sector ? " · " + esc(s.sector) : "")}</small></div>
         <div class="imfr-px"><b>${rupee(price)}</b><small class="${change >= 0 ? "imfr-up" : "imfr-down"}">${pct(change, true)}</small></div>
       </div>
       <div class="imfr-tags"><span class="imfr-pill">${bull ? "↗ BULLISH BUY · LONG" : "↘ BEARISH · SHORT"}</span><span class="imfr-tag">${esc(s.trigger)}</span></div>
@@ -145,15 +115,15 @@
       const c = q ? Number(q.change_percent) : NaN;
       return Number.isFinite(c) ? `<div><span><i class="${c >= 0 ? "is-up" : "is-down"}"></i>${name}</span> <b class="${c >= 0 ? "imfr-up" : "imfr-down"}">${pct(c, true)}</b></div>` : "";
     };
-    const live = data.market_status === "live" || data.mcx_status === "live";
+    const live = data.market_status === "live";
     const sub = live ? `Updated ${agoText(data.updated_at)}` : "Market closed · last session";
     return `<div class="imfr-summary"><svg class="imfr-radar" viewBox="0 0 60 60" aria-hidden="true"><circle cx="30" cy="30" r="27"/><circle cx="30" cy="30" r="18"/><circle cx="30" cy="30" r="9"/><path d="M30 30 L52 14"/></svg>
-      <div><b>Scanning ${Number(data.scanned_count) || 0} markets</b><small>${sub}</small></div><div class="imfr-ticks">${row("NIFTY", "nifty")}${row("BANKNIFTY", "banknifty")}${row("SENSEX", "sensex")}</div></div>`;
+      <div><b>Scanning ${Number(data.stocks_count ?? data.scanned_count) || 0} stocks</b><small>${sub}</small></div><div class="imfr-ticks">${row("NIFTY", "nifty")}${row("BANKNIFTY", "banknifty")}${row("SENSEX", "sensex")}</div></div>`;
   }
 
   const EMPTY = {
-    breakouts: ["No breakout right now", "No stock or commodity is breaking out or down with volume. That is normal; check again later."],
-    swings: ["No swing pullback right now", "No stock or commodity is retesting VWAP or the 20 EMA in its entry zone. That is normal; check again later."],
+    breakouts: ["No breakout right now", "No stock is breaking out or down with volume. That is normal; check again later."],
+    swings: ["No swing pullback right now", "No stock is retesting VWAP or the 20 EMA in its entry zone. That is normal; check again later."],
   };
 
   function shell(inner, metaText) {
@@ -171,14 +141,13 @@
         <div class="imfr-tabs"><button type="button" class="imfr-pilltab ${activeTab === "swings" ? "is-active" : ""}" data-fr-tab="swings">${label("Swings", sw)}</button><button type="button" class="imfr-pilltab ${activeTab === "breakouts" ? "is-active" : ""}" data-fr-tab="breakouts">${label("Breakouts", bo)}</button></div>
         <button id="imFrFilter" class="imfr-filter" type="button" aria-label="Filter direction"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span>${FILTER_LABEL[dirFilter]}</span></button>
       </div>
-      <div class="imfr-seg">${SEGMENTS.map(([k, t]) => `<button type="button" class="imfr-segbtn ${segment === k ? "is-active" : ""}" data-fr-seg="${k}">${t}</button>`).join("")}</div>
       <p class="imfr-meta">${metaText}</p>
       <div class="imfr-results" aria-live="polite">${inner}</div>
     </div>`;
   }
 
   function renderLoading() {
-    body.innerHTML = shell('<p class="imfr-loading">Scanning NSE stocks and MCX commodities… this can take a few seconds.</p>', "Checking market setup…");
+    body.innerHTML = shell('<p class="imfr-loading">Scanning NSE stocks… this can take a few seconds.</p>', "Checking market setup…");
   }
 
   function renderView(data) {
@@ -189,7 +158,7 @@
       ? rows.map(card).join("")
       : `<div class="imfr-empty"><strong>${EMPTY[activeTab][0]}</strong><p>${EMPTY[activeTab][1]}</p></div>`;
     const note = all.length
-      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. Breakout cards and NSE swing cards show Entry, SL and targets only when Volume, VWAP and RSI all confirm; MCX swing pullbacks show them straight away (RSI 40-65 long, 35-60 short). Breakouts also need a tight base before the move, price within 3% of the 20 EMA, RSI not overheated and, for commodities, 1.3× volume. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST and MCX until late evening; outside market hours the cards show the last session. Commodity cards trade the current MCX futures contract.</p>' : "";
+      ? '<p class="imfr-note">Research and paper trading guidance only. Setups come from volume, VWAP and 20 EMA rules, not a prediction. A card shows Entry, SL and targets only when Volume, VWAP and RSI all confirm. Breakouts also need a tight base before the move, price within 3% of the 20 EMA and an RSI that is not overheated. Confirm with the chart and keep your stop-loss. NSE trades 9:15 to 15:30 IST; outside market hours the cards show the last session. Commodities are on their own page, Commodity Radar.</p>' : "";
     const bull = all.filter((s) => s.type === "BULLISH").length;
     body.innerHTML = shell(summary(data) + cards + note, `${bull} bullish, ${all.length - bull} bearish`);
   }
@@ -205,8 +174,6 @@
   // ---------- clicks (the content is re-rendered, so one listener on the page body) ----------
   const FILTERS = ["all", "bullish", "bearish"];
   body.addEventListener("click", (event) => {
-    const segBtn = event.target.closest("[data-fr-seg]");
-    if (segBtn) { segment = segBtn.dataset.frSeg; if (lastData) renderView(lastData); return; }
     const tabBtn = event.target.closest("[data-fr-tab]");
     if (tabBtn) { activeTab = tabBtn.dataset.frTab; if (lastData) renderView(lastData); return; }
     if (event.target.closest("#imFrFilter")) { dirFilter = FILTERS[(FILTERS.indexOf(dirFilter) + 1) % FILTERS.length]; if (lastData) renderView(lastData); return; }
