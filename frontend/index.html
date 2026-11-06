@@ -40,7 +40,7 @@
   <link rel="stylesheet" href="/frontend/positions-ui.css?v=20261105-pos-5">
   <link rel="stylesheet" href="/frontend/settings.css?v=20261109-active-1">
   <link rel="stylesheet" href="/frontend/news.css?v=20261108-news-4">
-  <link rel="stylesheet" href="/frontend/focus-radar.css?v=20261104-radar-pro-v10">
+  <link rel="stylesheet" href="/frontend/focus-radar.css?v=20261106-cr-2">
   <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.2.0/chartjs-plugin-zoom.min.js"></script>
@@ -493,6 +493,11 @@
         <button class="nav-button" data-page="im-focus-radar" type="button" hidden>
           <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-6"/></svg></span>
           Focus Radar
+        </button>
+
+        <button class="nav-button" data-page="im-commodity-radar" type="button" hidden>
+          <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
+          Commodity Radar
         </button>
 
         <button class="nav-button website-settings-nav" data-open-settings type="button">
@@ -1440,6 +1445,10 @@
 
       <section class="page" id="im-focus-radar">
         <div id="imFrBody"></div>
+      </section>
+
+      <section class="page" id="im-commodity-radar">
+        <div id="imCrBody"></div>
       </section>
 
       <section class="page" id="im-alerts">
@@ -3431,6 +3440,7 @@
   <script defer src="/frontend/tabbar.js?v=20261029-tabbar-2"></script>
   <script defer src="/frontend/news.js?v=20261108-news-2"></script>
   <script defer src="/frontend/focus-radar.js?v=20261104-radar-pro-v10"></script>
+  <script defer src="/frontend/commodity-radar.js?v=20261106-cr-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {

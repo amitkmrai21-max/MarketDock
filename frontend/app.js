@@ -4900,6 +4900,10 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       title: "Focus Radar",
       subtitle: ""
     },
+    "im-commodity-radar": {
+      title: "Commodity Radar",
+      subtitle: ""
+    },
     "im-news": {
       title: "Market News",
       subtitle: "Latest Indian equity-market headlines from financial publishers."
