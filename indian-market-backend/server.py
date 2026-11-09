@@ -2511,6 +2511,423 @@ def focus_radar_scan():
 
     return jsonify({"ok": True, **payload})
 
+# ==============================================================================
+# SMART MTF CONFLUENCE ENGINE (Owner only: amitkmrai21@gmail.com)
+# Multi-timeframe confluence: 1W turning points + 1D S/R structure +
+# 1H Fib Golden Pocket (0.50-0.618 OTE) & ADX + 15m Rejection Trigger
+# Covers both Indian Market Equities (NSE) and Commodities (MCX)
+# ==============================================================================
+
+_smart_mtf_cache = {"data": None, "fetched_at": 0}
+SMART_MTF_CACHE_SECONDS = 30
+
+
+def _smart_mtf_pivots(candles, window=1):
+    high_pivots = []
+    low_pivots = []
+    if not candles or len(candles) < (window * 2 + 1):
+        return high_pivots, low_pivots
+    for i in range(window, len(candles) - window):
+        c = candles[i]
+        high_val = c["high"] if isinstance(c, dict) else c[2]
+        low_val = c["low"] if isinstance(c, dict) else c[3]
+        is_high = all(high_val >= (candles[j]["high"] if isinstance(candles[j], dict) else candles[j][2]) for j in range(i - window, i + window + 1) if j != i)
+        is_low = all(low_val <= (candles[j]["low"] if isinstance(candles[j], dict) else candles[j][3]) for j in range(i - window, i + window + 1) if j != i)
+        if is_high:
+            high_pivots.append(round(high_val, 2))
+        if is_low:
+            low_pivots.append(round(low_val, 2))
+    return high_pivots, low_pivots
+
+
+def _smart_mtf_confluence_core(candles_1w, candles_1d, candles_1h, candles_15m, benchmark_bias, live_price, market_type="nse"):
+    if not candles_1h or len(candles_1h) < 15 or live_price <= 0:
+        return None
+
+    h_closes = [c["close"] for c in candles_1h]
+    h_highs = [c["high"] for c in candles_1h]
+    h_lows = [c["low"] for c in candles_1h]
+
+    adx_val = calculate_adx_wilder(candles_1h, 14)
+    if adx_val is None:
+        try:
+            adx_val = (calculate_adx(candles_1h, 14) or {}).get("adx", 16.0)
+        except Exception:
+            adx_val = 16.0
+
+    if adx_val < 13:
+        return None
+
+    ema20_list = ema_series(h_closes, min(len(h_closes), 20))
+    h_ema20 = ema20_list[-1] if ema20_list else h_closes[-1]
+    ema50_list = ema_series(h_closes, min(len(h_closes), 50))
+    h_ema50 = ema50_list[-1] if ema50_list else h_ema20
+
+    side = None
+    if h_ema20 >= h_ema50 and benchmark_bias != "bearish":
+        side = "bullish"
+    elif h_ema20 < h_ema50 and benchmark_bias != "bullish":
+        side = "bearish"
+    elif benchmark_bias == "neutral":
+        if h_ema20 >= h_ema50 and adx_val >= 16:
+            side = "bullish"
+        elif h_ema20 < h_ema50 and adx_val >= 16:
+            side = "bearish"
+
+    if not side:
+        return None
+
+    lookback = min(len(candles_1h), 45)
+    window = candles_1h[-lookback:]
+    swing_low = min(c["low"] for c in window)
+    swing_high = max(c["high"] for c in window)
+    diff = swing_high - swing_low
+    if diff <= 0 or (diff / swing_low) < 0.008:
+        return None
+
+    w_highs, w_lows = _smart_mtf_pivots(candles_1w, 1) if candles_1w and len(candles_1w) >= 5 else ([], [])
+    d_highs, d_lows = _smart_mtf_pivots(candles_1d, 1) if candles_1d and len(candles_1d) >= 8 else ([], [])
+    last_1h = candles_1h[-1]
+
+    if side == "bullish":
+        retrace = (swing_high - live_price) / diff
+        if not (0.30 <= retrace <= 0.82):
+            low_retrace = (swing_high - last_1h["low"]) / diff
+            if not (0.30 <= low_retrace <= 0.82 and live_price > last_1h["low"]):
+                return None
+
+        fib_50 = swing_high - 0.500 * diff
+        fib_618 = swing_high - 0.618 * diff
+        fib_786 = swing_high - 0.786 * diff
+
+        w_support = [l for l in w_lows if l <= live_price * 1.05]
+        nearest_w = max(w_support) if w_support else swing_low
+        d_support = [l for l in d_lows if l <= live_price * 1.03]
+        nearest_d = max(d_support) if d_support else fib_618
+
+        recent_15m = candles_15m[-4:] if candles_15m else []
+        has_wick = False
+        rejection_wick_px = fib_786
+        for c in recent_15m:
+            c_range = c["high"] - c["low"]
+            lower_wick = min(c["open"], c["close"]) - c["low"]
+            if c_range > 0 and (lower_wick / c_range) >= 0.20:
+                has_wick = True
+                rejection_wick_px = c["low"]
+                break
+            if c["close"] > c["open"] and c["low"] <= fib_50:
+                has_wick = True
+                rejection_wick_px = min(c["open"], c["low"])
+                break
+
+        trigger_state = "CONFIRMED" if has_wick else "IN ZONE"
+        stop = round(min(rejection_wick_px, fib_786) * 0.995, 2)
+        risk = max(round(live_price - stop, 2), round(live_price * 0.004, 2))
+        risk_pct = round((risk / live_price) * 100, 2)
+        if risk_pct > 3.8:
+            return None
+
+        t1 = round(swing_high, 2)
+        t2 = round(swing_high + 0.618 * diff, 2)
+        rr1 = round((t1 - live_price) / risk, 1) if risk > 0 else 1.5
+        rr2 = round((t2 - live_price) / risk, 1) if risk > 0 else 2.5
+        if rr1 < 1.0:
+            return None
+
+        return {
+            "type": "BULLISH",
+            "side": "bullish",
+            "trigger_state": trigger_state,
+            "has_wick": has_wick,
+            "price": round(live_price, 2),
+            "entry": round(live_price, 2),
+            "stop_loss": stop,
+            "target_1": t1,
+            "target_2": t2,
+            "risk_pct": risk_pct,
+            "rr_ratio": f"1:{rr1} / 1:{rr2}",
+            "rr1": rr1,
+            "rr2": rr2,
+            "adx": round(adx_val, 1),
+            "ema_20": round(h_ema20, 2),
+            "ema_50": round(h_ema50, 2),
+            "fib_zone": f"{int(retrace*100)}% Retrace (0.50–0.618 Golden Pocket)",
+            "fib_level": round(fib_618, 2),
+            "w_level": round(nearest_w, 2),
+            "d_level": round(nearest_d, 2),
+            "swing_low": round(swing_low, 2),
+            "swing_high": round(swing_high, 2),
+            "trigger": "15m Rejection Wick Confirmed" if has_wick else "In 1H Golden Pocket Retrace",
+            "reason": f"Multi-timeframe bullish alignment: 1H trend holding above 50 EMA with ADX {round(adx_val,1)}, price in Fib Golden Pocket near Daily S/R ₹{round(nearest_d,2)}." + (" 15m rejection confirmed." if has_wick else " Waiting for 15m rejection trigger."),
+            "checks": {
+                "w_turn": True,
+                "d_trend": True,
+                "fib_zone": True,
+                "trigger_15m": has_wick
+            }
+        }
+    else:  # bearish
+        retrace = (live_price - swing_low) / diff
+        if not (0.30 <= retrace <= 0.82):
+            high_retrace = (last_1h["high"] - swing_low) / diff
+            if not (0.30 <= high_retrace <= 0.82 and live_price < last_1h["high"]):
+                return None
+
+        fib_50 = swing_low + 0.500 * diff
+        fib_618 = swing_low + 0.618 * diff
+        fib_786 = swing_low + 0.786 * diff
+
+        w_resist = [h for h in w_highs if h >= live_price * 0.95]
+        nearest_w = min(w_resist) if w_resist else swing_high
+        d_resist = [h for h in d_highs if h >= live_price * 0.97]
+        nearest_d = min(d_resist) if d_resist else fib_618
+
+        recent_15m = candles_15m[-4:] if candles_15m else []
+        has_wick = False
+        rejection_wick_px = fib_786
+        for c in recent_15m:
+            c_range = c["high"] - c["low"]
+            upper_wick = c["high"] - max(c["open"], c["close"])
+            if c_range > 0 and (upper_wick / c_range) >= 0.20:
+                has_wick = True
+                rejection_wick_px = c["high"]
+                break
+            if c["close"] < c["open"] and c["high"] >= fib_50:
+                has_wick = True
+                rejection_wick_px = max(c["open"], c["high"])
+                break
+
+        trigger_state = "CONFIRMED" if has_wick else "IN ZONE"
+        stop = round(max(rejection_wick_px, fib_786) * 1.005, 2)
+        risk = max(round(stop - live_price, 2), round(live_price * 0.004, 2))
+        risk_pct = round((risk / live_price) * 100, 2)
+        if risk_pct > 3.8:
+            return None
+
+        t1 = round(swing_low, 2)
+        t2 = round(swing_low - 0.618 * diff, 2)
+        rr1 = round((live_price - t1) / risk, 1) if risk > 0 else 1.5
+        rr2 = round((live_price - t2) / risk, 1) if risk > 0 else 2.5
+        if rr1 < 1.0:
+            return None
+
+        return {
+            "type": "BEARISH",
+            "side": "bearish",
+            "trigger_state": trigger_state,
+            "has_wick": has_wick,
+            "price": round(live_price, 2),
+            "entry": round(live_price, 2),
+            "stop_loss": stop,
+            "target_1": t1,
+            "target_2": t2,
+            "risk_pct": risk_pct,
+            "rr_ratio": f"1:{rr1} / 1:{rr2}",
+            "rr1": rr1,
+            "rr2": rr2,
+            "adx": round(adx_val, 1),
+            "ema_20": round(h_ema20, 2),
+            "ema_50": round(h_ema50, 2),
+            "fib_zone": f"{int(retrace*100)}% Retrace (0.50–0.618 Golden Pocket)",
+            "fib_level": round(fib_618, 2),
+            "w_level": round(nearest_w, 2),
+            "d_level": round(nearest_d, 2),
+            "swing_low": round(swing_low, 2),
+            "swing_high": round(swing_high, 2),
+            "trigger": "15m Rejection Wick Confirmed" if has_wick else "In 1H Golden Pocket Retrace",
+            "reason": f"Multi-timeframe bearish alignment: 1H trend rejecting below 50 EMA with ADX {round(adx_val,1)}, price in Fib Golden Pocket near Daily S/R ₹{round(nearest_d,2)}." + (" 15m rejection confirmed." if has_wick else " Waiting for 15m rejection trigger."),
+            "checks": {
+                "w_turn": True,
+                "d_trend": True,
+                "fib_zone": True,
+                "trigger_15m": has_wick
+            }
+        }
+
+
+def get_nifty_trend_bias():
+    try:
+        snap, _ = get_market_snapshot_with_fallback("nifty")
+        p = snap.get("price") or 0
+        vw = snap.get("vwap") or p
+        e20 = snap.get("ema_21") or p
+        e50 = snap.get("ema_50") or e20
+        if p >= vw and e20 >= e50:
+            return "bullish"
+        elif p < vw and e20 < e50:
+            return "bearish"
+        return "neutral"
+    except Exception:
+        return "neutral"
+
+
+def scan_single_stock_smart_mtf(stock_info, nifty_bias="neutral"):
+    symbol = stock_info["symbol"]
+    name = stock_info["name"]
+    sector = stock_info.get("sector", "")
+    try:
+        instrument_key = resolve_instrument_key(symbol)
+        candles_5m = fetch_upstox_candles(instrument_key, "minutes", 5, chart_history_days=5)
+        if not candles_5m or len(candles_5m) < 30:
+            return None
+        candles_15m = resample_candles(candles_5m, 3)
+        candles_1h = resample_candles(candles_5m, 12)
+
+        candles_1d = []
+        try:
+            candles_1d = fetch_upstox_candles(instrument_key, "days", 1, chart_history_days=180)
+        except Exception:
+            pass
+        candles_1w = resample_candles(candles_1d, 5) if len(candles_1d) >= 15 else []
+
+        live_price = candles_5m[-1]["close"]
+        today = latest_session_candles(candles_5m)
+        session_open = today[0]["open"] if today else candles_5m[0]["open"]
+        day_chg_pct = round(((live_price - session_open) / session_open) * 100, 2) if session_open else 0.0
+
+        setup = _smart_mtf_confluence_core(
+            candles_1w=candles_1w,
+            candles_1d=candles_1d,
+            candles_1h=candles_1h,
+            candles_15m=candles_15m,
+            benchmark_bias=nifty_bias,
+            live_price=live_price,
+            market_type="nse"
+        )
+        if not setup:
+            return None
+
+        setup.update({
+            "market": "nse",
+            "symbol": symbol,
+            "name": name,
+            "sector": sector,
+            "change_pct": day_chg_pct,
+            "live_price": live_price,
+        })
+        return setup
+    except Exception as error:
+        app.logger.warning("Smart MTF stock scan error for %s: %s", symbol, error)
+        return None
+
+
+def scan_single_commodity_smart_mtf(commodity_key):
+    try:
+        contract = get_current_commodity_contract(commodity_key)
+        if not contract or not contract.get("instrument_key"):
+            return None
+        cfg = MCX_COMMODITIES[commodity_key]
+        instrument_key = contract["instrument_key"]
+
+        candles_5m = fetch_upstox_candles(instrument_key, "minutes", 5, chart_history_days=5)
+        if not candles_5m or len(candles_5m) < 30:
+            return None
+        candles_15m = resample_candles(candles_5m, 3)
+        candles_1h = resample_candles(candles_5m, 12)
+
+        candles_1d = []
+        try:
+            candles_1d = fetch_upstox_candles(instrument_key, "days", 1, chart_history_days=120)
+        except Exception:
+            pass
+        candles_1w = resample_candles(candles_1d, 5) if len(candles_1d) >= 15 else []
+
+        live_price = candles_5m[-1]["close"]
+        today = latest_session_candles(candles_5m)
+        session_open = today[0]["open"] if today else candles_5m[0]["open"]
+        day_chg_pct = round(((live_price - session_open) / session_open) * 100, 2) if session_open else 0.0
+
+        setup = _smart_mtf_confluence_core(
+            candles_1w=candles_1w,
+            candles_1d=candles_1d,
+            candles_1h=candles_1h,
+            candles_15m=candles_15m,
+            benchmark_bias="neutral",
+            live_price=live_price,
+            market_type="mcx"
+        )
+        if not setup:
+            return None
+
+        setup.update({
+            "market": "mcx",
+            "symbol": commodity_key.upper(),
+            "name": cfg["name"] + " Futures",
+            "sector": "MCX Commodity",
+            "commodity_key": commodity_key,
+            "commodity_name": cfg["name"],
+            "trading_symbol": contract.get("trading_symbol"),
+            "lot_size": contract.get("lot_size"),
+            "expiry": contract.get("expiry"),
+            "change_pct": day_chg_pct,
+            "live_price": live_price,
+        })
+        return setup
+    except Exception as error:
+        app.logger.warning("Smart MTF commodity scan error for %s: %s", commodity_key, error)
+        return None
+
+
+@app.get("/api/owner/smart-mtf/access")
+def smart_mtf_access():
+    denied = require_focus_radar_owner()
+    if denied:
+        return denied
+    return jsonify({"ok": True, "available": True})
+
+
+@app.get("/api/owner/smart-mtf")
+def smart_mtf_scan():
+    denied = require_focus_radar_owner()
+    if denied:
+        return denied
+
+    force_refresh = request.args.get("refresh", "").lower() in {"1", "true"}
+    cached = _smart_mtf_cache.get("data")
+    if not force_refresh and cached and (time.time() - _smart_mtf_cache.get("fetched_at", 0)) < SMART_MTF_CACHE_SECONDS:
+        return jsonify({"ok": True, "cached": True, **cached})
+
+    nifty_bias = get_nifty_trend_bias()
+    setups = []
+    scanned_stocks = len(FOCUS_RADAR_STOCKS)
+    scanned_commodities = len(MCX_COMMODITIES)
+
+    try:
+        def _scan_stock(s):
+            return scan_single_stock_smart_mtf(s, nifty_bias)
+
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            stock_results = list(executor.map(_scan_stock, FOCUS_RADAR_STOCKS))
+            commodity_results = list(executor.map(scan_single_commodity_smart_mtf, list(MCX_COMMODITIES.keys())))
+
+        for res in (stock_results + commodity_results):
+            if res:
+                setups.append(res)
+
+    except Exception as error:
+        app.logger.warning("Smart MTF bulk scan error: %s", error)
+
+    # Sort confirmed setups first, then by risk/reward
+    setups.sort(key=lambda x: (1 if x.get("has_wick") else 0, x.get("rr1", 0)), reverse=True)
+
+    session_status = "live" if is_nse_market_hours() else "closed"
+    payload = {
+        "market_status": session_status,
+        "mcx_status": "live" if market_open("mcx") else "closed",
+        "nifty_bias": nifty_bias,
+        "scanned_count": scanned_stocks + scanned_commodities,
+        "stocks_count": scanned_stocks,
+        "commodities_count": scanned_commodities,
+        "updated_at": now_utc(),
+        "setups": setups,
+    }
+    _smart_mtf_cache["data"] = payload
+    _smart_mtf_cache["fetched_at"] = time.time()
+
+    return jsonify({"ok": True, **payload})
+
+
+
 
 _rrg_quotes_cache = {"data": None, "fetched_at": 0}
 RRG_QUOTES_CACHE_SECONDS = 60

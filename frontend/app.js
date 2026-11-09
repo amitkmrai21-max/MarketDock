@@ -4904,6 +4904,10 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       title: "Commodity Radar",
       subtitle: ""
     },
+    "im-smart-mtf": {
+      title: "Smart MTF",
+      subtitle: "Multi-Timeframe Confluence (1W + 1D + 1H + 15m)"
+    },
     "im-news": {
       title: "Market News",
       subtitle: "Latest Indian equity-market headlines from financial publishers."
