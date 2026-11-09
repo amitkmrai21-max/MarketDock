@@ -24,6 +24,18 @@
         const token = session?.session?.access_token;
         if (token) return token;
       } catch (e) { /* session client loading */ }
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i) || "";
+          if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed?.access_token) return parsed.access_token;
+            }
+          }
+        }
+      } catch (e) {}
       if (Date.now() >= until) return null;
       await new Promise((resolve) => setTimeout(resolve, 400));
     }
@@ -363,9 +375,24 @@
   });
 
   // Owner check: Unhide nav button for amitkmrai21@gmail.com
-  const STORAGE_KEY = "md_smart_mtf_access";
-  const readCached = () => sessionStorage.getItem(STORAGE_KEY) === "yes";
-  const writeCached = (v) => sessionStorage.setItem(STORAGE_KEY, v ? "yes" : "no");
+  const ALLOWED_KEY = "marketdock_smart_mtf_allowed";
+  const readCached = () => {
+    try {
+      if (localStorage.getItem(ALLOWED_KEY) === "1") return true;
+      if (localStorage.getItem("marketdock_focus_radar_allowed") === "1") return true;
+      if (localStorage.getItem("marketdock_commodity_radar_allowed") === "1") return true;
+    } catch (e) {}
+    return false;
+  };
+  const writeCached = (v) => {
+    try {
+      if (v) {
+        localStorage.setItem(ALLOWED_KEY, "1");
+      } else {
+        localStorage.removeItem(ALLOWED_KEY);
+      }
+    } catch (e) {}
+  };
   let retryTimer = null;
 
   async function checkAccess(attempt = 0) {

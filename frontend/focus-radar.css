@@ -267,3 +267,10 @@ html:has(#im-commodity-radar, #im-smart-mtf.active), body:has(#im-commodity-rada
   color: #eab308 !important;
   background: color-mix(in srgb, #eab308 12%, transparent) !important;
 }
+
+/* Smart MTF More sheet tile icon styling */
+.md-more-tile[data-more="im-smart-mtf"] .md-more-icon {
+  background: linear-gradient(135deg, #a855f7, #6366f1) !important;
+  box-shadow: 0 3px 8px rgba(168, 85, 247, 0.4) !important;
+  color: #ffffff !important;
+}
