@@ -5360,10 +5360,30 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   }
 
   function saveTrades(trades) {
-    localStorage.setItem(mdPaperTradesKey(), JSON.stringify(trades));
+    const key = mdPaperTradesKey();
+    localStorage.setItem(key, JSON.stringify(trades));
+    const now = Date.now();
+    try {
+      localStorage.setItem(key + ":lastModified", String(now));
+    } catch (e) {}
+
     if (window.marketDockSupabase && window.marketDockUser) {
+      if (!window.marketDockUser.user_metadata) window.marketDockUser.user_metadata = {};
+      window.marketDockUser.user_metadata.im_paper_trades = trades;
+      window.marketDockUser.user_metadata.im_paper_trades_updated_at = now;
+      if (window.marketDockSession?.user) {
+        if (!window.marketDockSession.user.user_metadata) window.marketDockSession.user.user_metadata = {};
+        window.marketDockSession.user.user_metadata.im_paper_trades = trades;
+        window.marketDockSession.user.user_metadata.im_paper_trades_updated_at = now;
+      }
+
       window.marketDockSupabase.auth.updateUser({
-        data: { im_paper_trades: trades }
+        data: { im_paper_trades: trades, im_paper_trades_updated_at: now }
+      }).then(({ data, error }) => {
+        if (!error && data?.user) {
+          window.marketDockUser = data.user;
+          if (window.marketDockSession) window.marketDockSession.user = data.user;
+        }
       }).catch((e) => console.warn("Supabase trade sync failed:", e));
     }
   }
@@ -5375,17 +5395,97 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     const userKey = mdPaperTradesKey(email);
     try {
       const remoteTrades = user.user_metadata?.im_paper_trades;
+      const remoteUpdatedAt = Number(user.user_metadata?.im_paper_trades_updated_at) || 0;
 
-      // If user has saved trades in cloud metadata, load them into their isolated key
-      if (Array.isArray(remoteTrades) && remoteTrades.length > 0) {
+      let localTrades = null;
+      try {
+        const raw = localStorage.getItem(userKey);
+        if (raw) localTrades = JSON.parse(raw);
+      } catch (e) {
+        localTrades = null;
+      }
+
+      const localModified = Number(localStorage.getItem(userKey + ":lastModified")) || 0;
+
+      const getLatestTradeTs = (list) => {
+        if (!Array.isArray(list) || !list.length) return 0;
+        let max = 0;
+        list.forEach((t) => {
+          if (t.closedAt && Number(t.closedAt) > max) max = Number(t.closedAt);
+          if (t.filledAt && Number(t.filledAt) > max) max = Number(t.filledAt);
+          if (t.createdAt && Number(t.createdAt) > max) max = Number(t.createdAt);
+        });
+        return max;
+      };
+
+      const localHasTrades = Array.isArray(localTrades) && localTrades.length > 0;
+      const remoteHasTrades = Array.isArray(remoteTrades) && remoteTrades.length > 0;
+
+      // 1. Fresh account or new device/cleared cache: restore from cloud
+      if (!localHasTrades && remoteHasTrades) {
         localStorage.setItem(userKey, JSON.stringify(remoteTrades));
-      } else {
-        // If this is a fresh account or cloud metadata is empty, check their own localStorage key
-        const existingLocal = localStorage.getItem(userKey);
-        if (!existingLocal) {
-          // Fresh account starts clean with 0 positions and full available margin
-          localStorage.setItem(userKey, JSON.stringify([]));
+        if (remoteUpdatedAt > 0) {
+          try { localStorage.setItem(userKey + ":lastModified", String(remoteUpdatedAt)); } catch (e) {}
         }
+      }
+      // 2. Local has trades but cloud is empty: push local to cloud
+      else if (localHasTrades && !remoteHasTrades) {
+        if (window.marketDockSupabase) {
+          window.marketDockSupabase.auth.updateUser({
+            data: { im_paper_trades: localTrades, im_paper_trades_updated_at: localModified || Date.now() }
+          }).catch(() => {});
+        }
+      }
+      // 3. Both local and remote have trades: Smart reconciliation
+      // Never let stale remote metadata resurrect closed or exited positions!
+      else if (localHasTrades && remoteHasTrades) {
+        const localTs = Math.max(localModified, getLatestTradeTs(localTrades));
+        const remoteTs = Math.max(remoteUpdatedAt, getLatestTradeTs(remoteTrades));
+
+        if (localTs >= remoteTs) {
+          // Local is newer or equal: keep local as the authoritative state on this device!
+          // If cloud is behind, push local to cloud so next device or session catches up.
+          if (localTs > remoteTs && window.marketDockSupabase) {
+            window.marketDockSupabase.auth.updateUser({
+              data: { im_paper_trades: localTrades, im_paper_trades_updated_at: localTs }
+            }).catch(() => {});
+          }
+        } else {
+          // Remote is strictly newer (e.g. actions on another device).
+          // Reconcile: Any trade that was closed or cancelled locally must NEVER be reopened!
+          const closedLocalMap = new Map();
+          localTrades.forEach((t) => {
+            if (t.status === "closed" || t.status === "cancelled" || t.status === "filled") {
+              closedLocalMap.set(t.id, t);
+            }
+          });
+
+          const reconciled = remoteTrades.map((rt) => {
+            const closedLocal = closedLocalMap.get(rt.id);
+            if (closedLocal && rt.status === "open") {
+              return closedLocal;
+            }
+            return rt;
+          });
+
+          const remoteIds = new Set(reconciled.map((t) => t.id));
+          localTrades.forEach((lt) => {
+            if (!remoteIds.has(lt.id) && (lt.status === "closed" || lt.status === "filled")) {
+              reconciled.push(lt);
+            }
+          });
+
+          localStorage.setItem(userKey, JSON.stringify(reconciled));
+          try { localStorage.setItem(userKey + ":lastModified", String(remoteTs)); } catch (e) {}
+
+          if (window.marketDockSupabase) {
+            window.marketDockSupabase.auth.updateUser({
+              data: { im_paper_trades: reconciled, im_paper_trades_updated_at: remoteTs }
+            }).catch(() => {});
+          }
+        }
+      } else if (!localTrades) {
+        localStorage.setItem(userKey, JSON.stringify([]));
       }
     } catch (e) {
       console.warn("Cross-device sync error:", e);
@@ -15227,10 +15327,22 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         if (!confirmed) return;
 
         try { localStorage.removeItem(mdPaperTradesKey()); } catch (err) {}
+        try { localStorage.removeItem(mdPaperTradesKey() + ":lastModified"); } catch (err) {}
         // Clear the account's cloud copy too, or the next sign-in pulls the
         // old trades straight back.
         if (window.marketDockSupabase && window.marketDockUser) {
-          window.marketDockSupabase.auth.updateUser({ data: { im_paper_trades: [] } }).catch(() => {});
+          const resetNow = Date.now();
+          window.marketDockSupabase.auth.updateUser({
+            data: { im_paper_trades: [], im_paper_trades_updated_at: resetNow }
+          }).catch(() => {});
+          if (window.marketDockUser.user_metadata) {
+            window.marketDockUser.user_metadata.im_paper_trades = [];
+            window.marketDockUser.user_metadata.im_paper_trades_updated_at = resetNow;
+          }
+          if (window.marketDockSession?.user?.user_metadata) {
+            window.marketDockSession.user.user_metadata.im_paper_trades = [];
+            window.marketDockSession.user.user_metadata.im_paper_trades_updated_at = resetNow;
+          }
         }
 
         // The render functions live inside the Indian-market module, out of
