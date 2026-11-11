@@ -147,11 +147,11 @@ from pydantic import BaseModel
 USER_DB_FILE = "/opt/marketdock/user_subscriptions.json"
 
 # Trial / plan records (and broker links below) are JSON files that several
-# requests â and both MarketDock services â change at the same time. JsonStore
+# requests — and both MarketDock services — change at the same time. JsonStore
 # serialises every read-modify-write (thread lock + file lock), writes to a
 # unique temp file and swaps it in atomically, and keeps the last good file as
-# .bak. An unreadable file is never treated as empty â that would let the
-# next save wipe every trial and payment â the .bak is used instead, or the
+# .bak. An unreadable file is never treated as empty — that would let the
+# next save wipe every trial and payment — the .bak is used instead, or the
 # request fails until someone looks at it.
 import contextlib
 import copy
@@ -198,7 +198,7 @@ class JsonStore:
         return data
 
     def load(self):
-        """All records â read-only; use load_for_update() under locked() to change them."""
+        """All records — read-only; use load_for_update() under locked() to change them."""
         backup = self.path + ".bak"
         if not os.path.exists(self.path):
             return self._read(backup) if os.path.exists(backup) else {}
@@ -705,7 +705,7 @@ def _grant_plan_for_payment(order_id, payment_id, email_hint=""):
     key_id = os.environ.get("RAZORPAY_KEY_ID")
     key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
     # The plan, amount and email come from Razorpay's own order/payment
-    # records, not the browser â so paying for one plan can't unlock another.
+    # records, not the browser — so paying for one plan can't unlock another.
     try:
         order_res = requests.get(f"https://api.razorpay.com/v1/orders/{order_id}", auth=(key_id, key_secret), timeout=10)
         payment_res = requests.get(f"https://api.razorpay.com/v1/payments/{payment_id}", auth=(key_id, key_secret), timeout=10)
@@ -849,7 +849,7 @@ def get_subscription_status(email: str = ""):
         import datetime
         valid_until_iso = datetime.datetime.fromtimestamp(valid_until_ts, tz=datetime.timezone.utc).isoformat()
 
-    # Track 7-day trial per email â one clock per email for good: it starts
+    # Track 7-day trial per email — one clock per email for good: it starts
     # at the first sign-up (created_at, from /api/user/sync-trial) and is
     # never reset by logging out, deleting the account or signing up again.
     trial_start_ts = user_info.get("trial_start_ts") or user_info.get("created_at")
