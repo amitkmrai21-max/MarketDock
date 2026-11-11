@@ -1,5 +1,5 @@
-// Paper trades — and the funds, positions, holdings and order book built
-// from them — belong strictly to individual MarketDock accounts.
+// Paper trades â and the funds, positions, holdings and order book built
+// from them â belong strictly to individual MarketDock accounts.
 // Each email has its own isolated key and starts with clean initial funds.
 const MD_LEGACY_PAPER_TRADES_KEY = "indianMarketPaperTrades";
 function mdGetActiveUserEmail() {
@@ -39,7 +39,7 @@ let liveCandleSeries = null;
 let liveCandleRawData = [];
 
 // Shown at the bottom of Settings, read straight from this script's own
-// ?v= cache-bust so it can never drift — lets a phone confirm at a glance
+// ?v= cache-bust so it can never drift â lets a phone confirm at a glance
 // which build it actually loaded.
 (function showAppBuildVersion() {
   let version = "dev";
@@ -62,7 +62,7 @@ function mdPollInterval(callback, milliseconds) {
 
 // ===================== Chart theming =====================
 // LightweightCharts renders to canvas, so its colors can't follow CSS
-// variables — they have to be passed as JS options at creation time, and
+// variables â they have to be passed as JS options at creation time, and
 // re-applied if the theme changes afterward. Every createChart() call
 // reads colors from here and registers itself so setupModeToggle's/the
 // settings drawer's theme switch can recolor any chart already on screen.
@@ -123,14 +123,14 @@ window.applyChartTheme = applyChartTheme;
 let aiErrorToastHideTimer = null;
 
 // A bare "Failed to fetch" (or similar) is the raw browser TypeError for a
-// request that never got a response at all — most often the free-tier
+// request that never got a response at all â most often the free-tier
 // backend waking up from sleep or a slow request timing out at a proxy
 // before Render replies. That raw text means nothing to most people, so
 // swap it for a plain-language explanation everywhere it would show.
 function friendlyAiErrorMessage(message) {
   const text = String(message || "");
   if (/failed to fetch|networkerror|load failed|network request failed/i.test(text)) {
-    return "Could not reach the server — it may be waking up from sleep (free-tier services pause after inactivity) or the request timed out. Please try again in a moment.";
+    return "Could not reach the server â it may be waking up from sleep (free-tier services pause after inactivity) or the request timed out. Please try again in a moment.";
   }
   return text || "AI analysis is temporarily unavailable. Please try again later.";
 }
@@ -158,7 +158,7 @@ function hideAiErrorToast() {
 
 (() => {
   // app.js loads at the very end of <body>, so the toast element already
-  // exists in the DOM by this point — no need to wait for DOMContentLoaded.
+  // exists in the DOM by this point â no need to wait for DOMContentLoaded.
   const toast = document.getElementById("aiErrorToast");
   if (!toast) return;
   const closeBtn = toast.querySelector(".ai-error-toast-close");
@@ -334,31 +334,31 @@ function setText(id, value) { const element = getElement(id); if (element) eleme
 function formatDateForSignal() { return new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }); }
 function formatUpdatedAt(timestamp) { return timestamp ? new Date(timestamp * 1000).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Update time unavailable"; }
 function formatUsd(value) { const number = Number(value); return Number.isFinite(number) ? `$${number.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : "--"; }
-function formatInr(value) { const number = Number(value); return Number.isFinite(number) ? `₹${number.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "₹--"; }
+function formatInr(value) { const number = Number(value); return Number.isFinite(number) ? `â¹${number.toLocaleString("en-IN", { maximumFractionDigits: 2 })}` : "â¹--"; }
 function formatBtc(value) { const number = Number(value); return Number.isFinite(number) ? `${number.toFixed(6)} BTC` : "0.000000 BTC"; }
 function formatPercent(value, suffix = "%") { const number = Number(value); return Number.isFinite(number) ? `${number.toFixed(2)}${suffix}` : "--"; }
 function formatSignedScore(value) { const number = Number(value); return Number.isFinite(number) ? `${number > 0 ? "+" : ""}${number.toFixed(2)}` : "--"; }
 function toNumber(value) { const number = Number(value); return Number.isFinite(number) ? number : null; }
 
-// Solid colored "pill" badge for a % change value — used everywhere a price
+// Solid colored "pill" badge for a % change value â used everywhere a price
 // change is shown, in both BTC and Indian Market mode, instead of plain
 // colored text.
 function changePillHtml(value, { arrow = true, decimals = 2 } = {}) {
   const number = Number(value);
   if (!Number.isFinite(number)) return `<span class="change-pill change-pill-neutral">--</span>`;
   const isUp = number >= 0;
-  const glyph = arrow ? (isUp ? "▲ " : "▼ ") : "";
+  const glyph = arrow ? (isUp ? "â² " : "â¼ ") : "";
   return `<span class="change-pill ${isUp ? "change-pill-up" : "change-pill-down"}">${glyph}${isUp ? "+" : ""}${number.toFixed(decimals)}%</span>`;
 }
 
 // Small trend-line "sparkline" drawn behind a price card, in place of a flat
-// number — same visual pattern for both BTC and Indian Market price cards.
+// number â same visual pattern for both BTC and Indian Market price cards.
 // Drawn with the raw Canvas 2D API rather than Chart.js: it's a simple
 // polyline + fill with no interactivity, and not depending on Chart.js
 // having finished loading from its CDN keeps this working even if that
 // script is slow, blocked, or fails on a given network.
 // A raw 15m-candle close series is mostly short-term noise for a single
-// liquid large-cap/index — plotted un-smoothed and stretched to fill the
+// liquid large-cap/index â plotted un-smoothed and stretched to fill the
 // card's full height, that noise reads as a meaningless zigzag instead of
 // a trend, so bullish and bearish cards end up looking about the same. A
 // short moving average keeps the real shape (still real data, not
@@ -393,7 +393,7 @@ function renderSparkline(canvasId, values, forceIsUp) {
   ctx.clearRect(0, 0, width, height);
 
   // Color by the day's actual change (same sign as the % pill next to it)
-  // when known, rather than this window's own first-vs-last point — the
+  // when known, rather than this window's own first-vs-last point â the
   // sparkline can legitimately drift down through the day (e.g. a gap-up
   // open that fades) while still finishing green versus yesterday's close,
   // and a chart that disagrees with the pill beside it reads as broken.
@@ -493,14 +493,14 @@ function renderEngineCard(data = {}) {
     signal: data.signal,
     risk: data.risk,
     confidenceText: Number.isFinite(Number(data.confidence)) ? `${Number(data.confidence)}%` : "--%",
-    updatedText: `${data.setup_status || "Live technical analysis"} • updated ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`,
+    updatedText: `${data.setup_status || "Live technical analysis"} â¢ updated ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`,
     reasonText: data.reason,
     entryText: data.entry_idea,
     stopLossText: data.stop_loss_idea,
     target1Text: data.target_1,
     target2Text: data.target_2,
   });
-  // Quick-glance duplicate in the "Live Market" hero metric box — shows the Engine's
+  // Quick-glance duplicate in the "Live Market" hero metric box â shows the Engine's
   // own signal, labeled plain "SIGNAL", whenever Technical refreshes. Running Gemini or
   // Groq afterward switches this same box to that AI's signal, labeled "AI Signal",
   // until Technical refreshes again.
@@ -512,7 +512,7 @@ function renderGeminiCard(data = {}, fromSavedPlan = false) {
     signal: data.signal,
     risk: data.risk,
     confidenceText: `${Number(data.confidence || 0)}%`,
-    updatedText: `${fromSavedPlan ? "Restored" : "Fresh"} Gemini analysis • ${formatUpdatedAt(data.updated_at)}${data.cached ? " (API cached)" : ""}`,
+    updatedText: `${fromSavedPlan ? "Restored" : "Fresh"} Gemini analysis â¢ ${formatUpdatedAt(data.updated_at)}${data.cached ? " (API cached)" : ""}`,
     reasonText: data.reason,
     entryText: data.entry_idea,
     stopLossText: data.stop_loss_idea,
@@ -529,7 +529,7 @@ function renderGroqCard(data = {}, fromSavedPlan = false) {
     signal: data.signal,
     risk: data.risk,
     confidenceText: `${Number(data.confidence || 0)}%`,
-    updatedText: `${fromSavedPlan ? "Restored" : "Fresh"} Groq analysis • ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`,
+    updatedText: `${fromSavedPlan ? "Restored" : "Fresh"} Groq analysis â¢ ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`,
     reasonText: data.reason,
     entryText: data.entry_idea,
     stopLossText: data.stop_loss_idea,
@@ -541,7 +541,7 @@ function renderGroqCard(data = {}, fromSavedPlan = false) {
 }
 
 /* Per-provider manual-plan persistence, so the Gemini and Groq cards each keep showing
-   their OWN latest result independently (across reloads) — never each other's. */
+   their OWN latest result independently (across reloads) â never each other's. */
 const PROVIDER_PLAN_STORAGE_KEYS = { GEMINI: "btcAiSignalGeminiPlanV1", GROQ: "btcAiSignalGroqPlanV1" };
 let latestProviderPlans = { GEMINI: null, GROQ: null };
 
@@ -549,7 +549,7 @@ function saveProviderPlan(provider, data) {
   const plan = { data, savedAt: Date.now() };
   latestProviderPlans[provider] = plan;
   try { localStorage.setItem(PROVIDER_PLAN_STORAGE_KEYS[provider], JSON.stringify(plan)); } catch (error) { console.error(error); }
-  // Also track whichever provider ran most recently (either one), in memory only —
+  // Also track whichever provider ran most recently (either one), in memory only â
   // the Gemini-success chart-lock hookup reads this right after saving.
   latestAiPlan = plan;
 }
@@ -598,7 +598,7 @@ function updateSignalConfirmation(technicalData) {
   let decision = "WAIT FOR CONFIRMATION";
   let reason = "The last AI view and live technical conditions are not fully aligned. Do not force an entry.";
   if ((aiBuy && technicalBuy) || (aiSell && technicalSell)) { decision = aiBuy ? "BUY SETUP CONFIRMED" : "SELL SETUP CONFIRMED"; reason = "The last successful manual AI view and current live technical signal are aligned."; }
-  else if ((aiBuy && technicalSell) || (aiSell && technicalBuy)) { decision = "AI SIGNAL INVALIDATED — NO ENTRY"; reason = "Current live technical conditions oppose the last manual AI signal."; }
+  else if ((aiBuy && technicalSell) || (aiSell && technicalBuy)) { decision = "AI SIGNAL INVALIDATED â NO ENTRY"; reason = "Current live technical conditions oppose the last manual AI signal."; }
   else if (String(technicalSignal).toUpperCase().includes("HOLD")) { reason = "The previous AI idea is not currently confirmed by live technical data."; }
   setText("combinedDecision", decision); setText("combinedDecisionReason", reason);
 }
@@ -640,7 +640,7 @@ function setTechnicalRefreshState(state = "idle", message = "") {
 function setDataHealthBadge(health = {}) {
   const badge = getElement("technicalDataHealth"); if (!badge) return;
   const status = ["LIVE", "CACHED", "DELAYED", "ERROR"].includes(health.status) ? health.status : "ERROR";
-  const age = Number(health.cache_age_seconds); const ageText = Number.isFinite(age) ? ` • ${age.toFixed(1)}s old` : "";
+  const age = Number(health.cache_age_seconds); const ageText = Number.isFinite(age) ? ` â¢ ${age.toFixed(1)}s old` : "";
   badge.textContent = `Data: ${status}${status === "LIVE" ? "" : ageText}`; badge.className = `data-health-badge health-${status.toLowerCase()}`;
 }
 
@@ -807,7 +807,7 @@ function renderSetupQuality(data) {
   setText("setupGrade", dynamic.grade);
   setText(
     "setupScore",
-    `${dynamic.passed} / ${dynamic.total} checks passed • ${dynamic.waiting} wait • ${dynamic.failed} fail`
+    `${dynamic.passed} / ${dynamic.total} checks passed â¢ ${dynamic.waiting} wait â¢ ${dynamic.failed} fail`
   );
   setText("setupDirection", setup.direction || "--");
   setText("setupDecisionReason", dynamic.decisionReason);
@@ -822,7 +822,7 @@ function renderSetupQuality(data) {
   setText(
     "setupRiskFlags",
     flags.length
-      ? flags.join(" • ")
+      ? flags.join(" â¢ ")
       : "No major technical risk flags detected by the current checklist."
   );
 
@@ -922,7 +922,7 @@ function renderSwingFailureStructure(data) {
   setText(
     "swingFinalConclusion",
     structure.final_conclusion ||
-      "WAIT — no final trade signal until break, retest, and confirmation."
+      "WAIT â no final trade signal until break, retest, and confirmation."
   );
 
   const filterData = structure.filter_checklist || {};
@@ -932,7 +932,7 @@ function renderSwingFailureStructure(data) {
 
   setText(
     "swingFilterSummary",
-    `Quality: ${structure.quality || "LOW"} • Passed ${passed.length} • Pending ${waiting.length} • Failed ${failed.length}`
+    `Quality: ${structure.quality || "LOW"} â¢ Passed ${passed.length} â¢ Pending ${waiting.length} â¢ Failed ${failed.length}`
   );
 
   setText(
@@ -941,7 +941,7 @@ function renderSwingFailureStructure(data) {
       passed.length ? `Pass: ${passed.join(" | ")}` : "",
       waiting.length ? `Pending: ${waiting.join(" | ")}` : "",
       failed.length ? `Blocked: ${failed.join(" | ")}` : "",
-    ].filter(Boolean).join(" • ") || "Waiting for structure filters."
+    ].filter(Boolean).join(" â¢ ") || "Waiting for structure filters."
   );
   
   setText(
@@ -957,10 +957,10 @@ function renderSwingFailureStructure(data) {
 
    if (signal === "BUY") {
       badge.classList.add("swing-bullish");
-      badge.textContent = "BUY — FINAL";
+      badge.textContent = "BUY â FINAL";
     } else if (signal === "SELL") {
       badge.classList.add("swing-bearish");
-      badge.textContent = "SELL — FINAL";
+      badge.textContent = "SELL â FINAL";
     } else if (direction === "BEARISH") {
       badge.classList.add("swing-bearish");
       badge.textContent = "HOLD";
@@ -976,9 +976,9 @@ function renderSwingFailureStructure(data) {
 
 function renderTechnicalIntelligence(data) {
   const health = data?.data_health || {}, score = data?.score_breakdown || {}, regime = data?.market_regime || {}, agreement = data?.timeframe_agreement || {}, levels = data?.key_level_distance || {};
-  setDataHealthBadge(health); setText("technicalHealthMessage", health.message || "Technical data status unavailable."); setText("technicalRefreshStatus", `Updated: ${formatUpdatedAt(data?.updated_at)}${data?.cached ? " • cached response" : ""}`);
-  setText("marketRegime", regime.label || "--"); setText("marketRegimeDetail", regime.detail || "--"); setText("regimeStats", `ADX ${formatPercent(regime.average_adx, "")} • ATR ${formatPercent(regime.average_atr_percent)} • BB Width ${formatPercent(regime.average_bollinger_width_percent)}`);
-  const percent = Number(agreement.percent); setText("timeframeAgreement", Number.isFinite(percent) ? `${percent.toFixed(0)}%` : "--"); setText("timeframeAgreementDetail", agreement.direction || "--"); setText("timeframeVotes", `Bullish ${agreement.bullish_votes ?? 0} • Bearish ${agreement.bearish_votes ?? 0} • Hold ${agreement.hold_votes ?? 0}`);
+  setDataHealthBadge(health); setText("technicalHealthMessage", health.message || "Technical data status unavailable."); setText("technicalRefreshStatus", `Updated: ${formatUpdatedAt(data?.updated_at)}${data?.cached ? " â¢ cached response" : ""}`);
+  setText("marketRegime", regime.label || "--"); setText("marketRegimeDetail", regime.detail || "--"); setText("regimeStats", `ADX ${formatPercent(regime.average_adx, "")} â¢ ATR ${formatPercent(regime.average_atr_percent)} â¢ BB Width ${formatPercent(regime.average_bollinger_width_percent)}`);
+  const percent = Number(agreement.percent); setText("timeframeAgreement", Number.isFinite(percent) ? `${percent.toFixed(0)}%` : "--"); setText("timeframeAgreementDetail", agreement.direction || "--"); setText("timeframeVotes", `Bullish ${agreement.bullish_votes ?? 0} â¢ Bearish ${agreement.bearish_votes ?? 0} â¢ Hold ${agreement.hold_votes ?? 0}`);
   const bar = getElement("timeframeAgreementBar"); if (bar) bar.style.width = `${Number.isFinite(percent) ? Math.max(0, Math.min(100, percent)) : 0}%`;
   setText("scoreTrend", formatSignedScore(score?.trend?.score)); setText("scoreMacd", formatSignedScore(score?.macd?.score)); setText("scoreMomentum", formatSignedScore(score?.momentum?.score)); setText("scoreBreakout", formatSignedScore(score?.breakout?.score)); setText("scoreVolume", formatSignedScore(score?.volume?.score));
   const totalScore = Number(score.total_score), alignment = Number(score.technical_alignment_percent); setText("technicalScoreTotal", Number.isFinite(totalScore) ? `${formatSignedScore(totalScore)} / 9` : "--"); setText("technicalAlignment", Number.isFinite(alignment) ? `${alignment.toFixed(0)}% alignment` : "--"); setText("technicalScoreBias", score.bias || "--");
@@ -993,7 +993,7 @@ function updateIndicators(m15, m1h) {
 
 async function loadTechnicalFallback(prefix = "Live technical analysis refreshed.", forceRefresh = false) {
   if (technicalRefreshInProgress) return latestTechnicalResponse;
-  technicalRefreshInProgress = true; setTechnicalRefreshState("loading", "Refreshing technical data…");
+  technicalRefreshInProgress = true; setTechnicalRefreshState("loading", "Refreshing technical dataâ¦");
   try {
     const response = await fetchWithTimeout(forceRefresh ? "/api/technical-signal?force_refresh=true" : "/api/technical-signal", { cache: "no-store" }); const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.detail || "Technical signal API could not be loaded.");
@@ -1027,7 +1027,7 @@ function renderTechnicalFallback(prefix = "Live technical signal API is temporar
     signal: normalizedSignal,
     risk: normalizedSignal === "HOLD" ? "HIGH" : "MEDIUM",
     confidence: getTechnicalConfidence(technical),
-    setup_status: "Offline estimate — live technical API unreachable",
+    setup_status: "Offline estimate â live technical API unreachable",
     reason: `${prefix} ${technical.reason}`,
     entry_idea: "No candidate entry while running on the offline estimate.",
     stop_loss_idea: "No candidate stop-loss while running on the offline estimate.",
@@ -1191,7 +1191,7 @@ function setSoundAlertsEnabled(enabled) {
   try {
     localStorage.setItem(SOUND_ALERT_STORAGE_KEY, enabled ? "1" : "0");
   } catch (error) {
-    // Ignore — the toggle just won't persist across reloads.
+    // Ignore â the toggle just won't persist across reloads.
   }
 }
 
@@ -1229,7 +1229,7 @@ function sendBrowserAlert(title, body, options = {}) {
 
   setText(
     "lastAlertStatus",
-    `${message} • ${new Date(runtime.lastAlertAt).toLocaleString("en-IN", {
+    `${message} â¢ ${new Date(runtime.lastAlertAt).toLocaleString("en-IN", {
       day: "2-digit",
       month: "short",
       hour: "2-digit",
@@ -1332,7 +1332,7 @@ function renderAlertSettings() {
   setText(
     "lastAlertStatus",
     runtime.lastAlertMessage
-      ? `${runtime.lastAlertMessage} • ${new Date(
+      ? `${runtime.lastAlertMessage} â¢ ${new Date(
           runtime.lastAlertAt
         ).toLocaleString("en-IN", {
           day: "2-digit",
@@ -1485,7 +1485,7 @@ function checkTechnicalAlerts(data) {
 
   setText(
     "alertTechnicalWatchStatus",
-    `${signal || "Unknown"} • Risk ${risk || "--"} • Grade ${grade || "--"}`
+    `${signal || "Unknown"} â¢ Risk ${risk || "--"} â¢ Grade ${grade || "--"}`
   );
 
   if (
@@ -1711,7 +1711,7 @@ function renderGeminiNews(aiData = null) {
         month: "short",
         hour: "2-digit",
         minute: "2-digit"
-      })} • Updated only with manual Groq News refresh`
+      })} â¢ Updated only with manual Groq News refresh`
     : "News updates only when you run Refresh News with Groq.";
 
   container.innerHTML = "";
@@ -1765,7 +1765,7 @@ function renderGeminiNews(aiData = null) {
     translationBox.hidden = true;
 
     const translationTitle = document.createElement("h4");
-    translationTitle.textContent = "हिंदी अनुवाद";
+    translationTitle.textContent = "à¤¹à¤¿à¤à¤¦à¥ à¤à¤¨à¥à¤µà¤¾à¤¦";
 
     const translationHeadline = document.createElement("p");
     translationHeadline.className = "gemini-news-hi-headline";
@@ -1785,7 +1785,7 @@ function renderGeminiNews(aiData = null) {
     const translateButton = document.createElement("button");
     translateButton.type = "button";
     translateButton.className = "translate-news-btn";
-    translateButton.textContent = "हिंदी में पढ़ें";
+    translateButton.textContent = "à¤¹à¤¿à¤à¤¦à¥ à¤®à¥à¤ à¤ªà¤¢à¤¼à¥à¤";
 
     const translationStatus = document.createElement("span");
     translationStatus.className = "translation-status";
@@ -1799,13 +1799,13 @@ function renderGeminiNews(aiData = null) {
       translationSummary.textContent =
         translation?.summary_hi || item?.summary || "";
       translationBox.hidden = false;
-      translateButton.textContent = "हिंदी अनुवाद छुपाएं";
-      translationStatus.textContent = "अनुवाद तैयार है";
+      translateButton.textContent = "à¤¹à¤¿à¤à¤¦à¥ à¤à¤¨à¥à¤µà¤¾à¤¦ à¤à¥à¤ªà¤¾à¤à¤";
+      translationStatus.textContent = "à¤à¤¨à¥à¤µà¤¾à¤¦ à¤¤à¥à¤¯à¤¾à¤° à¤¹à¥";
     }
 
     function hideTranslation() {
       translationBox.hidden = true;
-      translateButton.textContent = "हिंदी में पढ़ें";
+      translateButton.textContent = "à¤¹à¤¿à¤à¤¦à¥ à¤®à¥à¤ à¤ªà¤¢à¤¼à¥à¤";
       translationStatus.textContent = "";
     }
 
@@ -1827,8 +1827,8 @@ function renderGeminiNews(aiData = null) {
       }
 
       translateButton.disabled = true;
-      translateButton.textContent = "अनुवाद हो रहा है...";
-      translationStatus.textContent = "Groq translation चल रहा है...";
+      translateButton.textContent = "à¤à¤¨à¥à¤µà¤¾à¤¦ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...";
+      translationStatus.textContent = "Groq translation à¤à¤² à¤°à¤¹à¤¾ à¤¹à¥...";
 
       try {
         const response = await fetch("/api/news/translate", {
@@ -1858,7 +1858,7 @@ function renderGeminiNews(aiData = null) {
         translationStatus.textContent =
           error.message ||
           "Translation unavailable. Please try again later.";
-        translateButton.textContent = "हिंदी में पढ़ें";
+        translateButton.textContent = "à¤¹à¤¿à¤à¤¦à¥ à¤®à¥à¤ à¤ªà¤¢à¤¼à¥à¤";
       } finally {
         translateButton.disabled = false;
       }
@@ -1884,7 +1884,7 @@ function renderGeminiNews(aiData = null) {
       link.href = url;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
-      link.textContent = "Read original article ↗";
+      link.textContent = "Read original article â";
       card.appendChild(link);
     }
 
@@ -1970,17 +1970,17 @@ async function refreshFastData() { try { await Promise.all([loadPrice(true), loa
 async function refreshTechnicalAnalysis(prefix = "Live technical analysis refreshed.") { return loadTechnicalFallback(prefix, true); }
 async function refreshAllData() { if (technicalRefreshInProgress) return; try { await Promise.all([refreshFastData(), refreshTechnicalAnalysis("Live technical analysis refreshed.")]); } catch (error) { console.error("Technical refresh error:", error); } loadRrg().catch((error) => console.error("RRG refresh error:", error)); }
 
-function renderChart(labels, data, label) { const canvas = getElement("btcChart"); if (!canvas) return; if (btcChart) btcChart.destroy(); btcChart = new Chart(canvas.getContext("2d"), { type: "line", data: { labels, datasets: [{ label: `BTC/USD • ${label}`, data, borderColor: "#34d399", backgroundColor: "rgba(34, 197, 94, 0.15)", borderWidth: 2, fill: true, tension: 0.28, pointRadius: 0, pointHoverRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, interaction: { intersect: false, mode: "index" }, plugins: { legend: { labels: { color: "#ffffff" } }, tooltip: { callbacks: { label(context) { return `BTC: ${formatUsd(context.raw)}`; } } }, zoom: { limits: { x: { min: "original", max: "original", minRange: 2 } }, pan: { enabled: true, mode: "x", threshold: 2 }, zoom: { wheel: { enabled: true, speed: 0.25 }, pinch: { enabled: true }, drag: { enabled: true, threshold: 2, backgroundColor: "rgba(59, 130, 246, 0.18)", borderColor: "#60a5fa", borderWidth: 1 }, mode: "x" } } }, scales: { x: { ticks: { color: "#cbd5e1", maxTicksLimit: 7 }, grid: { color: "#1e293b" } }, y: { ticks: { color: "#cbd5e1", callback(value) { return formatUsd(value); } }, grid: { color: "#1e293b" } } } } }); }
+function renderChart(labels, data, label) { const canvas = getElement("btcChart"); if (!canvas) return; if (btcChart) btcChart.destroy(); btcChart = new Chart(canvas.getContext("2d"), { type: "line", data: { labels, datasets: [{ label: `BTC/USD â¢ ${label}`, data, borderColor: "#34d399", backgroundColor: "rgba(34, 197, 94, 0.15)", borderWidth: 2, fill: true, tension: 0.28, pointRadius: 0, pointHoverRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: true, interaction: { intersect: false, mode: "index" }, plugins: { legend: { labels: { color: "#ffffff" } }, tooltip: { callbacks: { label(context) { return `BTC: ${formatUsd(context.raw)}`; } } }, zoom: { limits: { x: { min: "original", max: "original", minRange: 2 } }, pan: { enabled: true, mode: "x", threshold: 2 }, zoom: { wheel: { enabled: true, speed: 0.25 }, pinch: { enabled: true }, drag: { enabled: true, threshold: 2, backgroundColor: "rgba(59, 130, 246, 0.18)", borderColor: "#60a5fa", borderWidth: 1 }, mode: "x" } } }, scales: { x: { ticks: { color: "#cbd5e1", maxTicksLimit: 7 }, grid: { color: "#1e293b" } }, y: { ticks: { color: "#cbd5e1", callback(value) { return formatUsd(value); } }, grid: { color: "#1e293b" } } } } }); }
 function getRrgQuadrant(x, y) { return x >= 100 && y >= 100 ? "Leading" : x >= 100 ? "Weakening" : y < 100 ? "Lagging" : "Improving"; }
 function createRrgQuadrantsPlugin() { return { id: "rrgQuadrants", beforeDatasetsDraw(chart) { const { ctx, chartArea, scales } = chart; if (!chartArea || !scales.x || !scales.y) return; const { left, right, top, bottom } = chartArea, cx = scales.x.getPixelForValue(100), cy = scales.y.getPixelForValue(100); if (!Number.isFinite(cx) || !Number.isFinite(cy)) return; ctx.save(); [["rgba(59, 130, 246, 0.13)", left, top, cx-left, cy-top], ["rgba(34, 197, 94, 0.13)", cx, top, right-cx, cy-top], ["rgba(239, 68, 68, 0.13)", left, cy, cx-left, bottom-cy], ["rgba(250, 204, 21, 0.13)", cx, cy, right-cx, bottom-cy]].forEach(([c,x,y,w,h]) => { ctx.fillStyle=c; ctx.fillRect(x,y,w,h); }); ctx.strokeStyle="rgba(255,255,255,.96)"; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(cx,top); ctx.lineTo(cx,bottom); ctx.stroke(); ctx.beginPath(); ctx.moveTo(left,cy); ctx.lineTo(right,cy); ctx.stroke(); ctx.font="700 13px Arial"; ctx.fillStyle="#fff"; ctx.textBaseline="top"; ctx.textAlign="left"; ctx.fillText("IMPROVING",left+14,top+14); ctx.textAlign="right"; ctx.fillText("LEADING",right-14,top+14); ctx.textBaseline="bottom"; ctx.textAlign="left"; ctx.fillText("LAGGING",left+14,bottom-14); ctx.textAlign="right"; ctx.fillText("WEAKENING",right-14,bottom-14); ctx.restore(); } }; }
-function createRrgDirectionArrowsPlugin() { return { id: "rrgDirectionArrows", afterDatasetsDraw(chart) { const { ctx } = chart; chart.data.datasets.forEach((dataset, index) => { const meta = chart.getDatasetMeta(index), element = meta?.data?.[meta.data.length - 1], raw = dataset.data[dataset.data.length - 1]; if (!element || !raw) return; const map = { "North-East": "↗", "South-East": "↘", "North-West": "↖", "South-West": "↙", Flat: "→" }; ctx.save(); ctx.fillStyle = dataset.borderColor || "#fff"; ctx.font = "bold 20px Arial"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(map[raw.direction || "Flat"] || "→", element.x + 9, element.y); ctx.restore(); }); } }; }
+function createRrgDirectionArrowsPlugin() { return { id: "rrgDirectionArrows", afterDatasetsDraw(chart) { const { ctx } = chart; chart.data.datasets.forEach((dataset, index) => { const meta = chart.getDatasetMeta(index), element = meta?.data?.[meta.data.length - 1], raw = dataset.data[dataset.data.length - 1]; if (!element || !raw) return; const map = { "North-East": "â", "South-East": "â", "North-West": "â", "South-West": "â", Flat: "â" }; ctx.save(); ctx.fillStyle = dataset.borderColor || "#fff"; ctx.font = "bold 20px Arial"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText(map[raw.direction || "Flat"] || "â", element.x + 9, element.y); ctx.restore(); }); } }; }
 async function loadRrg() { const status = getElement("rrgStatus"); if (status) status.textContent = `Loading ${activeRrgTimeframe} RRG-style data...`; try { const response = await fetch(`/api/rrg?interval=${activeRrgTimeframe}`, { cache: "no-store" }); if (!response.ok) throw new Error("RRG API could not be loaded."); const data = await response.json(); renderRrg(data); if (status) status.textContent = `${activeRrgTimeframe.toUpperCase()} RRG updated: ${formatUpdatedAt(data.updated_at)}${data.cached ? " (cached)" : ""}`; } catch (error) { console.error(error); if (status) status.textContent = "RRG-style chart could not be loaded. Please refresh again."; } }
 function renderRrg(data) { const canvas = getElement("rrgChart"); if (!canvas || !Array.isArray(data?.trails)) return; if (rrgChart) rrgChart.destroy(); const all = data.trails.flatMap((t) => Array.isArray(t.points) ? t.points : []), xs = all.map((p) => Number(p.x)).filter(Number.isFinite), ys = all.map((p) => Number(p.y)).filter(Number.isFinite), xmin = Math.min(100,...xs), xmax = Math.max(100,...xs), ymin = Math.min(100,...ys), ymax = Math.max(100,...ys), xp = Math.max(.8,(xmax-xmin)*.22), yp = Math.max(.8,(ymax-ymin)*.22); const datasets = data.trails.map((t) => { const color = rrgColors[t.symbol] || {border:"#fff",background:"rgba(255,255,255,.15)"}, points = Array.isArray(t.points)?t.points:[], last=points.length-1; return { label:t.symbol.replace("USDT",""), data:points.map((p,i)=>({x:Number(p.x),y:Number(p.y),timestamp:p.timestamp,isLatest:i===last,direction:t.direction||"Flat"})), borderColor:color.border, backgroundColor:color.background,borderWidth:2,pointBorderColor:color.border,pointBackgroundColor(c){return c.raw?.isLatest?color.border:"rgba(15,23,42,.95)";},pointRadius(c){return c.raw?.isLatest?5:2;},pointHoverRadius:7,showLine:true,tension:0}; }); rrgChart = new Chart(canvas.getContext("2d"), { type:"scatter",data:{datasets},plugins:[createRrgQuadrantsPlugin(),createRrgDirectionArrowsPlugin()],options:{responsive:true,maintainAspectRatio:true,aspectRatio:1.15,interaction:{intersect:false,mode:"nearest"},plugins:{legend:{labels:{color:"#fff",usePointStyle:true,pointStyle:"circle"}},tooltip:{callbacks:{title(c){const raw=c[0]?.raw;return raw?.timestamp?new Date(raw.timestamp).toLocaleString("en-IN",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):"RRG-style point";},label(c){const x=Number(c.raw?.x||0),y=Number(c.raw?.y||0),d=c.raw?.direction||"Flat";return [`${c.dataset.label}: ${getRrgQuadrant(x,y)}`,`Direction: ${d}`,`RS Ratio: ${x.toFixed(2)}`,`RS Momentum: ${y.toFixed(2)}`];}}},zoom:{limits:{x:{min:"original",max:"original",minRange:.5},y:{min:"original",max:"original",minRange:.5}},pan:{enabled:true,mode:"xy",threshold:2},zoom:{wheel:{enabled:true,speed:.18},pinch:{enabled:true},drag:{enabled:true,threshold:2,backgroundColor:"rgba(59,130,246,.16)",borderColor:"#60a5fa",borderWidth:1},mode:"xy"}}},scales:{x:{type:"linear",min:xmin-xp,max:xmax+xp,title:{display:true,text:"Relative Strength Ratio",color:"#cbd5e1"},ticks:{color:"#cbd5e1",maxTicksLimit:7},grid:{color:"#334155"}},y:{type:"linear",min:ymin-yp,max:ymax+yp,title:{display:true,text:"Relative Strength Momentum",color:"#cbd5e1"},ticks:{color:"#cbd5e1",maxTicksLimit:7},grid:{color:"#334155"}}}} }); }
 
-function getPaperTradeAmount() { const input=getElement("paperAmountInput"), amountInr=Number(input?.value); if (!currentBtcPriceInr) { setText("paperTradeStatus","Waiting for live BTC price. Please wait a few seconds."); return null; } if (!Number.isFinite(amountInr)||amountInr<PAPER_MIN_TRADE_INR) { setText("paperTradeStatus","Please enter a valid virtual amount of at least ₹100."); return null; } return {input,amountInr}; }
+function getPaperTradeAmount() { const input=getElement("paperAmountInput"), amountInr=Number(input?.value); if (!currentBtcPriceInr) { setText("paperTradeStatus","Waiting for live BTC price. Please wait a few seconds."); return null; } if (!Number.isFinite(amountInr)||amountInr<PAPER_MIN_TRADE_INR) { setText("paperTradeStatus","Please enter a valid virtual amount of at least â¹100."); return null; } return {input,amountInr}; }
 function executePaperBuy() { const trade=getPaperTradeAmount(); if(!trade)return; const {input,amountInr}=trade,p=loadPaperPortfolio(),btc=amountInr/currentBtcPriceInr; if(p.shortBtcHolding>PAPER_EPSILON){const value=p.shortBtcHolding*currentBtcPriceInr;if(amountInr>value+.01){setText("paperTradeStatus","Cover amount is larger than the current open short position.");return;}if(amountInr>p.cashInr+.01){setText("paperTradeStatus","Not enough virtual cash to cover this short position.");return;}const cover=Math.min(btc,p.shortBtcHolding),cost=cover*currentBtcPriceInr,avg=p.shortProceedsInr/p.shortBtcHolding;p.cashInr-=cost;p.shortBtcHolding-=cover;p.shortProceedsInr-=cover*avg;if(p.shortBtcHolding<PAPER_EPSILON){p.shortBtcHolding=0;p.shortProceedsInr=0;}addPaperTrade(p,"BUY TO COVER",cost,cover);savePaperPortfolio(p);if(input)input.value="";setText("paperTradeStatus",`Virtual BUY TO COVER complete: ${formatBtc(cover)} at ${formatInr(currentBtcPriceInr)} per BTC.`);renderPaperTrading();return;}if(amountInr>p.cashInr+.01){setText("paperTradeStatus","Not enough virtual cash for this long trade.");return;}p.cashInr-=amountInr;p.btcHolding+=btc;p.totalCostInr+=amountInr;addPaperTrade(p,"BUY LONG",amountInr,btc);savePaperPortfolio(p);if(input)input.value="";setText("paperTradeStatus",`Virtual BUY LONG complete: ${formatBtc(btc)} at ${formatInr(currentBtcPriceInr)} per BTC.`);renderPaperTrading(); }
 function executePaperSell() { const trade=getPaperTradeAmount(); if(!trade)return; const {input,amountInr}=trade,p=loadPaperPortfolio(),btc=amountInr/currentBtcPriceInr; if(p.btcHolding>PAPER_EPSILON){const value=p.btcHolding*currentBtcPriceInr;if(amountInr>value+.01){setText("paperTradeStatus","Sell amount is larger than the current BTC long holding.");return;}const sold=Math.min(btc,p.btcHolding),sale=sold*currentBtcPriceInr,avg=p.totalCostInr/p.btcHolding;p.cashInr+=sale;p.btcHolding-=sold;p.totalCostInr-=sold*avg;if(p.btcHolding<PAPER_EPSILON){p.btcHolding=0;p.totalCostInr=0;}addPaperTrade(p,"SELL LONG",sale,sold);savePaperPortfolio(p);if(input)input.value="";setText("paperTradeStatus",`Virtual SELL LONG complete: ${formatBtc(sold)} at ${formatInr(currentBtcPriceInr)} per BTC.`);renderPaperTrading();return;}if(amountInr>p.cashInr+.01){setText("paperTradeStatus","Not enough virtual cash/margin to open this 1x short trade.");return;}p.cashInr+=amountInr;p.shortBtcHolding+=btc;p.shortProceedsInr+=amountInr;addPaperTrade(p,"SELL SHORT",amountInr,btc);savePaperPortfolio(p);if(input)input.value="";setText("paperTradeStatus",`Virtual SELL SHORT complete: ${formatBtc(btc)} at ${formatInr(currentBtcPriceInr)} per BTC. Use Buy / Cover Short to close it.`);renderPaperTrading(); }
-function resetPaperTrading(){if(!window.confirm("Reset virtual paper portfolio to ₹100,000 and remove all virtual trades?"))return;savePaperPortfolio(getDefaultPaperPortfolio());setText("paperTradeStatus","Virtual portfolio reset to ₹100,000.");renderPaperTrading();}
+function resetPaperTrading(){if(!window.confirm("Reset virtual paper portfolio to â¹100,000 and remove all virtual trades?"))return;savePaperPortfolio(getDefaultPaperPortfolio());setText("paperTradeStatus","Virtual portfolio reset to â¹100,000.");renderPaperTrading();}
 
 function setupPaperTrading() {}
 function setupTimeframeButtons(){document.querySelectorAll(".timeframe-btn").forEach((button)=>button.addEventListener("click",async()=>{const frame=button.dataset.timeframe;if(!timeframeSettings[frame])return;activeTimeframe=frame;document.querySelectorAll(".timeframe-btn").forEach((item)=>item.classList.remove("active"));button.classList.add("active");try{await loadChart();}catch(error){console.error(error);setText("marketUpdatedAt","Selected chart timeframe could not be loaded.");}}));}
@@ -2113,7 +2113,7 @@ refreshAllData();
         // closed, so a fresh launch always starts on the dashboard.
         sessionStorage.setItem(ACTIVE_TAB_SESSION_KEY, targetTab);
       } catch (error) {
-        // Ignore — private browsing / storage quota, non-critical.
+        // Ignore â private browsing / storage quota, non-critical.
       }
 
       if (shouldSave) {
@@ -2163,7 +2163,7 @@ refreshAllData();
     try {
       initialTab = sessionStorage.getItem(ACTIVE_TAB_SESSION_KEY) || "dashboard";
     } catch (error) {
-      // Ignore — private browsing / storage quota, non-critical.
+      // Ignore â private browsing / storage quota, non-critical.
     }
     showTab(initialTab, false);
 
@@ -2206,14 +2206,14 @@ refreshAllData();
     saveGeminiKeyButton?.addEventListener("click", () => {
       const value = geminiKeyInput?.value.trim() || "";
       setUserApiKey("gemini", value);
-      if (geminiKeyStatus) geminiKeyStatus.textContent = value ? "Saved — using your own Gemini key." : "Cleared — using the site's shared Gemini key.";
+      if (geminiKeyStatus) geminiKeyStatus.textContent = value ? "Saved â using your own Gemini key." : "Cleared â using the site's shared Gemini key.";
       updateApiKeyGate("gemini", true);
     });
 
     saveGroqKeyButton?.addEventListener("click", () => {
       const value = groqKeyInput?.value.trim() || "";
       setUserApiKey("groq", value);
-      if (groqKeyStatus) groqKeyStatus.textContent = value ? "Saved — using your own Groq key." : "Cleared — using the site's shared Groq key.";
+      if (groqKeyStatus) groqKeyStatus.textContent = value ? "Saved â using your own Groq key." : "Cleared â using the site's shared Groq key.";
       updateApiKeyGate("groq", true);
     });
 
@@ -2412,14 +2412,14 @@ refreshAllData();
   }
 })();
 
-/* ===== Account (Supabase) — one login shared by both Indian Market and
+/* ===== Account (Supabase) â one login shared by both Indian Market and
    BTC mode, since they're the same page/session. ===== */
 (() => {
   const SUPABASE_URL = "https://qvgfxtjwgrtytjdjcebj.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DRsCPkKaKRYPrQDFtqV0xQ_7QeP4kYh";
 
   if (typeof window.supabase === "undefined") {
-    console.error("Supabase client library did not load — account features are unavailable.");
+    console.error("Supabase client library did not load â account features are unavailable.");
     return;
   }
 
@@ -2507,7 +2507,7 @@ refreshAllData();
 
     function friendlyAuthError(error) {
       const message = String(error?.message || "");
-      if (/already registered|already exists/i.test(message)) return "That email already has an account — try logging in instead.";
+      if (/already registered|already exists/i.test(message)) return "That email already has an account â try logging in instead.";
       if (/invalid login credentials/i.test(message)) return "Wrong email or password.";
       if (/password.*at least|password.*characters/i.test(message)) return "Password must be at least 6 characters.";
       if (/email.*invalid/i.test(message)) return "That doesn't look like a valid email.";
@@ -2559,7 +2559,7 @@ refreshAllData();
 
     // Inside the native app, Google refuses to show its login screen inside
     // an embedded WebView, so Capacitor kicks the whole navigation out to
-    // the system browser — and a plain redirectTo would then land the
+    // the system browser â and a plain redirectTo would then land the
     // finished login back in that browser tab, not the app. Route this case
     // through Capacitor's Browser plugin plus a custom-scheme deep link
     // (registered in AndroidManifest.xml) so the app gets control back.
@@ -2669,7 +2669,7 @@ refreshAllData();
           localProfile = JSON.parse(localStorage.getItem(`md_profile_${user.id}`) || "{}");
         } catch(e) {}
 
-        // Only this account's own name — the shared "marketdock_user_name"
+        // Only this account's own name â the shared "marketdock_user_name"
         // key can still hold a different account's name on this device.
         const googleName = (user.user_metadata?.full_name || user.user_metadata?.name || "").trim();
         if ((localProfile.firstName && localProfile.lastName) || googleName) {
@@ -2705,7 +2705,7 @@ refreshAllData();
         }
       })
       .catch(err => {
-        // Trial sync failed (server or network) — still walk the user through
+        // Trial sync failed (server or network) â still walk the user through
         // the same once-only broker step / trial welcome.
         console.error("Trial sync error:", err);
         showBrokerModalOrTrial();
@@ -2827,7 +2827,7 @@ refreshAllData();
         if (data?.session) {
           setStatus("", false);
         } else {
-          setStatus("Account created — check your email to confirm it, then log in.", false);
+          setStatus("Account created â check your email to confirm it, then log in.", false);
         }
       } catch (error) {
         setStatus(friendlyAuthError(error), true);
@@ -3019,10 +3019,10 @@ function setLiveChartStatus(message, type = "connecting") {
     badge.className = `live-chart-connection live-${type}`;
     badge.textContent =
       type === "live"
-        ? `Live • BTCUSDT ${liveChartTimeframe}`
+        ? `Live â¢ BTCUSDT ${liveChartTimeframe}`
         : type === "error"
           ? "Connection error"
-          : "Connecting…";
+          : "Connectingâ¦";
   }
 
   if (status) {
@@ -3037,7 +3037,7 @@ function setLiveChartStatus(message, type = "connecting") {
    rectangles don't map onto a (time, value) series, so they're drawn as SVG shapes in an
    overlay layer on top of the chart and repositioned every animation frame (only while at
    least one such shape exists) by converting their stored time/price back to pixels via
-   the chart's own timeToCoordinate/priceToCoordinate — this keeps them lined up correctly
+   the chart's own timeToCoordinate/priceToCoordinate â this keeps them lined up correctly
    through panning, zooming, and resizing. */
 
 function getDrawingOverlaySvg() {
@@ -3236,7 +3236,7 @@ function repositionDrawingOverlays() {
       drawing.labelEl.setAttribute("opacity", "1");
       drawing.labelEl.setAttribute("x", leftX + 6);
       drawing.labelEl.setAttribute("y", Math.min(entryY, stopY, targetY ?? entryY) - 8);
-      drawing.labelEl.textContent = `${direction}  Entry $${drawing.p1.toFixed(2)}  •  Stop $${drawing.p2.toFixed(2)}  •  Target $${targetPrice.toFixed(2)}  •  R:R 1:2.00`;
+      drawing.labelEl.textContent = `${direction}  Entry $${drawing.p1.toFixed(2)}  â¢  Stop $${drawing.p2.toFixed(2)}  â¢  Target $${targetPrice.toFixed(2)}  â¢  R:R 1:2.00`;
 
       positionHandlePair(drawing, x1, entryY, x2, stopY);
     } else if (drawing.type === "volume-profile" && Array.isArray(drawing.barEls)) {
@@ -3311,7 +3311,7 @@ function repositionDrawingOverlays() {
       drawing.labelEl.setAttribute("opacity", "1");
       drawing.labelEl.setAttribute("x", leftX + 4);
       drawing.labelEl.setAttribute("y", topY - 8 < 12 ? topY + 14 : topY - 8);
-      drawing.labelEl.textContent = `Volume Profile  •  POC $${(lowestPrice + pocIndex * binSize + binSize / 2).toFixed(2)}`;
+      drawing.labelEl.textContent = `Volume Profile  â¢  POC $${(lowestPrice + pocIndex * binSize + binSize / 2).toFixed(2)}`;
 
       positionHandlePair(drawing, x1, topY, x2, bottomY);
     }
@@ -3339,7 +3339,7 @@ function renderMeasureLabel(textEl, drawing) {
   const bars = Math.round(Math.abs(drawing.t2 - drawing.t1) / getDrawingIntervalSeconds());
   const duration = formatMeasureDuration(drawing.t2 - drawing.t1);
   const sign = priceDiff >= 0 ? "+" : "";
-  textEl.textContent = `${sign}$${priceDiff.toFixed(2)} (${sign}${percent.toFixed(2)}%)  •  ${bars} bars  •  ${duration}`;
+  textEl.textContent = `${sign}$${priceDiff.toFixed(2)} (${sign}${percent.toFixed(2)}%)  â¢  ${bars} bars  â¢  ${duration}`;
 }
 
 function positionHandlePair(drawing, x1, y1, x2, y2) {
@@ -3574,7 +3574,7 @@ function applyDrawingColor(drawing, newColor) {
     drawing.boundsEl.setAttribute("stroke", newColor);
   }
   // Fibonacci levels and Long/Short Position risk/reward zones keep their fixed,
-  // meaningful colors — only their endpoint handles follow the picked color.
+  // meaningful colors â only their endpoint handles follow the picked color.
   if (Array.isArray(drawing.handleEls)) {
     drawing.handleEls.forEach((handle) => handle.setAttribute("stroke", newColor));
   }
@@ -3703,7 +3703,7 @@ function setupChartDrawingTools() {
 
 /* ===== Drag-to-move for existing drawings =====
    Whole-shape dragging only (the line/rectangle keeps its shape and shifts as one
-   piece) — not per-endpoint resizing. Hit-testing works in pixel space: horizontal/
+   piece) â not per-endpoint resizing. Hit-testing works in pixel space: horizontal/
    vertical lines check distance to the line's single axis, trend lines check
    point-to-segment distance, rectangles check "point is inside the box". While a
    drawing is being dragged, the chart's own pan/zoom is temporarily disabled so a
@@ -3728,7 +3728,7 @@ function getContainerPoint(event) {
 }
 
 /* Returns { drawing, handle } where handle is "point1"/"point2" (grabbed an
-   endpoint — resize just that point) or "move" (grabbed the body — shift the
+   endpoint â resize just that point) or "move" (grabbed the body â shift the
    whole shape). Endpoints are checked first so precise corner-grabs always win
    over a whole-shape grab in the same area. */
 function findDrawingHandleAtPoint(x, y) {
@@ -3978,7 +3978,7 @@ async function loadLiveCandlestickChart() {
 
   const setting = liveChartSettings[liveChartTimeframe] || { limit: 200 };
 
-  setLiveChartStatus("Loading latest Binance candles…", "connecting");
+  setLiveChartStatus("Loading latest Binance candlesâ¦", "connecting");
 
   try {
     const response = await fetch(
@@ -4028,8 +4028,8 @@ async function loadLiveCandlestickChart() {
 
     if (candleBox) {
       candleBox.textContent =
-        `Live • O ${formatLiveCandlePrice(latest.open)} • ` +
-        `H ${formatLiveCandlePrice(latest.high)} • ` +
+        `Live â¢ O ${formatLiveCandlePrice(latest.open)} â¢ ` +
+        `H ${formatLiveCandlePrice(latest.high)} â¢ ` +
         `L ${formatLiveCandlePrice(latest.low)}`;
     }
 
@@ -4391,25 +4391,25 @@ function clearLiveChartAiOverlay() {
 
     addForwardStatusLine(
       Number(data.entry_price),
-      `${name} • ${direction} — SETUP ACTIVE | ENTRY`,
+      `${name} â¢ ${direction} â SETUP ACTIVE | ENTRY`,
       entryColor
     );
 
     addForwardStatusLine(
       Number(data.stop_loss_price),
-      `${name} • STOP LOSS`,
+      `${name} â¢ STOP LOSS`,
       "#f87171"
     );
 
     addForwardStatusLine(
       Number(data.target_1_price),
-      `${name} • TARGET 1`,
+      `${name} â¢ TARGET 1`,
       "#facc15"
     );
 
     addForwardStatusLine(
       Number(data.target_2_price),
-      `${name} • TARGET 2`,
+      `${name} â¢ TARGET 2`,
       "#a78bfa"
     );
   }
@@ -4502,7 +4502,7 @@ function clearLiveChartAiOverlay() {
     if (typeof setText === "function") {
       setText(
         "technicalRefreshStatus",
-        `${lock?.provider || "AI"} analysis active • technical refresh paused for ${lockLabel()}.`
+        `${lock?.provider || "AI"} analysis active â¢ technical refresh paused for ${lockLabel()}.`
       );
     }
   }
@@ -4675,8 +4675,8 @@ function clearLiveChartAiOverlay() {
     // ticker bar, so the header's separate badge (still used by BTC mode,
     // which has no ticker bar) would be a redundant second "Live" here.
     // Setting `hidden` directly (not just the CSS class below) means it
-    // can never show through — including on first paint, before this JS
-    // has even run — instead of only being hidden once this class exists.
+    // can never show through â including on first paint, before this JS
+    // has even run â instead of only being hidden once this class exists.
     document.body.classList.toggle("mode-indian-live-status", isIndian);
     if (statusBadge) statusBadge.hidden = isIndian;
     if (brandSubtitle) {
@@ -4696,7 +4696,7 @@ function clearLiveChartAiOverlay() {
     }
     // Both modes' price sparkline canvases have zero size while their root
     // is hidden, so Chart.js can't size them correctly if drawn before that
-    // mode is ever shown — (re)draw whichever one just became visible.
+    // mode is ever shown â (re)draw whichever one just became visible.
     if (isIndian && typeof window.loadImDashboardSparklines === "function") window.loadImDashboardSparklines();
     if (isIndian && typeof window.redrawMoverSparklines === "function") window.redrawMoverSparklines();
     if (!isIndian && typeof loadBtcSparkline === "function") loadBtcSparkline();
@@ -4747,12 +4747,12 @@ function clearLiveChartAiOverlay() {
   }
 
   // This listener sits on `document`, with no idea the Settings drawer (or
-  // any other fixed-position overlay) exists — it only ever checked
+  // any other fixed-position overlay) exists â it only ever checked
   // window.scrollY, which the drawer's own scroll-lock (see openSettings())
   // pins at 0 for as long as it's open. That made *every* touch starting
   // anywhere, including inside the open drawer, look like a page pulled to
   // its very top: scrolling back up inside the drawer (finger dragging
-  // down — the same direction as a real pull-to-refresh) reliably armed
+  // down â the same direction as a real pull-to-refresh) reliably armed
   // this and, past the threshold, reloaded the whole page out from under
   // Settings. Bailing out whenever the drawer is open fixes it at the
   // source instead of fighting it from the Settings side.
@@ -4843,7 +4843,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   if (notice) {
     notice.hidden = allowed;
     const message = notice.querySelector("[data-rrg-message]");
-    if (message) message.textContent = checking ? "Checking access…" : "RRG is under maintenance. Please check back later.";
+    if (message) message.textContent = checking ? "Checking accessâ¦" : "RRG is under maintenance. Please check back later.";
   }
   if (content) content.hidden = !allowed;
   if (button) {
@@ -4852,7 +4852,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     else if (!badge) {
       const lock = document.createElement("span");
       lock.className = "rrg-lock-badge";
-      lock.textContent = " 🔒";
+      lock.textContent = " ð";
       button.appendChild(lock);
     }
   }
@@ -4930,7 +4930,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     },
     "im-heatmap": {
       title: "Sector Heatmap",
-      subtitle: "Live NSE constituents colored by daily % change — bigger tile, bigger move."
+      subtitle: "Live NSE constituents colored by daily % change â bigger tile, bigger move."
     },
     "im-paper-trading": {
       title: "Paper Trading Journal",
@@ -4938,11 +4938,11 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     },
     "im-orders": {
       title: "Orders",
-      subtitle: "Your paper orders — open, executed and cancelled. Paper trading, no real money."
+      subtitle: "Your paper orders â open, executed and cancelled. Paper trading, no real money."
     },
     "im-broker-account": {
       title: "Positions",
-      subtitle: "Intraday, F&O and commodity positions. Paper trading — no real money."
+      subtitle: "Intraday, F&O and commodity positions. Paper trading â no real money."
     },
     "im-holdings": {
       title: "Holdings",
@@ -4966,7 +4966,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   //
   // On Android (Chrome, and the MarketDock app via MainActivity) an
   // intent:// link opens the TradingView app when it's installed and falls
-  // back to tradingview.com when it isn't — no setup needed either way.
+  // back to tradingview.com when it isn't â no setup needed either way.
   // Everywhere else it's a plain tradingview.com link (iOS hands that to the
   // TradingView app itself when installed).
   const TRADINGVIEW_ANDROID_PACKAGE = "com.tradingview.tradingviewapp";
@@ -5007,7 +5007,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       // wherever the user happened to leave off last time.
       sessionStorage.setItem(LAST_PAGE_STORAGE_KEY, pageId);
     } catch {
-      // Ignore — private browsing / storage quota, non-critical.
+      // Ignore â private browsing / storage quota, non-critical.
     }
 
     const info = pageInfo[pageId];
@@ -5023,7 +5023,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     }
 
     if (pageId === "im-live-chart") {
-      // RRG's Chart view borrows this same chart node — make sure it's back
+      // RRG's Chart view borrows this same chart node â make sure it's back
       // in its home slot here before it's shown/resized.
       if (typeof restoreSharedChartHome === "function") restoreSharedChartHome();
       if (typeof createImLiveChart === "function") createImLiveChart();
@@ -5059,7 +5059,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
     if (["im-nifty", "im-banknifty", "im-finnifty", "im-sensex"].includes(pageId) && typeof redrawImDashboardSparkline === "function") {
       // That index's hero-card sparkline canvas was zero-size (and so never
-      // drawn) while this page was hidden — redraw now from the data
+      // drawn) while this page was hidden â redraw now from the data
       // already cached, rather than re-fetching.
       redrawImDashboardSparkline(pageId.replace("im-", ""));
     }
@@ -5124,7 +5124,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   // Any "drill into a page from a click" flow (a Dashboard tile, a
   // Watchlist row's View Chart/Buy/Sell, ...) is just an in-SPA page switch,
   // so the app has no browser-history entry to associate with "go back to
-  // where I came from" — pushImDrilldown/consumeImDrilldown track that
+  // where I came from" â pushImDrilldown/consumeImDrilldown track that
   // return page directly instead. The Android hardware back button is
   // wired to this via the Capacitor App plugin below (not window.popstate:
   // relying on the WebView's own history stack to notice a pushState call
@@ -5148,7 +5148,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   });
 
   // Tapping a search box (or any text input) focuses it and pops the
-  // on-screen keyboard, without opening any of the overlays below — e.g.
+  // on-screen keyboard, without opening any of the overlays below â e.g.
   // an empty search box, or one whose dropdown already closed after
   // picking a result. That focused state isn't tracked as an "overlay"
   // either, so back had nothing to intercept and fell straight through to
@@ -5165,7 +5165,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
   // Any small overlay (a search-suggestions dropdown, the Watchlist's
   // sort panel, its Buy/Sell/Chart or delete-confirm sheet) sits on top of
-  // whatever page it opened from without changing the page itself — none
+  // whatever page it opened from without changing the page itself â none
   // of that is tracked by pushImDrilldown. Without this, the back button
   // had nothing "open" to close and fell straight through to exiting the
   // app instead of just dismissing the dropdown/sheet, same underlying gap
@@ -5184,7 +5184,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     if ((actionSheet && !actionSheet.hidden) || (deleteSheet && !deleteSheet.hidden) || (tabMenuSheet && !tabMenuSheet.hidden)) {
       // The 450ms guard in closeImWatchlistSheets() exists to ignore an
       // accidental backdrop-tap right after the sheet opens (touch bubbling
-      // from the same gesture that opened it) — it doesn't apply to a
+      // from the same gesture that opened it) â it doesn't apply to a
       // deliberate hardware back-button press, which must always close the
       // sheet. Returning false here instead would leave the sheet visually
       // stuck open while the back handler falls through and still
@@ -5230,7 +5230,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   // open on top (keyboard, dropdown, sheet, sort panel, settings drawer,
   // fullscreen chart), then return from a drill-down, then from any other
   // page go back to the Dashboard. Only on the Dashboard itself does back
-  // exit — and only on a second press within 2s, so a stray press never
+  // exit â and only on a second press within 2s, so a stray press never
   // closes the app. This listener fully replaces Capacitor's built-in
   // handling once registered.
   const capacitorApp = window.Capacitor?.Plugins?.App;
@@ -5241,8 +5241,8 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       // On some devices/Android versions (notably gesture-navigation ones)
       // a single physical back press or edge-swipe can fire this event
       // twice in quick succession. Without a guard, the first fire closes
-      // whatever's open (e.g. Settings) and the second — now finding
-      // nothing left open — falls through to the "go to Dashboard" branch,
+      // whatever's open (e.g. Settings) and the second â now finding
+      // nothing left open â falls through to the "go to Dashboard" branch,
       // which read as "Settings closed and the app jumped to another page
       // by itself" even though nothing was actually double-tapped.
       const firedAt = Date.now();
@@ -5250,7 +5250,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       lastBackButtonHandledAt = firedAt;
 
       // Both can be true together (a focused search box with its dropdown
-      // open) — run both so a single back press clears the whole thing.
+      // open) â run both so a single back press clears the whole thing.
       const blurredInput = blurAnyFocusedImInput();
       const closedOverlay = closeAnyOpenImOverlay();
       if (blurredInput || closedOverlay) return;
@@ -5313,8 +5313,8 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   });
 
   // Dashboard's Top Gainer/Loser tiles (NIFTY 50 + Bank Nifty) open a
-  // focused drill-down — actual gainers only / actual losers only for
-  // that index — not the full Scanner page with its own universe picker
+  // focused drill-down â actual gainers only / actual losers only for
+  // that index â not the full Scanner page with its own universe picker
   // and other filters.
   root.querySelectorAll(".im-mover-card[data-mover-universe]").forEach((card) => {
     const openInScanner = () => {
@@ -5359,6 +5359,60 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     }
   }
 
+  async function getMdAuthToken() {
+    if (!window.marketDockSupabase) return "";
+    try {
+      const { data } = await window.marketDockSupabase.auth.getSession();
+      return data?.session?.access_token || "";
+    } catch (e) {
+      return "";
+    }
+  }
+
+  function pushTradesToCloud(trades, timestamp = Date.now(), isReset = false) {
+    const email = mdGetActiveUserEmail();
+    if (!email) return;
+
+    // 1. Primary backend sync: Fast dedicated endpoint /api/paper/portfolio
+    getMdAuthToken().then((token) => {
+      if (!token) return;
+      fetch("/api/paper/portfolio", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ trades, updated_at: timestamp, reset: isReset })
+      }).then((r) => r.json()).then((res) => {
+        if (res && res.ok && Array.isArray(res.trades)) {
+          const userKey = mdPaperTradesKey(email);
+          const currentLocal = JSON.parse(localStorage.getItem(userKey) || "[]");
+          if (JSON.stringify(currentLocal) !== JSON.stringify(res.trades)) {
+            localStorage.setItem(userKey, JSON.stringify(res.trades));
+            try { localStorage.setItem(userKey + ":lastModified", String(res.updated_at || timestamp)); } catch (e) {}
+            refreshPaperViews();
+          }
+        }
+      }).catch((e) => console.warn("Portfolio push error:", e));
+    });
+
+    // 2. Secondary fallback: Supabase user_metadata
+    if (window.marketDockSupabase && window.marketDockUser) {
+      if (!window.marketDockUser.user_metadata) window.marketDockUser.user_metadata = {};
+      window.marketDockUser.user_metadata.im_paper_trades = trades;
+      window.marketDockUser.user_metadata.im_paper_trades_updated_at = timestamp;
+      if (window.marketDockSession?.user) {
+        if (!window.marketDockSession.user.user_metadata) window.marketDockSession.user.user_metadata = {};
+        window.marketDockSession.user.user_metadata.im_paper_trades = trades;
+        window.marketDockSession.user.user_metadata.im_paper_trades_updated_at = timestamp;
+      }
+
+      window.marketDockSupabase.auth.updateUser({
+        data: { im_paper_trades: trades, im_paper_trades_updated_at: timestamp }
+      }).catch(() => {});
+    }
+  }
+
   function saveTrades(trades) {
     const key = mdPaperTradesKey();
     localStorage.setItem(key, JSON.stringify(trades));
@@ -5367,35 +5421,24 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       localStorage.setItem(key + ":lastModified", String(now));
     } catch (e) {}
 
-    if (window.marketDockSupabase && window.marketDockUser) {
-      if (!window.marketDockUser.user_metadata) window.marketDockUser.user_metadata = {};
-      window.marketDockUser.user_metadata.im_paper_trades = trades;
-      window.marketDockUser.user_metadata.im_paper_trades_updated_at = now;
-      if (window.marketDockSession?.user) {
-        if (!window.marketDockSession.user.user_metadata) window.marketDockSession.user.user_metadata = {};
-        window.marketDockSession.user.user_metadata.im_paper_trades = trades;
-        window.marketDockSession.user.user_metadata.im_paper_trades_updated_at = now;
-      }
-
-      window.marketDockSupabase.auth.updateUser({
-        data: { im_paper_trades: trades, im_paper_trades_updated_at: now }
-      }).then(({ data, error }) => {
-        if (!error && data?.user) {
-          window.marketDockUser = data.user;
-          if (window.marketDockSession) window.marketDockSession.user = data.user;
-        }
-      }).catch((e) => console.warn("Supabase trade sync failed:", e));
-    }
+    pushTradesToCloud(trades, now, false);
   }
 
-  // Two-way Cloud Sync: Isolate per-user paper trades
-  window.syncCloudTrades = async function(user) {
-    if (!user || !user.email) return;
-    const email = user.email.trim().toLowerCase();
-    const userKey = mdPaperTradesKey(email);
+  // Two-way Cloud Sync: Reconcile per-user paper trades seamlessly across all devices
+  let mdSyncInFlight = false;
+  let mdPendingSync = false;
+
+  window.syncCloudTrades = async function(providedUser) {
+    if (mdSyncInFlight) {
+      mdPendingSync = true;
+      return;
+    }
+    mdSyncInFlight = true;
+
     try {
-      const remoteTrades = user.user_metadata?.im_paper_trades;
-      const remoteUpdatedAt = Number(user.user_metadata?.im_paper_trades_updated_at) || 0;
+      const email = mdGetActiveUserEmail();
+      if (!email) return;
+      const userKey = mdPaperTradesKey(email);
 
       let localTrades = null;
       try {
@@ -5404,93 +5447,124 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       } catch (e) {
         localTrades = null;
       }
-
+      if (!Array.isArray(localTrades)) localTrades = [];
       const localModified = Number(localStorage.getItem(userKey + ":lastModified")) || 0;
 
-      const getLatestTradeTs = (list) => {
-        if (!Array.isArray(list) || !list.length) return 0;
-        let max = 0;
-        list.forEach((t) => {
-          if (t.closedAt && Number(t.closedAt) > max) max = Number(t.closedAt);
-          if (t.filledAt && Number(t.filledAt) > max) max = Number(t.filledAt);
-          if (t.createdAt && Number(t.createdAt) > max) max = Number(t.createdAt);
-        });
-        return max;
-      };
+      const token = await getMdAuthToken();
+      let serverTrades = null;
+      let serverUpdatedAt = 0;
 
-      const localHasTrades = Array.isArray(localTrades) && localTrades.length > 0;
-      const remoteHasTrades = Array.isArray(remoteTrades) && remoteTrades.length > 0;
-
-      // 1. Fresh account or new device/cleared cache: restore from cloud
-      if (!localHasTrades && remoteHasTrades) {
-        localStorage.setItem(userKey, JSON.stringify(remoteTrades));
-        if (remoteUpdatedAt > 0) {
-          try { localStorage.setItem(userKey + ":lastModified", String(remoteUpdatedAt)); } catch (e) {}
+      // Primary sync: Fetch from dedicated server endpoint
+      if (token) {
+        try {
+          const res = await fetch("/api/paper/portfolio", {
+            headers: { "Authorization": "Bearer " + token },
+            cache: "no-store"
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.ok && Array.isArray(data.trades)) {
+              serverTrades = data.trades;
+              serverUpdatedAt = Number(data.updated_at) || 0;
+            }
+          }
+        } catch (e) {
+          console.warn("Server portfolio fetch error:", e);
         }
       }
-      // 2. Local has trades but cloud is empty: push local to cloud
-      else if (localHasTrades && !remoteHasTrades) {
-        if (window.marketDockSupabase) {
-          window.marketDockSupabase.auth.updateUser({
-            data: { im_paper_trades: localTrades, im_paper_trades_updated_at: localModified || Date.now() }
+
+      // Secondary fallback: Supabase user_metadata if server had no record
+      if (!serverTrades && window.marketDockSupabase) {
+        try {
+          const { data } = await window.marketDockSupabase.auth.getUser();
+          if (data?.user?.user_metadata?.im_paper_trades) {
+            serverTrades = data.user.user_metadata.im_paper_trades;
+            serverUpdatedAt = Number(data.user.user_metadata.im_paper_trades_updated_at) || 0;
+          }
+        } catch (e) {}
+      }
+
+      // If neither server nor cloud has trades, and local has trades, push local to server
+      if ((!serverTrades || !serverTrades.length) && localTrades.length > 0) {
+        if (token) {
+          fetch("/api/paper/portfolio", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer " + token
+            },
+            body: JSON.stringify({ trades: localTrades, updated_at: localModified || Date.now() })
           }).catch(() => {});
         }
+        return;
       }
-      // 3. Both local and remote have trades: Smart reconciliation
-      // Never let stale remote metadata resurrect closed or exited positions!
-      else if (localHasTrades && remoteHasTrades) {
-        const localTs = Math.max(localModified, getLatestTradeTs(localTrades));
-        const remoteTs = Math.max(remoteUpdatedAt, getLatestTradeTs(remoteTrades));
 
-        if (localTs >= remoteTs) {
-          // Local is newer or equal: keep local as the authoritative state on this device!
-          // If cloud is behind, push local to cloud so next device or session catches up.
-          if (localTs > remoteTs && window.marketDockSupabase) {
-            window.marketDockSupabase.auth.updateUser({
-              data: { im_paper_trades: localTrades, im_paper_trades_updated_at: localTs }
-            }).catch(() => {});
-          }
+      // Smart Union & Reconcile: Combine trades by trade ID
+      // Rules:
+      // 1. All trades from both local and remote are retained
+      // 2. Closed / cancelled trades are NEVER reopened
+      // 3. Newer trade modification wins on conflict
+      const tradeMap = new Map();
+      const tradeTs = (t) => Math.max(Number(t.closedAt) || 0, Number(t.filledAt) || 0, Number(t.createdAt) || 0);
+
+      const mergeOne = (existing, incoming) => {
+        const exClosed = existing.status === "closed" || existing.status === "cancelled";
+        const inClosed = incoming.status === "closed" || incoming.status === "cancelled";
+        if (exClosed && !inClosed) return existing;
+        if (inClosed && !exClosed) return incoming;
+        return tradeTs(incoming) >= tradeTs(existing) ? incoming : existing;
+      };
+
+      if (Array.isArray(serverTrades)) {
+        serverTrades.forEach((t) => {
+          if (t && t.id) tradeMap.set(String(t.id), t);
+        });
+      }
+
+      let hadLocalAdditions = false;
+      localTrades.forEach((t) => {
+        if (!t || !t.id) return;
+        const tid = String(t.id);
+        if (tradeMap.has(tid)) {
+          tradeMap.set(tid, mergeOne(tradeMap.get(tid), t));
         } else {
-          // Remote is strictly newer (e.g. actions on another device).
-          // Reconcile: Any trade that was closed or cancelled locally must NEVER be reopened!
-          const closedLocalMap = new Map();
-          localTrades.forEach((t) => {
-            if (t.status === "closed" || t.status === "cancelled" || t.status === "filled") {
-              closedLocalMap.set(t.id, t);
-            }
-          });
-
-          const reconciled = remoteTrades.map((rt) => {
-            const closedLocal = closedLocalMap.get(rt.id);
-            if (closedLocal && rt.status === "open") {
-              return closedLocal;
-            }
-            return rt;
-          });
-
-          const remoteIds = new Set(reconciled.map((t) => t.id));
-          localTrades.forEach((lt) => {
-            if (!remoteIds.has(lt.id) && (lt.status === "closed" || lt.status === "filled")) {
-              reconciled.push(lt);
-            }
-          });
-
-          localStorage.setItem(userKey, JSON.stringify(reconciled));
-          try { localStorage.setItem(userKey + ":lastModified", String(remoteTs)); } catch (e) {}
-
-          if (window.marketDockSupabase) {
-            window.marketDockSupabase.auth.updateUser({
-              data: { im_paper_trades: reconciled, im_paper_trades_updated_at: remoteTs }
-            }).catch(() => {});
-          }
+          tradeMap.set(tid, t);
+          hadLocalAdditions = true;
         }
-      } else if (!localTrades) {
-        localStorage.setItem(userKey, JSON.stringify([]));
+      });
+
+      const reconciled = Array.from(tradeMap.values());
+      reconciled.sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+
+      const reconciledJson = JSON.stringify(reconciled);
+      const localJson = JSON.stringify(localTrades);
+
+      if (reconciledJson !== localJson) {
+        localStorage.setItem(userKey, reconciledJson);
+        const maxTs = Math.max(localModified, serverUpdatedAt, Date.now());
+        try { localStorage.setItem(userKey + ":lastModified", String(maxTs)); } catch (e) {}
+        refreshPaperViews();
+      }
+
+      // If local had additions or changes not yet on server, push merged state to server
+      if (token && (hadLocalAdditions || !serverTrades || serverTrades.length < reconciled.length)) {
+        fetch("/api/paper/portfolio", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          body: JSON.stringify({ trades: reconciled, updated_at: Date.now() })
+        }).catch(() => {});
       }
     } catch (e) {
       console.warn("Cross-device sync error:", e);
     } finally {
-      refreshPaperViews();
+      mdSyncInFlight = false;
+      if (mdPendingSync) {
+        mdPendingSync = false;
+        setTimeout(() => window.syncCloudTrades(), 500);
+      }
     }
   };
 
@@ -5518,7 +5592,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       tradeTableBody.innerHTML = trades
         .map((trade, index) => {
           const directionClass = trade.direction === "Buy" ? "positive" : "negative";
-          // Trades saved before this feature have no status/qty at all —
+          // Trades saved before this feature have no status/qty at all â
           // treat them as plain research-log rows, same as before.
           const status = trade.status || null;
           const pnl = status === "closed" && Number.isFinite(trade.pnl) ? trade.pnl : null;
@@ -5534,7 +5608,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
               <td>${escapeText(trade.orderType === "limit" ? "Limit" : "Market")}</td>
               <td>${Number(trade.entry).toFixed(2)}</td>
               <td>${trade.qty ? escapeText(String(trade.qty)) : "--"}</td>
-              <td>${Number(stopDisplay).toFixed(2)}${isTrailed ? " ↑" : ""}</td>
+              <td>${Number(stopDisplay).toFixed(2)}${isTrailed ? " â" : ""}</td>
               <td>${Number(trade.target).toFixed(2)}</td>
               <td>${status ? `<span class="im-trade-status im-trade-status-${status}">${escapeText(status)}</span>` : "--"}</td>
               <td class="${pnlClass} privacy-sensitive">${pnlText}</td>
@@ -5567,7 +5641,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
   let imPerfEquityChart = null;
 
-  // Educational metrics computed from the paper-trade journal only — no
+  // Educational metrics computed from the paper-trade journal only â no
   // broker data. Sharpe here is a simplified per-trade mean/stdev ratio
   // (not annualized), since this is a discrete trade log rather than an
   // evenly-sampled price time series.
@@ -5661,7 +5735,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       totalPnlEl.className = stats.totalPnl >= 0 ? "positive" : "negative";
     }
     if (profitFactorEl) {
-      profitFactorEl.textContent = stats.profitFactor === null ? "--" : stats.profitFactor === Infinity ? "∞" : stats.profitFactor.toFixed(2);
+      profitFactorEl.textContent = stats.profitFactor === null ? "--" : stats.profitFactor === Infinity ? "â" : stats.profitFactor.toFixed(2);
     }
     if (avgWinLossEl) {
       const avgWinText = stats.avgWin === null ? "--" : `+${stats.avgWin.toFixed(2)}`;
@@ -5797,7 +5871,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
 
   // Epoch ms of the IST hh:mm cutoff that applies to something created at
-  // `createdAt` — that same day's cutoff, or the next day's if it was
+  // `createdAt` â that same day's cutoff, or the next day's if it was
   // created after it (e.g. an order placed at night belongs to tomorrow).
   function imIstCutoff(createdAt, hh, mm) {
     const shifted = new Date(createdAt + IST_OFFSET_MS);
@@ -5828,7 +5902,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
   function formatRupees(value) {
     const sign = value < 0 ? "-" : "";
-    return `${sign}₹${formatNumber(Math.abs(value))}`;
+    return `${sign}â¹${formatNumber(Math.abs(value))}`;
   }
 
   function renderImPaperFunds() {
@@ -5841,7 +5915,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     };
     // Whole rupees for the crore-sized balances so they fit narrow cards;
     // P&L and margin keep paise.
-    const wholeRupees = (value) => `${value < 0 ? "-" : ""}₹${Math.round(Math.abs(value)).toLocaleString("en-IN")}`;
+    const wholeRupees = (value) => `${value < 0 ? "-" : ""}â¹${Math.round(Math.abs(value)).toLocaleString("en-IN")}`;
     setText("im-pos-funds-available", wholeRupees(funds.available));
     const usedEl = document.getElementById("im-pos-funds-used");
     if (usedEl) usedEl.innerHTML = `Used <span class="im-funds-used-amount">${formatRupees(funds.used)}</span>`;
@@ -5870,7 +5944,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
   // An automatic exit (stop-loss, target, intraday square-off) shows up in
   // the Order Book as its own executed order, the way a broker records the
-  // SL/target order that fired — otherwise a position just vanishes with no
+  // SL/target order that fired â otherwise a position just vanishes with no
   // trace of why.
   function recordImSystemExit(trades, trade, price, reason) {
     const isStop = /stop/i.test(reason);
@@ -5898,7 +5972,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     });
   }
 
-  // Open quantity of `symbol`/`product` held on the side opposite `side` —
+  // Open quantity of `symbol`/`product` held on the side opposite `side` â
   // i.e. how much a `side` order would square off rather than open fresh.
   function imOppositeOpenQty(trades, symbol, product, side) {
     return trades
@@ -6005,7 +6079,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
         changed = true;
         notifications.push({
           title: `${imTradeMarketLabel(marketKey)} Order Executed`,
-          body: `${trade.direction} ${trade.orderQty} at ${formatNumber(fillPrice)} executed — live price ${formatNumber(price)}.`,
+          body: `${trade.direction} ${trade.orderQty} at ${formatNumber(fillPrice)} executed â live price ${formatNumber(price)}.`,
           tag: `im-paper-fill-${trade.createdAt || trade.entry}-${trade.orderQty}`
         });
         return;
@@ -6015,7 +6089,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
       // Intraday (MIS) square-off: 3:20 PM IST for NSE, 11:25 PM for MCX
       // (its evening session runs later). If the app wasn't open at that
-      // moment, the square-off happens on the next tick — at the session's
+      // moment, the square-off happens on the next tick â at the session's
       // closing price if a new trading day has started since, not today's
       // live price.
       const isMcx = trade.segment === "MCX" || IM_MCX_FUTURES_PATTERN.test(String(trade.index || ""));
@@ -6106,7 +6180,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
       document.getElementById("im-trade-qty").value = qty;
       if (resultEl) {
-        resultEl.textContent = `Risking ${formatNumber(riskAmount)} (${riskPct}% of ${formatNumber(capital)}) at ${formatNumber(perUnitRisk)}/unit stop distance → Quantity ${qty}.`;
+        resultEl.textContent = `Risking ${formatNumber(riskAmount)} (${riskPct}% of ${formatNumber(capital)}) at ${formatNumber(perUnitRisk)}/unit stop distance â Quantity ${qty}.`;
       }
     });
   }
@@ -6262,7 +6336,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     }
 
     // Entry zone, stop-loss, targets and exit rule are intentionally not
-    // shown here — those are specific tradable price levels, not just a
+    // shown here â those are specific tradable price levels, not just a
     // technical reading, and this dashboard doesn't hold the registration
     // that requires. Only the Decision stays: no price levels attached,
     // just where the technical engine currently reads.
@@ -6284,7 +6358,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   }
 
   const imLastChangePercent = {};
-  // When the 2-second index-quote feed last updated each index's price —
+  // When the 2-second index-quote feed last updated each index's price â
   // the minute engine's (up to 20s cached) price must not overwrite it.
   const imFastQuoteAt = {};
   const imHasFreshFastQuote = (marketKey) => Date.now() - (imFastQuoteAt[marketKey] || 0) < 10000;
@@ -6296,7 +6370,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     if (!closes || !Number.isFinite(change)) return;
     const isUp = change >= 0;
     // Same cached candles feed both the dashboard stat card and that
-    // index's own research-page hero — whichever is currently visible (the
+    // index's own research-page hero â whichever is currently visible (the
     // other's canvas just silently no-ops at zero size while hidden).
     renderSparkline(`im-dash-${marketKey}-sparkline`, closes, isUp);
     renderSparkline(`im-${marketKey}-hero-sparkline`, closes, isUp);
@@ -6307,7 +6381,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
   // Dashboard's "Technical Bias" card: rolls up each index's own technical
   // decision (the same weighted RSI/EMA/VWAP/Supertrend/etc. score behind
-  // that index's own "BUY SETUP"/"SELL SETUP"/"HOLD" call — not a separate
+  // that index's own "BUY SETUP"/"SELL SETUP"/"HOLD" call â not a separate
   // AI judgment, and not the same thing as today's price change_percent)
   // into one bullish/bearish/neutral read across all 4.
   function updateMarketBiasCard() {
@@ -6332,7 +6406,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     }
 
     valueEl.textContent = bias;
-    changeEl.textContent = `${advancing} advancing · ${declining} declining · ${unchanged} unchanged`;
+    changeEl.textContent = `${advancing} advancing Â· ${declining} declining Â· ${unchanged} unchanged`;
     changeEl.className = `stat-change ${cls}`;
   }
 
@@ -6382,7 +6456,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     const isLiveData = data.data_source === "live";
 
     // The ticker bar's content is duplicated (once visible, once
-    // aria-hidden) so its CSS scroll animation can loop seamlessly —
+    // aria-hidden) so its CSS scroll animation can loop seamlessly â
     // update every copy via data-ticker-field, not a single id.
     if (!fastPriceLive) {
       document.querySelectorAll(`[data-ticker-field="${marketKey}-price"]`).forEach((el) => {
@@ -6471,23 +6545,23 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     }
 
     // The dashboard price/change and hero price/change only get set on a
-    // successful load (renderMarketEngine below) — without this, a failed
-    // request leaves them stuck on their static "Loading…" placeholder
+    // successful load (renderMarketEngine below) â without this, a failed
+    // request leaves them stuck on their static "Loadingâ¦" placeholder
     // forever instead of ever reflecting that the request actually failed.
     const dashChange = document.getElementById(`im-dash-${marketKey}-change`);
     if (dashChange) {
       dashChange.className = "stat-change";
-      dashChange.textContent = "Unavailable — retrying…";
+      dashChange.textContent = "Unavailable â retryingâ¦";
     }
 
     const heroChange = document.getElementById(`im-${marketKey}-hero-change`);
     if (heroChange) {
       heroChange.className = "";
-      heroChange.textContent = "Unavailable — retrying…";
+      heroChange.textContent = "Unavailable â retryingâ¦";
     }
 
     const heroEyebrow = document.getElementById(`im-${marketKey}-eyebrow`);
-    if (heroEyebrow) heroEyebrow.textContent = "NSE Index · Retrying…";
+    if (heroEyebrow) heroEyebrow.textContent = "NSE Index Â· Retryingâ¦";
   }
 
   async function loadMarketEngine(marketKey) {
@@ -6566,7 +6640,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
         }
       });
     } catch (error) {
-      // Network blip — the next tick (or the minute engine) catches up.
+      // Network blip â the next tick (or the minute engine) catches up.
     }
   }
 
@@ -6641,7 +6715,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   const IM_DEFAULT_WATCHLIST_SYMBOLS = IM_DEFAULT_5_WATCHLISTS[0].symbols;
   let activeImWatchlistId = null;
 
-  // "★ Starred": every stock the user tapped the star on, in any list or the Scanner.
+  // "â Starred": every stock the user tapped the star on, in any list or the Scanner.
   // It shows up as a last tab after the watchlists and is kept apart from them.
   const IM_STARRED_KEY = "imStarredV1";
   const IM_STARRED_ID = "wl-starred";
@@ -6661,7 +6735,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
   }
 
   function getImWatchlists() {
-    return getImSavedWatchlists().concat([{ id: IM_STARRED_ID, name: "★ Starred", symbols: getImStarredSymbols(), virtual: true }]);
+    return getImSavedWatchlists().concat([{ id: IM_STARRED_ID, name: "â Starred", symbols: getImStarredSymbols(), virtual: true }]);
   }
 
   function getImSavedWatchlists() {
@@ -6670,7 +6744,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       if (Array.isArray(saved) && saved.length > 0) return saved;
     } catch (error) { /* ignore */ }
     // Only a genuinely empty/missing/corrupt first run seeds the 5 default
-    // watchlists — a saved list is never topped back up to 5, since that
+    // watchlists â a saved list is never topped back up to 5, since that
     // silently reintroduced a default watchlist right after the user
     // deleted one, making the delete look like it didn't do anything.
     const defaults = JSON.parse(JSON.stringify(IM_DEFAULT_5_WATCHLISTS));
@@ -6723,7 +6797,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       return `<span class="im-chg-val im-chg-neutral">--</span>`;
     }
     const isUp = num >= 0;
-    const arrow = isUp ? "▲ " : "▼ ";
+    const arrow = isUp ? "â² " : "â¼ ";
     const cls = isUp ? "im-chg-up" : "im-chg-down";
     return `<span class="im-chg-val ${cls}">${arrow}${Math.abs(num).toFixed(2)}%</span>`;
   }
@@ -6852,10 +6926,10 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     const dir = (imMomentumTrend[key] && imMomentumTrend[key].dir) || strong;
     const up = dir > 0;
     const hint = up ? "Price is moving up" : "Price is moving down";
-    return `<span class="im-mom-arrow ${up ? "is-up" : "is-down"}" title="${hint}" aria-label="${hint}">${up ? "▲" : "▼"}</span>`;
+    return `<span class="im-mom-arrow ${up ? "is-up" : "is-down"}" title="${hint}" aria-label="${hint}">${up ? "â²" : "â¼"}</span>`;
   }
 
-  // One watchlist row's markup and its momentum label — shared by the live
+  // One watchlist row's markup and its momentum label â shared by the live
   // table and the neighbouring lists shown while swiping.
   function imBuildWatchlistRow(row) {
         const symbol = escapeHtml(row.symbol);
@@ -6870,7 +6944,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
         let momPillClass = "im-mom-pill-neutral";
         let rowClass = "im-row-neutral";
 
-        // Shown as "BULLISH"/"BEARISH" rather than "BUY"/"SELL" — this is a
+        // Shown as "BULLISH"/"BEARISH" rather than "BUY"/"SELL" â this is a
         // momentum read on today's % change (see the disclaimer note below
         // the tabs), not a trade instruction, and "BUY"/"SELL" reads as one
         // regardless of any disclaimer text elsewhere on the page.
@@ -6886,14 +6960,14 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
         // Tallied here (rather than in a separate pass over row.ai_label)
         // so the summary chips always match exactly what each row's own
-        // pill displays — a separate label-only pass previously undercounted
+        // pill displays â a separate label-only pass previously undercounted
         // everything as neutral, since the backend's label text ("Bullish"/
         // "Bearish") never literally contains the substring "BUY"/"SELL".
 
-        let changeHtml = '<span class="im-change-value im-change-neutral">— 0.00%</span>';
+        let changeHtml = '<span class="im-change-value im-change-neutral">â 0.00%</span>';
         if (Number.isFinite(changeNum)) {
           const sign = changeNum >= 0 ? "+" : "";
-          const arrow = changeNum >= 0 ? "▲" : "▼";
+          const arrow = changeNum >= 0 ? "â²" : "â¼";
           const cls = changeNum >= 0 ? "im-change-up" : "im-change-down";
           changeHtml = `<span class="im-change-value ${cls}">${arrow} ${sign}${changeNum.toFixed(2)}%</span>`;
         }
@@ -6939,7 +7013,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
 
     if (!Array.isArray(rows) || !rows.length) {
       const emptyText = activeImWatchlistId === IM_STARRED_ID
-        ? "No starred stocks yet. Tap the ☆ before any stock in a watchlist or the Scanner and it shows up here."
+        ? "No starred stocks yet. Tap the â before any stock in a watchlist or the Scanner and it shows up here."
         : "No symbols in this watchlist yet. Add one above.";
       body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">${emptyText}</td></tr>`;
       ["buy", "neutral", "sell"].forEach((kind) => {
@@ -7063,14 +7137,14 @@ async function fetchWatchlist() {
   function imStarHtml(symbol) {
     const on = isImStarred(symbol);
     const sym = escapeHtml(String(symbol || "").toUpperCase());
-    return `<button class="im-star${on ? " is-on" : ""}" type="button" data-star-symbol="${sym}" aria-pressed="${on}" aria-label="${on ? "Remove from" : "Add to"} Starred">${on ? "★" : "☆"}</button>`;
+    return `<button class="im-star${on ? " is-on" : ""}" type="button" data-star-symbol="${sym}" aria-pressed="${on}" aria-label="${on ? "Remove from" : "Add to"} Starred">${on ? "â" : "â"}</button>`;
   }
 
   function refreshImStars() {
     document.querySelectorAll(".im-star[data-star-symbol]").forEach((btn) => {
       const on = isImStarred(btn.dataset.starSymbol);
       btn.classList.toggle("is-on", on);
-      btn.textContent = on ? "★" : "☆";
+      btn.textContent = on ? "â" : "â";
       btn.setAttribute("aria-pressed", String(on));
       btn.setAttribute("aria-label", `${on ? "Remove from" : "Add to"} Starred`);
     });
@@ -7493,7 +7567,7 @@ async function fetchWatchlist() {
         ? note("No symbols in this watchlist yet. Add one above.")
         : rows
           ? sortImWatchlistRows(rows).map((r) => imBuildWatchlistRow(r).html).join("")
-          : note(`Loading ${escapeHtml(list.name)}…`);
+          : note(`Loading ${escapeHtml(list.name)}â¦`);
       pane.innerHTML = `<div class="table-wrap"><table class="im-watchlist-table">${head ? head.outerHTML : ""}<tbody>${body}</tbody></table></div>`;
     }
 
@@ -7521,7 +7595,7 @@ async function fetchWatchlist() {
       } else {
         imWatchlistLastRows = [];
         const body = document.getElementById("im-watchlist-body");
-        if (body) body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">Loading ${escapeHtml(list.name)}…</td></tr>`;
+        if (body) body.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:24px 10px;color:var(--im-muted);">Loading ${escapeHtml(list.name)}â¦</td></tr>`;
       }
     }
 
@@ -7674,8 +7748,8 @@ async function fetchWatchlist() {
   }
 
   // The row's own translateY (set on every pointermove) has to be
-  // subtracted back out to get where it would sit with no drag offset —
-  // its *natural*, current-DOM-order position — since that's what moves
+  // subtracted back out to get where it would sit with no drag offset â
+  // its *natural*, current-DOM-order position â since that's what moves
   // whenever the row swaps position in the DOM below.
   function getImWatchlistNaturalTop(row) {
     const previousTransform = row.style.transform;
@@ -7707,13 +7781,13 @@ async function fetchWatchlist() {
     // A fast run of swaps can leave a row already sitting at
     // translateY(0) when the next swap re-triggers this on it, in which
     // case there's nothing left to animate and transitionend never fires
-    // — the timeout guarantees the inline styles still get cleared.
+    // â the timeout guarantees the inline styles still get cleared.
     window.setTimeout(clearRowStyles, 250);
   }
 
   // Nudges the page toward the finger whenever a drag gets close to the
   // top/bottom edge of the viewport, since the watchlist has no inner
-  // scroll container of its own — the whole window scrolls. Called every
+  // scroll container of its own â the whole window scrolls. Called every
   // animation frame while dragging (not just on pointermove), so it keeps
   // scrolling even if the finger is held still right at the edge.
   function autoScrollImWatchlistIfNeeded(pointerClientY) {
@@ -7760,7 +7834,7 @@ async function fetchWatchlist() {
       const overRowTopBefore = overRow.getBoundingClientRect().top;
       if (draggingIsAbove) overRow.after(draggingRow);
       else overRow.before(draggingRow);
-      // Only the row that changed slots needs to visibly slide — the
+      // Only the row that changed slots needs to visibly slide â the
       // dragging row itself is repositioned below via translateY, not by
       // however the browser happens to lay out its new DOM spot.
       animateImWatchlistRowFrom(overRow, overRowTopBefore);
@@ -7769,7 +7843,7 @@ async function fetchWatchlist() {
       // the browser silently drop its pointer capture, since the captured
       // handle is a descendant that just moved. Re-acquiring it right away
       // keeps drag events routing to this row even once the finger moves
-      // outside its bounds, and — since the capture target is unchanged —
+      // outside its bounds, and â since the capture target is unchanged â
       // does not itself fire a spurious lostpointercapture in between.
       const draggingHandle = draggingRow.querySelector(".im-watchlist-drag-handle");
       if (draggingHandle && imWatchlistDragPointerId !== null) {
@@ -7778,7 +7852,7 @@ async function fetchWatchlist() {
     }
 
     // Keep the dragged row tracking the finger smoothly regardless of how
-    // many times it's swapped position in the DOM above — always measured
+    // many times it's swapped position in the DOM above â always measured
     // against its current natural (untransformed) slot, so there's no
     // jump when that slot changes.
     const naturalTop = getImWatchlistNaturalTop(draggingRow);
@@ -7795,7 +7869,7 @@ async function fetchWatchlist() {
       saveImWatchlists(lists);
     }
     // Keep the cached row data (used to redraw instantly on a sort-mode
-    // switch) in the same order the drag just produced — otherwise
+    // switch) in the same order the drag just produced â otherwise
     // switching to a sort and back to Manual before the next 5s poll
     // would briefly show the stale pre-drag order.
     const rowsBySymbol = new Map(imWatchlistLastRows.map((row) => [row.symbol, row]));
@@ -7807,8 +7881,8 @@ async function fetchWatchlist() {
     if (!bodyEl || bodyEl.dataset.wired) return;
     bodyEl.dataset.wired = "true";
 
-    // Runs every animation frame for the life of a drag — not just when
-    // the pointer actually moves — so holding the finger still right at
+    // Runs every animation frame for the life of a drag â not just when
+    // the pointer actually moves â so holding the finger still right at
     // the screen edge keeps auto-scrolling and the row keeps tracking the
     // (now-moving) natural position underneath it instead of getting
     // stuck.
@@ -7843,7 +7917,7 @@ async function fetchWatchlist() {
       if (!row) return;
 
       if (handle) {
-        // Dragging only makes sense in manual order — while a live sort
+        // Dragging only makes sense in manual order â while a live sort
         // (A-Z / % change / LTP) is active, the row would just snap back
         // to its sorted spot on the next poll anyway.
         if (imWatchlistSortMode !== "manual") return;
@@ -7947,7 +8021,7 @@ async function fetchWatchlist() {
     // Safety net: if the OS/WebView silently steals the touch sequence
     // near a screen edge (common close to the gesture-navigation bar) and
     // never delivers pointerup/pointercancel, losing pointer capture is
-    // still guaranteed to fire — without this, the drag state would stay
+    // still guaranteed to fire â without this, the drag state would stay
     // stuck forever, leaving the row's transform frozen (visible as it
     // overlapping another row) and blocking all future watchlist renders.
     bodyEl.addEventListener("lostpointercapture", (event) => {
@@ -8129,8 +8203,8 @@ async function fetchWatchlist() {
   // full value for delivery, MTF's financed buy, roughly exchange-level
   // margin for commodity futures, and the full premium for an option leg.
   // Writing (selling) an option blocks margin on the underlying, the way a
-  // broker's SPAN + exposure margin does — roughly 18% of the underlying's
-  // value for NSE stock/index options and 10% for MCX — instead of just the
+  // broker's SPAN + exposure margin does â roughly 18% of the underlying's
+  // value for NSE stock/index options and 10% for MCX â instead of just the
   // premium a buyer pays. Expressed as a multiple of the option price so the
   // fill engine can re-base it at the actual fill price like any other rate.
   const IM_SHORT_OPTION_MARGIN = { nse: 0.18, mcx: 0.1 };
@@ -8174,7 +8248,7 @@ async function fetchWatchlist() {
     if (st.type === "sl" || st.type === "slm") {
       trigger = Number(imOrderEl("im-order-trigger")?.value);
       if (!(trigger > 0)) return fail("Enter a trigger price for this SL order.");
-      if (!(ltp > 0)) return fail("Live price hasn't loaded yet — try again in a moment.");
+      if (!(ltp > 0)) return fail("Live price hasn't loaded yet â try again in a moment.");
       if (isBuy && !(trigger > ltp)) return fail(`A Buy SL trigger must be above the current price (${formatNumber(ltp)}).`);
       if (!isBuy && !(trigger < ltp)) return fail(`A Sell SL trigger must be below the current price (${formatNumber(ltp)}).`);
       if (st.type === "sl" && (isBuy ? limitPrice < trigger : limitPrice > trigger)) {
@@ -8184,7 +8258,7 @@ async function fetchWatchlist() {
     if (st.validity === "IOC" && (st.type === "sl" || st.type === "slm")) return fail("IOC works only with Market and Limit orders.");
 
     const basis = st.type === "market" ? ltp : st.type === "slm" ? trigger : limitPrice;
-    if (!(basis > 0)) return fail("Live price hasn't loaded yet — try again in a moment.");
+    if (!(basis > 0)) return fail("Live price hasn't loaded yet â try again in a moment.");
 
     const toLevel = (inputId, unit, isStop) => {
       const raw = imOrderEl(inputId)?.value;
@@ -8205,14 +8279,14 @@ async function fetchWatchlist() {
     const trades = loadTrades();
     const exitableQty = imOppositeOpenQty(trades, ctx.symbol, st.product, st.side);
     if (!isBuy && (st.product === "CNC" || st.product === "MTF") && exitableQty < qty) {
-      return fail(`${st.product === "CNC" ? "Longterm (CNC)" : "MTF"} sell needs quantity you already hold — use Intraday (MIS) to short-sell.`);
+      return fail(`${st.product === "CNC" ? "Longterm (CNC)" : "MTF"} sell needs quantity you already hold â use Intraday (MIS) to short-sell.`);
     }
 
     const marginRate = imMarginRate(ctx, st.product, st.side, basis);
     const margin = basis * Math.max(0, qty - exitableQty) * marginRate;
     const funds = computeImPaperFunds(trades);
     const result = { ok: true, lots, qty, limitPrice, trigger, basis, stop, target, margin, marginRate, available: funds.available };
-    if (margin > funds.available) return fail(`Insufficient funds — needs ${formatRupees(margin)}, available ${formatRupees(funds.available)}.`, { margin, available: funds.available });
+    if (margin > funds.available) return fail(`Insufficient funds â needs ${formatRupees(margin)}, available ${formatRupees(funds.available)}.`, { margin, available: funds.available });
     return result;
   }
 
@@ -8287,8 +8361,8 @@ async function fetchWatchlist() {
 
     const slUnit = imOrderEl("im-order-sl-unit");
     const targetUnit = imOrderEl("im-order-target-unit");
-    if (slUnit) slUnit.textContent = st.slUnit === "pct" ? "%" : "₹";
-    if (targetUnit) targetUnit.textContent = st.targetUnit === "pct" ? "%" : "₹";
+    if (slUnit) slUnit.textContent = st.slUnit === "pct" ? "%" : "â¹";
+    if (targetUnit) targetUnit.textContent = st.targetUnit === "pct" ? "%" : "â¹";
 
     const swipeText = imOrderEl("im-order-swipe-text");
     if (swipeText) swipeText.textContent = `Swipe to ${st.side}`;
@@ -8408,7 +8482,7 @@ async function fetchWatchlist() {
       applyImFill(trades, trade, ltp);
     } else if (st.validity === "IOC") {
       trade.status = "cancelled";
-      trade.cancelReason = "IOC — not filled immediately";
+      trade.cancelReason = "IOC â not filled immediately";
     }
 
     if (ltp > 0) imLastKnownPrice[ctx.symbol] = ltp;
@@ -8417,12 +8491,12 @@ async function fetchWatchlist() {
 
     const cancelledIoc = trade.status === "cancelled";
     // Exiting a holding (holdings are always long, so a Sell) keeps you on
-    // Holdings; anything else — including ADD, which is a fresh buy that sits
-    // in Positions until the close — goes to Positions.
+    // Holdings; anything else â including ADD, which is a fresh buy that sits
+    // in Positions until the close â goes to Positions.
     const stayOnHoldings = document.getElementById("im-holdings")?.classList.contains("active") && st.side === "Sell";
     closeImWatchlistSheets(true);
     showPage(stayOnHoldings ? "im-holdings" : "im-broker-account");
-    if (cancelledIoc) window.alert("IOC order cancelled — the price wasn't available immediately.");
+    if (cancelledIoc) window.alert("IOC order cancelled â the price wasn't available immediately.");
     return true;
   }
 
@@ -8529,7 +8603,7 @@ async function fetchWatchlist() {
     const changeAmt = validPrice * (changePct / 100);
 
     const priceEl = document.getElementById("im-action-sheet-price");
-    if (priceEl) priceEl.textContent = Number.isFinite(numPrice) ? "₹" + formatNumber(numPrice) : "--";
+    if (priceEl) priceEl.textContent = Number.isFinite(numPrice) ? "â¹" + formatNumber(numPrice) : "--";
 
     const changeEl = document.getElementById("im-action-sheet-change");
     if (changeEl) {
@@ -8592,8 +8666,8 @@ async function fetchWatchlist() {
     const dayHigh = (validPrice * 1.015).toFixed(2);
     const lowEl = document.getElementById("im-kite-range-low");
     const highEl = document.getElementById("im-kite-range-high");
-    if (lowEl) lowEl.textContent = "₹" + Number(dayLow).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-    if (highEl) highEl.textContent = "₹" + Number(dayHigh).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (lowEl) lowEl.textContent = "â¹" + Number(dayLow).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (highEl) highEl.textContent = "â¹" + Number(dayHigh).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
     const markerEl = document.getElementById("im-kite-range-marker");
     const fillEl = document.getElementById("im-kite-range-fill");
@@ -8606,8 +8680,8 @@ async function fetchWatchlist() {
     const w52High = (validPrice * 1.28).toFixed(2);
     const w52LowEl = document.getElementById("im-52w-range-low");
     const w52HighEl = document.getElementById("im-52w-range-high");
-    if (w52LowEl) w52LowEl.textContent = "₹" + Number(w52Low).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-    if (w52HighEl) w52HighEl.textContent = "₹" + Number(w52High).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (w52LowEl) w52LowEl.textContent = "â¹" + Number(w52Low).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (w52HighEl) w52HighEl.textContent = "â¹" + Number(w52High).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
     const w52MarkerEl = document.getElementById("im-52w-range-marker");
     const w52FillEl = document.getElementById("im-52w-range-fill");
@@ -8631,10 +8705,10 @@ async function fetchWatchlist() {
     const pcEl = document.getElementById("im-stat-prev-close");
     const ucEl = document.getElementById("im-stat-upper-circ");
     const lcEl = document.getElementById("im-stat-lower-circ");
-    if (openEl) openEl.textContent = "₹" + Number(openPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-    if (pcEl) pcEl.textContent = "₹" + Number(prevClose).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-    if (ucEl) ucEl.textContent = "₹" + Number(upperCirc).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-    if (lcEl) lcEl.textContent = "₹" + Number(lowerCirc).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (openEl) openEl.textContent = "â¹" + Number(openPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (pcEl) pcEl.textContent = "â¹" + Number(prevClose).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (ucEl) ucEl.textContent = "â¹" + Number(upperCirc).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    if (lcEl) lcEl.textContent = "â¹" + Number(lowerCirc).toLocaleString('en-IN', { minimumFractionDigits: 2 });
   }
 
   let imActionSheetLiveTimer = null;
@@ -8647,7 +8721,7 @@ async function fetchWatchlist() {
   }
 
   // Keeps an open sheet's price live (2s, same cadence as the Watchlist and
-  // Commodities lists behind it) — previously it froze at whatever price the
+  // Commodities lists behind it) â previously it froze at whatever price the
   // row showed at the moment it was tapped. A single option leg is left
   // static here; its live LTP is the option chain itself.
   function startImActionSheetLiveQuote(symbol, { isCommodity, isOptionLeg, instrumentKey }) {
@@ -8774,12 +8848,12 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (!backdrop || !sheet) return;
 
     // Commodities (MCX futures) need an MCX: TradingView chart symbol
-    // rather than the default NSE: one — see openCommodityContractActionSheet()
+    // rather than the default NSE: one â see openCommodityContractActionSheet()
     // below. A single option leg (isOptionLeg, opened by tapping a strike's
     // Call/Put LTP in the option chain) has neither a chart nor its own
     // option chain, and carries its own real instrument_key/lot_size
     // straight from Upstox's chain response rather than being resolved by
-    // symbol — resolving an option's trading symbol the way an
+    // symbol â resolving an option's trading symbol the way an
     // equity/futures one is doesn't work.
     const chartSymbol = options.chartSymbol || `NSE:${symbol}`;
     const isCommodity = !!options.isCommodity;
@@ -8806,7 +8880,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     };
     closeImOrderForm();
 
-    // Find row in imWatchlistLastRows if available — commodity rows aren't
+    // Find row in imWatchlistLastRows if available â commodity rows aren't
     // in that equity-only cache, so isCommodity passes the change% straight
     // through from the Commodities table instead.
     let changePct = 0;
@@ -8862,7 +8936,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const closeBtn = document.getElementById("im-action-sheet-cancel-btn");
 
     // These are all a deliberate tap on a button inside the just-opened
-    // sheet, never an accidental mis-tap on the backdrop behind it — force
+    // sheet, never an accidental mis-tap on the backdrop behind it â force
     // past the 450ms guard (meant only for that backdrop case) so a fast,
     // decisive tap right after the sheet opens still closes it, instead of
     // leaving it visually stuck open while the app navigates underneath.
@@ -8878,13 +8952,13 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (position) {
       const lots = Math.max(1, Math.round(position.quantity / (lotSize || 1)));
       const exitSide = position.side === "Buy" ? "Sell" : "Buy";
-      setDockButton(buyBtn, "ADD", `${position.side.toUpperCase()} MORE • ${position.product}`);
-      setDockButton(sellBtn, "EXIT", `${exitSide.toUpperCase()} ${Math.round(position.quantity)} • ${position.product}`);
+      setDockButton(buyBtn, "ADD", `${position.side.toUpperCase()} MORE â¢ ${position.product}`);
+      setDockButton(sellBtn, "EXIT", `${exitSide.toUpperCase()} ${Math.round(position.quantity)} â¢ ${position.product}`);
       if (buyBtn) buyBtn.onclick = () => openImOrderForm(position.side, { product: position.product });
       if (sellBtn) sellBtn.onclick = () => openImOrderForm(exitSide, { product: position.product, lots });
     } else {
-      setDockButton(buyBtn, "BUY", `${exchangeLabel} • REGULAR`);
-      setDockButton(sellBtn, "SELL", `${exchangeLabel} • REGULAR`);
+      setDockButton(buyBtn, "BUY", `${exchangeLabel} â¢ REGULAR`);
+      setDockButton(sellBtn, "SELL", `${exchangeLabel} â¢ REGULAR`);
       if (buyBtn) buyBtn.onclick = () => openImOrderForm("Buy");
       if (sellBtn) sellBtn.onclick = () => openImOrderForm("Sell");
     }
@@ -8897,7 +8971,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     }
     if (optChainBtn) {
       if (isOptionLeg) {
-        // Already inside a single option contract — nothing to open.
+        // Already inside a single option contract â nothing to open.
         optChainBtn.style.display = "none";
         optChainBtn.onclick = null;
       } else if (isCommodity) {
@@ -8937,7 +9011,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (alertBtn) {
       alertBtn.onclick = () => {
         const targetPrice = window.prompt(`Set price alert for ${symbol}:`, validPrice);
-        if (targetPrice) alert(`Alert set for ${symbol} at ₹${targetPrice}`);
+        if (targetPrice) alert(`Alert set for ${symbol} at â¹${targetPrice}`);
       };
     }
     if (notesBtn) {
@@ -9032,7 +9106,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   // ===================== Per-stock Option Chain (drill-down from Watchlist) =====================
   // Reached only via the watchlist row action sheet's "Option" button, for
-  // whichever symbol was tapped — not a permanent nav tab, since options
+  // whichever symbol was tapped â not a permanent nav tab, since options
   // only exist for the ~180 F&O-eligible NSE stocks, not all of them. The
   // backend resolves any symbol's Upstox instrument_key live, so nothing
   // here needs a hardcoded list of which stocks qualify.
@@ -9043,7 +9117,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   let imStockOptionsLastData = null;
   let imStockOptionsReturnPage = "im-watchlist";
   let imStockOptionsTimer = null;
-  let imStockOptionsMode = "oi"; // "oi" | "greeks" — what the outer columns show
+  let imStockOptionsMode = "oi"; // "oi" | "greeks" â what the outer columns show
   // Scroll the ATM strike into view once per symbol/expiry, not on every 2s
   // re-render (that would fight the user's own scrolling).
   let imStockOptionsNeedsScroll = false;
@@ -9105,7 +9179,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     return Number.isNaN(date.getTime()) ? null : date;
   }
 
-  // "29 Sep (Today)", "27 Oct (4 Weeks)", "23 Nov (2 Months)" — like Kite.
+  // "29 Sep (Today)", "27 Oct (4 Weeks)", "23 Nov (2 Months)" â like Kite.
   function formatExpiryChip(expiry) {
     const date = expiryDate(expiry);
     if (!date) return expiry;
@@ -9153,7 +9227,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const iv = Number(leg.iv);
     const delta = Number(leg.delta);
     const outer = imStockOptionsMode === "greeks"
-      ? `<span class="oc-main">${Number.isFinite(iv) && iv > 0 && iv < 300 ? iv.toFixed(2) : "--"}</span><span class="oc-sub">Δ ${Number.isFinite(delta) ? delta.toFixed(2) : "--"}</span>`
+      ? `<span class="oc-main">${Number.isFinite(iv) && iv > 0 && iv < 300 ? iv.toFixed(2) : "--"}</span><span class="oc-sub">Î ${Number.isFinite(delta) ? delta.toFixed(2) : "--"}</span>`
       : `<span class="oc-main">${formatOiLakhs(leg.oi)}</span>${optionChangeHtml(leg.oi, leg.prev_oi)}`;
     const outerCell = tradable
       ? `<div class="oc-cell oc-${side} oc-oi oc-tradable${itmCls}"${tradeAttrs} aria-hidden="true">${outer}</div>`
@@ -9228,7 +9302,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
     setText("im-stock-options-pcr", Number.isFinite(pcr) ? pcr.toFixed(2) : "--");
     setText("im-stock-options-max-pain", maxPainStrike !== null ? formatStrike(maxPainStrike) : "--");
-    // Upstox reports placeholder IVs (0, or hundreds) for illiquid legs —
+    // Upstox reports placeholder IVs (0, or hundreds) for illiquid legs â
     // only a plausible IV counts towards the ATM figure.
     const atmIvs = atmRow ? [Number(atmRow.call?.iv), Number(atmRow.put?.iv)].filter((v) => Number.isFinite(v) && v > 0 && v < 300) : [];
     setText("im-stock-options-atm-iv", atmIvs.length ? (atmIvs.reduce((a, b) => a + b, 0) / atmIvs.length).toFixed(2) : "--");
@@ -9336,7 +9410,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (!imStockOptionsSymbol) return;
     const symbol = imStockOptionsSymbol;
 
-    if (meta) { meta.hidden = false; meta.textContent = "Loading expiries…"; }
+    if (meta) { meta.hidden = false; meta.textContent = "Loading expiriesâ¦"; }
     imStockOptionsExpiries = [];
     renderStockOptionExpiries();
 
@@ -9351,7 +9425,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       imStockOptionsExpiry = result.expiries[0];
       imStockOptionsNeedsScroll = true;
       renderStockOptionExpiries();
-      if (meta) meta.textContent = "Loading option chain…";
+      if (meta) meta.textContent = "Loading option chainâ¦";
       await loadStockOptionChain();
     } catch (error) {
       console.error("Stock option expiries fetch failed:", error);
@@ -9359,7 +9433,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       if (meta) { meta.hidden = false; meta.textContent = msg; }
       if (body) {
         body.innerHTML = `<div style="padding: 32px 16px; text-align: center; color: #94a3b8; font-size: 14px; line-height: 1.6;">
-          <div style="font-size: 28px; margin-bottom: 8px;">ℹ️</div>
+          <div style="font-size: 28px; margin-bottom: 8px;">â¹ï¸</div>
           <div style="font-weight: 600; color: #f1f5f9; margin-bottom: 4px;">Options Unavailable</div>
           <div>${escapeHtml(msg)}</div>
         </div>`;
@@ -9380,7 +9454,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     imStockOptionsTimer = mdPollInterval(loadStockOptionChain, 2000);
   }
 
-  // Point the page at a symbol and (re)load it — used both when arriving
+  // Point the page at a symbol and (re)load it â used both when arriving
   // from a stock sheet and when switching stock from the page's own search.
   function setImStockOptionSymbol(symbol) {
     imStockOptionsSymbol = symbol;
@@ -9447,7 +9521,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const body = document.getElementById("im-stock-options-body");
     const meta = document.getElementById("im-stock-options-meta");
     if (body) body.innerHTML = "";
-    if (meta) { meta.hidden = false; meta.textContent = "Loading option chain…"; }
+    if (meta) { meta.hidden = false; meta.textContent = "Loading option chainâ¦"; }
     loadStockOptionChain();
   });
 
@@ -9502,7 +9576,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   })();
 
   // Delegated (not attached per-cell) since renderStockOptionChain() fully
-  // replaces the rows on every 2s poll — a direct per-cell listener would
+  // replaces the rows on every 2s poll â a direct per-cell listener would
   // be destroyed on the very next render.
   document.getElementById("im-stock-options-body")?.addEventListener("click", (event) => {
     const cell = event.target.closest(".oc-tradable");
@@ -9535,26 +9609,26 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     rows.forEach((row) => imMomentumFeed("cm:" + String(row.key || "").toLowerCase(), row.last_price));
 
-    // Solid backgrounds (not the low-opacity tints this used to have) —
+    // Solid backgrounds (not the low-opacity tints this used to have) â
     // Watchlist's per-stock avatars (getStockMeta()) are solid, fully
     // opaque colors, and the same washed-out translucent look here read as
     // a visibly different, weaker icon style next to Watchlist's bold one
     // even though the box itself was already the same size.
     const COMMODITY_METAS = {
-      gold: { icon: "🪙", name: "Gold Futures", bg: "#b45309", color: "#ffffff" },
-      silver: { icon: "🥈", name: "Silver Futures", bg: "#475569", color: "#ffffff" },
-      crudeoil: { icon: "🛢️", name: "Crude Oil Futures", bg: "#991b1b", color: "#ffffff" },
-      naturalgas: { icon: "⚡", name: "Natural Gas Futures", bg: "#1d4ed8", color: "#ffffff" },
-      copper: { icon: "🔶", name: "Copper Futures", bg: "#c2410c", color: "#ffffff" },
-      zinc: { icon: "⚙️", name: "Zinc Futures", bg: "#6d28d9", color: "#ffffff" },
-      aluminium: { icon: "🪨", name: "Aluminium Futures", bg: "#0f766e", color: "#ffffff" },
+      gold: { icon: "ðª", name: "Gold Futures", bg: "#b45309", color: "#ffffff" },
+      silver: { icon: "ð¥", name: "Silver Futures", bg: "#475569", color: "#ffffff" },
+      crudeoil: { icon: "ð¢ï¸", name: "Crude Oil Futures", bg: "#991b1b", color: "#ffffff" },
+      naturalgas: { icon: "â¡", name: "Natural Gas Futures", bg: "#1d4ed8", color: "#ffffff" },
+      copper: { icon: "ð¶", name: "Copper Futures", bg: "#c2410c", color: "#ffffff" },
+      zinc: { icon: "âï¸", name: "Zinc Futures", bg: "#6d28d9", color: "#ffffff" },
+      aluminium: { icon: "ðª¨", name: "Aluminium Futures", bg: "#0f766e", color: "#ffffff" },
     };
 
     body.innerHTML = rows
       .map((row) => {
         const key = String(row.key || "").toLowerCase();
         const meta = COMMODITY_METAS[key] || {
-          icon: "📦",
+          icon: "ð¦",
           name: row.name || "Commodity",
           bg: "#334155",
           color: "#ffffff"
@@ -9577,10 +9651,10 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           rowClass = "im-row-sell";
         }
 
-        let changeHtml = `<span class="im-change-value im-change-neutral">— 0.00%</span>`;
+        let changeHtml = `<span class="im-change-value im-change-neutral">â 0.00%</span>`;
         if (Number.isFinite(changeNum)) {
           const sign = changeNum >= 0 ? "+" : "";
-          const arrow = changeNum >= 0 ? "▲" : "▼";
+          const arrow = changeNum >= 0 ? "â²" : "â¼";
           const cls = changeNum >= 0 ? "im-change-up" : "im-change-down";
           changeHtml = `<span class="im-change-value ${cls}">${arrow} ${sign}${changeNum.toFixed(2)}%</span>`;
         }
@@ -9645,7 +9719,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   }
 
-  // A commodity's row on the list is just its nearest-expiry contract —
+  // A commodity's row on the list is just its nearest-expiry contract â
   // Gold, say, usually has several months trading at once. Tapping the row
   // opens a picker over every live expiry (via /api/commodities/<key>/
   // expiries) so the user chooses the exact contract before Buy/Sell,
@@ -9659,7 +9733,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (!backdrop || !sheet || !listEl) return;
 
     if (nameEl) nameEl.textContent = commodityName;
-    listEl.innerHTML = `<p class="status-line">Loading contracts…</p>`;
+    listEl.innerHTML = `<p class="status-line">Loading contractsâ¦</p>`;
 
     // The Buy/Sell sheet was just told to close; keep that from taking this one with it.
     imSheetCloseToken += 1;
@@ -9698,7 +9772,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
                 <span class="im-commodity-expiry-row-symbol">${escapeHtml(row.trading_symbol || "")}</span>
               </div>
               <div class="im-commodity-expiry-row-right">
-                <span class="im-commodity-expiry-row-price">${Number.isFinite(Number(row.last_price)) ? "₹" + formatNumber(Number(row.last_price)) : "--"}</span>
+                <span class="im-commodity-expiry-row-price">${Number.isFinite(Number(row.last_price)) ? "â¹" + formatNumber(Number(row.last_price)) : "--"}</span>
                 ${changeHtml}
               </div>
             </div>
@@ -9711,7 +9785,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           const chosen = rows[Number(el.dataset.index)];
           if (!chosen || !chosen.trading_symbol) return;
           closeImWatchlistSheets(true);
-          // This picker is reached from the action sheet's Option button —
+          // This picker is reached from the action sheet's Option button â
           // picking an expiry here opens that contract's option chain
           // (Call/Put per strike), not the futures Buy/Sell sheet again.
           openImStockOptionChainFor(chosen.trading_symbol, "im-commodities");
@@ -9800,7 +9874,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     // The "gainer"/"loser" slot is always the best/worst performer in the
     // basket, even when the whole basket moved the same direction (e.g. a
-    // red day where every constituent is down) — flag that case so a
+    // red day where every constituent is down) â flag that case so a
     // negative "Top Gainer" doesn't read as a mislabeled loser.
     if (noteEl) {
       const changePercent = Number(mover.change_percent);
@@ -9810,10 +9884,10 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       const inApp = document.documentElement.classList.contains("capacitor-app");
       noteEl.classList.remove("im-mover-note-negative", "im-mover-note-positive");
       if (kind === "gainer" && changePercent < 0) {
-        noteEl.textContent = inApp ? "→ No true gainer" : "No real gainers today — smallest decline shown";
+        noteEl.textContent = inApp ? "â No true gainer" : "No real gainers today â smallest decline shown";
         noteEl.classList.add("im-mover-note-negative");
       } else if (kind === "loser" && changePercent > 0) {
-        noteEl.textContent = inApp ? "→ No true loser" : "No real losers today — smallest gain shown";
+        noteEl.textContent = inApp ? "â No true loser" : "No real losers today â smallest gain shown";
         noteEl.classList.add("im-mover-note-positive");
       } else {
         noteEl.textContent = "";
@@ -9839,7 +9913,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       if (!response.ok || !result.ok || !Array.isArray(result.candles)) return;
       const closes = result.candles.slice(-26).map((candle) => Number(candle.close));
       // Cached so the card can be redrawn (e.g. once #im-dashboard is
-      // actually visible) without re-fetching — its canvas is zero-size,
+      // actually visible) without re-fetching â its canvas is zero-size,
       // and silently skipped, until this page is the one on screen.
       imLastMoverSparkline[`${indexKey}-${kind}`] = { closes, isUp };
       renderSparkline(`im-${indexKey}-${kind}-sparkline`, closes, isUp);
@@ -9877,9 +9951,9 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       const result = await response.json();
       if (!response.ok || !result.ok || !Array.isArray(result.candles)) return;
       // The candles endpoint returns weeks of history (for the full Live
-      // Chart page), not just today — a sparkline only needs the most
+      // Chart page), not just today â a sparkline only needs the most
       // recent session's worth, so it doesn't try to cram weeks of noise
-      // into a ~200px-wide line (~26 candles ≈ one NSE trading day at 15m).
+      // into a ~200px-wide line (~26 candles â one NSE trading day at 15m).
       const recent = result.candles.slice(-26);
       imLastSparklineCloses[marketKey] = recent.map((candle) => Number(candle.close));
       redrawImDashboardSparkline(marketKey);
@@ -9890,7 +9964,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   function loadImDashboardSparklines() {
     // The canvases have zero size while #indianModeRoot is hidden, which
-    // would size Chart.js's render buffer wrong — skip until shown.
+    // would size Chart.js's render buffer wrong â skip until shown.
     if (document.getElementById("indianModeRoot")?.hidden) return;
     ["nifty", "banknifty", "finnifty", "sensex"].forEach(loadImDashboardSparkline);
   }
@@ -10069,7 +10143,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         pointBorderColor: color.border,
         pointBackgroundColor(c) { return c.raw?.isLatest ? color.border : "rgba(15,23,42,.95)"; },
         // The latest point is drawn as an arrowhead by imRrgArrowsPlugin
-        // instead of a dot — radius 0 hides the circle there while
+        // instead of a dot â radius 0 hides the circle there while
         // pointHitRadius keeps it clickable/hoverable in the same spot.
         pointRadius(c) { return c.raw?.isLatest ? 0 : 2; },
         pointHitRadius: 10,
@@ -10147,17 +10221,17 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const formatted = new Date(timestamp).toLocaleString("en-IN", {
       day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
     });
-    el.textContent = `${symbol} · ${formatted}`;
+    el.textContent = `${symbol} Â· ${formatted}`;
     el.hidden = false;
   }
 
   async function fetchImRrg() {
     const { allowed, token } = await getRrgMaintenanceAccess();
     if (!allowed || !token || !document.getElementById("im-rrg")?.classList.contains("active")) return;
-    setImRrgStatus(`Loading ${imRrgTimeframe.toUpperCase()} RRG data…`, false);
+    setImRrgStatus(`Loading ${imRrgTimeframe.toUpperCase()} RRG dataâ¦`, false);
     try {
       // On the very first load the symbol panel hasn't resolved its default
-      // selection yet (it loads in parallel, not before this call) — leave
+      // selection yet (it loads in parallel, not before this call) â leave
       // the symbols param off entirely so the backend applies its own
       // defaults, instead of sending an empty list that would plot only
       // the benchmark.
@@ -10247,7 +10321,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   async function drillDownRrgIndex(indexName) {
     const belowContainer = document.getElementById("im-rrg-below-symbols-list");
-    if (belowContainer) belowContainer.innerHTML = `<div class="im-rrg-symbols-loading">Loading ${escapeHtml(indexName)} stocks…</div>`;
+    if (belowContainer) belowContainer.innerHTML = `<div class="im-rrg-symbols-loading">Loading ${escapeHtml(indexName)} stocksâ¦</div>`;
     imRrgDrilldownIndex = indexName;
 
     if (imRrgMode === "chart") loadImRrgSingleChart(indexName);
@@ -10295,8 +10369,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           <div class="im-rrg-symbol-row" data-symbol="${escapeHtml(c.symbol)}">
             <input type="checkbox" class="im-rrg-symbol-check" data-symbol="${escapeHtml(c.symbol)}" ${checked} />
             <span class="im-rrg-symbol-row-name" title="${escapeHtml(c.name)}">${escapeHtml(c.symbol)}</span>
-            <span class="im-rrg-symbol-row-price" id="im-rrg-price-${escapeHtml(c.symbol)}">…</span>
-            <span class="im-rrg-symbol-row-change" id="im-rrg-change-${escapeHtml(c.symbol)}">…</span>
+            <span class="im-rrg-symbol-row-price" id="im-rrg-price-${escapeHtml(c.symbol)}">â¦</span>
+            <span class="im-rrg-symbol-row-change" id="im-rrg-change-${escapeHtml(c.symbol)}">â¦</span>
           </div>
         `;
       })
@@ -10368,8 +10442,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
               changeEl.innerHTML = changePillHtml(q.change_percent, { arrow: false });
             }
           });
-          // Any symbol in this chunk that couldn't be resolved/quoted —
-          // show "--" rather than leaving "…" stuck forever.
+          // Any symbol in this chunk that couldn't be resolved/quoted â
+          // show "--" rather than leaving "â¦" stuck forever.
           markUnavailable(chunkSymbols.filter((s) => !returned.has(s)));
         } catch (error) {
           console.error("Drilldown quotes chunk failed:", error);
@@ -10384,7 +10458,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (!container) return;
 
     if (!imRrgSelectedSymbols.size) {
-      container.innerHTML = `<div class="im-rrg-symbols-loading">Nothing selected yet — tick indices on the left to plot them here.</div>`;
+      container.innerHTML = `<div class="im-rrg-symbols-loading">Nothing selected yet â tick indices on the left to plot them here.</div>`;
       return;
     }
 
@@ -10554,7 +10628,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       if (quadrantLegend) quadrantLegend.hidden = !isRrg;
       if (runBtn) runBtn.hidden = !isRrg;
       // The playback speed control only applies to the RRG rotation replay,
-      // not the Chart view — hide it there instead of leaving a dead control.
+      // not the Chart view â hide it there instead of leaving a dead control.
       if (speedGroup) speedGroup.hidden = !isRrg;
       if (chartTfGroup) chartTfGroup.hidden = isRrg;
       rrgTimeframeBtns.forEach((b) => { b.hidden = !isRrg; });
@@ -10574,7 +10648,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   // The RRG "Chart" view reuses the exact same chart instance, drawing
   // toolbar and tools as the Live Chart page (imLiveChart/imLiveSeries)
-  // instead of a second bare chart — the whole #im-lightweight-chart node
+  // instead of a second bare chart â the whole #im-lightweight-chart node
   // (canvas + toolbar) is physically moved into RRG's mount point while
   // Chart mode is active, and moved back when leaving it.
   function mountSharedChartForRrg() {
@@ -10624,7 +10698,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (timeframe) imRrgChartTimeframe = timeframe;
     mountSharedChartForRrg();
     const title = document.getElementById("im-rrg-single-title");
-    if (title) title.textContent = `Loading ${symbol}…`;
+    if (title) title.textContent = `Loading ${symbol}â¦`;
     try {
       const response = await fetch(`${API_BASE_URL}/api/index-candles?symbol=${encodeURIComponent(symbol)}&timeframe=${imRrgChartTimeframe}`);
       const result = await response.json();
@@ -10674,7 +10748,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     }
     const runBtn = document.getElementById("im-rrg-run-btn");
     if (runBtn) {
-      runBtn.textContent = "▶ Run";
+      runBtn.textContent = "â¶ Run";
       runBtn.classList.remove("running");
     }
   }
@@ -10696,7 +10770,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     // Slide a fixed-size window across the full history (oldest points drop
     // off the back as new ones appear at the front) instead of just growing
-    // a trail longer and longer — this is what gives a real RRG "Play" its
+    // a trail longer and longer â this is what gives a real RRG "Play" its
     // smooth, continuously-flowing rotation instead of an ever-lengthening,
     // erratic-looking path. Restart from the beginning only if a previous
     // run already finished; otherwise resume from wherever it was paused.
@@ -10706,7 +10780,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     }
 
     if (runBtn) {
-      runBtn.textContent = "⏸ Pause";
+      runBtn.textContent = "â¸ Pause";
       runBtn.classList.add("running");
     }
 
@@ -10762,7 +10836,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   // ===================== Sector / stock heatmap =====================
   // Reuses the same backend endpoints as RRG's drilldown (index constituents
-  // + batched watchlist quotes) — no new backend work needed. Tile size is
+  // + batched watchlist quotes) â no new backend work needed. Tile size is
   // simply scaled by |% change| (we don't have market-cap weights to build a
   // true treemap) and color is a red-to-green gradient through a neutral
   // midpoint so it reads clearly on the dark theme.
@@ -10796,7 +10870,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const changeLabel = change !== null ? `${change >= 0 ? "+" : ""}${change.toFixed(2)}%` : "--";
     const weight = Math.max(1, Math.min(12, 1 + Math.abs(change || 0) * 2.2));
     const color = heatmapColor(change);
-    const tooltip = `${name} (${symbol}) · ₹${price} · ${changeLabel}`;
+    const tooltip = `${name} (${symbol}) Â· â¹${price} Â· ${changeLabel}`;
     return `
       <div class="im-heatmap-tile" style="flex-grow:${weight}; background:${color};" title="${escapeHtml(tooltip)}">
         <span class="im-heatmap-tile-symbol">${escapeHtml(symbol)}</span>
@@ -10868,11 +10942,11 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const grid = document.getElementById("im-heatmap-grid");
     setHeatmapProgress(0, 0);
     if (!imHeatmapConstituentsCache[indexName]) {
-      if (statusText) statusText.textContent = `Loading ${indexName}…`;
+      if (statusText) statusText.textContent = `Loading ${indexName}â¦`;
       if (liveBadge) liveBadge.hidden = true;
     }
     // Clear any stale error/old tiles from a previous index right away,
-    // instead of leaving them visible under the new "Loading…" status.
+    // instead of leaving them visible under the new "Loadingâ¦" status.
     if (grid && !imHeatmapConstituentsCache[indexName]) {
       grid.innerHTML = `<div class="im-rrg-skeleton-row"></div><div class="im-rrg-skeleton-row"></div><div class="im-rrg-skeleton-row"></div>`;
     }
@@ -10904,7 +10978,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       if (imHeatmapIndex !== indexName) return; // user switched index mid-fetch
 
       renderHeatmapGrid(constituents, quoteMap);
-      if (statusText) statusText.textContent = `${indexName} · ${constituents.length} stocks`;
+      if (statusText) statusText.textContent = `${indexName} Â· ${constituents.length} stocks`;
       if (liveBadge) {
         liveBadge.hidden = false;
         if (isNseMarketOpen()) {
@@ -10927,7 +11001,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   // "All NSE Stocks" pulls the full 5000+ symbol universe once (names only,
   // cached), then fetches live quotes in 100-symbol chunks with limited
-  // concurrency — firing all ~50 chunk requests at once would hammer the
+  // concurrency â firing all ~50 chunk requests at once would hammer the
   // free-tier backend and Upstox's API, so only a handful run in parallel.
   // Tiles are appended as each chunk resolves instead of waiting for
   // everything, since a full cold run can take well over a minute.
@@ -10936,7 +11010,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const statusText = document.getElementById("im-heatmap-status-text");
     const liveBadge = document.getElementById("im-heatmap-live-badge");
     const grid = document.getElementById("im-heatmap-grid");
-    if (statusText) statusText.textContent = "Loading full NSE stock list…";
+    if (statusText) statusText.textContent = "Loading full NSE stock listâ¦";
     if (liveBadge) liveBadge.hidden = true;
     if (grid) grid.innerHTML = "";
     setHeatmapProgress(0, 1);
@@ -10983,7 +11057,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           if (myToken === imHeatmapLoadToken) {
             setHeatmapProgress(loadedCount, symbols.length);
             if (statusText) {
-              statusText.textContent = `Loading all NSE stocks… ${loadedCount.toLocaleString("en-IN")} / ${symbols.length.toLocaleString("en-IN")}`;
+              statusText.textContent = `Loading all NSE stocksâ¦ ${loadedCount.toLocaleString("en-IN")} / ${symbols.length.toLocaleString("en-IN")}`;
             }
           }
         }
@@ -10991,7 +11065,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
       if (myToken !== imHeatmapLoadToken) return;
       setHeatmapProgress(0, 0);
-      if (statusText) statusText.textContent = `All NSE stocks · ${symbols.length.toLocaleString("en-IN")} listed`;
+      if (statusText) statusText.textContent = `All NSE stocks Â· ${symbols.length.toLocaleString("en-IN")} listed`;
       if (liveBadge) {
         liveBadge.hidden = false;
         if (isNseMarketOpen()) {
@@ -11033,7 +11107,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   function startHeatmapPolling() {
     loadHeatmap(imHeatmapIndex);
     if (imHeatmapTimer) return;
-    // "All NSE Stocks" is refreshed manually only — auto-polling 5000+
+    // "All NSE Stocks" is refreshed manually only â auto-polling 5000+
     // symbols this often would repeatedly hammer the backend and Upstox
     // for a view that's already a heavy one-off load.
     imHeatmapTimer = mdPollInterval(() => {
@@ -11051,7 +11125,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   // ===================== Market scanner =====================
   // Reuses the same universe/quote endpoints as the heatmap (including the
-  // shared imAllStocksCache and runWithConcurrency helper) — no new backend
+  // shared imAllStocksCache and runWithConcurrency helper) â no new backend
   // work. Switching the FILTER (gainers/losers/strong bullish/bearish) just
   // re-sorts the last fetched batch instantly; switching the UNIVERSE
   // (a sector, or All NSE Stocks) triggers a fresh fetch.
@@ -11091,7 +11165,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           : null;
 
         const pctHtml = changePillHtml(changePercent);
-        let rupeeHtml = '<span class="im-change-value im-change-neutral">—</span>';
+        let rupeeHtml = '<span class="im-change-value im-change-neutral">â</span>';
         if (Number.isFinite(changePercent) && changeRupee !== null) {
           const sign = changePercent >= 0 ? "+" : "";
           const cls = changePercent >= 0 ? "im-change-up" : "im-change-down";
@@ -11121,7 +11195,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
   // The ranking itself (row order / which stocks qualify for Strong
-  // Bullish etc.) is locked between resorts — every 2s price tick used to
+  // Bullish etc.) is locked between resorts â every 2s price tick used to
   // re-sort too, which made the whole list visually reshuffle every 2
   // seconds instead of just the numbers updating in place. A resort only
   // happens on open, a filter/universe change, a manual refresh, or this
@@ -11159,10 +11233,10 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
   // isBackgroundPoll: a silent 2s price refresh behind whatever's already
-  // on screen — no "Loading…" wipe (that was flashing the whole table
+  // on screen â no "Loadingâ¦" wipe (that was flashing the whole table
   // blank every 2 seconds) and no forced resort (see applyScannerFilterAndRender).
-  // A real (non-background) load — first open, universe/filter change, or
-  // the manual refresh button — still shows the loading state and always
+  // A real (non-background) load â first open, universe/filter change, or
+  // the manual refresh button â still shows the loading state and always
   // resorts immediately.
   async function loadScanner(isBackgroundPoll = false) {
     const myToken = ++imScannerLoadToken;
@@ -11173,9 +11247,9 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     if (!isBackgroundPoll) {
       setScannerProgress(0, isAll ? 1 : 0);
-      if (statusText) statusText.textContent = isAll ? "Loading full NSE stock list…" : `Loading ${imScannerUniverse}…`;
+      if (statusText) statusText.textContent = isAll ? "Loading full NSE stock listâ¦" : `Loading ${imScannerUniverse}â¦`;
       if (liveBadge) liveBadge.hidden = true;
-      if (body) body.innerHTML = `<tr><td colspan="4">Loading…</td></tr>`;
+      if (body) body.innerHTML = `<tr><td colspan="4">Loadingâ¦</td></tr>`;
     }
 
     try {
@@ -11237,7 +11311,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           if (myToken === imScannerLoadToken && isAll) {
             setScannerProgress(loadedCount, symbols.length);
             if (statusText) {
-              statusText.textContent = `Loading all NSE stocks… ${loadedCount.toLocaleString("en-IN")} / ${symbols.length.toLocaleString("en-IN")}`;
+              statusText.textContent = `Loading all NSE stocksâ¦ ${loadedCount.toLocaleString("en-IN")} / ${symbols.length.toLocaleString("en-IN")}`;
             }
           }
         }
@@ -11250,8 +11324,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       setScannerProgress(0, 0);
       if (statusText) {
         statusText.textContent = isAll
-          ? `All NSE stocks · ${symbols.length.toLocaleString("en-IN")} scanned`
-          : `${imScannerUniverse} · ${symbols.length} stocks scanned`;
+          ? `All NSE stocks Â· ${symbols.length.toLocaleString("en-IN")} scanned`
+          : `${imScannerUniverse} Â· ${symbols.length} stocks scanned`;
       }
       if (liveBadge) {
         liveBadge.hidden = false;
@@ -11268,7 +11342,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     } catch (error) {
       console.error("Scanner load failed:", error);
       // A background poll failing shouldn't blank out already-good data on
-      // screen with an error message — just skip this tick and try again
+      // screen with an error message â just skip this tick and try again
       // on the next one.
       if (!isBackgroundPoll) {
         if (statusText) statusText.textContent = "Could not load scanner data right now.";
@@ -11315,7 +11389,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
   // ===================== Dashboard Top Gainers/Losers drill-down =====================
-  // Reached only from the Dashboard's "NIFTY 50 · TOP GAINER" style tiles —
+  // Reached only from the Dashboard's "NIFTY 50 Â· TOP GAINER" style tiles â
   // a focused, filtered view (actual gainers only / actual losers only),
   // not the full Scanner page with its universe picker and other filters.
   // NIFTY 50 / Bank Nifty are small (~50 stocks), so this fetches quotes in
@@ -11363,7 +11437,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
       renderScannerTable(quotes, "im-dashboard-movers-body");
       if (statusText) {
-        statusText.textContent = `${universe} · ${quotes.length} ${filter === "losers" ? "losers" : "gainers"}`;
+        statusText.textContent = `${universe} Â· ${quotes.length} ${filter === "losers" ? "losers" : "gainers"}`;
       }
     } catch (error) {
       console.error("Dashboard movers load failed:", error);
@@ -11377,7 +11451,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     imDashboardMoversFilter = filter;
     const titleEl = document.getElementById("im-page-title");
     const subtitleEl = document.getElementById("im-page-subtitle");
-    if (titleEl) titleEl.textContent = `${universe} — ${filter === "losers" ? "Top Losers" : "Top Gainers"}`;
+    if (titleEl) titleEl.textContent = `${universe} â ${filter === "losers" ? "Top Losers" : "Top Gainers"}`;
     if (subtitleEl) {
       subtitleEl.textContent = filter === "losers"
         ? `Every ${universe} stock currently down today, biggest fall first.`
@@ -11403,7 +11477,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   // ===================== Positions / Order Book (paper trading) =====================
   // Everything here reads the virtual portfolio in localStorage
-  // (indianMarketPaperTrades) — no broker account, no real money. Holdings
+  // (indianMarketPaperTrades) â no broker account, no real money. Holdings
   // isn't a separate view: Positions lists every open holding/position
   // together, the same way the old broker view merged them.
 
@@ -11420,9 +11494,9 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
   function brokerSegmentLabel(trade, segment) {
-    if (segment === "MCX") return "MCX · Futures";
-    if (segment === "FO") return IM_TRADE_MARKET_LABELS[trade.index] ? "NSE · Index" : "F&O · Options";
-    return "NSE · Equity";
+    if (segment === "MCX") return "MCX Â· Futures";
+    if (segment === "FO") return IM_TRADE_MARKET_LABELS[trade.index] ? "NSE Â· Index" : "F&O Â· Options";
+    return "NSE Â· Equity";
   }
 
   const IM_PRODUCT_LABELS = { MIS: "MIS", CNC: "CNC", MTF: "MTF", NRML: "NRML" };
@@ -11498,7 +11572,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
   // Positions closed today (by stop-loss, target, square-off or Exit), one
-  // row per symbol + product with the day's realized P&L — like a broker's
+  // row per symbol + product with the day's realized P&L â like a broker's
   // Positions tab, which keeps a closed position at qty 0 until the day
   // ends instead of making it disappear.
   function getClosedTodayRows(openRows) {
@@ -11549,11 +11623,11 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const totalText = Math.abs(totalPnl) >= 10000
       ? Math.round(Math.abs(totalPnl)).toLocaleString("en-IN")
       : formatNumber(Math.abs(totalPnl));
-    if (totalEl) { totalEl.textContent = `${totalPnl >= 0 ? "+" : "−"}₹${totalText}`; totalEl.className = `im-pos-summary-value ${totalCls}`; }
+    if (totalEl) { totalEl.textContent = `${totalPnl >= 0 ? "+" : "â"}â¹${totalText}`; totalEl.className = `im-pos-summary-value ${totalCls}`; }
 
     const invested = rows.reduce((sum, r) => sum + r.avgPrice * r.quantity, 0);
     const totalPct = invested ? (totalPnl / invested) * 100 : null;
-    if (totalPctEl) { totalPctEl.textContent = Number.isFinite(totalPct) ? `${totalPct >= 0 ? "+" : "−"}${Math.abs(totalPct).toFixed(2)}%` : ""; totalPctEl.className = `im-pos-summary-pct ${totalCls}`; }
+    if (totalPctEl) { totalPctEl.textContent = Number.isFinite(totalPct) ? `${totalPct >= 0 ? "+" : "â"}${Math.abs(totalPct).toFixed(2)}%` : ""; totalPctEl.className = `im-pos-summary-pct ${totalCls}`; }
 
     const openCount = rows.filter((r) => !r.isHolding).length;
     if (countEl) { countEl.textContent = String(openCount); countEl.className = "im-pos-summary-value"; }
@@ -11583,12 +11657,12 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     GOLD: '<svg viewBox="0 0 48 48"><path d="M6 30l8-9h22l6 9z" fill="#f5c542"/><path d="M6 30h36v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" fill="#d49a1e"/><path d="M14 21l4-6h14l4 6z" fill="#ffe08a"/><path d="M18 15h14l1.5 2H16.5z" fill="#fff3c4"/></svg>',
     SILVER: '<svg viewBox="0 0 48 48"><path d="M6 30l8-9h22l6 9z" fill="#c3cad4"/><path d="M6 30h36v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" fill="#7d8896"/><path d="M14 21l4-6h14l4 6z" fill="#dfe4ea"/><path d="M18 15h14l1.5 2H16.5z" fill="#f4f6f8"/></svg>'
   };
-  const IM_POS_ICON_EMOJI = { CRUDEOIL: ["🛢️", "#fee2e2"], NATURALGAS: ["🔥", "#dbeafe"], COPPER: ["🔶", "#ffedd5"], ZINC: ["⚙️", "#ede9fe"], ALUMINIUM: ["🪨", "#ccfbf1"] };
+  const IM_POS_ICON_EMOJI = { CRUDEOIL: ["ð¢ï¸", "#fee2e2"], NATURALGAS: ["ð¥", "#dbeafe"], COPPER: ["ð¶", "#ffedd5"], ZINC: ["âï¸", "#ede9fe"], ALUMINIUM: ["ðª¨", "#ccfbf1"] };
   function imPosIconHtml(r) {
     if (r.isCommodity && !r.isOptionLeg) {
       const prefix = String(r.symbolKey || "").toUpperCase().replace(/\d{2}[A-Z]{3}FUT$/, "");
       if (IM_POS_ICON_SVG[prefix]) return `<span class="im-pc-icon is-bars">${IM_POS_ICON_SVG[prefix]}</span>`;
-      const [emoji, bg] = IM_POS_ICON_EMOJI[prefix] || ["📦", "#e2e8f0"];
+      const [emoji, bg] = IM_POS_ICON_EMOJI[prefix] || ["ð¦", "#e2e8f0"];
       return `<span class="im-pc-icon" style="background:${bg}">${emoji}</span>`;
     }
     if (r.isOptionLeg || r.segment === "FO") return `<span class="im-pc-icon is-fo">F&amp;O</span>`;
@@ -11596,20 +11670,20 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     return `<span class="im-pc-icon" style="background:${meta.bg};color:${meta.color}">${escapeHtml(String(meta.icon || "").slice(0, 3))}</span>`;
   }
 
-  // "Qty 30 | Avg ₹1,87,013.00 | LTP ₹1,87,350.00": every part in its own span with a thin line between them.
+  // "Qty 30 | Avg â¹1,87,013.00 | LTP â¹1,87,350.00": every part in its own span with a thin line between them.
   const imMetaParts = (parts) => parts.map((text) => `<span>${text}</span>`).join('<i class="im-meta-sep" aria-hidden="true"></i>');
-  const imRs = (value) => `₹${formatNumber(Math.abs(value))}`;
-  const imSigned = (value) => `${value >= 0 ? "+" : "−"}${imRs(value)}`;
+  const imRs = (value) => `â¹${formatNumber(Math.abs(value))}`;
+  const imSigned = (value) => `${value >= 0 ? "+" : "â"}${imRs(value)}`;
 
   function imPositionCardHtml(r) {
     const cls = r.pnl >= 0 ? "im-change-up" : "im-change-down";
-    const pctText = Number.isFinite(r.pnlPct) ? `${r.pnlPct >= 0 ? "+" : "−"}${Math.abs(r.pnlPct).toFixed(2)}%` : "";
-    // Side is shown the way brokers do it — a short position's quantity is
-    // negative — rather than with a separate BUY/SELL badge.
+    const pctText = Number.isFinite(r.pnlPct) ? `${r.pnlPct >= 0 ? "+" : "â"}${Math.abs(r.pnlPct).toFixed(2)}%` : "";
+    // Side is shown the way brokers do it â a short position's quantity is
+    // negative â rather than with a separate BUY/SELL badge.
     const signedQty = (r.direction === "SELL" ? -1 : 1) * Math.round(r.quantity);
     const valueLine = r.isHolding ? `Cur. ${imRs(r.lastPrice * r.quantity)}` : "";
     return `
-      <div class="im-pos-row im-pos-card" data-segment="${r.segment}" data-pos-key="${escapeHtml(r.key)}" role="button" tabindex="0" aria-label="${escapeHtml(r.symbol)} — tap to add or exit">
+      <div class="im-pos-row im-pos-card" data-segment="${r.segment}" data-pos-key="${escapeHtml(r.key)}" role="button" tabindex="0" aria-label="${escapeHtml(r.symbol)} â tap to add or exit">
         <div class="im-pc-top">
           ${imPosIconHtml(r)}
           <div class="im-pc-id">
@@ -11691,7 +11765,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (holdingsEl) {
       holdingsEl.innerHTML = holdings.length
         ? holdings.map(imPositionCardHtml).join("")
-        : `<p class="settings-help">No holdings yet. Buy with Longterm (CNC) or MTF — the stock stays in Positions today and moves here on the next trading day.</p>`;
+        : `<p class="settings-help">No holdings yet. Buy with Longterm (CNC) or MTF â the stock stays in Positions today and moves here on the next trading day.</p>`;
     }
   }
 
@@ -11714,7 +11788,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       const live = /live/i.test(label);
       pill.classList.toggle("is-live", live);
       pill.classList.toggle("is-closed", !live);
-      text.textContent = live ? "Live" : (label && !/connecting/i.test(label) ? label : "Connecting…");
+      text.textContent = live ? "Live" : (label && !/connecting/i.test(label) ? label : "Connectingâ¦");
     };
     new MutationObserver(apply).observe(source, { childList: true, characterData: true, subtree: true });
     apply();
@@ -11776,7 +11850,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     });
   });
 
-  // Order status → Order Book tab: pending is Open; anything that filled
+  // Order status â Order Book tab: pending is Open; anything that filled
   // (still-open position, since-closed position, or an order used up
   // squaring one off) is Executed; expired/withdrawn is Cancelled.
   function classifyOrderStatus(status) {
@@ -11792,14 +11866,14 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const type = IM_ORDER_TYPE_LABELS[trade.orderType] || "MARKET";
     let priceText = "";
     if (trade.orderType === "limit" || trade.orderType === "sl") priceText = ` @ ${formatNumber(trade.entry)}`;
-    if ((trade.orderType === "sl" || trade.orderType === "slm") && Number.isFinite(trade.triggerPrice)) priceText += ` · trg ${formatNumber(trade.triggerPrice)}`;
+    if ((trade.orderType === "sl" || trade.orderType === "slm") && Number.isFinite(trade.triggerPrice)) priceText += ` Â· trg ${formatNumber(trade.triggerPrice)}`;
     const executed = trade.status === "open" || trade.status === "closed" || trade.status === "filled";
     if (executed && trade.orderType !== "limit" && trade.orderType !== "sl" && Number.isFinite(trade.entry)) priceText = ` @ ${formatNumber(trade.entry)}`;
-    const product = trade.product ? ` · ${trade.product}` : "";
+    const product = trade.product ? ` Â· ${trade.product}` : "";
     const reason = trade.status === "cancelled" && trade.cancelReason
-      ? ` · ${trade.cancelReason}`
-      : trade.systemExit ? ` · ${trade.systemExit}` : "";
-    return `${String(trade.direction || "").toUpperCase()} · ${type}${priceText}${product}${reason}`;
+      ? ` Â· ${trade.cancelReason}`
+      : trade.systemExit ? ` Â· ${trade.systemExit}` : "";
+    return `${String(trade.direction || "").toUpperCase()} Â· ${type}${priceText}${product}${reason}`;
   }
 
   let imBrokerOrdersActiveFilter = "all";
@@ -11878,6 +11952,9 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     renderPositionsList();
     renderBrokerOrdersList();
     pollOpenPaperTradeQuotes();
+    if (typeof window.syncCloudTrades === "function") {
+      window.syncCloudTrades();
+    }
   }
 
   // Refreshes the Positions list's live P&L on every price tick, but only
@@ -11891,7 +11968,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
   // Marks every open position and pending order to market every 2s,
-  // whatever page is on screen — so live P&L, order fills, stop/target
+  // whatever page is on screen â so live P&L, order fills, stop/target
   // exits and intraday square-off all happen like a real order book.
   // Each contract is priced from wherever it can be: indices via
   // /api/index-quotes, option legs by exact instrument key via /api/ltp,
@@ -11963,10 +12040,27 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   mdPollInterval(pollOpenPaperTradeQuotes, 2000);
 
+  mdPollInterval(() => {
+    if (typeof window.syncCloudTrades === "function") {
+      window.syncCloudTrades();
+    }
+  }, 12000);
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && typeof window.syncCloudTrades === "function") {
+      window.syncCloudTrades();
+    }
+  });
+  window.addEventListener("focus", () => {
+    if (typeof window.syncCloudTrades === "function") {
+      window.syncCloudTrades();
+    }
+  });
+
   // ===================== Stock Detail AI analysis =====================
   // Colors a Trend/Supertrend-style word by its meaning (bullish -> green,
   // bearish -> red, neutral -> muted gray), same convention as every other
-  // bullish/bearish pill in the app — these stat tiles were showing the
+  // bullish/bearish pill in the app â these stat tiles were showing the
   // word as plain text with no color cue at all. A combined value like
   // "neutral / bullish / neutral" (Trend 5m/15m/1h) gets each word colored
   // independently rather than the whole string picking one color.
@@ -12025,9 +12119,9 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const analysisEl = document.getElementById("im-stock-detail-ai-analysis");
     const button = document.getElementById("im-stock-detail-ai-btn");
 
-    if (statusEl) { statusEl.textContent = `Analysing ${symbol}…`; statusEl.hidden = false; }
+    if (statusEl) { statusEl.textContent = `Analysing ${symbol}â¦`; statusEl.hidden = false; }
     if (resultEl) resultEl.hidden = true;
-    if (button) { button.disabled = true; button.textContent = "Analysing…"; }
+    if (button) { button.disabled = true; button.textContent = "Analysingâ¦"; }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/ai-chart-scanner`, {
@@ -12042,7 +12136,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       if (symbolEl) symbolEl.textContent = result.symbol;
       if (updatedEl) {
         const generated = new Date(result.generated_at);
-        updatedEl.textContent = `Live snapshot · ${generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+        updatedEl.textContent = `Live snapshot Â· ${generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`;
       }
       renderAiScannerIndicators(result.indicators || {});
       if (analysisEl) renderGeminiReview(analysisEl, result.analysis);
@@ -12082,7 +12176,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const runBtn = document.getElementById("im-dashboard-ai-run-btn");
     const marketLabel = IM_DASHBOARD_AI_MARKET_LABELS[marketKey] || marketKey;
 
-    if (statusEl) statusEl.textContent = `Analysing ${marketLabel}…`;
+    if (statusEl) statusEl.textContent = `Analysing ${marketLabel}â¦`;
     if (resultEl) resultEl.hidden = true;
     if (providerBadge) providerBadge.hidden = true;
     if (runBtn) runBtn.disabled = true;
@@ -12100,11 +12194,11 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       const stamp = generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
       if (statusEl) {
         statusEl.textContent = result.data_source === "live"
-          ? `Live snapshot · ${stamp}`
-          : `Demo snapshot (live data unavailable) · ${stamp}`;
+          ? `Live snapshot Â· ${stamp}`
+          : `Demo snapshot (live data unavailable) Â· ${stamp}`;
       }
       if (providerBadge) {
-        providerBadge.textContent = result.provider === "GROQ" ? "AI · Groq" : "AI · Gemini";
+        providerBadge.textContent = result.provider === "GROQ" ? "AI Â· Groq" : "AI Â· Gemini";
         providerBadge.hidden = false;
       }
       if (analysisEl) renderGeminiReview(analysisEl, result.analysis);
@@ -12126,7 +12220,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const analysisEl = document.getElementById("im-dashboard-ai-analysis");
     const runBtn = document.getElementById("im-dashboard-ai-run-btn");
 
-    if (statusEl) statusEl.textContent = `Analysing ${symbol}…`;
+    if (statusEl) statusEl.textContent = `Analysing ${symbol}â¦`;
     if (resultEl) resultEl.hidden = true;
     if (providerBadge) providerBadge.hidden = true;
     if (runBtn) runBtn.disabled = true;
@@ -12142,9 +12236,9 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
       const generated = new Date(result.generated_at);
       const stamp = generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-      if (statusEl) statusEl.textContent = `${result.symbol} · Live snapshot · ${stamp}`;
+      if (statusEl) statusEl.textContent = `${result.symbol} Â· Live snapshot Â· ${stamp}`;
       if (providerBadge) {
-        providerBadge.textContent = result.provider === "GROQ" ? "AI · Groq" : "AI · Gemini";
+        providerBadge.textContent = result.provider === "GROQ" ? "AI Â· Groq" : "AI Â· Gemini";
         providerBadge.hidden = false;
       }
       if (analysisEl) renderGeminiReview(analysisEl, result.analysis);
@@ -12209,7 +12303,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       return;
     }
     if (resultsEl) {
-      resultsEl.innerHTML = `<div class="im-watchlist-search-empty">Searching…</div>`;
+      resultsEl.innerHTML = `<div class="im-watchlist-search-empty">Searchingâ¦</div>`;
       resultsEl.hidden = false;
     }
     try {
@@ -12352,7 +12446,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       return;
     }
     if (resultsEl) {
-      resultsEl.innerHTML = `<div class="im-watchlist-search-empty">Searching…</div>`;
+      resultsEl.innerHTML = `<div class="im-watchlist-search-empty">Searchingâ¦</div>`;
       resultsEl.hidden = false;
     }
     try {
@@ -12475,7 +12569,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       if (symbol !== imStockDetailSymbol) return;
 
       if (newsUpdated) {
-        newsUpdated.textContent = `${result.count} headline${result.count === 1 ? "" : "s"} for ${result.company_name} · Updated ${new Date(result.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+        newsUpdated.textContent = `${result.count} headline${result.count === 1 ? "" : "s"} for ${result.company_name} Â· Updated ${new Date(result.generated_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
       }
       if (newsList) {
         newsList.innerHTML = result.items.length
@@ -12507,7 +12601,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const updatedEl = document.getElementById("im-stock-detail-updated");
     const priceEl = document.getElementById("im-stock-detail-price");
 
-    if (statusEl) statusEl.textContent = `Loading ${symbol}…`;
+    if (statusEl) statusEl.textContent = `Loading ${symbol}â¦`;
     if (resultEl) resultEl.hidden = true;
     document.getElementById("im-stock-detail-news").hidden = true;
 
@@ -12521,7 +12615,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       if (priceEl) priceEl.textContent = formatNumber(result.indicators.price);
       if (updatedEl) {
         const generated = new Date(result.generated_at);
-        updatedEl.textContent = `Live snapshot · ${generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+        updatedEl.textContent = `Live snapshot Â· ${generated.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`;
       }
       renderStockDetailIndicators(result.indicators || {});
       if (resultEl) resultEl.hidden = false;
@@ -12668,7 +12762,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
                   <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.headline)}</a>
                   <p class="im-news-meta">${escapeHtml(item.source)} &middot; ${escapeHtml(item.published_time)}</p>
                   <p class="im-news-summary">${escapeHtml(item.summary)}</p>
-                  <button class="im-news-translate-btn" type="button" data-news-translate="${index}">&#127760; हिंदी में पढ़ें</button>
+                  <button class="im-news-translate-btn" type="button" data-news-translate="${index}">&#127760; à¤¹à¤¿à¤à¤¦à¥ à¤®à¥à¤ à¤ªà¤¢à¤¼à¥à¤</button>
                   <div class="im-news-hindi" data-news-hindi="${index}" hidden></div>
                 </div>
               `
@@ -12700,12 +12794,12 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (hindiEl.dataset.loaded === "true") {
       const nowHidden = !hindiEl.hidden;
       hindiEl.hidden = nowHidden;
-      button.textContent = nowHidden ? "\u{1F310} हिंदी में पढ़ें" : "\u{1F310} अंग्रेज़ी में वापस जाएं";
+      button.textContent = nowHidden ? "\u{1F310} à¤¹à¤¿à¤à¤¦à¥ à¤®à¥à¤ à¤ªà¤¢à¤¼à¥à¤" : "\u{1F310} à¤à¤à¤à¥à¤°à¥à¥à¥ à¤®à¥à¤ à¤µà¤¾à¤ªà¤¸ à¤à¤¾à¤à¤";
       return;
     }
 
     button.disabled = true;
-    button.textContent = "अनुवाद हो रहा है...";
+    button.textContent = "à¤à¤¨à¥à¤µà¤¾à¤¦ à¤¹à¥ à¤°à¤¹à¤¾ à¤¹à¥...";
 
     try {
       const response = await fetch("https://api.marketdock.in/api/news/translate", {
@@ -12725,11 +12819,11 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       `;
       hindiEl.dataset.loaded = "true";
       hindiEl.hidden = false;
-      button.textContent = "\u{1F310} अंग्रेज़ी में वापस जाएं";
+      button.textContent = "\u{1F310} à¤à¤à¤à¥à¤°à¥à¤à¤¼à¥ à¤®à¥à¤ à¤µà¤¾à¤ªà¤¸ à¤à¤¾à¤à¤";
     } catch (error) {
       hindiEl.innerHTML = `<p class="im-news-translate-error">${escapeHtml(friendlyAiErrorMessage(error.message))}</p>`;
       hindiEl.hidden = false;
-      button.textContent = "\u{1F310} फिर कोशिश करें";
+      button.textContent = "\u{1F310} à¤«à¤¿à¤° à¤à¥à¤¶à¤¿à¤¶ à¤à¤°à¥à¤";
       showAiErrorToast(error.message);
     } finally {
       button.disabled = false;
@@ -12746,7 +12840,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   // ===================== Indian Market price & signal alerts =====================
   // Mirrors the BTC-side alert architecture (browser Notification API, checked on
-  // every technical-engine refresh while this tab is open — no background push
+  // every technical-engine refresh while this tab is open â no background push
   // service). Supports multiple price alerts across both NIFTY 50 and Bank Nifty,
   // plus a single decision-change (BUY/SELL/HOLD) toggle covering both indices.
 
@@ -12851,7 +12945,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     const lastAlertEl = document.getElementById("im-last-alert-status");
     if (lastAlertEl) {
-      lastAlertEl.textContent = `${message} • ${new Date(runtime.lastAlertAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+      lastAlertEl.textContent = `${message} â¢ ${new Date(runtime.lastAlertAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`;
     }
 
     if (getImNotificationPermission() !== "granted") {
@@ -12920,7 +13014,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const lastAlertEl = document.getElementById("im-last-alert-status");
     if (lastAlertEl) {
       lastAlertEl.textContent = runtime.lastAlertMessage
-        ? `${runtime.lastAlertMessage} • ${new Date(runtime.lastAlertAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
+        ? `${runtime.lastAlertMessage} â¢ ${new Date(runtime.lastAlertAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}`
         : "No alert triggered yet.";
     }
 
@@ -12937,7 +13031,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const previousPrice = Number(runtime.lastPriceByMarket[marketKey]);
     let changed = false;
     // Notifications are collected here and fired only after all local state below is
-    // persisted — sendImBrowserAlert does its own read-modify-write of the alert
+    // persisted â sendImBrowserAlert does its own read-modify-write of the alert
     // runtime (to record the "last alert" message), so firing it before this
     // function's own final saveImAlertRuntime() would have that save clobber it.
     const notifications = [];
@@ -13012,7 +13106,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   // ===================== Custom condition alerts =====================
   // Combines up to 3 numeric conditions (Price/RSI/Volume Ratio/MACD
   // Histogram) with AND. Checked from the same market-refresh tick that
-  // already re-renders the dashboard for the 4 known indices — no new
+  // already re-renders the dashboard for the 4 known indices â no new
   // polling, just reading fields already present in that data.
 
   const IM_CONDITION_ALERTS_KEY = "imConditionAlertsV1";
@@ -13456,8 +13550,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       fibonacci: "Click the swing high, then the swing low (or reverse) to draw retracement levels.",
       position: "Click the entry price, then the stop-loss price (target auto-calculates at 2:1 reward:risk).",
       "volume-profile": "Click the start of the range, then the end, to show traded volume by price.",
-      ray: "Click the anchor point, then a second point — the ray extends forward through it.",
-      extended: "Click two points — the line extends infinitely in both directions.",
+      ray: "Click the anchor point, then a second point â the ray extends forward through it.",
+      extended: "Click two points â the line extends infinitely in both directions.",
       channel: "Click the start and end of the base line, then a third point to set the channel width.",
       circle: "Click one corner, then the opposite corner, to fit a circle/ellipse.",
       arrow: "Click the start point, then the point the arrow should point to.",
@@ -13519,7 +13613,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const bars = Math.round(Math.abs(drawing.t2 - drawing.t1) / getImDrawingIntervalSeconds());
     const duration = formatImMeasureDuration(drawing.t2 - drawing.t1);
     const sign = priceDiff >= 0 ? "+" : "";
-    textEl.textContent = `${sign}${formatNumber(priceDiff)} (${sign}${percent.toFixed(2)}%) — ${bars} bars — ${duration}`;
+    textEl.textContent = `${sign}${formatNumber(priceDiff)} (${sign}${percent.toFixed(2)}%) â ${bars} bars â ${duration}`;
   }
 
   function repositionImDrawingOverlays() {
@@ -13547,7 +13641,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           line.setAttribute("y2", y);
           text.setAttribute("x", right + 4);
           text.setAttribute("y", y + 4);
-          text.textContent = `${level.label} — ${formatNumber(price)}`;
+          text.textContent = `${level.label} â ${formatNumber(price)}`;
         });
       } else if (drawing.type === "vertical" && drawing.el) {
         const x = imLiveChart.timeScale().timeToCoordinate(drawing.time);
@@ -13641,7 +13735,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         drawing.labelEl.setAttribute("opacity", "1");
         drawing.labelEl.setAttribute("x", leftX + 6);
         drawing.labelEl.setAttribute("y", Math.min(entryY, stopY, targetY ?? entryY) - 8);
-        drawing.labelEl.textContent = `${direction}  Entry ${formatNumber(drawing.p1)}  •  Stop ${formatNumber(drawing.p2)}  •  Target ${formatNumber(targetPrice)}  •  R:R 1:2.00`;
+        drawing.labelEl.textContent = `${direction}  Entry ${formatNumber(drawing.p1)}  â¢  Stop ${formatNumber(drawing.p2)}  â¢  Target ${formatNumber(targetPrice)}  â¢  R:R 1:2.00`;
       } else if (drawing.type === "volume-profile" && Array.isArray(drawing.barEls)) {
         const timeScale = imLiveChart.timeScale();
         const rangeStart = Math.min(drawing.t1, drawing.t2);
@@ -13713,7 +13807,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         drawing.labelEl.setAttribute("opacity", "1");
         drawing.labelEl.setAttribute("x", leftX + 4);
         drawing.labelEl.setAttribute("y", topY - 8 < 12 ? topY + 14 : topY - 8);
-        drawing.labelEl.textContent = `Volume Profile  •  POC ${formatNumber(lowestPrice + pocIndex * binSize + binSize / 2)}`;
+        drawing.labelEl.textContent = `Volume Profile  â¢  POC ${formatNumber(lowestPrice + pocIndex * binSize + binSize / 2)}`;
       } else if (drawing.type === "ray" && drawing.el) {
         const timeScale = imLiveChart.timeScale();
         const x1 = timeScale.timeToCoordinate(drawing.t1);
@@ -13871,7 +13965,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           drawing.textEl.setAttribute("opacity", "1");
           drawing.textEl.setAttribute("x", Math.min(x1, x2) + 6);
           drawing.textEl.setAttribute("y", 16);
-          drawing.textEl.textContent = `${bars} bars — ${duration}`;
+          drawing.textEl.textContent = `${bars} bars â ${duration}`;
         }
       } else if (drawing.type === "brush" && drawing.el && Array.isArray(drawing.points)) {
         const timeScale = imLiveChart.timeScale();
@@ -14379,7 +14473,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
   // ===================== Indian Market chart replay & backtesting =====================
   // Replay steps through the already-fetched candle history (imLiveCandleRawData) one
-  // bar at a time by re-slicing it into the chart series — no extra network calls.
+  // bar at a time by re-slicing it into the chart series â no extra network calls.
   // While replay is active, live polling is paused. Backtesting is a single open
   // paper trade at a time: its stop/target are checked against each newly revealed
   // bar's high/low as replay steps forward, and closed trades are logged to a
@@ -14440,7 +14534,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     }
     imReplayPicking = true;
     setImDrawingMode("cursor");
-    if (els.positionText) els.positionText.textContent = "Click any candle on the chart above to set the replay start point (click “Pick Replay Start” again to cancel).";
+    if (els.positionText) els.positionText.textContent = "Click any candle on the chart above to set the replay start point (click âPick Replay Startâ again to cancel).";
   }
 
   function pickImReplayStart(param) {
@@ -14449,7 +14543,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const index = imLiveCandleRawData.findIndex((candle) => candle.time === param.time);
     if (index < 1) {
       const els = getImReplayEls();
-      if (els.positionText) els.positionText.textContent = "Could not read that candle — try clicking directly on a bar.";
+      if (els.positionText) els.positionText.textContent = "Could not read that candle â try clicking directly on a bar.";
       if (els.pickBtn) els.pickBtn.disabled = false;
       return;
     }
@@ -14468,7 +14562,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const current = visible[visible.length - 1];
     const els = getImReplayEls();
     if (els.positionText) {
-      els.positionText.textContent = `Replay bar ${imReplayIndex + 1} / ${imLiveCandleRawData.length} — ${formatChartTime(current.time * 1000)} — Close ${formatNumber(current.close)}`;
+      els.positionText.textContent = `Replay bar ${imReplayIndex + 1} / ${imLiveCandleRawData.length} â ${formatChartTime(current.time * 1000)} â Close ${formatNumber(current.close)}`;
     }
     const priceEl = document.getElementById("im-chart-last-price");
     if (priceEl) priceEl.textContent = formatNumber(current.close);
@@ -14490,7 +14584,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (imReplayPlaying) return;
     imReplayPlaying = true;
     const els = getImReplayEls();
-    if (els.playBtn) els.playBtn.textContent = "⏸ Pause";
+    if (els.playBtn) els.playBtn.textContent = "â¸ Pause";
     imReplayTimer = window.setInterval(() => stepImReplay(1), imReplaySpeedMs);
   }
 
@@ -14501,7 +14595,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       imReplayTimer = null;
     }
     const els = getImReplayEls();
-    if (els.playBtn) els.playBtn.textContent = "▶ Play";
+    if (els.playBtn) els.playBtn.textContent = "â¶ Play";
   }
 
   function exitImReplay() {
@@ -14565,7 +14659,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         const wins = results.filter((t) => t.rMultiple > 0).length;
         const totalR = results.reduce((sum, t) => sum + t.rMultiple, 0);
         const winRate = (wins / results.length) * 100;
-        els.summaryText.textContent = `${results.length} trades — ${wins} wins (${winRate.toFixed(0)}% win rate) — Total ${totalR >= 0 ? "+" : ""}${totalR.toFixed(2)}R — Avg ${(totalR / results.length).toFixed(2)}R`;
+        els.summaryText.textContent = `${results.length} trades â ${wins} wins (${winRate.toFixed(0)}% win rate) â Total ${totalR >= 0 ? "+" : ""}${totalR.toFixed(2)}R â Avg ${(totalR / results.length).toFixed(2)}R`;
       }
     }
   }
@@ -14581,7 +14675,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     els.openTradeBox.hidden = false;
     if (els.form) els.form.hidden = true;
     const t = imOpenBacktestTrade;
-    els.openTradeSummary.textContent = `${t.direction} open — Entry ${formatNumber(t.entry)} — Stop ${formatNumber(t.stop)} — Target ${formatNumber(t.target)}`;
+    els.openTradeSummary.textContent = `${t.direction} open â Entry ${formatNumber(t.entry)} â Stop ${formatNumber(t.stop)} â Target ${formatNumber(t.target)}`;
   }
 
   function placeImBacktestTrade(direction, entry, stop, target) {
@@ -14689,7 +14783,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   // Tracks which market+timeframe imLiveSeries currently holds a full
   // setData() for, so a 2s poll (see refreshLiveChartCandles()) only
   // updates the one live/latest bar via the cheap update() call instead of
-  // rebuilding the whole series from scratch every time — setData() on the
+  // rebuilding the whole series from scratch every time â setData() on the
   // full history is the expensive part (re-parses and re-lays-out every
   // candle), and doing that every 2s instead of every 60s was real added
   // jank/battery cost on weaker phones for no visual benefit, since only
@@ -14721,7 +14815,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       // Same market/timeframe as last render: update() both refreshes the
       // still-forming candle in place and appends a newly-started one
       // (lightweight-charts creates a new bar automatically when the
-      // given time is later than every existing one) — either way, no
+      // given time is later than every existing one) â either way, no
       // full rebuild.
       imLiveSeries.update(chartPoints[chartPoints.length - 1]);
     } else {
@@ -14778,7 +14872,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
         if (chartStatusText) {
           chartStatusText.textContent =
-            "No live candles available right now — market may be closed or data hasn't started for today. Retrying every 2 seconds.";
+            "No live candles available right now â market may be closed or data hasn't started for today. Retrying every 2 seconds.";
         }
         if (status) {
           status.textContent = "No data yet";
@@ -14806,7 +14900,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       }
 
       if (chartStatusText) {
-        chartStatusText.textContent = `Live candle feed — last candle ${formatChartTime(latest.time)}.`;
+        chartStatusText.textContent = `Live candle feed â last candle ${formatChartTime(latest.time)}.`;
       }
 
       if (subtitle && latest) {
@@ -15168,8 +15262,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
   // ===================== AI Trade Coach =====================
-  // Combines the manual Paper Trade journal (indianMarketPaperTrades — entry/stop/target
-  // only, no verified outcome) with chart-replay backtest results (imBacktestResultsV1 —
+  // Combines the manual Paper Trade journal (indianMarketPaperTrades â entry/stop/target
+  // only, no verified outcome) with chart-replay backtest results (imBacktestResultsV1 â
   // has an actual WIN/LOSS exit and R-multiple) into one trade history, and sends it to
   // the backend for a Gemini coaching review. Reuses renderGeminiReview() for consistent
   // heading/bullet formatting with the AI Chart Review card above.
@@ -15237,8 +15331,8 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
         const stats = result.stats || {};
         title && (title.textContent = stats.closed_trades
-          ? `AI Trade Coach — ${stats.win_rate_percent}% win rate over ${stats.closed_trades} backtested trade${stats.closed_trades === 1 ? "" : "s"}`
-          : `AI Trade Coach — ${stats.total_trades} trade${stats.total_trades === 1 ? "" : "s"} reviewed`);
+          ? `AI Trade Coach â ${stats.win_rate_percent}% win rate over ${stats.closed_trades} backtested trade${stats.closed_trades === 1 ? "" : "s"}`
+          : `AI Trade Coach â ${stats.total_trades} trade${stats.total_trades === 1 ? "" : "s"} reviewed`);
         if (text) renderGeminiReview(text, result.coaching);
         coachButton.textContent = "Refresh AI Coaching";
       } catch (error) {
@@ -15281,9 +15375,9 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     window.IndianMarketMode.start();
   }
 
-  // Restore whichever page was open before a reload — otherwise every
+  // Restore whichever page was open before a reload â otherwise every
   // refresh silently drops the user back on the dashboard. Only within the
-  // same session, though (see sessionStorage note in showPage above) — a
+  // same session, though (see sessionStorage note in showPage above) â a
   // fresh app launch should still start on the dashboard.
   try {
     const lastPage = sessionStorage.getItem(LAST_PAGE_STORAGE_KEY);
@@ -15291,7 +15385,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       showPage(lastPage);
     }
   } catch {
-    // Ignore — private browsing / storage quota, non-critical.
+    // Ignore â private browsing / storage quota, non-critical.
   }
 })();
 
@@ -15322,7 +15416,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     if (resetBtn) {
       resetBtn.addEventListener("click", () => {
         const confirmed = window.confirm(
-          "Kya aap paper trading funds ko wapas ₹1,00,00,000 par reset karna chahte hain? Sabhi paper positions aur trade history clear ho jayegi."
+          "Kya aap paper trading funds ko wapas â¹1,00,00,000 par reset karna chahte hain? Sabhi paper positions aur trade history clear ho jayegi."
         );
         if (!confirmed) return;
 
@@ -15335,6 +15429,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           window.marketDockSupabase.auth.updateUser({
             data: { im_paper_trades: [], im_paper_trades_updated_at: resetNow }
           }).catch(() => {});
+          pushTradesToCloud([], resetNow, true);
           if (window.marketDockUser.user_metadata) {
             window.marketDockUser.user_metadata.im_paper_trades = [];
             window.marketDockUser.user_metadata.im_paper_trades_updated_at = resetNow;
@@ -15350,7 +15445,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         // on screen after a reset. Redraw through the module's own hook.
         if (window.mdRefreshPaperViews) window.mdRefreshPaperViews();
 
-        window.alert("Paper trading funds wapas ₹1,00,00,000 par restore ho gaye hain!");
+        window.alert("Paper trading funds wapas â¹1,00,00,000 par restore ho gaye hain!");
       });
     }
   }
@@ -15599,12 +15694,12 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         const diffMs = validUntilDate.getTime() - Date.now();
         const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 
-        if (titleDiv) titleDiv.innerHTML = 'Plan Status: <span style="color:#16a34a; background:#dcfce7; padding:2px 8px; border-radius:6px; font-size:14px; margin-left:4px;">ACTIVE ✓</span>';
-        if (subDiv) subDiv.textContent = `Marketdock Premium • ${planName} (₹${paidAmount})`;
+        if (titleDiv) titleDiv.innerHTML = 'Plan Status: <span style="color:#16a34a; background:#dcfce7; padding:2px 8px; border-radius:6px; font-size:14px; margin-left:4px;">ACTIVE â</span>';
+        if (subDiv) subDiv.textContent = `Marketdock Premium â¢ ${planName} (â¹${paidAmount})`;
         if (datesSpan) datesSpan.innerHTML = `Valid until: <strong style="color:#15803d;">${validUntilStr}</strong> (${daysRemaining} days remaining)`;
 
         if (statusIcon) {
-          statusIcon.innerHTML = '<span style="font-size:20px;">👑</span>';
+          statusIcon.innerHTML = '<span style="font-size:20px;">ð</span>';
           statusIcon.style.background = "#fef9c3";
           statusIcon.style.color = "#ca8a04";
         }
@@ -15613,14 +15708,14 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           calloutBox.style.background = "#f0fdf4";
           calloutBox.style.borderColor = "#bbf7d0";
         }
-        if (calloutIcon) calloutIcon.textContent = "✅";
+        if (calloutIcon) calloutIcon.textContent = "â";
         if (calloutText) {
           calloutText.style.color = "#166534";
           calloutText.innerHTML = `<b>Your Marketdock Premium subscription is active.</b><br/>All real-time features, analytical tools, and paper trading remain fully accessible until <b>${validUntilStr}</b>.`;
         }
 
         if (checkoutBtn) {
-          checkoutBtn.innerHTML = `✓ Active Plan: ${planName} (Valid until ${validUntilStr})`;
+          checkoutBtn.innerHTML = `â Active Plan: ${planName} (Valid until ${validUntilStr})`;
           checkoutBtn.style.background = "#16a34a";
           checkoutBtn.style.boxShadow = "0 4px 12px rgba(22,163,74,0.3)";
         }
@@ -15652,11 +15747,11 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         const dateStr = endDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 
         if (isExpired || daysLeft <= 0) {
-          if (titleDiv) titleDiv.innerHTML = 'Plan Status: <span style="color:#dc2626; background:#fee2e2; padding:2px 8px; border-radius:6px; font-size:14px; margin-left:4px;">TRIAL EXPIRED ✕</span>';
+          if (titleDiv) titleDiv.innerHTML = 'Plan Status: <span style="color:#dc2626; background:#fee2e2; padding:2px 8px; border-radius:6px; font-size:14px; margin-left:4px;">TRIAL EXPIRED â</span>';
           if (subDiv) subDiv.textContent = "Your 7-day free trial has ended. Please upgrade your plan.";
           if (datesSpan) datesSpan.innerHTML = '<span style="color:#dc2626; font-weight:600;">Trial expired on ' + dateStr + '</span> (0 days remaining)';
           if (statusIcon) {
-            statusIcon.innerHTML = '<span style="font-size:20px;">⚠️</span>';
+            statusIcon.innerHTML = '<span style="font-size:20px;">â ï¸</span>';
             statusIcon.style.background = "#fee2e2";
             statusIcon.style.color = "#dc2626";
           }
@@ -15664,7 +15759,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
             calloutBox.style.background = "#fef2f2";
             calloutBox.style.borderColor = "#fecaca";
           }
-          if (calloutIcon) calloutIcon.textContent = "⚠️";
+          if (calloutIcon) calloutIcon.textContent = "â ï¸";
           if (calloutText) {
             calloutText.style.color = "#991b1b";
             calloutText.innerHTML = "<b>Your 7-day trial has ended.</b><br/>Please choose a premium plan below to reactivate full real-time quotes, option chains, and paper trading.";
@@ -15679,7 +15774,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
           if (subDiv) subDiv.textContent = "Your premium features are unlocked for 7 days (" + daysLeft + " days left).";
           if (datesSpan) datesSpan.innerHTML = "Trial ends on: <strong>" + dateStr + "</strong> (" + daysLeft + " days remaining)";
           if (statusIcon) {
-            statusIcon.innerHTML = '<span style="font-size:20px;">⏱️</span>';
+            statusIcon.innerHTML = '<span style="font-size:20px;">â±ï¸</span>';
             statusIcon.style.background = "#dbeafe";
             statusIcon.style.color = "#2563eb";
           }
@@ -15687,7 +15782,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
             calloutBox.style.background = "#eff6ff";
             calloutBox.style.borderColor = "#bfdbfe";
           }
-          if (calloutIcon) calloutIcon.textContent = "ℹ️";
+          if (calloutIcon) calloutIcon.textContent = "â¹ï¸";
           if (calloutText) {
             calloutText.style.color = "#1e40af";
             calloutText.innerHTML = "<b>You are currently on a 7-day free trial.</b><br/>Enjoy full access to Indian markets and live paper trading. Upgrade anytime to avoid interruption.";
@@ -15737,7 +15832,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       radio.onchange = function() {
         const val = this.value;
         if (proceedPayBtn) {
-          proceedPayBtn.textContent = `Proceed to Pay ₹${val}`;
+          proceedPayBtn.textContent = `Proceed to Pay â¹${val}`;
         }
         document.querySelectorAll(".md-plan-card").forEach(c => {
           c.style.borderColor = "#e2e8f0";
@@ -15830,7 +15925,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
                 }
                 const verifyData = await verifyRes.json().catch(() => ({}));
 
-                // Plan period first — the subscription record below needs its
+                // Plan period first â the subscription record below needs its
                 // end date (it used to read these before they were declared,
                 // which threw right after a successful payment).
                 const today = new Date();
@@ -15867,7 +15962,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
                 const recEnd = document.getElementById("md-receipt-end");
 
                 if (recPlan) recPlan.textContent = planName;
-                if (recAmt) recAmt.textContent = `₹${planAmount}`;
+                if (recAmt) recAmt.textContent = `â¹${planAmount}`;
                 if (recStart) recStart.textContent = startStr;
                 if (recEnd) recEnd.textContent = endStr;
 
@@ -15922,9 +16017,9 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
 // ================= MARKETDOCK PRO GATE =================
-// Pro features — paper trading (stocks, F&O options, commodities: the
+// Pro features â paper trading (stocks, F&O options, commodities: the
 // Positions/Holdings pages and every Buy/Sell/GTT order ticket), Heatmap,
-// RRG, News and AI analysis — are free for a 7-day trial after sign-in, then
+// RRG, News and AI analysis â are free for a 7-day trial after sign-in, then
 // need a plan. Everything else (dashboard, watchlist, charts, scanner,
 // option-chain viewing) stays free. RRG's own maintenance lock still applies
 // on top of this. A brand-new user's first Pro tap waits for the "Pro trial
@@ -16003,11 +16098,11 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
     if (access.reason === "signin") {
       title.textContent = `Sign in to use ${feature}`;
-      text.textContent = `${feature} is part of MarketDock Pro. Sign in to start your 7-day free trial — no payment needed.`;
+      text.textContent = `${feature} is part of MarketDock Pro. Sign in to start your 7-day free trial â no payment needed.`;
       primary.textContent = "Sign in / Sign up";
       primary.onclick = () => { hide(); if (typeof window.mdShowSignIn === "function") window.mdShowSignIn(); };
     } else if (access.reason === "checking") {
-      title.textContent = "Checking your plan…";
+      title.textContent = "Checking your planâ¦";
       text.textContent = "We're confirming your MarketDock Pro access. Please tap again in a moment.";
       primary.textContent = "OK";
       primary.onclick = hide;
@@ -16033,7 +16128,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
   }
 
   // The trial card has to be accepted (its button tapped) before the first
-  // Pro feature opens. Closing it any other way — Back, reload — doesn't
+  // Pro feature opens. Closing it any other way â Back, reload â doesn't
   // count, so the next Pro tap shows it again. The accept listener is added
   // once with addEventListener so the sign-in code's own onclick on the same
   // button can't replace it.
@@ -16074,7 +16169,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     return page && PRO_PAGES[page] ? PRO_PAGES[page] : null;
   }
 
-  // On sign-in (each sync), tell a user whose trial or plan has run out —
+  // On sign-in (each sync), tell a user whose trial or plan has run out â
   // once per browser session.
   window.addEventListener("md-subscription-synced", (event) => {
     const email = (event.detail && event.detail.email) || currentEmail();
@@ -16092,7 +16187,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
     const feature = featureFor(event.target);
     if (!feature) return;
     const access = getProAccess();
-    // During the trial nothing is held back — except a brand-new user's
+    // During the trial nothing is held back â except a brand-new user's
     // first Pro tap, which waits for the trial card to be accepted once.
     if (access.ok && !(access.reason === "trial" && access.isNew && !welcomeAccepted())) return;
     event.preventDefault();
@@ -16215,7 +16310,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 
       mdCachedSubscribers = Array.isArray(data.subscribers) ? data.subscribers : [];
       if (toggleLabel) {
-        toggleLabel.textContent = `📋 View Subscribers List (${mdCachedSubscribers.length})`;
+        toggleLabel.textContent = `ð View Subscribers List (${mdCachedSubscribers.length})`;
       }
 
       renderOwnerSubscribersList(mdCachedSubscribers);
@@ -16249,7 +16344,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       nowEl.textContent = data.now != null ? data.now : "--";
-      if (detailEl) detailEl.textContent = `${data.logged_in_now ?? 0} signed in + ${data.guests_now ?? 0} guest · 5 min: ${data.five_min ?? "--"}`;
+      if (detailEl) detailEl.textContent = `${data.logged_in_now ?? 0} signed in + ${data.guests_now ?? 0} guest Â· 5 min: ${data.five_min ?? "--"}`;
     } catch (error) {
       nowEl.textContent = "--";
     }
@@ -16293,7 +16388,7 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
         ? `<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgba(34, 197, 94, 0.2); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.4);">ACTIVE</span>`
         : `<span style="font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.35);">EXPIRED</span>`;
 
-      const amountStr = s.amount ? `₹${mdEscapeHtml(s.amount)}` : "";
+      const amountStr = s.amount ? `â¹${mdEscapeHtml(s.amount)}` : "";
       const planStr = mdEscapeHtml(s.plan || "Pro Member");
       const validUntilStr = s.valid_until ? `Valid: ${mdEscapeHtml(s.valid_until)}` : "";
       const paidAtStr = s.paid_at ? `Paid: ${mdEscapeHtml(s.paid_at)}` : "";

@@ -1,4 +1,4 @@
-const CACHE_NAME = "marketdock-shell-v76";
+const CACHE_NAME = "marketdock-shell-v77";
 const APP_SHELL = [
   "/frontend/index.html",
   "/frontend/style.css",
@@ -32,7 +32,7 @@ self.addEventListener("activate", (event) => {
 // Network-first, and only for the static app shell above. Live market
 // data, AI endpoints, and anything cross-origin fall straight through to
 // the network untouched (we never want a cached price/technical response)
-// — the fetch handler simply returns early for those. Network-first (not
+// â the fetch handler simply returns early for those. Network-first (not
 // stale-while-revalidate) so a fresh deploy shows up on the very next
 // load instead of one load behind; the cache only kicks in when offline.
 self.addEventListener("fetch", (event) => {

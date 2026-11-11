@@ -147,11 +147,11 @@ from pydantic import BaseModel
 USER_DB_FILE = "/opt/marketdock/user_subscriptions.json"
 
 # Trial / plan records (and broker links below) are JSON files that several
-# requests — and both MarketDock services — change at the same time. JsonStore
+# requests â and both MarketDock services â change at the same time. JsonStore
 # serialises every read-modify-write (thread lock + file lock), writes to a
 # unique temp file and swaps it in atomically, and keeps the last good file as
-# .bak. An unreadable file is never treated as empty — that would let the
-# next save wipe every trial and payment — the .bak is used instead, or the
+# .bak. An unreadable file is never treated as empty â that would let the
+# next save wipe every trial and payment â the .bak is used instead, or the
 # request fails until someone looks at it.
 import contextlib
 import copy
@@ -198,7 +198,7 @@ class JsonStore:
         return data
 
     def load(self):
-        """All records — read-only; use load_for_update() under locked() to change them."""
+        """All records â read-only; use load_for_update() under locked() to change them."""
         backup = self.path + ".bak"
         if not os.path.exists(self.path):
             return self._read(backup) if os.path.exists(backup) else {}
@@ -381,6 +381,125 @@ def _presence_counts():
         "five_min": len(five_min),
         "logged_in_now": sum(1 for key in last_minute if key.startswith("e:")),
         "guests_now": sum(1 for key in last_minute if key.startswith("d:")),
+    }
+
+
+
+# ---------- Paper trading portfolio sync (one portfolio per signed-in email) ----------
+PAPER_DB_PATHS = ["/opt/marketdock/user_paper_trades.json", "user_paper_trades.json"]
+_paper_lock = threading.Lock()
+
+def _get_paper_file_path():
+    if os.path.exists("/opt/marketdock"):
+        return "/opt/marketdock/user_paper_trades.json"
+    return "user_paper_trades.json"
+
+def _load_paper_db():
+    for p in PAPER_DB_PATHS:
+        if os.path.exists(p):
+            try:
+                with open(p, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        return data
+            except Exception:
+                pass
+    return {}
+
+def _save_paper_db(data):
+    path = _get_paper_file_path()
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        os.replace(tmp, path)
+    except Exception as e:
+        print(f"Failed to save paper portfolio DB: {e}")
+
+class PaperPortfolioPayload(BaseModel):
+    rev: int = 0
+    trades: list = []
+    updated_at: int = 0
+    reset: bool = False
+
+@app.get("/api/paper/portfolio")
+def get_paper_portfolio(authorization: str = Header(None)):
+    email = _presence_email(authorization)
+    if not email:
+        raise HTTPException(status_code=401, detail="Sign in required to sync paper portfolio")
+    with _paper_lock:
+        db = _load_paper_db()
+        record = db.get(email) or {}
+    return {
+        "ok": True,
+        "email": email,
+        "rev": int(record.get("rev", 0)),
+        "trades": record.get("trades", []),
+        "updated_at": int(record.get("updated_at", 0)),
+    }
+
+@app.put("/api/paper/portfolio")
+def put_paper_portfolio(payload: PaperPortfolioPayload, authorization: str = Header(None)):
+    email = _presence_email(authorization)
+    if not email:
+        raise HTTPException(status_code=401, detail="Sign in required to sync paper portfolio")
+    
+    now = int(time.time() * 1000)
+    incoming_trades = payload.trades or []
+
+    with _paper_lock:
+        db = _load_paper_db()
+        existing = db.get(email) or {}
+        existing_trades = existing.get("trades") or []
+
+        if payload.reset:
+            merged_trades = []
+        else:
+            # Smart merge trades by ID so actions on multiple devices combine safely
+            trade_map = {}
+            for t in existing_trades:
+                if isinstance(t, dict) and t.get("id"):
+                    trade_map[str(t["id"])] = t
+
+            def _trade_ts(t):
+                return max(int(t.get("closedAt") or 0), int(t.get("filledAt") or 0), int(t.get("createdAt") or 0))
+
+            for t in incoming_trades:
+                if not isinstance(t, dict) or not t.get("id"):
+                    continue
+                tid = str(t["id"])
+                if tid in trade_map:
+                    old = trade_map[tid]
+                    old_closed = old.get("status") in ("closed", "cancelled")
+                    new_closed = t.get("status") in ("closed", "cancelled")
+                    if old_closed and not new_closed:
+                        pass  # keep closed state, never reopen
+                    elif new_closed and not old_closed:
+                        trade_map[tid] = t  # close wins
+                    else:
+                        trade_map[tid] = t if _trade_ts(t) >= _trade_ts(old) else old
+                else:
+                    trade_map[tid] = t
+
+            merged_trades = list(trade_map.values())
+            merged_trades.sort(key=lambda t: int(t.get("createdAt") or 0), reverse=True)
+
+        current_rev = int(existing.get("rev", 0))
+        new_rev = current_rev + 1
+
+        db[email] = {
+            "rev": new_rev,
+            "trades": merged_trades,
+            "updated_at": now,
+        }
+        _save_paper_db(db)
+
+    return {
+        "ok": True,
+        "email": email,
+        "rev": new_rev,
+        "trades": merged_trades,
+        "updated_at": now,
     }
 
 
@@ -586,7 +705,7 @@ def _grant_plan_for_payment(order_id, payment_id, email_hint=""):
     key_id = os.environ.get("RAZORPAY_KEY_ID")
     key_secret = os.environ.get("RAZORPAY_KEY_SECRET")
     # The plan, amount and email come from Razorpay's own order/payment
-    # records, not the browser — so paying for one plan can't unlock another.
+    # records, not the browser â so paying for one plan can't unlock another.
     try:
         order_res = requests.get(f"https://api.razorpay.com/v1/orders/{order_id}", auth=(key_id, key_secret), timeout=10)
         payment_res = requests.get(f"https://api.razorpay.com/v1/payments/{payment_id}", auth=(key_id, key_secret), timeout=10)
@@ -730,7 +849,7 @@ def get_subscription_status(email: str = ""):
         import datetime
         valid_until_iso = datetime.datetime.fromtimestamp(valid_until_ts, tz=datetime.timezone.utc).isoformat()
 
-    # Track 7-day trial per email — one clock per email for good: it starts
+    # Track 7-day trial per email â one clock per email for good: it starts
     # at the first sign-up (created_at, from /api/user/sync-trial) and is
     # never reset by logging out, deleting the account or signing up again.
     trial_start_ts = user_info.get("trial_start_ts") or user_info.get("created_at")
