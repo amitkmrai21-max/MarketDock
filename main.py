@@ -436,6 +436,7 @@ def get_paper_portfolio(authorization: str = Header(None)):
         "rev": int(record.get("rev", 0)),
         "trades": record.get("trades", []),
         "updated_at": int(record.get("updated_at", 0)),
+        "reset_at": int(record.get("reset_at", 0)),
     }
 
 @app.put("/api/paper/portfolio")
@@ -464,8 +465,11 @@ def put_paper_portfolio(payload: PaperPortfolioPayload, authorization: str = Hea
             def _trade_ts(t):
                 return max(int(t.get("closedAt") or 0), int(t.get("filledAt") or 0), int(t.get("createdAt") or 0))
 
+            existing_reset_at = int(existing.get("reset_at", 0))
             for t in incoming_trades:
                 if not isinstance(t, dict) or not t.get("id"):
+                    continue
+                if existing_reset_at and _trade_ts(t) <= existing_reset_at:
                     continue
                 tid = str(t["id"])
                 if tid in trade_map:
@@ -486,11 +490,14 @@ def put_paper_portfolio(payload: PaperPortfolioPayload, authorization: str = Hea
 
         current_rev = int(existing.get("rev", 0))
         new_rev = current_rev + 1
+        existing_reset_at = int(existing.get("reset_at", 0))
+        reset_at = now if payload.reset else existing_reset_at
 
         db[email] = {
             "rev": new_rev,
             "trades": merged_trades,
             "updated_at": now,
+            "reset_at": reset_at,
         }
         _save_paper_db(db)
 
@@ -500,6 +507,7 @@ def put_paper_portfolio(payload: PaperPortfolioPayload, authorization: str = Hea
         "rev": new_rev,
         "trades": merged_trades,
         "updated_at": now,
+        "reset_at": reset_at,
     }
 
 

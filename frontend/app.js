@@ -5424,6 +5424,68 @@ function updateRrgMaintenanceView(allowed, checking = false) {
     pushTradesToCloud(trades, now, false);
   }
 
+  async function resetPaperPortfolio() {
+    const resetNow = Date.now();
+    const email = mdGetActiveUserEmail();
+    const userKey = mdPaperTradesKey(email);
+
+    try {
+      localStorage.setItem(userKey, "[]");
+      localStorage.setItem(userKey + ":lastModified", String(resetNow));
+      localStorage.setItem(userKey + ":resetAt", String(resetNow));
+      localStorage.setItem(MD_LEGACY_PAPER_TRADES_KEY, "[]");
+      localStorage.setItem(MD_LEGACY_PAPER_TRADES_KEY + ":guest", "[]");
+    } catch (e) {
+      console.warn("Reset local storage error:", e);
+    }
+
+    try {
+      const token = await getMdAuthToken();
+      if (token) {
+        const res = await fetch("/api/paper/portfolio", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          body: JSON.stringify({ trades: [], updated_at: resetNow, reset: true })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.ok) {
+            localStorage.setItem(userKey, "[]");
+            localStorage.setItem(userKey + ":lastModified", String(data.updated_at || resetNow));
+            if (data.reset_at) {
+              localStorage.setItem(userKey + ":resetAt", String(data.reset_at));
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Reset backend portfolio error:", e);
+    }
+
+    try {
+      if (window.marketDockSupabase && window.marketDockUser) {
+        window.marketDockSupabase.auth.updateUser({
+          data: { im_paper_trades: [], im_paper_trades_updated_at: resetNow }
+        }).catch(() => {});
+      }
+      if (window.marketDockUser?.user_metadata) {
+        window.marketDockUser.user_metadata.im_paper_trades = [];
+        window.marketDockUser.user_metadata.im_paper_trades_updated_at = resetNow;
+      }
+      if (window.marketDockSession?.user?.user_metadata) {
+        window.marketDockSession.user.user_metadata.im_paper_trades = [];
+        window.marketDockSession.user.user_metadata.im_paper_trades_updated_at = resetNow;
+      }
+    } catch (e) {}
+
+    refreshPaperViews();
+  }
+  window.mdResetPaperPortfolio = resetPaperPortfolio;
+  window.mdPushTradesToCloud = pushTradesToCloud;
+
   // Two-way Cloud Sync: Reconcile per-user paper trades seamlessly across all devices
   let mdSyncInFlight = false;
   let mdPendingSync = false;
@@ -5454,6 +5516,7 @@ function updateRrgMaintenanceView(allowed, checking = false) {
       let serverTrades = null;
       let serverUpdatedAt = 0;
 
+      let serverResetAt = 0;
       // Primary sync: Fetch from dedicated server endpoint
       if (token) {
         try {
@@ -5463,9 +5526,10 @@ function updateRrgMaintenanceView(allowed, checking = false) {
           });
           if (res.ok) {
             const data = await res.json();
-            if (data && data.ok && Array.isArray(data.trades)) {
-              serverTrades = data.trades;
+            if (data && data.ok) {
+              serverTrades = Array.isArray(data.trades) ? data.trades : [];
               serverUpdatedAt = Number(data.updated_at) || 0;
+              serverResetAt = Number(data.reset_at) || 0;
             }
           }
         } catch (e) {
@@ -5484,9 +5548,28 @@ function updateRrgMaintenanceView(allowed, checking = false) {
         } catch (e) {}
       }
 
-      // If neither server nor cloud has trades, and local has trades, push local to server
-      if ((!serverTrades || !serverTrades.length) && localTrades.length > 0) {
-        if (token) {
+      const localResetAt = Number(localStorage.getItem(userKey + ":resetAt")) || 0;
+      const effectiveResetAt = Math.max(serverResetAt, localResetAt);
+
+      if (effectiveResetAt > 0) {
+        if (Array.isArray(serverTrades)) {
+          serverTrades = serverTrades.filter((t) => t && t.id && tradeTs(t) > effectiveResetAt);
+        }
+        if (Array.isArray(localTrades)) {
+          localTrades = localTrades.filter((t) => t && t.id && tradeTs(t) > effectiveResetAt);
+        }
+      }
+
+      if ((!serverTrades || !serverTrades.length)) {
+        if (serverUpdatedAt > 0 && serverUpdatedAt >= localModified) {
+          if (localTrades.length > 0) {
+            localStorage.setItem(userKey, "[]");
+            localStorage.setItem(userKey + ":lastModified", String(serverUpdatedAt));
+            refreshPaperViews();
+          }
+          return;
+        }
+        if (localTrades.length > 0 && token) {
           fetch("/api/paper/portfolio", {
             method: "PUT",
             headers: {
@@ -5495,8 +5578,8 @@ function updateRrgMaintenanceView(allowed, checking = false) {
             },
             body: JSON.stringify({ trades: localTrades, updated_at: localModified || Date.now() })
           }).catch(() => {});
+          return;
         }
-        return;
       }
 
       // Smart Union & Reconcile: Combine trades by trade ID
@@ -15390,11 +15473,35 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
 })();
 
 
+  async function triggerDedicatedFundsReset() {
+    const confirmed = window.confirm(
+      "Kya aap paper trading funds ko wapas ₹1,00,00,000 par reset karna chahte hain? Sabhi paper positions aur trade history clear ho jayegi."
+    );
+    if (!confirmed) return;
+
+    if (typeof window.mdResetPaperPortfolio === "function") {
+      await window.mdResetPaperPortfolio();
+    } else {
+      const email = typeof window.mdGetActiveUserEmail === "function" ? window.mdGetActiveUserEmail() : "";
+      const userKey = typeof window.mdPaperTradesKey === "function" ? window.mdPaperTradesKey(email) : "indianMarketPaperTrades";
+      try {
+        localStorage.setItem(userKey, "[]");
+        localStorage.setItem(userKey + ":lastModified", String(Date.now()));
+      } catch (e) {}
+      if (typeof window.mdRefreshPaperViews === "function") window.mdRefreshPaperViews();
+    }
+
+    const modalOverlay = document.getElementById("fundsModalOverlay");
+    if (modalOverlay) modalOverlay.hidden = true;
+
+    window.alert("Paper trading funds wapas ₹1,00,00,000 par restore ho gaye hain!");
+  }
+  window.mdTriggerFundsReset = triggerDedicatedFundsReset;
+
   function setupDedicatedFundsModal() {
     const openBtn = document.getElementById("openFundsModalBtn");
     const modalOverlay = document.getElementById("fundsModalOverlay");
     const closeBtn = document.getElementById("closeFundsModalBtn");
-    const resetBtn = document.getElementById("resetFundsBtn");
 
     if (openBtn && modalOverlay) {
       openBtn.addEventListener("click", () => {
@@ -15413,41 +15520,12 @@ function openImWatchlistActionSheet(symbol, price, options = {}) {
       });
     }
 
-    if (resetBtn) {
-      resetBtn.addEventListener("click", () => {
-        const confirmed = window.confirm(
-          "Kya aap paper trading funds ko wapas ₹1,00,00,000 par reset karna chahte hain? Sabhi paper positions aur trade history clear ho jayegi."
-        );
-        if (!confirmed) return;
-
-        try { localStorage.removeItem(mdPaperTradesKey()); } catch (err) {}
-        try { localStorage.removeItem(mdPaperTradesKey() + ":lastModified"); } catch (err) {}
-        // Clear the account's cloud copy too, or the next sign-in pulls the
-        // old trades straight back.
-        if (window.marketDockSupabase && window.marketDockUser) {
-          const resetNow = Date.now();
-          window.marketDockSupabase.auth.updateUser({
-            data: { im_paper_trades: [], im_paper_trades_updated_at: resetNow }
-          }).catch(() => {});
-          pushTradesToCloud([], resetNow, true);
-          if (window.marketDockUser.user_metadata) {
-            window.marketDockUser.user_metadata.im_paper_trades = [];
-            window.marketDockUser.user_metadata.im_paper_trades_updated_at = resetNow;
-          }
-          if (window.marketDockSession?.user?.user_metadata) {
-            window.marketDockSession.user.user_metadata.im_paper_trades = [];
-            window.marketDockSession.user.user_metadata.im_paper_trades_updated_at = resetNow;
-          }
-        }
-
-        // The render functions live inside the Indian-market module, out of
-        // reach here, so they were never called and the old positions stayed
-        // on screen after a reset. Redraw through the module's own hook.
-        if (window.mdRefreshPaperViews) window.mdRefreshPaperViews();
-
-        window.alert("Paper trading funds wapas ₹1,00,00,000 par restore ho gaye hain!");
-      });
-    }
+    document.querySelectorAll(".funds-reset-btn, #resetFundsBtn, #settingsResetFundsBtn").forEach((btn) => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        triggerDedicatedFundsReset();
+      };
+    });
   }
 
   if (document.readyState === "loading") {
