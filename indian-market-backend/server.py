@@ -2876,17 +2876,8 @@ def smart_mtf_access():
     return jsonify({"ok": True, "available": True})
 
 
-@app.get("/api/owner/smart-mtf")
-def smart_mtf_scan():
-    denied = require_focus_radar_owner()
-    if denied:
-        return denied
-
-    force_refresh = request.args.get("refresh", "").lower() in {"1", "true"}
-    cached = _smart_mtf_cache.get("data")
-    if not force_refresh and cached and (time.time() - _smart_mtf_cache.get("fetched_at", 0)) < SMART_MTF_CACHE_SECONDS:
-        return jsonify({"ok": True, "cached": True, **cached})
-
+def _execute_smart_mtf_scan():
+    """Runs the bulk Smart MTF scan without modifying any core MTF logic or calculations."""
     nifty_bias = get_nifty_trend_bias()
     setups = []
     scanned_stocks = len(FOCUS_RADAR_STOCKS)
@@ -2923,10 +2914,190 @@ def smart_mtf_scan():
     }
     _smart_mtf_cache["data"] = payload
     _smart_mtf_cache["fetched_at"] = time.time()
+    return payload
 
+
+@app.get("/api/owner/smart-mtf")
+def smart_mtf_scan():
+    denied = require_focus_radar_owner()
+    if denied:
+        return denied
+
+    force_refresh = request.args.get("refresh", "").lower() in {"1", "true"}
+    cached = _smart_mtf_cache.get("data")
+    if not force_refresh and cached and (time.time() - _smart_mtf_cache.get("fetched_at", 0)) < SMART_MTF_CACHE_SECONDS:
+        return jsonify({"ok": True, "cached": True, **cached})
+
+    payload = _execute_smart_mtf_scan()
     return jsonify({"ok": True, **payload})
 
 
+# ==========================================
+# MarketDock Smart MTF Telegram Alerts
+# ==========================================
+MARKETDOCK_TELEGRAM_BOT_TOKEN = os.environ.get(
+    "MARKETDOCK_TELEGRAM_BOT_TOKEN", "9211433788:AAGEk4JYPofqQrGqQ3n2CYX2CPehoWFMvW8"
+).strip()
+MARKETDOCK_TELEGRAM_CHAT_ID = os.environ.get(
+    "MARKETDOCK_TELEGRAM_CHAT_ID", "8391540111"
+).strip()
+
+_smart_mtf_telegram_seen = {}
+_smart_mtf_telegram_lock = threading.Lock()
+_smart_mtf_worker_started = False
+
+
+def send_marketdock_telegram_alert(text: str) -> bool:
+    if not MARKETDOCK_TELEGRAM_BOT_TOKEN or not MARKETDOCK_TELEGRAM_CHAT_ID:
+        return False
+    url = f"https://api.telegram.org/bot{MARKETDOCK_TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": MARKETDOCK_TELEGRAM_CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        resp = requests.post(url, json=payload, timeout=8)
+        data = resp.json()
+        if data.get("ok"):
+            return True
+        app.logger.warning("MarketDock Telegram send failed: %s", data)
+        return False
+    except Exception as e:
+        app.logger.warning("MarketDock Telegram alert request error: %s", e)
+        return False
+
+
+def format_smart_mtf_telegram_alert(setup: dict) -> str:
+    market = setup.get("market", "nse")
+    symbol = setup.get("symbol", "UNKNOWN")
+    name = setup.get("name", symbol)
+    side = setup.get("side", "bullish").upper()
+    has_wick = bool(setup.get("has_wick"))
+    price = setup.get("price", 0.0)
+    stop_loss = setup.get("stop_loss", 0.0)
+    target_1 = setup.get("target_1", 0.0)
+    target_2 = setup.get("target_2", 0.0)
+    risk_pct = setup.get("risk_pct", 0.0)
+    rr1 = setup.get("rr1", 0.0)
+    rr2 = setup.get("rr2", 0.0)
+    adx = setup.get("adx", 0.0)
+    ema_20 = setup.get("ema_20", 0.0)
+    ema_50 = setup.get("ema_50", 0.0)
+    fib_zone = setup.get("fib_zone", "")
+    w_level = setup.get("w_level", 0.0)
+    d_level = setup.get("d_level", 0.0)
+    sector = setup.get("sector") or ("MCX Commodity" if market == "mcx" else "NSE Stock")
+
+    side_emoji = "🟢 BULLISH" if side == "BULLISH" else "🔴 BEARISH"
+    market_badge = "MCX Commodity" if market == "mcx" else "NSE Stock"
+    trigger_badge = "✅ 15m Rejection Wick Confirmed (ENTRY TRIGGERED)" if has_wick else "⏳ In 1H Golden Pocket Retrace Zone"
+
+    ist_str = _ist_now().strftime("%d %b %Y, %I:%M %p IST")
+
+    lines = [
+        "🎯 <b>MARKETDOCK SMART MTF ALERT</b>",
+        "",
+        f"📌 <b>Category:</b> {market_badge} • {sector}",
+        f"📈 <b>Symbol:</b> <b>{symbol}</b> ({name})",
+        f"🧭 <b>Direction:</b> {side_emoji}",
+        f"⚡ <b>Status:</b> <b>{trigger_badge}</b>",
+        "",
+        f"💰 <b>CMP / Entry:</b> ₹{price:,.2f}",
+        f"🛑 <b>Stop Loss:</b> ₹{stop_loss:,.2f} ({risk_pct}% Risk)",
+        f"🎯 <b>Target 1:</b> ₹{target_1:,.2f} (R:R 1:{rr1})",
+        f"🎯 <b>Target 2:</b> ₹{target_2:,.2f} (R:R 1:{rr2})",
+        "",
+        "📊 <b>MTF Confluence Evidence:</b>",
+        f"• 1H Trend EMA: 20 EMA ₹{ema_20:,.2f} | 50 EMA ₹{ema_50:,.2f}",
+        f"• 1H ADX: {adx} (Trend Strength)",
+        f"• Fib Zone: {fib_zone}",
+        f"• Pivot S/R: Weekly ₹{w_level:,.2f} | Daily ₹{d_level:,.2f}",
+        "",
+        f"⏱ <i>{ist_str}</i>"
+    ]
+    return "\n".join(lines)
+
+
+def _run_smart_mtf_background_scanner():
+    app.logger.info("MarketDock Smart MTF Telegram background worker loop started.")
+    # Boot warmup delay so app initializes cleanly
+    time.sleep(20)
+
+    while True:
+        try:
+            is_nse_open = market_open("nse")
+            is_mcx_open = market_open("mcx")
+
+            if is_nse_open or is_mcx_open:
+                data = _execute_smart_mtf_scan()
+                setups = data.get("setups") or []
+
+                now_ts = time.time()
+                # Clean up seen entries older than 24 hours
+                with _smart_mtf_telegram_lock:
+                    stale = [k for k, ts in _smart_mtf_telegram_seen.items() if (now_ts - ts) > 86400]
+                    for k in stale:
+                        _smart_mtf_telegram_seen.pop(k, None)
+
+                for setup in setups:
+                    if not isinstance(setup, dict) or not setup.get("symbol"):
+                        continue
+                    market = setup.get("market", "nse")
+                    symbol = setup.get("symbol", "")
+                    side = setup.get("side", "")
+                    state = "CONFIRMED" if setup.get("has_wick") else "ZONE"
+
+                    alert_key = f"{market}:{symbol}:{side}:{state}"
+
+                    with _smart_mtf_telegram_lock:
+                        last_sent = _smart_mtf_telegram_seen.get(alert_key, 0)
+                        # Avoid resending the exact same state within 8 hours
+                        if (now_ts - last_sent) < 28800:
+                            continue
+                        _smart_mtf_telegram_seen[alert_key] = now_ts
+
+                    msg = format_smart_mtf_telegram_alert(setup)
+                    send_marketdock_telegram_alert(msg)
+                    time.sleep(2)
+
+                # Wait 10 minutes between scans during market hours
+                time.sleep(600)
+            else:
+                # Market is closed; check again in 15 minutes
+                time.sleep(900)
+
+        except Exception as err:
+            app.logger.warning("Smart MTF background worker error: %s", err)
+            time.sleep(120)
+
+
+def start_smart_mtf_telegram_worker():
+    global _smart_mtf_worker_started
+    if _smart_mtf_worker_started:
+        return
+    _smart_mtf_worker_started = True
+    t = threading.Thread(target=_run_smart_mtf_background_scanner, daemon=True, name="SmartMTFTelegramWorker")
+    t.start()
+
+
+start_smart_mtf_telegram_worker()
+
+
+@app.get("/api/owner/smart-mtf/telegram-test")
+def smart_mtf_telegram_test():
+    denied = require_focus_radar_owner()
+    if denied:
+        return denied
+    now_str = _ist_now().strftime("%d %b %Y, %I:%M %p IST")
+    test_msg = (
+        "🎯 <b>MarketDock Smart MTF Alert Test</b>\n\n"
+        "✅ Connection Active! MarketDock background scanner is running.\n"
+        f"⏱ <i>{now_str}</i>"
+    )
+    ok = send_marketdock_telegram_alert(test_msg)
+    return jsonify({"ok": ok, "sent": ok})
 
 
 _rrg_quotes_cache = {"data": None, "fetched_at": 0}
