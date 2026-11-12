@@ -177,8 +177,8 @@ def now_utc():
 #   - counts it (see /api/upstox/stats),
 #   - keeps the total under what Upstox allows, and
 #   - stops calling for a while after Upstox answers 429 (too many requests).
-UPSTOX_MAX_PER_SECOND = 20     # Upstox allows 50/s
-UPSTOX_MAX_PER_MINUTE = 300    # Upstox allows 500/min
+UPSTOX_MAX_PER_SECOND = 35     # Upstox allows 50/s (raised from 20 to 35 for smooth MTF scans)
+UPSTOX_MAX_PER_MINUTE = 400    # Upstox allows 500/min (raised from 300 to 400)
 _upstox_lock = threading.Lock()
 _upstox_calls = collections.deque()          # (timestamp, path) of recent calls, last hour
 _upstox_paused_until = 0.0
