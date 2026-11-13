@@ -2898,8 +2898,12 @@ def _execute_smart_mtf_scan():
     except Exception as error:
         app.logger.warning("Smart MTF bulk scan error: %s", error)
 
-    # Sort confirmed setups first, then by risk/reward
-    setups.sort(key=lambda x: (1 if x.get("has_wick") else 0, x.get("rr1", 0)), reverse=True)
+    # Separate Indian stocks and Commodities so Indian stocks come first and Commodities at the bottom (no mixup)
+    nse_setups = [s for s in setups if s.get("market") != "mcx"]
+    mcx_setups = [s for s in setups if s.get("market") == "mcx"]
+    nse_setups.sort(key=lambda x: (1 if x.get("has_wick") else 0, x.get("rr1", 0)), reverse=True)
+    mcx_setups.sort(key=lambda x: (1 if x.get("has_wick") else 0, x.get("rr1", 0)), reverse=True)
+    setups = nse_setups + mcx_setups
 
     session_status = "live" if is_nse_market_hours() else "closed"
     payload = {
@@ -2991,13 +2995,14 @@ def format_smart_mtf_telegram_alert(setup: dict) -> str:
     sector = setup.get("sector") or ("MCX Commodity" if market == "mcx" else "NSE Stock")
 
     side_emoji = "🟢 BULLISH" if side == "BULLISH" else "🔴 BEARISH"
-    market_badge = "MCX Commodity" if market == "mcx" else "NSE Stock"
+    market_badge = "🛢️ MCX COMMODITY" if market == "mcx" else "🏢 NSE INDIAN STOCK"
+    header_title = "🎯 <b>MARKETDOCK SMART MTF • MCX COMMODITY</b>" if market == "mcx" else "🎯 <b>MARKETDOCK SMART MTF • INDIAN STOCK</b>"
     trigger_badge = "✅ 15m Rejection Wick Confirmed (ENTRY TRIGGERED)" if has_wick else "⏳ In 1H Golden Pocket Retrace Zone"
 
     ist_str = _ist_now().strftime("%d %b %Y, %I:%M %p IST")
 
     lines = [
-        "🎯 <b>MARKETDOCK SMART MTF ALERT</b>",
+        header_title,
         "",
         f"📌 <b>Category:</b> {market_badge} • {sector}",
         f"📈 <b>Symbol:</b> <b>{symbol}</b> ({name})",
