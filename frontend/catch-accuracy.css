@@ -1,0 +1,114 @@
+/* Catch Accuracy: owner-only Smart MTF & SFP Liquidity Swings (matches CryptoDock theme & cards) */
+#im-catch-accuracy .im-catch-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-content: start; box-sizing: border-box; max-width: 100%; overflow-x: hidden; }
+#im-catch-accuracy .im-catch-top { display: flex; align-items: center; gap: 10px; }
+#im-catch-accuracy .im-catch-top > div { flex: 1; min-width: 0; }
+#im-catch-accuracy .im-catch-top strong { display: block; font-size: 17px; letter-spacing: .12em; color: var(--im-text); font-weight: 800; }
+#im-catch-accuracy .im-catch-top small { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; color: var(--im-muted); }
+#im-catch-accuracy .im-catch-logo { display: inline-grid; place-items: center; width: 34px; height: 34px; font-size: 24px; line-height: 1; }
+#im-catch-accuracy .im-catch-iconbtn { width: 34px; height: 34px; padding: 0; border-radius: 50%; border: 1px solid var(--im-border); background: var(--im-panel-2); color: var(--im-text); cursor: pointer; display: grid; place-items: center; }
+#im-catch-accuracy .im-catch-iconbtn:disabled { opacity: .5; }
+#im-catch-accuracy .im-catch-spin { width: 18px; height: 18px; display: block; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform-origin: 50% 50%; }
+@keyframes imCatchSpin { to { transform: rotate(360deg); } }
+#im-catch-accuracy.is-loading .im-catch-spin { animation: imCatchSpin .9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { #im-catch-accuracy.is-loading .im-catch-spin { animation: none; } }
+
+#im-catch-accuracy .im-catch-notice { margin: 0; font-size: 10.5px; line-height: 1.4; color: var(--im-muted); }
+#im-catch-accuracy .im-catch-summary { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 14px; border: 1px solid var(--im-border); background: var(--im-panel-2); }
+#im-catch-accuracy .im-catch-summary.is-bull { border-color: color-mix(in srgb, var(--im-green) 50%, transparent); background: color-mix(in srgb, var(--im-green) 8%, var(--im-panel-2)); }
+#im-catch-accuracy .im-catch-summary.is-bear { border-color: color-mix(in srgb, var(--im-red) 50%, transparent); background: color-mix(in srgb, var(--im-red) 8%, var(--im-panel-2)); }
+#im-catch-accuracy .im-catch-summary > div:nth-child(2) { flex: 1; min-width: 0; }
+#im-catch-accuracy .im-catch-summary b { display: block; font-size: 13px; color: var(--im-text); }
+#im-catch-accuracy .im-catch-summary small { color: var(--im-muted); font-size: 10px; }
+#im-catch-accuracy .im-catch-radar { width: 36px; height: 36px; flex: 0 0 auto; fill: none; stroke: var(--im-green); stroke-width: 1; opacity: .85; }
+#im-catch-accuracy .im-catch-radar path { stroke-width: 2; stroke-linecap: round; }
+#im-catch-accuracy .im-catch-ticks { display: grid; gap: 1px; font-size: 10.5px; line-height: normal; color: var(--im-text); }
+#im-catch-accuracy .im-catch-ticks div { display: flex; align-items: center; gap: 5px; justify-content: space-between; }
+#im-catch-accuracy .im-catch-ticks i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--im-green); }
+#im-catch-accuracy .im-catch-ticks i.is-down { background: var(--im-red); }
+#im-catch-accuracy .im-catch-ticks b { display: inline; font-size: 10.5px; min-width: 46px; text-align: right; }
+
+#im-catch-accuracy .im-catch-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+#im-catch-accuracy .im-catch-tabs { display: flex; gap: 6px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; padding: 2px 0; }
+#im-catch-accuracy .im-catch-tabs::-webkit-scrollbar { display: none; }
+#im-catch-accuracy .im-catch-pilltab { flex: 0 0 auto; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--im-border); background: var(--im-panel-2); color: var(--im-muted); font: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+#im-catch-accuracy .im-catch-pilltab.is-active { color: var(--im-text); border-color: var(--im-blue); background: color-mix(in srgb, var(--im-blue) 18%, transparent); }
+#im-catch-accuracy .im-catch-filters { display: flex; gap: 6px; flex-wrap: nowrap; }
+#im-catch-accuracy .im-catch-filterbtn { display: flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: 999px; border: 1px solid var(--im-border); background: var(--im-panel-2); color: var(--im-text); font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+#im-catch-accuracy .im-catch-filterbtn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+
+#im-catch-accuracy .im-catch-meta { margin: 0; font-size: 11px; color: var(--im-muted); }
+#im-catch-accuracy .im-catch-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+#im-catch-accuracy .im-catch-up { color: var(--im-green); }
+#im-catch-accuracy .im-catch-down { color: var(--im-red); }
+#im-catch-accuracy .im-catch-loading, #im-catch-accuracy .im-catch-error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--im-muted); }
+#im-catch-accuracy .im-catch-error { color: var(--im-red); }
+#im-catch-accuracy .im-catch-empty { padding: 22px 14px; text-align: center; border: 1px dashed var(--im-border); border-radius: 14px; }
+#im-catch-accuracy .im-catch-empty p { margin: 6px 0 0; font-size: 12px; line-height: 1.5; color: var(--im-muted); }
+
+/* Catch Accuracy Cards (styled identically to CryptoDock cards) */
+#im-catch-accuracy .im-catch-card { --c: var(--im-green); display: grid; gap: 9px; padding: 12px; border-radius: 16px; color: var(--im-text);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 6%, var(--im-panel)), var(--im-panel));
+  border: 1px solid color-mix(in srgb, var(--c) 58%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--c) 14%, transparent); min-width: 0; max-width: 100%; box-sizing: border-box; }
+#im-catch-accuracy .im-catch-card.is-bear { --c: var(--im-red); }
+body[data-theme="light"] #im-catch-accuracy .im-catch-card { box-shadow: 0 2px 8px color-mix(in srgb, var(--c) 14%, transparent); }
+
+#im-catch-accuracy .im-catch-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
+#im-catch-accuracy .im-catch-avatar { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: #fff; font-size: 10.5px; font-weight: 800; }
+#im-catch-accuracy .im-catch-id strong { font-size: 15px; }
+#im-catch-accuracy .im-catch-id strong span { color: var(--im-muted); font-weight: 600; font-size: 11px; }
+#im-catch-accuracy .im-catch-id small { display: block; margin-top: 3px; max-width: 100%; padding: 1px 7px; border-radius: 99px; font-size: 9.5px; color: var(--im-muted); background: var(--im-panel-2); border: 1px solid var(--im-border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: fit-content; }
+#im-catch-accuracy .im-catch-px { text-align: right; white-space: nowrap; }
+#im-catch-accuracy .im-catch-px b { display: block; font-size: 14px; line-height: 1.2; }
+#im-catch-accuracy .im-catch-px small { font-size: 11px; font-weight: 700; }
+#im-catch-accuracy .im-catch-star { border: 0; background: none; padding: 0 2px; font-size: 18px; line-height: 1; color: var(--im-muted); cursor: pointer; }
+#im-catch-accuracy .im-catch-star.is-on { color: #fbbf24; }
+
+#im-catch-accuracy .im-catch-tags { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+#im-catch-accuracy .im-catch-pill { padding: 5px 11px; border-radius: 99px; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); white-space: nowrap; }
+#im-catch-accuracy .im-catch-pill.is-a-plus { background: color-mix(in srgb, #f59e0b 16%, transparent); color: #f59e0b; border-color: color-mix(in srgb, #f59e0b 50%, transparent); }
+#im-catch-accuracy .im-catch-tag { padding: 3px 9px; border-radius: 99px; font-size: 9px; font-weight: 800; color: var(--im-muted); background: var(--im-panel-2); border: 1px solid var(--im-border); white-space: nowrap; }
+
+/* Levels 4-column row (mobile-safe) */
+#im-catch-accuracy .im-catch-levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+#im-catch-accuracy .im-catch-levels > div { padding: 6px 3px; border-radius: 10px; background: var(--im-panel-2); border: 1px solid var(--im-border); text-align: center; min-width: 0; min-height: 56px; overflow: hidden; box-sizing: border-box; }
+#im-catch-accuracy .im-catch-levels span { display: inline-block; font-size: 8.5px; font-weight: 700; color: var(--im-text); padding: 1px 4px; margin-bottom: 2px; border-radius: 4px; background: color-mix(in srgb, #8b5cf6 16%, transparent); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#im-catch-accuracy .im-catch-levels b { display: block; font-size: 11.5px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#im-catch-accuracy .im-catch-levels em { display: block; font-style: normal; font-size: 9px; font-weight: 700; min-height: 12px; line-height: 1.15; }
+
+/* 2x2 grid for 4 checklist steps (Discount Zone, ADX, Pivots, Trigger) */
+#im-catch-accuracy .im-catch-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; min-width: 0; }
+#im-catch-accuracy .im-catch-step { position: relative; padding: 5px 7px; border-radius: 10px; background: var(--im-panel-2); border: 1px solid var(--im-border); min-width: 0; overflow: hidden; }
+#im-catch-accuracy .im-catch-step b { display: block; padding-right: 14px; font-size: 9.5px; line-height: 1.25; }
+#im-catch-accuracy .im-catch-step i { position: absolute; top: 4px; right: 5px; font-style: normal; font-size: 10.5px; }
+#im-catch-accuracy .im-catch-step.is-ok i { color: var(--c); font-weight: 800; }
+#im-catch-accuracy .im-catch-step.is-live i { color: #fbbf24; }
+#im-catch-accuracy .im-catch-step.is-wait { opacity: .78; }
+#im-catch-accuracy .im-catch-step small { display: block; margin-top: 2px; font-size: 8.5px; line-height: 1.3; color: var(--im-muted); word-break: break-word; }
+
+#im-catch-accuracy .im-catch-ema { color: var(--im-muted); font-size: 9.5px; text-align: center; overflow-wrap: anywhere; }
+#im-catch-accuracy .im-catch-ema i { font-style: normal; font-weight: 700; color: var(--im-text); padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, #8b5cf6 16%, transparent); }
+#im-catch-accuracy .im-catch-ema b { font-weight: 600; color: var(--im-text); }
+
+#im-catch-accuracy .im-catch-actions { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+#im-catch-accuracy .im-catch-ticket { padding: 10px; border: 0; border-radius: 12px; font: inherit; font-size: 12.5px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+#im-catch-accuracy .im-catch-ticket.is-buy { background: linear-gradient(180deg, #34d399, #10b981); color: #052e1a; box-shadow: 0 3px 12px rgba(16, 185, 129, .28); }
+#im-catch-accuracy .im-catch-ticket.is-sell { background: linear-gradient(180deg, #f87171, #ef4444); color: #3b0a0a; box-shadow: 0 3px 12px rgba(239, 68, 68, .28); }
+#im-catch-accuracy .im-catch-analysis { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--im-border); background: var(--im-panel-2); color: var(--im-text); font: inherit; font-size: 12px; white-space: nowrap; font-weight: 700; cursor: pointer; }
+
+#im-catch-accuracy .im-catch-note { margin: 0; color: var(--im-muted); font-size: 10px; line-height: 1.45; text-align: center; }
+
+/* Pull down to refresh */
+html:has(#im-catch-accuracy.active), body:has(#im-catch-accuracy.active) { overscroll-behavior-y: contain; }
+#im-catch-accuracy .im-catch-ptr { height: 0; overflow: hidden; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--im-muted); }
+body:has(#im-catch-accuracy.active) #im-page-title { font-weight: 800; }
+
+/* Backwards-compatible aliases for commodity-radar and older references */
+.imfr-card { --c: var(--im-green); display: grid; gap: 9px; padding: 11px; border-radius: 16px; color: var(--im-text); background: linear-gradient(180deg, color-mix(in srgb, var(--c) 6%, var(--im-panel)), var(--im-panel)); border: 1px solid color-mix(in srgb, var(--c) 58%, transparent); box-shadow: 0 0 16px color-mix(in srgb, var(--c) 14%, transparent); }
+.imfr-card.is-bear { --c: var(--im-red); }
+.imfr-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.imfr-avatar { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; color: #fff; font-size: 10px; font-weight: 800; }
+.imfr-levels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+.imfr-levels > div { padding: 6px 3px; border-radius: 10px; background: var(--im-panel-2); border: 1px solid var(--im-border); text-align: center; min-width: 0; }
+.imfr-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; min-width: 0; }
+.imfr-steps-wide { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+.imfr-actions { display: grid; grid-template-columns: 1fr auto; gap: 7px; }

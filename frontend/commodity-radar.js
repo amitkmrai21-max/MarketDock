@@ -1,5 +1,5 @@
 // Commodity Radar (owner only): the MCX commodity setups of Focus Radar (Swings + Breakouts) with an extra ADX filter.
-// Same server scan as Focus Radar (/api/owner/focus-radar, shared cache); only MCX cards are shown here. ADX(14) is
+// Same server scan as Focus Radar (/api/owner/commodity-radar, shared cache); only MCX cards are shown here. ADX(14) is
 // measured on 1-hour candles of the current MCX future (Wilder smoothing) and must be above 20, like the crypto Catch
 // Accuracy rule. Entry / SL / targets and the paper ticket show only when ADX and the setup checks all pass.
 (function marketDockCommodityRadar() {
@@ -222,7 +222,7 @@
       let res = null;
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          res = await fetch(`${API}/api/owner/focus-radar${force ? "?refresh=1" : ""}`, { headers: { Authorization: `Bearer ${token}` } });
+          res = await fetch(`${API}/api/owner/commodity-radar${force ? "?refresh=1" : ""}`, { headers: { Authorization: `Bearer ${token}` } });
           if (res.ok || res.status < 500) break;
         } catch (e) { res = null; }
         if (attempt < 2) await sleep(1500 * (attempt + 1));
@@ -296,7 +296,7 @@
       const token = await getOwnerToken();
       if (!token) verdict = "no";
       else {
-        const response = await fetch(API + "/api/owner/focus-radar/access", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+        const response = await fetch(API + "/api/owner/commodity-radar/access", { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
         verdict = response.ok ? "yes" : (response.status === 401 || response.status === 403) ? "no" : "error";
       }
     } catch (e) { verdict = "error"; }

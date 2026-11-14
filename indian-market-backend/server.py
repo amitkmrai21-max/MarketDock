@@ -2169,13 +2169,14 @@ def require_rrg_maintenance_owner():
     return None
 
 
-# ================= FOCUS RADAR (owner only) =================
-# The Focus Radar page is empty for now; only the owner check remains, so the menu entry shows for the owner account only.
-# The signed-in owner is verified with Auth on every request.
-FOCUS_RADAR_OWNER_EMAIL = "amitkmrai21@gmail.com"
+# ================= OWNER-ONLY SCANNER ACCESS =================
+# Focus Radar is retired from the owner UI; Commodity Radar and Smart MTF still
+# depend on this legacy route/guard, so retain it until those shared users migrate.
+OWNER_ACCOUNT_EMAIL = "amitkmrai21@gmail.com"
+CATCH_ACCURACY_OWNER_EMAIL = "amitkmrai21@gmail.com"
 
 
-def require_focus_radar_owner():
+def require_owner_account():
     """Verify the access token with Auth (never a browser-provided email); only the owner passes."""
     authorization = request.headers.get("Authorization", "")
     if not authorization.startswith("Bearer ") or not authorization[7:].strip():
@@ -2195,27 +2196,27 @@ def require_focus_radar_owner():
     except ValueError:
         return jsonify({"ok": False, "error": "Focus Radar access check unavailable."}), 503
     email = (user.get("email") or "").strip().lower()
-    if not user.get("id") or not user.get("email_confirmed_at") or email != FOCUS_RADAR_OWNER_EMAIL:
+    if not user.get("id") or not user.get("email_confirmed_at") or email != OWNER_ACCOUNT_EMAIL:
         return jsonify({"ok": False, "error": "Focus Radar is available to the owner account only."}), 403
     return None
 
 
-@app.get("/api/owner/focus-radar/access")
-def focus_radar_access():
-    denied = require_focus_radar_owner()
+@app.get("/api/owner/commodity-radar/access")
+def commodity_radar_access():
+    denied = require_owner_account()
     if denied:
         return denied
     return jsonify({"ok": True, "available": True})
 
 
-_focus_radar_cache = {"data": None, "fetched_at": 0}
-FOCUS_RADAR_CACHE_SECONDS = 30
+_commodity_radar_cache = {"data": None, "fetched_at": 0}
+COMMODITY_RADAR_CACHE_SECONDS = 30
 FOCUS_BREAKOUT_MIN_VOLUME = 1.15       # stocks
 FOCUS_BREAKOUT_MIN_VOLUME_MCX = 1.3    # commodities
 FOCUS_BREAKOUT_MAX_RSI = 68            # long breakouts above this are overheated (shorts: below 100 - 68)
 FOCUS_BREAKOUT_MAX_EMA_GAP = 0.03      # price within 3% of the 20 EMA
 
-FOCUS_RADAR_STOCKS = [
+INDIAN_FOCUS_STOCKS = [
     {"symbol": "RELIANCE", "name": "Reliance Industries", "sector": "Energy / Retail"},
     {"symbol": "HDFCBANK", "name": "HDFC Bank", "sector": "Banking"},
     {"symbol": "ICICIBANK", "name": "ICICI Bank", "sector": "Banking"},
@@ -2239,16 +2240,7 @@ FOCUS_RADAR_STOCKS = [
 ]
 
 
-def scan_single_stock_focus_radar(stock_info):
-    symbol = stock_info["symbol"]
-    name = stock_info["name"]
-    sector = stock_info.get("sector", "")
-    try:
-        snapshot = get_stock_technical_snapshot(symbol)
-    except Exception as error:
-        app.logger.warning("Focus Radar snapshot failed for %s: %s", symbol, error)
-        return None
-    return _focus_radar_setups(snapshot, symbol, name, sector)
+# Focus Radar stock scan removed.
 
 
 def get_commodity_technical_snapshot(commodity_key, contract):
@@ -2264,7 +2256,7 @@ def get_commodity_technical_snapshot(commodity_key, contract):
     return snapshot
 
 
-def scan_single_commodity_focus_radar(commodity_key):
+def scan_single_commodity_radar(commodity_key):
     """The same breakout / pullback rules as for stocks, on an MCX commodity future; the card carries what the Buy/Sell sheet needs."""
     try:
         contract = get_current_commodity_contract(commodity_key)
@@ -2275,7 +2267,7 @@ def scan_single_commodity_focus_radar(commodity_key):
         app.logger.warning("Focus Radar commodity snapshot failed for %s: %s", commodity_key, error)
         return None
     cfg = MCX_COMMODITIES[commodity_key]
-    result = _focus_radar_setups(snapshot, commodity_key.upper(), cfg["name"] + " Futures", "MCX")
+    result = _commodity_radar_setups(snapshot, commodity_key.upper(), cfg["name"] + " Futures", "MCX")
     if not result:
         return None
     for setup in (result.get("breakout"), result.get("swing")):
@@ -2291,7 +2283,7 @@ def scan_single_commodity_focus_radar(commodity_key):
     return result
 
 
-def _focus_radar_setups(snapshot, symbol, name, sector):
+def _commodity_radar_setups(snapshot, symbol, name, sector):
     if not isinstance(snapshot, dict):
         return None
 
@@ -2458,30 +2450,27 @@ def _focus_radar_setups(snapshot, symbol, name, sector):
     return {"breakout": breakout_setup, "swing": swing_setup}
 
 
-@app.get("/api/owner/focus-radar")
-def focus_radar_scan():
-    denied = require_focus_radar_owner()
+@app.get("/api/owner/commodity-radar")
+def commodity_radar_scan():
+    denied = require_owner_account()
     if denied:
         return denied
 
     force_refresh = request.args.get("refresh", "").lower() in {"1", "true"}
-    cached = _focus_radar_cache.get("data")
-    if not force_refresh and cached and (time.time() - _focus_radar_cache.get("fetched_at", 0)) < FOCUS_RADAR_CACHE_SECONDS:
+    cached = _commodity_radar_cache.get("data")
+    if not force_refresh and cached and (time.time() - _commodity_radar_cache.get("fetched_at", 0)) < COMMODITY_RADAR_CACHE_SECONDS:
         return jsonify({"ok": True, "cached": True, **cached})
 
     breakouts = []
     swings = []
     commodities_scanned = 0
-    scanned_count = len(FOCUS_RADAR_STOCKS)
 
     try:
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            results = list(executor.map(scan_single_stock_focus_radar, FOCUS_RADAR_STOCKS))
-            commodity_results = list(executor.map(scan_single_commodity_focus_radar, list(MCX_COMMODITIES.keys())))
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            commodity_results = list(executor.map(scan_single_commodity_radar, list(MCX_COMMODITIES.keys())))
         commodities_scanned = sum(1 for r in commodity_results if r is not None)
-        results += commodity_results
 
-        for res in results:
+        for res in commodity_results:
             if not res:
                 continue
             if res.get("breakout"):
@@ -2490,7 +2479,7 @@ def focus_radar_scan():
                 swings.append(res["swing"])
 
     except Exception as error:
-        app.logger.warning("Focus Radar bulk scan error: %s", error)
+        app.logger.warning("Commodity Radar bulk scan error: %s", error)
 
     breakouts.sort(key=lambda x: x.get("volume_ratio", 0), reverse=True)
     swings.sort(key=lambda x: x.get("volume_ratio", 0), reverse=True)
@@ -2499,15 +2488,15 @@ def focus_radar_scan():
     payload = {
         "market_status": session_status,
         "mcx_status": "live" if market_open("mcx") else "closed",
-        "scanned_count": scanned_count + commodities_scanned,
-        "stocks_count": scanned_count,
+        "scanned_count": commodities_scanned,
+        "stocks_count": 0,
         "commodities_count": commodities_scanned,
         "updated_at": now_utc(),
         "breakouts": breakouts,
         "swings": swings,
     }
-    _focus_radar_cache["data"] = payload
-    _focus_radar_cache["fetched_at"] = time.time()
+    _commodity_radar_cache["data"] = payload
+    _commodity_radar_cache["fetched_at"] = time.time()
 
     return jsonify({"ok": True, **payload})
 
@@ -2868,9 +2857,83 @@ def scan_single_commodity_smart_mtf(commodity_key):
         return None
 
 
+# ================= CATCH ACCURACY (owner only) =================
+_catch_accuracy_cache = {"data": None, "fetched_at": 0}
+CATCH_ACCURACY_CACHE_SECONDS = 90
+
+
+def _catch_accuracy_liquidity_grade(setup):
+    """A conservative, optional grade based only on existing scan data; never gates a setup."""
+    # Keep the legacy Smart MTF trigger untouched; only mark liquidity when the
+    # existing closed-15m wick trigger is confirmed. No extra market-data calls.
+    swept = bool(setup.get("has_wick"))
+    setup["liquidity_swept"] = swept
+    setup["grade"] = "A+" if swept else "A"
+    setup["liquidity_desc"] = (
+        "15m rejection wick at the Fib/pivot zone; possible liquidity grab, not independently validated."
+        if swept else "No confirmed 15m wick; base Smart MTF setup still shown."
+    )
+    return setup
+
+
+def _catch_accuracy_payload():
+    """Reuse the existing Smart MTF engine; liquidity remains an optional grade, never a gate."""
+    nifty_bias = get_nifty_trend_bias()
+    scanned_stocks = len(INDIAN_FOCUS_STOCKS)
+    scanned_commodities = len(MCX_COMMODITIES)
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        stock_results = list(executor.map(lambda s: scan_single_stock_smart_mtf(s, nifty_bias), INDIAN_FOCUS_STOCKS))
+        commodity_results = list(executor.map(scan_single_commodity_smart_mtf, list(MCX_COMMODITIES.keys())))
+    setups = []
+    for original in [x for x in stock_results + commodity_results if x]:
+        setup = dict(original)
+        _catch_accuracy_liquidity_grade(setup)
+        setup["kind"] = "fib"
+        setup["timeframe"] = "fib"
+        setup.setdefault("timestamp", now_utc())
+        setups.append(setup)
+    nse_setups = [x for x in setups if x.get("market") != "mcx"]
+    mcx_setups = [x for x in setups if x.get("market") == "mcx"]
+    return {
+        "nifty_bias": nifty_bias,
+        "stocks_count": scanned_stocks,
+        "commodities_count": scanned_commodities,
+        "scanned_count": scanned_stocks + scanned_commodities,
+        "updated_at": now_utc(),
+        "setups": nse_setups + mcx_setups,
+    }
+
+
+@app.get("/api/owner/catch-accuracy/access")
+def catch_accuracy_access():
+    denied = require_owner_account()
+    if denied:
+        return denied
+    return jsonify({"ok": True, "available": True})
+
+
+@app.get("/api/owner/catch-accuracy")
+def catch_accuracy_scan():
+    denied = require_owner_account()
+    if denied:
+        return denied
+    force_refresh = request.args.get("refresh", "").lower() in {"1", "true"}
+    cached = _catch_accuracy_cache.get("data")
+    if not force_refresh and cached and time.time() - _catch_accuracy_cache.get("fetched_at", 0) < CATCH_ACCURACY_CACHE_SECONDS:
+        return jsonify({"ok": True, "cached": True, **cached})
+    try:
+        payload = _catch_accuracy_payload()
+    except Exception as error:
+        app.logger.warning("Catch Accuracy scan error: %s", error)
+        return jsonify({"ok": False, "error": "Catch Accuracy scan is temporarily unavailable."}), 503
+    _catch_accuracy_cache["data"] = payload
+    _catch_accuracy_cache["fetched_at"] = time.time()
+    return jsonify({"ok": True, **payload})
+
+
 @app.get("/api/owner/smart-mtf/access")
 def smart_mtf_access():
-    denied = require_focus_radar_owner()
+    denied = require_owner_account()
     if denied:
         return denied
     return jsonify({"ok": True, "available": True})
@@ -2880,7 +2943,7 @@ def _execute_smart_mtf_scan():
     """Runs the bulk Smart MTF scan without modifying any core MTF logic or calculations."""
     nifty_bias = get_nifty_trend_bias()
     setups = []
-    scanned_stocks = len(FOCUS_RADAR_STOCKS)
+    scanned_stocks = len(INDIAN_FOCUS_STOCKS)
     scanned_commodities = len(MCX_COMMODITIES)
 
     try:
@@ -2888,7 +2951,7 @@ def _execute_smart_mtf_scan():
             return scan_single_stock_smart_mtf(s, nifty_bias)
 
         with ThreadPoolExecutor(max_workers=8) as executor:
-            stock_results = list(executor.map(_scan_stock, FOCUS_RADAR_STOCKS))
+            stock_results = list(executor.map(_scan_stock, INDIAN_FOCUS_STOCKS))
             commodity_results = list(executor.map(scan_single_commodity_smart_mtf, list(MCX_COMMODITIES.keys())))
 
         for res in (stock_results + commodity_results):
@@ -2923,7 +2986,7 @@ def _execute_smart_mtf_scan():
 
 @app.get("/api/owner/smart-mtf")
 def smart_mtf_scan():
-    denied = require_focus_radar_owner()
+    denied = require_owner_account()
     if denied:
         return denied
 
@@ -3092,7 +3155,7 @@ start_smart_mtf_telegram_worker()
 
 @app.get("/api/owner/smart-mtf/telegram-test")
 def smart_mtf_telegram_test():
-    denied = require_focus_radar_owner()
+    denied = require_owner_account()
     if denied:
         return denied
     now_str = _ist_now().strftime("%d %b %Y, %I:%M %p IST")
