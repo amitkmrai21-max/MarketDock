@@ -3036,12 +3036,15 @@ def send_marketdock_telegram_alert(text: str) -> bool:
         return False
 
 
-def format_smart_mtf_telegram_alert(setup: dict) -> str:
+def format_catch_accuracy_telegram_alert(setup: dict) -> str:
     market = setup.get("market", "nse")
     symbol = setup.get("symbol", "UNKNOWN")
     name = setup.get("name", symbol)
     side = setup.get("side", "bullish").upper()
     has_wick = bool(setup.get("has_wick"))
+    grade = setup.get("grade") or ("A+" if has_wick else "A")
+    is_aplus = (grade == "A+") or has_wick
+
     price = setup.get("price", 0.0)
     stop_loss = setup.get("stop_loss", 0.0)
     target_1 = setup.get("target_1", 0.0)
@@ -3056,41 +3059,77 @@ def format_smart_mtf_telegram_alert(setup: dict) -> str:
     w_level = setup.get("w_level", 0.0)
     d_level = setup.get("d_level", 0.0)
     sector = setup.get("sector") or ("MCX Commodity" if market == "mcx" else "NSE Stock")
+    nifty_bias = setup.get("nifty_bias", "NEUTRAL").upper()
+    lot_size = setup.get("lot_size")
+    expiry = setup.get("expiry")
 
     side_emoji = "🟢 BULLISH" if side == "BULLISH" else "🔴 BEARISH"
-    market_badge = "🛢️ MCX COMMODITY" if market == "mcx" else "🏢 NSE INDIAN STOCK"
-    header_title = "🎯 <b>MARKETDOCK SMART MTF • MCX COMMODITY</b>" if market == "mcx" else "🎯 <b>MARKETDOCK SMART MTF • INDIAN STOCK</b>"
-    trigger_badge = "✅ 15m Rejection Wick Confirmed (ENTRY TRIGGERED)" if has_wick else "⏳ In 1H Golden Pocket Retrace Zone"
+    grade_badge = f"🔥 <b>A+ LIQUIDITY SWEEP • {side_emoji}</b>" if is_aplus else f"🎯 <b>SMART MTF SETUP • {side_emoji}</b>"
+    header_title = (
+        "🏹 <b>MARKETDOCK CATCH ACCURACY • MCX COMMODITY</b>"
+        if market == "mcx"
+        else "🏹 <b>MARKETDOCK CATCH ACCURACY • INDIAN STOCK</b>"
+    )
+    trigger_badge = (
+        "✅ 15m Rejection Wick Confirmed (LIQUIDITY SWEPT)"
+        if has_wick
+        else "⏳ In 1H Golden Pocket Retrace Zone"
+    )
+    liq_desc = setup.get("liquidity_desc") or (
+        "15m rejection wick at Fib/Pivot zone confirmed; liquidity grab detected."
+        if has_wick
+        else "In confluence zone; waiting for 15m wick rejection confirmation."
+    )
 
     ist_str = _ist_now().strftime("%d %b %Y, %I:%M %p IST")
 
     lines = [
         header_title,
+        grade_badge,
         "",
-        f"📌 <b>Category:</b> {market_badge} • {sector}",
-        f"📈 <b>Symbol:</b> <b>{symbol}</b> ({name})",
-        f"🧭 <b>Direction:</b> {side_emoji}",
-        f"⚡ <b>Status:</b> <b>{trigger_badge}</b>",
+    ]
+
+    if market == "mcx":
+        lines.extend([
+            "🛢️ <b>Market:</b> MCX Commodity Futures",
+            f"📦 <b>Contract:</b> <b>{symbol}</b> ({name})",
+            f"⏱️ <b>Lot / Expiry:</b> Lot: {lot_size or 'Standard'} • {expiry or 'Active Contract'}",
+        ])
+    else:
+        lines.extend([
+            "🏢 <b>Market:</b> NSE Indian Stock",
+            f"📈 <b>Stock:</b> <b>{symbol}</b> ({name})",
+            f"🏷️ <b>Sector:</b> {sector}",
+            f"🧭 <b>NIFTY Bias:</b> {nifty_bias}",
+        ])
+
+    lines.extend([
+        "",
+        f"⚡ <b>Trigger Status:</b> <b>{trigger_badge}</b>",
+        f"💧 <b>Liquidity:</b> {liq_desc}",
         "",
         f"💰 <b>CMP / Entry:</b> ₹{price:,.2f}",
         f"🛑 <b>Stop Loss:</b> ₹{stop_loss:,.2f} ({risk_pct}% Risk)",
         f"🎯 <b>Target 1:</b> ₹{target_1:,.2f} (R:R 1:{rr1})",
         f"🎯 <b>Target 2:</b> ₹{target_2:,.2f} (R:R 1:{rr2})",
         "",
-        "📊 <b>MTF Confluence Evidence:</b>",
+        "📊 <b>Multi-Timeframe Confluence:</b>",
         f"• 1H Trend EMA: 20 EMA ₹{ema_20:,.2f} | 50 EMA ₹{ema_50:,.2f}",
         f"• 1H ADX: {adx} (Trend Strength)",
         f"• Fib Zone: {fib_zone}",
-        f"• Pivot S/R: Weekly ₹{w_level:,.2f} | Daily ₹{d_level:,.2f}",
+        f"• Key Pivot: Weekly ₹{w_level:,.2f} | Daily ₹{d_level:,.2f}",
         "",
-        f"⏱ <i>{ist_str}</i>"
-    ]
+        f"⏱ <i>{ist_str} • Catch Accuracy Engine</i>",
+    ])
     return "\n".join(lines)
 
 
+# Backwards compatibility alias
+format_smart_mtf_telegram_alert = format_catch_accuracy_telegram_alert
+
+
 def _run_smart_mtf_background_scanner():
-    app.logger.info("MarketDock Smart MTF Telegram background worker loop started.")
-    # Boot warmup delay so app initializes cleanly
+    app.logger.info("MarketDock Catch Accuracy Telegram background worker loop started.")
     time.sleep(20)
 
     while True:
@@ -3099,45 +3138,46 @@ def _run_smart_mtf_background_scanner():
             is_mcx_open = market_open("mcx")
 
             if is_nse_open or is_mcx_open:
-                data = _execute_smart_mtf_scan()
+                data = _catch_accuracy_payload()
                 setups = data.get("setups") or []
 
                 now_ts = time.time()
-                # Clean up seen entries older than 24 hours
                 with _smart_mtf_telegram_lock:
                     stale = [k for k, ts in _smart_mtf_telegram_seen.items() if (now_ts - ts) > 86400]
                     for k in stale:
                         _smart_mtf_telegram_seen.pop(k, None)
 
-                for setup in setups:
-                    if not isinstance(setup, dict) or not setup.get("symbol"):
+                # Group Indian stocks first, then MCX commodities (no mixup, each in its distinct format)
+                nse_setups = [s for s in setups if isinstance(s, dict) and s.get("market") != "mcx"]
+                mcx_setups = [s for s in setups if isinstance(s, dict) and s.get("market") == "mcx"]
+
+                for setup in (nse_setups + mcx_setups):
+                    if not setup.get("symbol"):
                         continue
                     market = setup.get("market", "nse")
                     symbol = setup.get("symbol", "")
                     side = setup.get("side", "")
+                    grade = setup.get("grade", "A")
                     state = "CONFIRMED" if setup.get("has_wick") else "ZONE"
 
-                    alert_key = f"{market}:{symbol}:{side}:{state}"
+                    alert_key = f"catch_accuracy:{market}:{symbol}:{side}:{grade}:{state}"
 
                     with _smart_mtf_telegram_lock:
                         last_sent = _smart_mtf_telegram_seen.get(alert_key, 0)
-                        # Avoid resending the exact same state within 8 hours
                         if (now_ts - last_sent) < 28800:
                             continue
                         _smart_mtf_telegram_seen[alert_key] = now_ts
 
-                    msg = format_smart_mtf_telegram_alert(setup)
+                    msg = format_catch_accuracy_telegram_alert(setup)
                     send_marketdock_telegram_alert(msg)
                     time.sleep(2)
 
-                # Wait 10 minutes between scans during market hours
                 time.sleep(600)
             else:
-                # Market is closed; check again in 15 minutes
                 time.sleep(900)
 
         except Exception as err:
-            app.logger.warning("Smart MTF background worker error: %s", err)
+            app.logger.warning("Catch Accuracy background worker error: %s", err)
             time.sleep(120)
 
 
@@ -3146,23 +3186,26 @@ def start_smart_mtf_telegram_worker():
     if _smart_mtf_worker_started:
         return
     _smart_mtf_worker_started = True
-    t = threading.Thread(target=_run_smart_mtf_background_scanner, daemon=True, name="SmartMTFTelegramWorker")
+    t = threading.Thread(target=_run_smart_mtf_background_scanner, daemon=True, name="CatchAccuracyTelegramWorker")
     t.start()
 
 
 start_smart_mtf_telegram_worker()
 
 
+@app.get("/api/owner/catch-accuracy/telegram-test")
 @app.get("/api/owner/smart-mtf/telegram-test")
-def smart_mtf_telegram_test():
+def catch_accuracy_telegram_test():
     denied = require_owner_account()
     if denied:
         return denied
     now_str = _ist_now().strftime("%d %b %Y, %I:%M %p IST")
     test_msg = (
-        "🎯 <b>MarketDock Smart MTF Alert Test</b>\n\n"
-        "✅ Connection Active! MarketDock background scanner is running.\n"
-        f"⏱ <i>{now_str}</i>"
+        "🏹 <b>MarketDock Catch Accuracy Alert Test</b>\n\n"
+        "✅ <b>Telegram Connection Active!</b>\n"
+        "• <b>Indian Stocks:</b> Automatic 1W/1D/1H MTF Confluence & A+ Liquidity Sweeps\n"
+        "• <b>Commodities:</b> Dedicated MCX Futures setups cleanly separated\n\n"
+        f"⏱ <i>{now_str} • Catch Accuracy Engine</i>"
     )
     ok = send_marketdock_telegram_alert(test_msg)
     return jsonify({"ok": ok, "sent": ok})
