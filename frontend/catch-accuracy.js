@@ -25,7 +25,26 @@
   const fmtTimestamp = (value) => { const t = typeof value === "number" ? (value > 1e11 ? value : value * 1000) : Date.parse(value); if (!Number.isFinite(t)) return "just now"; const minutes = Math.max(0, Math.round((Date.now() - t) / 60000)); return minutes < 1 ? "just now" : minutes < 60 ? `${minutes}m ago` : `${Math.round(minutes / 60)}h ago`; };
   async function getOwnerToken(waitMs = 6000) {
     const until = Date.now() + waitMs;
-    for (;;) { try { const { data: s } = await window.marketDockSupabase.auth.getSession(); if (s?.session?.access_token) return s.session.access_token; } catch (_) {} if (Date.now() >= until) return null; await sleep(400); }
+    for (;;) {
+      try {
+        const { data: s } = await window.marketDockSupabase.auth.getSession();
+        if (s?.session?.access_token) return s.session.access_token;
+      } catch (_) {}
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i) || "";
+          if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed?.access_token) return parsed.access_token;
+            }
+          }
+        }
+      } catch (_) {}
+      if (Date.now() >= until) return null;
+      await sleep(400);
+    }
   }
   const COLOURS = ["#0052cc", "#172b4d", "#00875a", "#de350b", "#5243aa", "#00a3bf", "#ff5630", "#403294"];
   function avatar(symbol) { let hash = 0; for (const ch of String(symbol || "")) hash = ch.charCodeAt(0) + ((hash << 5) - hash); return `<span class="im-catch-avatar" style="background:${COLOURS[Math.abs(hash) % COLOURS.length]}">${esc(String(symbol || "").slice(0, 3))}</span>`; }
@@ -118,7 +137,15 @@
     page.addEventListener("touchend", () => { const go = pulled >= THRESHOLD; reset(); if (go) fetchCatchData(true); }, { passive: true }); page.addEventListener("touchcancel", reset, { passive: true });
   })();
   const ALLOWED_KEY = "marketdock_catch_accuracy_allowed";
-  const readCached = () => { try { return localStorage.getItem(ALLOWED_KEY) === "1"; } catch (_) { return false; } };
+  const readCached = () => {
+    try {
+      if (localStorage.getItem(ALLOWED_KEY) === "1") return true;
+      if (localStorage.getItem("marketdock_smart_mtf_allowed") === "1") return true;
+      if (localStorage.getItem("marketdock_commodity_radar_allowed") === "1") return true;
+      if (localStorage.getItem("marketdock_focus_radar_allowed") === "1") return true;
+    } catch (_) {}
+    return false;
+  };
   const writeCached = (v) => { try { if (v) { localStorage.setItem(ALLOWED_KEY, "1"); localStorage.setItem("marketdock_focus_radar_allowed", "1"); } else localStorage.removeItem(ALLOWED_KEY); } catch (_) {} };
   let retryTimer = null;
   async function checkAccess(attempt = 0) {
