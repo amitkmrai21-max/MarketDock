@@ -6,11 +6,8 @@
   const body = document.getElementById("imCatchBody");
   if (!page || !navButton || !body) return;
   const API = window.MD_API_BASE || "https://api.marketdock.in";
-  let activeTab = "fib";
-  let marketFilter = "all";
+  let marketTab = "nse";
   let dirFilter = "all";
-  const MARKET_LABELS = { all: "All Markets", nse: "NSE Stocks", mcx: "MCX Commodity" };
-  const MARKETS = ["all", "nse", "mcx"];
   const DIR_LABELS = { all: "All", bullish: "Bullish", bearish: "Bearish" };
   const DIRS = ["all", "bullish", "bearish"];
   let lastData = null;
@@ -79,28 +76,28 @@
   function summary(data) {
     const bias = data.nifty_bias || "neutral";
     const biasText = bias === "bullish" ? "NIFTY 50 BULLISH · LONGS ALIGNED" : bias === "bearish" ? "NIFTY 50 BEARISH · SHORTS ALIGNED" : "NIFTY 50 NEUTRAL · MTF ZONE FOCUS";
-    return `<div class="im-catch-summary"><svg class="im-catch-radar" viewBox="0 0 60 60"><circle cx="30" cy="30" r="27"/><circle cx="30" cy="30" r="18"/><circle cx="30" cy="30" r="9"/><path d="M30 30 L52 14"/></svg><div><b>${esc(biasText)}</b><small>Scanning ${Number(data.stocks_count) || 0} NSE stocks + ${Number(data.commodities_count) || 0} MCX commodities</small></div></div>`;
+    return `<div class="im-catch-summary"><svg class="im-catch-radar" viewBox="0 0 60 60"><circle cx="30" cy="30" r="27"/><circle cx="30" cy="30" r="18"/><circle cx="30" cy="30" r="9"/><path d="M30 30 L52 14"/></svg><div><b>${esc(biasText)}</b><small>Scanning ${Number(data.stocks_count) || 0} NSE stocks + ${Number(data.commodities_count) || 0} MCX commodities · ${Number(data.scanned_count) || ((Number(data.stocks_count) || 0) + (Number(data.commodities_count) || 0))} symbols total</small></div></div>`;
   }
   function shell(inner, metaText, counts = {}) {
-    return `<div class="im-catch-page"><div class="im-catch-top"><span class="im-catch-logo">🏹</span><div><strong>CATCH ACCURACY</strong><small>NIFTY BIAS · SMART MTF · SFP LIQUIDITY SWINGS · OWNER ONLY</small></div><button id="imCatchRefresh" class="im-catch-iconbtn" type="button" aria-label="Refresh"><svg class="im-catch-spin" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button></div><p class="im-catch-notice">Owner-only · NIFTY-aligned Multi-Timeframe Confluence & Closed-Candle Liquidity Sweeps. Research and paper-trading guidance only.</p><div class="im-catch-bar"><div class="im-catch-tabs" id="imCatchTabs"><button class="im-catch-pilltab ${activeTab === "fib" ? "is-active" : ""}" data-catch-tab="fib">🎯 Smart MTF${counts.fib != null ? ` (${counts.fib})` : ""}</button><button class="im-catch-pilltab ${activeTab === "1h" ? "is-active" : ""}" data-catch-tab="1h">1H Swing${counts.h1 != null ? ` (${counts.h1})` : ""}</button><button class="im-catch-pilltab ${activeTab === "15m" ? "is-active" : ""}" data-catch-tab="15m">15m Swing${counts.m15 != null ? ` (${counts.m15})` : ""}</button></div><div class="im-catch-filters"><button id="imCatchMarketFilter" class="im-catch-filterbtn" type="button"><svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><span>${MARKET_LABELS[marketFilter]}</span></button><button id="imCatchDirFilter" class="im-catch-filterbtn" type="button"><span>${DIR_LABELS[dirFilter]}</span></button></div></div><p class="im-catch-meta">${metaText}</p><div class="im-catch-results">${inner}</div></div>`;
+    return `<div class="im-catch-page"><div class="im-catch-top"><span class="im-catch-logo">🏹</span><div><strong>CATCH ACCURACY</strong><small>NIFTY BIAS · STOCKS · COMMODITIES · OWNER ONLY</small></div><button id="imCatchRefresh" class="im-catch-iconbtn" type="button" aria-label="Refresh"><svg class="im-catch-spin" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button></div><p class="im-catch-notice">Owner-only · NIFTY-aligned Multi-Timeframe Confluence & Closed-Candle Liquidity Sweeps. Research and paper-trading guidance only.</p><div class="im-catch-bar"><div class="im-catch-tabs" id="imCatchTabs"><button class="im-catch-pilltab ${marketTab === "nse" ? "is-active" : ""}" data-market-tab="nse">🎯 Smart MTF · Stocks${counts.nse != null ? ` (${counts.nse})` : ""}</button><button class="im-catch-pilltab ${marketTab === "mcx" ? "is-active" : ""}" data-market-tab="mcx">🛢️ Commodities${counts.mcx != null ? ` (${counts.mcx})` : ""}</button></div><div class="im-catch-filters"><button id="imCatchDirFilter" class="im-catch-filterbtn" type="button"><span>${DIR_LABELS[dirFilter]}</span></button></div></div><p class="im-catch-meta">${metaText}</p><div class="im-catch-results">${inner}</div></div>`;
   }
   function renderView(data) {
     if (!data) return;
     const all = data.setups || data.full || [];
-    const countFib = all.filter((x) => x.kind === "fib" || x.timeframe === "fib").length;
-    const count1h = all.filter((x) => x.timeframe === "1h" && x.kind !== "fib").length;
-    const count15m = all.filter((x) => x.timeframe === "15m" && x.kind !== "fib").length;
-    let rows = all.filter((x) => activeTab === "fib" ? (x.kind === "fib" || x.timeframe === "fib") : (x.timeframe === activeTab && x.kind !== "fib"));
-    if (marketFilter === "nse") rows = rows.filter((x) => x.market !== "mcx"); else if (marketFilter === "mcx") rows = rows.filter((x) => x.market === "mcx");
+    const countNse = all.filter((x) => x.market !== "mcx").length;
+    const countMcx = all.filter((x) => x.market === "mcx").length;
+    let rows = all.filter((x) => (x.kind === "fib" || x.timeframe === "fib"));
+    rows = rows.filter((x) => marketTab === "mcx" ? x.market === "mcx" : x.market !== "mcx");
     if (dirFilter === "bullish") rows = rows.filter((x) => x.side === "bullish" || x.type === "BULLISH"); else if (dirFilter === "bearish") rows = rows.filter((x) => x.side === "bearish" || x.type === "BEARISH");
-    const cards = rows.length ? rows.map(card).join("") : `<div class="im-catch-empty"><strong>No ${activeTab === "fib" ? "Smart MTF" : activeTab.toUpperCase() + " SFP"} setups in this filter right now</strong><p>MarketDock currently imports the established Smart MTF confluence scanner. SFP swing setups will be listed only when their scan is implemented; they are not fabricated here.</p></div>`;
-    const note = '<p class="im-catch-note">Closed-candle Multi-Timeframe Confluence and SFP Liquidity Sweep Scanner. Levels and setups are estimated from market data for research and paper trading only. Confirm live charts and manage your risk strictly.</p>';
-    body.innerHTML = shell(summary(data) + cards + note, `${rows.length} setups matching filter · ${all.length} total across all markets`, { fib: countFib, h1: count1h, m15: count15m });
+    const marketLabel = marketTab === "mcx" ? "MCX commodities" : "NSE stocks";
+    const cards = rows.length ? rows.map(card).join("") : `<div class="im-catch-empty"><strong>No Smart MTF setups for ${marketLabel} in this filter right now</strong><p>The existing Smart MTF scan is shown here; the separate Commodities tab contains MCX setups. Liquidity grading remains optional and does not gate signals.</p></div>`;
+    const note = '<p class="im-catch-note">Closed-candle Multi-Timeframe Confluence. Levels and setups are estimated from market data for research and paper trading only. Confirm live charts and manage your risk strictly.</p>';
+    const totalScanned = Number(data.scanned_count) || ((Number(data.stocks_count) || 0) + (Number(data.commodities_count) || 0));
+    body.innerHTML = shell(summary(data) + cards + note, `${rows.length} ${marketTab === "mcx" ? "commodity" : "stock"} setups · ${countNse} NSE + ${countMcx} MCX setups · ${totalScanned} symbols scanned`, { nse: countNse, mcx: countMcx });
   }
   async function loadIndexQuotes() { try { const r = await fetch(API + "/api/index-quotes"); const j = await r.json(); if (j && Array.isArray(j.data)) indexQuotes = j.data; } catch (_) {} }
   body.addEventListener("click", (event) => {
-    const tabBtn = event.target.closest("[data-catch-tab]"); if (tabBtn) { activeTab = tabBtn.dataset.catchTab; if (lastData) renderView(lastData); return; }
-    if (event.target.closest("#imCatchMarketFilter")) { marketFilter = MARKETS[(MARKETS.indexOf(marketFilter) + 1) % MARKETS.length]; if (lastData) renderView(lastData); return; }
+    const tabBtn = event.target.closest("[data-market-tab]"); if (tabBtn) { marketTab = tabBtn.dataset.marketTab; if (lastData) renderView(lastData); return; }
     if (event.target.closest("#imCatchDirFilter")) { dirFilter = DIRS[(DIRS.indexOf(dirFilter) + 1) % DIRS.length]; if (lastData) renderView(lastData); return; }
     if (event.target.closest("#imCatchRefresh")) { fetchCatchData(true); return; }
     const ticket = event.target.closest("[data-catch-ticket]"); if (ticket) { const { catchTicket: sym, catchSide: side, catchPrice: price } = ticket.dataset; openActionSheet(sym, Number(price)); document.getElementById(side === "buy" ? "im-action-sheet-buy-btn" : "im-action-sheet-sell-btn")?.click(); return; }
