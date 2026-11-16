@@ -3003,7 +3003,7 @@ def smart_mtf_scan():
 # MarketDock Smart MTF Telegram Alerts
 # ==========================================
 MARKETDOCK_TELEGRAM_BOT_TOKEN = os.environ.get(
-    "MARKETDOCK_TELEGRAM_BOT_TOKEN", "9211433788:AAGEk4JYPofqQrGqQ3n2CYX2CPehoWFMvW8"
+    "MARKETDOCK_TELEGRAM_BOT_TOKEN", ""
 ).strip()
 MARKETDOCK_TELEGRAM_CHAT_ID = os.environ.get(
     "MARKETDOCK_TELEGRAM_CHAT_ID", "8391540111"
