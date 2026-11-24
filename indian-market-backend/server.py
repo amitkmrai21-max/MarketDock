@@ -5667,6 +5667,7 @@ def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_l
     n = len(candles)
     curr = candles[-1]
     prev = candles[-2]
+    prev2 = candles[-3] if n >= 3 else prev
 
     swing_highs = []
     swing_lows = []
@@ -5695,9 +5696,10 @@ def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_l
     last_sh = swing_highs[-1]
     last_sl = swing_lows[-1]
     live_price = curr["close"]
+    detected_ts = int(curr.get("timestamp") or time.time())
 
     # 1. Bearish Pullback to Sell-Side Liquidity (SSL)
-    if last_sl["index"] > last_sh["index"]:
+    if last_sl["index"] > last_sh["index"] and (n - last_sl["index"]) <= 18:
         point_b_low = last_sl["price"]
         pullback = candles[last_sl["index"] :]
         green_candles = [c for c in pullback[:-1] if c["close"] > c["open"]]
@@ -5705,175 +5707,229 @@ def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_l
         if green_candles and live_price > point_b_low:
             last_green = green_candles[-1]
             pullback_high = max([c["high"] for c in pullback])
-            crossed_below = curr["close"] < last_green["low"] or (
-                prev["close"] >= last_green["low"] and curr["close"] < prev["close"]
-            )
-            is_red = curr["close"] < curr["open"] or prev["close"] < prev["open"]
 
-            if crossed_below and is_red and (pullback_high - live_price) > 0 and (live_price - point_b_low) > 0:
+            # Fresh trigger: crossed on curr candle or confirmed on prev candle
+            fresh_cross_curr = (
+                prev["close"] >= last_green["low"]
+                and curr["close"] < last_green["low"]
+                and curr["close"] < curr["open"]
+            )
+            fresh_cross_prev = (
+                prev2["close"] >= last_green["low"]
+                and prev["close"] < last_green["low"]
+                and prev["close"] < prev["open"]
+                and curr["close"] <= prev["close"]
+            )
+
+            if fresh_cross_curr or fresh_cross_prev:
                 sl = round(pullback_high * 1.0015, 2)
                 tp = round(point_b_low, 2)
-                tp2 = round(tp - (live_price - tp) * 0.5, 2)
                 risk = abs(sl - live_price)
                 reward = abs(live_price - tp)
-                rr = round(reward / risk, 2) if risk > 0 else 1.0
-                detected_ts = int(curr.get("timestamp") or time.time())
+                rr = round(reward / risk, 2) if risk > 0 else 0
 
-                return {
-                    "symbol": symbol,
-                    "name": name,
-                    "market": market_type,
-                    "market_type": market_type,
-                    "timeframe": timeframe_label,
-                    "direction": "bearish",
-                    "setup_name": "Pullback to Sell-Side Liquidity (SSL)",
-                    "pattern_name": "Pullback to Sell-Side Liquidity (SSL)",
-                    "trigger_event": f"Red candle crossed {timeframe_label} Green candle low ({last_green['low']})",
-                    "price": live_price,
-                    "current_price": live_price,
-                    "entry": live_price,
-                    "entry_price": live_price,
-                    "stop_loss": sl,
-                    "target_1": tp,
-                    "target_2": tp2,
-                    "target_price": tp,
-                    "risk_reward": rr,
-                    "detected_at": detected_ts,
-                    "point_a_high": last_sh["price"],
-                    "point_b_low": point_b_low,
-                    "explanation": f"Drop to low ({point_b_low}) -> Pullback formed green candle -> Red candle crossed green low ({last_green['low']}) -> Targeting liquidity at previous low ({point_b_low}).",
-                }
+                # Strict Risk-to-Reward filter (Playbook Rule: minimum 1:1.5 RR)
+                if rr >= 1.5 and risk > 0:
+                    tp2 = round(tp - (live_price - tp) * 0.5, 2)
+                    return {
+                        "symbol": symbol,
+                        "name": name,
+                        "market": market_type,
+                        "market_type": market_type,
+                        "timeframe": timeframe_label,
+                        "direction": "bearish",
+                        "setup_name": "Pullback to Sell-Side Liquidity (SSL)",
+                        "pattern_name": "Pullback to Sell-Side Liquidity (SSL)",
+                        "trigger_event": f"Fresh Red candle crossed {timeframe_label} Green low ({last_green['low']})",
+                        "price": live_price,
+                        "current_price": live_price,
+                        "entry": live_price,
+                        "entry_price": live_price,
+                        "stop_loss": sl,
+                        "target_1": tp,
+                        "target_2": tp2,
+                        "target_price": tp,
+                        "risk_reward": rr,
+                        "detected_at": detected_ts,
+                        "point_a_high": last_sh["price"],
+                        "point_b_low": point_b_low,
+                        "explanation": f"Drop to low ({point_b_low}) -> Pullback green candle -> Fresh Red candle break below green low ({last_green['low']}) -> Targeting SSL at ({point_b_low}).",
+                    }
 
     # 2. Double Bottom / Liquidity Tap (Long)
     if len(swing_lows) >= 2:
         prev_sl = swing_lows[-2]
         curr_sl = swing_lows[-1]
-        low_dist_pct = abs(curr_sl["price"] - prev_sl["price"]) / prev_sl["price"] * 100
 
-        if low_dist_pct < 1.2:
-            bounce = candles[curr_sl["index"] :]
-            first_green = next((c for c in bounce if c["close"] > c["open"]), None)
+        if (n - curr_sl["index"]) <= 18:
+            low_diff_pct = (curr_sl["price"] - prev_sl["price"]) / prev_sl["price"]
+            # Swept slightly below or tapped equal low (-1.5% to +0.8%)
+            if -1.5 <= low_diff_pct * 100 <= 0.8:
+                bounce = candles[curr_sl["index"] :]
+                first_green = next((c for c in bounce if c["close"] > c["open"]), None)
 
-            if first_green and live_price > first_green["high"] and last_sh["price"] > live_price:
-                sl = round(min(curr_sl["price"], prev_sl["price"]) * 0.9985, 2)
-                tp = round(last_sh["price"], 2)
-                tp2 = round(tp + (tp - live_price) * 0.5, 2)
-                risk = abs(live_price - sl)
-                reward = abs(tp - live_price)
-                rr = round(reward / risk, 2) if risk > 0 else 1.0
-                detected_ts = int(curr.get("timestamp") or time.time())
+                if first_green and last_sh["price"] > live_price:
+                    fresh_break_curr = (
+                        prev["close"] <= first_green["high"]
+                        and curr["close"] > first_green["high"]
+                        and curr["close"] > curr["open"]
+                    )
+                    fresh_break_prev = (
+                        prev2["close"] <= first_green["high"]
+                        and prev["close"] > first_green["high"]
+                        and prev["close"] > prev["open"]
+                        and curr["close"] >= prev["close"]
+                    )
 
-                return {
-                    "symbol": symbol,
-                    "name": name,
-                    "market": market_type,
-                    "market_type": market_type,
-                    "timeframe": timeframe_label,
-                    "direction": "bullish",
-                    "setup_name": "Double Bottom Liquidity Tap & Reversal",
-                    "pattern_name": "Double Bottom Liquidity Tap & Reversal",
-                    "trigger_event": f"Price swept low ({curr_sl['price']}) & crossed Green candle high ({first_green['high']})",
-                    "price": live_price,
-                    "current_price": live_price,
-                    "entry": live_price,
-                    "entry_price": live_price,
-                    "stop_loss": sl,
-                    "target_1": tp,
-                    "target_2": tp2,
-                    "target_price": tp,
-                    "risk_reward": rr,
-                    "detected_at": detected_ts,
-                    "point_a_high": last_sh["price"],
-                    "point_b_low": curr_sl["price"],
-                    "explanation": f"Tested prior low ({prev_sl['price']}) -> Swept liquidity -> Green candle broke upward -> Targeting swing high ({last_sh['price']}).",
-                }
+                    if fresh_break_curr or fresh_break_prev:
+                        sl = round(min(curr_sl["price"], prev_sl["price"]) * 0.9985, 2)
+                        tp = round(last_sh["price"], 2)
+                        risk = abs(live_price - sl)
+                        reward = abs(tp - live_price)
+                        rr = round(reward / risk, 2) if risk > 0 else 0
+
+                        if rr >= 1.5 and risk > 0:
+                            tp2 = round(tp + (tp - live_price) * 0.5, 2)
+                            return {
+                                "symbol": symbol,
+                                "name": name,
+                                "market": market_type,
+                                "market_type": market_type,
+                                "timeframe": timeframe_label,
+                                "direction": "bullish",
+                                "setup_name": "Double Bottom Liquidity Tap & Reversal",
+                                "pattern_name": "Double Bottom Liquidity Tap & Reversal",
+                                "trigger_event": f"Fresh break above Green candle high ({first_green['high']}) after low sweep",
+                                "price": live_price,
+                                "current_price": live_price,
+                                "entry": live_price,
+                                "entry_price": live_price,
+                                "stop_loss": sl,
+                                "target_1": tp,
+                                "target_2": tp2,
+                                "target_price": tp,
+                                "risk_reward": rr,
+                                "detected_at": detected_ts,
+                                "point_a_high": last_sh["price"],
+                                "point_b_low": curr_sl["price"],
+                                "explanation": f"Tested/swept prior low ({prev_sl['price']}) -> Formed first green candle ({first_green['high']}) -> Fresh breakout above green high -> Targeting swing high ({last_sh['price']}).",
+                            }
 
     # 3. Top Liquidity Sweep Reversal (SFP Short)
     if len(swing_highs) >= 2:
         prev_sh = swing_highs[-2]
         curr_sh = swing_highs[-1]
 
-        if curr_sh["price"] >= prev_sh["price"] * 0.998 and live_price < curr_sh["price"]:
-            drop = candles[curr_sh["index"] :]
-            red_candles = [c for c in drop if c["close"] < c["open"]]
-            if red_candles and last_sl["price"] < live_price:
-                sl = round(curr_sh["price"] * 1.0015, 2)
-                tp = round(last_sl["price"], 2)
-                tp2 = round(tp - (live_price - tp) * 0.5, 2)
-                risk = abs(sl - live_price)
-                reward = abs(live_price - tp)
-                rr = round(reward / risk, 2) if risk > 0 else 1.0
-                detected_ts = int(curr.get("timestamp") or time.time())
+        if (n - curr_sh["index"]) <= 18:
+            high_diff_pct = (curr_sh["price"] - prev_sh["price"]) / prev_sh["price"]
+            if -0.8 <= high_diff_pct * 100 <= 1.5 and live_price < curr_sh["price"]:
+                drop = candles[curr_sh["index"] :]
+                green_candles = [c for c in drop[:-1] if c["close"] > c["open"]]
+                last_green = green_candles[-1] if green_candles else candles[curr_sh["index"] - 1]
 
-                return {
-                    "symbol": symbol,
-                    "name": name,
-                    "market": market_type,
-                    "market_type": market_type,
-                    "timeframe": timeframe_label,
-                    "direction": "bearish",
-                    "setup_name": "Top Liquidity Sweep Reversal (SFP)",
-                    "pattern_name": "Top Liquidity Sweep Reversal (SFP)",
-                    "trigger_event": f"High swept ({curr_sh['price']}) & Red candle confirmed rejection",
-                    "price": live_price,
-                    "current_price": live_price,
-                    "entry": live_price,
-                    "entry_price": live_price,
-                    "stop_loss": sl,
-                    "target_1": tp,
-                    "target_2": tp2,
-                    "target_price": tp,
-                    "risk_reward": rr,
-                    "detected_at": detected_ts,
-                    "point_a_high": curr_sh["price"],
-                    "point_b_low": last_sl["price"],
-                    "explanation": f"Swept upper buy-side liquidity at ({curr_sh['price']}) -> Strong rejection -> Aiming for bottom liquidity low ({last_sl['price']}).",
-                }
+                if last_green and last_sl["price"] < live_price:
+                    fresh_cross_curr = (
+                        prev["close"] >= last_green["low"]
+                        and curr["close"] < last_green["low"]
+                        and curr["close"] < curr["open"]
+                    )
+                    fresh_cross_prev = (
+                        prev2["close"] >= last_green["low"]
+                        and prev["close"] < last_green["low"]
+                        and prev["close"] < prev["open"]
+                        and curr["close"] <= prev["close"]
+                    )
+
+                    if fresh_cross_curr or fresh_cross_prev:
+                        sl = round(curr_sh["price"] * 1.0015, 2)
+                        tp = round(last_sl["price"], 2)
+                        risk = abs(sl - live_price)
+                        reward = abs(live_price - tp)
+                        rr = round(reward / risk, 2) if risk > 0 else 0
+
+                        if rr >= 1.5 and risk > 0:
+                            tp2 = round(tp - (live_price - tp) * 0.5, 2)
+                            return {
+                                "symbol": symbol,
+                                "name": name,
+                                "market": market_type,
+                                "market_type": market_type,
+                                "timeframe": timeframe_label,
+                                "direction": "bearish",
+                                "setup_name": "Top Liquidity Sweep Reversal (SFP)",
+                                "pattern_name": "Top Liquidity Sweep Reversal (SFP)",
+                                "trigger_event": f"High swept ({curr_sh['price']}) & Fresh Red crossed Green low ({last_green['low']})",
+                                "price": live_price,
+                                "current_price": live_price,
+                                "entry": live_price,
+                                "entry_price": live_price,
+                                "stop_loss": sl,
+                                "target_1": tp,
+                                "target_2": tp2,
+                                "target_price": tp,
+                                "risk_reward": rr,
+                                "detected_at": detected_ts,
+                                "point_a_high": curr_sh["price"],
+                                "point_b_low": last_sl["price"],
+                                "explanation": f"Swept buy-side liquidity at ({curr_sh['price']}) -> Rejection -> Fresh Red candle crossed green low ({last_green['low']}) -> Aiming for base low ({last_sl['price']}).",
+                            }
 
     # 4. Uptrend Dip Pullback to BSL (Long)
-    if last_sh["index"] > last_sl["index"]:
+    if last_sh["index"] > last_sl["index"] and (n - last_sh["index"]) <= 18:
         point_b_high = last_sh["price"]
         dip = candles[last_sh["index"] :]
         red_candles = [c for c in dip[:-1] if c["close"] < c["open"]]
 
         if red_candles and live_price < point_b_high:
             last_red = red_candles[-1]
-            if curr["close"] > last_red["high"]:
+
+            fresh_break_curr = (
+                prev["close"] <= last_red["high"]
+                and curr["close"] > last_red["high"]
+                and curr["close"] > curr["open"]
+            )
+            fresh_break_prev = (
+                prev2["close"] <= last_red["high"]
+                and prev["close"] > last_red["high"]
+                and prev["close"] > prev["open"]
+                and curr["close"] >= prev["close"]
+            )
+
+            if fresh_break_curr or fresh_break_prev:
                 sl = round(min([c["low"] for c in dip]) * 0.9985, 2)
                 tp = round(point_b_high, 2)
-                tp2 = round(tp + (tp - live_price) * 0.5, 2)
                 risk = abs(live_price - sl)
                 reward = abs(tp - live_price)
-                rr = round(reward / risk, 2) if risk > 0 else 1.0
-                detected_ts = int(curr.get("timestamp") or time.time())
+                rr = round(reward / risk, 2) if risk > 0 else 0
 
-                return {
-                    "symbol": symbol,
-                    "name": name,
-                    "market": market_type,
-                    "market_type": market_type,
-                    "timeframe": timeframe_label,
-                    "direction": "bullish",
-                    "setup_name": "Uptrend Dip Pullback to BSL",
-                    "pattern_name": "Uptrend Dip Pullback to BSL",
-                    "trigger_event": f"Green candle crossed {timeframe_label} Red candle high ({last_red['high']})",
-                    "price": live_price,
-                    "current_price": live_price,
-                    "entry": live_price,
-                    "entry_price": live_price,
-                    "stop_loss": sl,
-                    "target_1": tp,
-                    "target_2": tp2,
-                    "target_price": tp,
-                    "risk_reward": rr,
-                    "detected_at": detected_ts,
-                    "point_a_high": point_b_high,
-                    "point_b_low": last_sl["price"],
-                    "explanation": f"Uptrend dip -> Formed red candle -> Green candle broke red high ({last_red['high']}) -> Targeting previous high ({point_b_high}).",
-                }
+                if rr >= 1.5 and risk > 0:
+                    tp2 = round(tp + (tp - live_price) * 0.5, 2)
+                    return {
+                        "symbol": symbol,
+                        "name": name,
+                        "market": market_type,
+                        "market_type": market_type,
+                        "timeframe": timeframe_label,
+                        "direction": "bullish",
+                        "setup_name": "Uptrend Dip Pullback to BSL",
+                        "pattern_name": "Uptrend Dip Pullback to BSL",
+                        "trigger_event": f"Fresh Green candle crossed {timeframe_label} Red high ({last_red['high']})",
+                        "price": live_price,
+                        "current_price": live_price,
+                        "entry": live_price,
+                        "entry_price": live_price,
+                        "stop_loss": sl,
+                        "target_1": tp,
+                        "target_2": tp2,
+                        "target_price": tp,
+                        "risk_reward": rr,
+                        "detected_at": detected_ts,
+                        "point_a_high": point_b_high,
+                        "point_b_low": last_sl["price"],
+                        "explanation": f"Uptrend dip -> Formed red candle -> Fresh Green candle broke red high ({last_red['high']}) -> Targeting previous high ({point_b_high}).",
+                    }
 
     return None
-
 
 def _execute_liquidity_scan():
     setups = []
