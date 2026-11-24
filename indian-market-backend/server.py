@@ -5652,5 +5652,268 @@ def ensure_instrument_master_warm():
     _instrument_warm_started = True
     threading.Thread(target=_warm_nse_equity_universe, daemon=True).start()
 
+
+# ==========================================
+# MarketDock Liquidity Hunter (5m & 15m) Engine
+# ==========================================
+_liquidity_cache = {"data": None, "fetched_at": 0}
+LIQUIDITY_CACHE_SECONDS = 60
+
+
+def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_label):
+    if not candles or len(candles) < 25:
+        return None
+
+    n = len(candles)
+    curr = candles[-1]
+    prev = candles[-2]
+
+    swing_highs = []
+    swing_lows = []
+
+    for i in range(2, n - 2):
+        c = candles[i]
+        if (
+            c["high"] > candles[i - 1]["high"]
+            and c["high"] > candles[i - 2]["high"]
+            and c["high"] >= candles[i + 1]["high"]
+            and c["high"] >= candles[i + 2]["high"]
+        ):
+            swing_highs.append({"index": i, "price": c["high"], "candle": c})
+
+        if (
+            c["low"] < candles[i - 1]["low"]
+            and c["low"] < candles[i - 2]["low"]
+            and c["low"] <= candles[i + 1]["low"]
+            and c["low"] <= candles[i + 2]["low"]
+        ):
+            swing_lows.append({"index": i, "price": c["low"], "candle": c})
+
+    if not swing_highs or not swing_lows:
+        return None
+
+    last_sh = swing_highs[-1]
+    last_sl = swing_lows[-1]
+    live_price = curr["close"]
+
+    # 1. Bearish Pullback to Sell-Side Liquidity (SSL)
+    if last_sl["index"] > last_sh["index"]:
+        point_b_low = last_sl["price"]
+        pullback = candles[last_sl["index"] :]
+        green_candles = [c for c in pullback[:-1] if c["close"] > c["open"]]
+
+        if green_candles and live_price > point_b_low:
+            last_green = green_candles[-1]
+            pullback_high = max([c["high"] for c in pullback])
+            crossed_below = curr["close"] < last_green["low"] or (
+                prev["close"] >= last_green["low"] and curr["close"] < prev["close"]
+            )
+            is_red = curr["close"] < curr["open"] or prev["close"] < prev["open"]
+
+            if crossed_below and is_red and (pullback_high - live_price) > 0 and (live_price - point_b_low) > 0:
+                sl = round(pullback_high * 1.0015, 2)
+                tp = round(point_b_low, 2)
+                risk = abs(sl - live_price)
+                reward = abs(live_price - tp)
+                rr = round(reward / risk, 2) if risk > 0 else 1.0
+
+                return {
+                    "symbol": symbol,
+                    "name": name,
+                    "market": market_type,
+                    "timeframe": timeframe_label,
+                    "direction": "bearish",
+                    "setup_name": "Pullback to Sell-Side Liquidity (SSL)",
+                    "trigger_event": f"Red candle crossed {timeframe_label} Green candle low ({last_green['low']})",
+                    "entry_price": live_price,
+                    "stop_loss": sl,
+                    "target_price": tp,
+                    "risk_reward": rr,
+                    "point_a_high": last_sh["price"],
+                    "point_b_low": point_b_low,
+                    "explanation": f"Drop to low ({point_b_low}) -> Pullback formed green candle -> Red candle crossed green low ({last_green['low']}) -> Targeting liquidity at previous low ({point_b_low}).",
+                }
+
+    # 2. Double Bottom / Liquidity Tap (Long)
+    if len(swing_lows) >= 2:
+        prev_sl = swing_lows[-2]
+        curr_sl = swing_lows[-1]
+        low_dist_pct = abs(curr_sl["price"] - prev_sl["price"]) / prev_sl["price"] * 100
+
+        if low_dist_pct < 1.2:
+            bounce = candles[curr_sl["index"] :]
+            first_green = next((c for c in bounce if c["close"] > c["open"]), None)
+
+            if first_green and live_price > first_green["high"] and last_sh["price"] > live_price:
+                sl = round(min(curr_sl["price"], prev_sl["price"]) * 0.9985, 2)
+                tp = round(last_sh["price"], 2)
+                risk = abs(live_price - sl)
+                reward = abs(tp - live_price)
+                rr = round(reward / risk, 2) if risk > 0 else 1.0
+
+                return {
+                    "symbol": symbol,
+                    "name": name,
+                    "market": market_type,
+                    "timeframe": timeframe_label,
+                    "direction": "bullish",
+                    "setup_name": "Double Bottom Liquidity Tap & Reversal",
+                    "trigger_event": f"Price swept low ({curr_sl['price']}) & crossed Green candle high ({first_green['high']})",
+                    "entry_price": live_price,
+                    "stop_loss": sl,
+                    "target_price": tp,
+                    "risk_reward": rr,
+                    "point_a_high": last_sh["price"],
+                    "point_b_low": curr_sl["price"],
+                    "explanation": f"Tested prior low ({prev_sl['price']}) -> Swept liquidity -> Green candle broke upward -> Targeting swing high ({last_sh['price']}).",
+                }
+
+    # 3. Top Liquidity Sweep Reversal (SFP Short)
+    if len(swing_highs) >= 2:
+        prev_sh = swing_highs[-2]
+        curr_sh = swing_highs[-1]
+
+        if curr_sh["price"] >= prev_sh["price"] * 0.998 and live_price < curr_sh["price"]:
+            drop = candles[curr_sh["index"] :]
+            red_candles = [c for c in drop if c["close"] < c["open"]]
+            if red_candles and last_sl["price"] < live_price:
+                sl = round(curr_sh["price"] * 1.0015, 2)
+                tp = round(last_sl["price"], 2)
+                risk = abs(sl - live_price)
+                reward = abs(live_price - tp)
+                rr = round(reward / risk, 2) if risk > 0 else 1.0
+
+                return {
+                    "symbol": symbol,
+                    "name": name,
+                    "market": market_type,
+                    "timeframe": timeframe_label,
+                    "direction": "bearish",
+                    "setup_name": "Top Liquidity Sweep Reversal (SFP)",
+                    "trigger_event": f"High swept ({curr_sh['price']}) & Red candle confirmed rejection",
+                    "entry_price": live_price,
+                    "stop_loss": sl,
+                    "target_price": tp,
+                    "risk_reward": rr,
+                    "point_a_high": curr_sh["price"],
+                    "point_b_low": last_sl["price"],
+                    "explanation": f"Swept upper buy-side liquidity at ({curr_sh['price']}) -> Strong rejection -> Aiming for bottom liquidity low ({last_sl['price']}).",
+                }
+
+    # 4. Uptrend Dip Pullback to BSL (Long)
+    if last_sh["index"] > last_sl["index"]:
+        point_b_high = last_sh["price"]
+        dip = candles[last_sh["index"] :]
+        red_candles = [c for c in dip[:-1] if c["close"] < c["open"]]
+
+        if red_candles and live_price < point_b_high:
+            last_red = red_candles[-1]
+            if curr["close"] > last_red["high"]:
+                sl = round(min([c["low"] for c in dip]) * 0.9985, 2)
+                tp = round(point_b_high, 2)
+                risk = abs(live_price - sl)
+                reward = abs(tp - live_price)
+                rr = round(reward / risk, 2) if risk > 0 else 1.0
+
+                return {
+                    "symbol": symbol,
+                    "name": name,
+                    "market": market_type,
+                    "timeframe": timeframe_label,
+                    "direction": "bullish",
+                    "setup_name": "Uptrend Dip Pullback to BSL",
+                    "trigger_event": f"Green candle crossed {timeframe_label} Red candle high ({last_red['high']})",
+                    "entry_price": live_price,
+                    "stop_loss": sl,
+                    "target_price": tp,
+                    "risk_reward": rr,
+                    "point_a_high": point_b_high,
+                    "point_b_low": last_sl["price"],
+                    "explanation": f"Uptrend dip -> Formed red candle -> Green candle broke red high ({last_red['high']}) -> Targeting previous high ({point_b_high}).",
+                }
+
+    return None
+
+
+def _execute_liquidity_scan():
+    setups = []
+
+    # 1. NSE Equities 5m and 15m scan
+    for stock in INDIAN_FOCUS_STOCKS:
+        try:
+            ikey = resolve_instrument_key(stock["symbol"])
+            candles_5m = fetch_upstox_candles(ikey, "minutes", 5, chart_history_days=5)
+            if not candles_5m or len(candles_5m) < 25:
+                continue
+            candles_15m = resample_candles(candles_5m, 3)
+
+            s5 = _detect_liquidity_setup_core(candles_5m, stock["symbol"], stock["name"], "nse", "5m")
+            if s5:
+                setups.append(s5)
+
+            s15 = _detect_liquidity_setup_core(candles_15m, stock["symbol"], stock["name"], "nse", "15m")
+            if s15:
+                setups.append(s15)
+        except Exception:
+            continue
+
+    # 3. MCX Commodities 5m and 15m scan
+    for ckey, cfg in MCX_COMMODITIES.items():
+        try:
+            contract = get_current_commodity_contract(ckey)
+            if not contract or not contract.get("instrument_key"):
+                continue
+            ikey = contract["instrument_key"]
+            candles_5m = fetch_upstox_candles(ikey, "minutes", 5, chart_history_days=5)
+            if not candles_5m or len(candles_5m) < 25:
+                continue
+            candles_15m = resample_candles(candles_5m, 3)
+
+            s5 = _detect_liquidity_setup_core(candles_5m, ckey, cfg.get("name", ckey), "mcx", "5m")
+            if s5:
+                setups.append(s5)
+
+            s15 = _detect_liquidity_setup_core(candles_15m, ckey, cfg.get("name", ckey), "mcx", "15m")
+            if s15:
+                setups.append(s15)
+        except Exception:
+            continue
+
+    return {
+        "setups": setups,
+        "count": len(setups),
+        "updated_at": _ist_now().strftime("%d %b %Y, %I:%M %p IST"),
+    }
+
+
+@app.get("/api/owner/liquidity/access")
+def liquidity_access():
+    denied = require_owner_account()
+    if denied:
+        return denied
+    return jsonify({"ok": True, "available": True})
+
+
+@app.get("/api/owner/liquidity")
+def liquidity_scan():
+    denied = require_owner_account()
+    if denied:
+        return denied
+
+    force_refresh = request.args.get("refresh", "").lower() in {"1", "true"}
+    cached = _liquidity_cache.get("data")
+    if (
+        not force_refresh
+        and cached
+        and (time.time() - _liquidity_cache.get("fetched_at", 0)) < LIQUIDITY_CACHE_SECONDS
+    ):
+        return jsonify({"ok": True, "cached": True, **cached})
+
+    payload = _execute_liquidity_scan()
+    _liquidity_cache["data"] = payload
+    _liquidity_cache["fetched_at"] = time.time()
+    return jsonify({"ok": True, **payload})
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=False)

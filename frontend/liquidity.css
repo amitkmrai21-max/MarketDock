@@ -1,0 +1,313 @@
+/* MarketDock Liquidity Hunter (5m & 15m) */
+#im-liquidity .imliq-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-content: start;
+}
+
+#im-liquidity .imliq-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+#im-liquidity .imliq-title-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#im-liquidity .imliq-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, #38bdf8 15%, var(--im-panel-2));
+  border: 1px solid color-mix(in srgb, #38bdf8 35%, transparent);
+  color: #38bdf8;
+}
+
+#im-liquidity .imliq-title-box strong {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  color: var(--im-text);
+}
+
+#im-liquidity .imliq-title-box small {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--im-muted);
+}
+
+#im-liquidity .imliq-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#im-liquidity .imliq-refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+#im-liquidity .imliq-refresh-btn:hover {
+  background: color-mix(in srgb, var(--im-blue) 15%, var(--im-panel-2));
+  border-color: var(--im-blue);
+}
+
+#im-liquidity .imliq-spin {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  transform-origin: 50% 50%;
+}
+
+@keyframes imliqSpin { to { transform: rotate(360deg); } }
+#im-liquidity.is-loading .imliq-spin { animation: imliqSpin .8s linear infinite; }
+
+/* Metrics Counter Strip */
+#im-liquidity .imliq-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+#im-liquidity .imliq-metric-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--im-panel-2);
+  border: 1px solid var(--im-border);
+  display: grid;
+  gap: 3px;
+}
+
+#im-liquidity .imliq-metric-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--im-muted);
+}
+
+#im-liquidity .imliq-metric-val {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--im-text);
+}
+
+/* Filters bar */
+#im-liquidity .imliq-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#im-liquidity .imliq-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+#im-liquidity .imliq-tab {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-muted);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+#im-liquidity .imliq-tab.is-active {
+  color: #fff;
+  border-color: var(--im-blue);
+  background: color-mix(in srgb, var(--im-blue) 25%, transparent);
+}
+
+/* Cards Grid */
+#im-liquidity .imliq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+#im-liquidity .imliq-card {
+  --c: var(--im-green);
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 7%, var(--im-panel)), var(--im-panel));
+  border: 1px solid color-mix(in srgb, var(--c) 45%, var(--im-border));
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--c) 10%, transparent);
+  transition: transform .15s;
+}
+
+#im-liquidity .imliq-card:hover {
+  transform: translateY(-2px);
+}
+
+#im-liquidity .imliq-card.is-bear {
+  --c: var(--im-red);
+}
+
+#im-liquidity .imliq-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+#im-liquidity .imliq-id-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#im-liquidity .imliq-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+#im-liquidity .imliq-symbol {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--im-text);
+  letter-spacing: .02em;
+}
+
+#im-liquidity .imliq-market-tag {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--im-panel-2);
+  border: 1px solid var(--im-border);
+  color: var(--im-muted);
+}
+
+#im-liquidity .imliq-badges {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+#im-liquidity .imliq-tf-badge {
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  background: color-mix(in srgb, #38bdf8 20%, transparent);
+  border: 1px solid color-mix(in srgb, #38bdf8 50%, transparent);
+  color: #38bdf8;
+}
+
+#im-liquidity .imliq-tf-badge.is-15m {
+  background: color-mix(in srgb, #a855f7 20%, transparent);
+  border-color: color-mix(in srgb, #a855f7 50%, transparent);
+  color: #c084fc;
+}
+
+#im-liquidity .imliq-dir-badge {
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c) 50%, transparent);
+}
+
+#im-liquidity .imliq-setup-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--c);
+}
+
+#im-liquidity .imliq-trigger-event {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--im-text);
+  background: color-mix(in srgb, var(--c) 8%, var(--im-panel-2));
+  border: 1px dashed color-mix(in srgb, var(--c) 30%, transparent);
+  padding: 6px 9px;
+  border-radius: 8px;
+}
+
+/* Trading levels box */
+#im-liquidity .imliq-levels-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--im-panel-2);
+  border: 1px solid var(--im-border);
+}
+
+#im-liquidity .imliq-level-col {
+  display: grid;
+  gap: 2px;
+}
+
+#im-liquidity .imliq-level-col small {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--im-muted);
+}
+
+#im-liquidity .imliq-level-col b {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--im-text);
+}
+
+#im-liquidity .imliq-level-col.is-entry b { color: #38bdf8; }
+#im-liquidity .imliq-level-col.is-sl b { color: var(--im-red); }
+#im-liquidity .imliq-level-col.is-tp b { color: var(--im-green); }
+
+#im-liquidity .imliq-story {
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--im-muted);
+}
+
+#im-liquidity .imliq-empty {
+  padding: 30px 15px;
+  text-align: center;
+  border: 1px dashed var(--im-border);
+  border-radius: 14px;
+  color: var(--im-muted);
+  font-size: 13px;
+}
