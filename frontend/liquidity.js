@@ -217,6 +217,12 @@
             <strong>Liquidity</strong>
             <small>5M &amp; 15M INSTITUTIONAL SWEEPS &bull; NSE &amp; MCX</small>
           </div>
+          <button id="imLiqTelegramTest" class="imfr-iconbtn" type="button" aria-label="Send Telegram Test Alert" title="Send Telegram Test Alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
           <button id="imLiqRefresh" class="imfr-iconbtn" type="button" aria-label="Scan Liquidity" title="Scan Liquidity">
             <svg class="imfr-spin" viewBox="0 0 24 24" aria-hidden="true">
               <polyline points="23 4 23 10 17 10"/>
@@ -293,6 +299,30 @@
   }
 
   body.addEventListener("click", (e) => {
+    if (e.target.closest("#imLiqTelegramTest")) {
+      const btn = e.target.closest("#imLiqTelegramTest");
+      btn.style.opacity = "0.5";
+      btn.style.pointerEvents = "none";
+      (async () => {
+        try {
+          const token = await getOwnerToken(2000);
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          const res = await fetch(`${API}/api/owner/liquidity/telegram-test`, { headers });
+          const json = await res.json();
+          if (json && json.ok && json.sent) {
+            alert("✅ Telegram Test Alert Sent! Check your Telegram channel/chat.");
+          } else {
+            alert("⚠️ Telegram Test Alert could not be sent. Please check bot token and chat ID.");
+          }
+        } catch (err) {
+          alert("❌ Error sending Telegram test alert: " + (err.message || err));
+        } finally {
+          btn.style.opacity = "";
+          btn.style.pointerEvents = "";
+        }
+      })();
+      return;
+    }
     if (e.target.closest("#imLiqRefresh")) {
       fetchSetups(true);
       return;

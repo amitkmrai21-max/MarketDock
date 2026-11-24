@@ -5659,6 +5659,172 @@ def ensure_instrument_master_warm():
 _liquidity_cache = {"data": None, "fetched_at": 0}
 LIQUIDITY_CACHE_SECONDS = 60
 
+_liquidity_telegram_seen = {}
+_liquidity_telegram_lock = threading.Lock()
+_liquidity_worker_started = False
+
+LIQUIDITY_TELEGRAM_BOT_TOKEN = (
+    os.environ.get("LIQUIDITY_TELEGRAM_BOT_TOKEN")
+    or os.environ.get("MARKETDOCK_TELEGRAM_BOT_TOKEN")
+    or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+).strip()
+LIQUIDITY_TELEGRAM_CHAT_ID = (
+    os.environ.get("LIQUIDITY_TELEGRAM_CHAT_ID")
+    or os.environ.get("MARKETDOCK_TELEGRAM_CHAT_ID")
+    or os.environ.get("TELEGRAM_CHAT_ID", "8391540111")
+).strip()
+
+
+def send_liquidity_telegram_alert(text: str) -> bool:
+    token = LIQUIDITY_TELEGRAM_BOT_TOKEN or MARKETDOCK_TELEGRAM_BOT_TOKEN
+    chat_id = LIQUIDITY_TELEGRAM_CHAT_ID or MARKETDOCK_TELEGRAM_CHAT_ID
+    if not token or not chat_id:
+        app.logger.warning("MarketDock Liquidity Telegram send skipped: bot token or chat ID missing.")
+        return False
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    try:
+        resp = requests.post(url, json=payload, timeout=8)
+        data = resp.json()
+        if data.get("ok"):
+            return True
+        app.logger.warning("MarketDock Liquidity Telegram send failed: %s", data)
+        return False
+    except Exception as e:
+        app.logger.warning("MarketDock Liquidity Telegram alert request error: %s", e)
+        return False
+
+
+def format_liquidity_telegram_alert(setup: dict) -> str:
+    market = setup.get("market") or setup.get("market_type") or "nse"
+    symbol = setup.get("symbol", "UNKNOWN")
+    name = setup.get("name", symbol)
+    direction = str(setup.get("direction", "bullish")).upper()
+    timeframe = str(setup.get("timeframe", "5m")).upper()
+    setup_name = setup.get("setup_name") or setup.get("pattern_name") or "Liquidity Setup"
+    trigger_event = setup.get("trigger_event", "")
+
+    price = setup.get("price") or setup.get("current_price") or setup.get("entry") or 0.0
+    entry = setup.get("entry") or setup.get("entry_price") or price
+    stop_loss = setup.get("stop_loss", 0.0)
+    target_1 = setup.get("target_1") or setup.get("target_price") or 0.0
+    target_2 = setup.get("target_2", 0.0)
+    rr = setup.get("risk_reward") or 0.0
+    explanation = setup.get("explanation", "")
+
+    risk_amt = abs(entry - stop_loss)
+    risk_pct = round((risk_amt / entry) * 100, 2) if entry > 0 else 0.0
+    rr1 = round(abs(target_1 - entry) / risk_amt, 2) if risk_amt > 0 else rr
+    rr2 = round(abs(target_2 - entry) / risk_amt, 2) if risk_amt > 0 and target_2 else 0.0
+
+    side_emoji = "🟢 BULLISH" if direction == "BULLISH" else "🔴 BEARISH"
+    market_badge = "🛢️ <b>Market:</b> MCX Commodity Futures" if market == "mcx" else "🏢 <b>Market:</b> NSE Indian Stock"
+    asset_line = f"🛢️ <b>Contract:</b> <b>{symbol}</b> ({name})" if market == "mcx" else f"📈 <b>Stock:</b> <b>{symbol}</b> ({name})"
+
+    ist_str = _ist_now().strftime("%d %b %Y, %I:%M %p IST")
+
+    lines = [
+        "💧 <b>MARKETDOCK LIQUIDITY ALERT</b>",
+        f"🎯 <b>{side_emoji} • {timeframe} SETUP</b>",
+        "",
+        market_badge,
+        asset_line,
+        f"⚡ <b>Setup:</b> <b>{setup_name}</b>",
+        f"🎯 <b>Trigger Event:</b> {trigger_event}",
+        "",
+        f"💰 <b>CMP / Entry:</b> ₹{entry:,.2f}",
+        f"🛑 <b>Stop Loss:</b> ₹{stop_loss:,.2f} ({risk_pct}% Risk)",
+        f"🎯 <b>Target 1:</b> ₹{target_1:,.2f} (R:R 1:{rr1})",
+    ]
+
+    if target_2 and target_2 > 0:
+        lines.append(f"🎯 <b>Target 2:</b> ₹{target_2:,.2f} (R:R 1:{rr2})")
+
+    if explanation:
+        lines.extend([
+            "",
+            "📝 <b>Execution Logic:</b>",
+            f"<i>{explanation}</i>",
+        ])
+
+    lines.extend([
+        "",
+        f"⏱ <i>{ist_str} • MarketDock Liquidity Engine</i>",
+    ])
+    return "\n".join(lines)
+
+
+def _dispatch_liquidity_telegram_alerts(setups: list):
+    if not setups:
+        return
+    now_ts = time.time()
+    with _liquidity_telegram_lock:
+        stale = [k for k, ts in _liquidity_telegram_seen.items() if (now_ts - ts) > 86400]
+        for k in stale:
+            _liquidity_telegram_seen.pop(k, None)
+
+    for setup in setups:
+        if not isinstance(setup, dict) or not setup.get("symbol"):
+            continue
+        market = setup.get("market") or setup.get("market_type") or "nse"
+        symbol = setup.get("symbol", "")
+        tf = setup.get("timeframe", "5m")
+        direction = setup.get("direction", "bullish")
+        setup_name = setup.get("setup_name", "")
+
+        alert_key = f"liquidity:{market}:{symbol}:{tf}:{direction}:{setup_name}"
+
+        with _liquidity_telegram_lock:
+            last_sent = _liquidity_telegram_seen.get(alert_key, 0)
+            if (now_ts - last_sent) < 7200:
+                continue
+            _liquidity_telegram_seen[alert_key] = now_ts
+
+        msg = format_liquidity_telegram_alert(setup)
+        send_liquidity_telegram_alert(msg)
+        time.sleep(2)
+
+
+def _run_liquidity_background_scanner():
+    app.logger.info("MarketDock Liquidity Telegram background worker loop started.")
+    time.sleep(25)
+
+    while True:
+        try:
+            is_nse_open = market_open("nse")
+            is_mcx_open = market_open("mcx")
+
+            if is_nse_open or is_mcx_open:
+                payload = _execute_liquidity_scan()
+                _liquidity_cache["data"] = payload
+                _liquidity_cache["fetched_at"] = time.time()
+                setups = payload.get("setups") or []
+                _dispatch_liquidity_telegram_alerts(setups)
+                time.sleep(120)
+            else:
+                time.sleep(300)
+
+        except Exception as err:
+            app.logger.warning("Liquidity background worker error: %s", err)
+            time.sleep(60)
+
+
+def start_liquidity_telegram_worker():
+    global _liquidity_worker_started
+    if _liquidity_worker_started:
+        return
+    _liquidity_worker_started = True
+    t = threading.Thread(target=_run_liquidity_background_scanner, daemon=True, name="LiquidityTelegramWorker")
+    t.start()
+
+
+start_liquidity_telegram_worker()
+
 
 def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_label):
     if not candles or len(candles) < 25:
@@ -6141,7 +6307,29 @@ def liquidity_scan():
     payload = _execute_liquidity_scan()
     _liquidity_cache["data"] = payload
     _liquidity_cache["fetched_at"] = time.time()
+    try:
+        _dispatch_liquidity_telegram_alerts(payload.get("setups", []))
+    except Exception as e:
+        app.logger.warning("Error dispatching liquidity alerts from endpoint: %s", e)
     return jsonify({"ok": True, **payload})
+
+
+@app.get("/api/owner/liquidity/telegram-test")
+def liquidity_telegram_test():
+    denied = require_owner_account()
+    if denied:
+        return denied
+    now_str = _ist_now().strftime("%d %b %Y, %I:%M %p IST")
+    test_msg = (
+        "💧 <b>MarketDock Liquidity Alert Test</b>\n\n"
+        "✅ <b>Telegram Connection Active!</b>\n"
+        "• <b>Engine:</b> 5m & 15m Institutional Liquidity Sweeps & Retests\n"
+        "• <b>Markets:</b> NSE Indian Equities & MCX Commodities\n"
+        "• <b>Trigger Rules:</b> Candlestick crossovers with min 1:1.5 R:R\n\n"
+        f"⏱ <i>{now_str} • MarketDock Liquidity Engine</i>"
+    )
+    ok = send_liquidity_telegram_alert(test_msg)
+    return jsonify({"ok": ok, "sent": ok})
 
 
 if __name__ == "__main__":
