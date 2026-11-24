@@ -5665,13 +5665,12 @@ _liquidity_worker_started = False
 
 LIQUIDITY_TELEGRAM_BOT_TOKEN = (
     os.environ.get("LIQUIDITY_TELEGRAM_BOT_TOKEN")
-    or os.environ.get("MARKETDOCK_TELEGRAM_BOT_TOKEN")
-    or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    or "9153640929:AAEp7o8pdS2xEwtyAVj8NhvMViFfiYLOQtE"
 ).strip()
 LIQUIDITY_TELEGRAM_CHAT_ID = (
     os.environ.get("LIQUIDITY_TELEGRAM_CHAT_ID")
     or os.environ.get("MARKETDOCK_TELEGRAM_CHAT_ID")
-    or os.environ.get("TELEGRAM_CHAT_ID", "8391540111")
+    or "8391540111"
 ).strip()
 
 
