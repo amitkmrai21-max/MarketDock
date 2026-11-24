@@ -1,62 +1,139 @@
-/* MarketDock Liquidity Hunter (5m & 15m) */
-#im-liquidity .imliq-page {
+/* MarketDock Liquidity Hunter (5m & 15m) - Matching Commodity Radar style exactly */
+
+#im-liquidity .imfr-page {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 10px;
   align-content: start;
 }
 
-#im-liquidity .imliq-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-#im-liquidity .imliq-title-box {
+#im-liquidity .imfr-top {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-#im-liquidity .imliq-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  display: grid;
-  place-items: center;
-  background: color-mix(in srgb, #38bdf8 15%, var(--im-panel-2));
-  border: 1px solid color-mix(in srgb, #38bdf8 35%, transparent);
-  color: #38bdf8;
+#im-liquidity .imfr-top > div {
+  flex: 1;
+  min-width: 0;
 }
 
-#im-liquidity .imliq-title-box strong {
+#im-liquidity .imfr-top strong {
   display: block;
   font-size: 17px;
   font-weight: 800;
   letter-spacing: .08em;
   color: var(--im-text);
+  text-transform: uppercase;
 }
 
-#im-liquidity .imliq-title-box small {
+#im-liquidity .imfr-top small {
   display: block;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .12em;
   color: var(--im-muted);
+  text-transform: uppercase;
 }
 
-#im-liquidity .imliq-actions {
+#im-liquidity .imfr-logo {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+#im-liquidity .imfr-iconbtn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-text);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform .15s ease, background .15s ease;
+}
+
+#im-liquidity .imfr-iconbtn:hover {
+  background: var(--im-panel);
+}
+
+#im-liquidity .imfr-iconbtn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+#im-liquidity .imfr-spin {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-origin: 50% 50%;
+}
+
+@keyframes imLiqSpin {
+  to { transform: rotate(360deg); }
+}
+
+#im-liquidity.is-loading .imfr-spin {
+  animation: imLiqSpin .9s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #im-liquidity.is-loading .imfr-spin { animation: none; }
+}
+
+#im-liquidity .imfr-bar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
-#im-liquidity .imliq-refresh-btn {
+#im-liquidity .imfr-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#im-liquidity .imfr-tabs::-webkit-scrollbar { display: none; }
+
+#im-liquidity .imfr-pilltab {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--im-border);
+  background: var(--im-panel-2);
+  color: var(--im-muted);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+#im-liquidity .imfr-pilltab.is-active {
+  color: var(--im-text);
+  border-color: var(--im-blue);
+  background: color-mix(in srgb, var(--im-blue) 18%, transparent);
+}
+
+#im-liquidity .imfr-filter {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 13px;
+  gap: 5px;
+  padding: 6px 11px;
   border-radius: 999px;
   border: 1px solid var(--im-border);
   background: var(--im-panel-2);
@@ -65,249 +142,277 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: all .2s;
 }
 
-#im-liquidity .imliq-refresh-btn:hover {
-  background: color-mix(in srgb, var(--im-blue) 15%, var(--im-panel-2));
-  border-color: var(--im-blue);
-}
-
-#im-liquidity .imliq-spin {
+#im-liquidity .imfr-filter svg {
   width: 14px;
   height: 14px;
+  fill: none;
   stroke: currentColor;
-  transform-origin: 50% 50%;
+  stroke-width: 2;
+  stroke-linejoin: round;
 }
 
-@keyframes imliqSpin { to { transform: rotate(360deg); } }
-#im-liquidity.is-loading .imliq-spin { animation: imliqSpin .8s linear infinite; }
-
-/* Metrics Counter Strip */
-#im-liquidity .imliq-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 8px;
-}
-
-#im-liquidity .imliq-metric-card {
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: var(--im-panel-2);
-  border: 1px solid var(--im-border);
-  display: grid;
-  gap: 3px;
-}
-
-#im-liquidity .imliq-metric-label {
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--im-muted);
-}
-
-#im-liquidity .imliq-metric-val {
-  font-size: 18px;
-  font-weight: 900;
-  color: var(--im-text);
-}
-
-/* Filters bar */
-#im-liquidity .imliq-bar {
+#im-liquidity .imfr-summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-#im-liquidity .imliq-tabs {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-#im-liquidity .imliq-tab {
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--im-border);
-  background: var(--im-panel-2);
-  color: var(--im-muted);
-  font: inherit;
-  font-size: 11.5px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all .15s;
-}
-
-#im-liquidity .imliq-tab.is-active {
-  color: #fff;
-  border-color: var(--im-blue);
-  background: color-mix(in srgb, var(--im-blue) 25%, transparent);
-}
-
-/* Cards Grid */
-#im-liquidity .imliq-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 12px;
-}
-
-#im-liquidity .imliq-card {
-  --c: var(--im-green);
-  display: grid;
   gap: 10px;
-  padding: 14px;
-  border-radius: 16px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 7%, var(--im-panel)), var(--im-panel));
-  border: 1px solid color-mix(in srgb, var(--c) 45%, var(--im-border));
-  box-shadow: 0 4px 18px color-mix(in srgb, var(--c) 10%, transparent);
-  transition: transform .15s;
-}
-
-#im-liquidity .imliq-card:hover {
-  transform: translateY(-2px);
-}
-
-#im-liquidity .imliq-card.is-bear {
-  --c: var(--im-red);
-}
-
-#im-liquidity .imliq-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-#im-liquidity .imliq-id-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-#im-liquidity .imliq-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: grid;
-  place-items: center;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-#im-liquidity .imliq-symbol {
-  font-size: 15px;
-  font-weight: 900;
-  color: var(--im-text);
-  letter-spacing: .02em;
-}
-
-#im-liquidity .imliq-market-tag {
-  font-size: 9px;
-  font-weight: 800;
-  padding: 1px 6px;
-  border-radius: 99px;
-  background: var(--im-panel-2);
+  padding: 8px 12px;
+  border-radius: 14px;
   border: 1px solid var(--im-border);
-  color: var(--im-muted);
+  background: var(--im-panel-2);
 }
 
-#im-liquidity .imliq-badges {
+#im-liquidity .imfr-summary > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+
+#im-liquidity .imfr-summary b {
+  display: block;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--im-text);
+}
+
+#im-liquidity .imfr-summary small {
+  color: var(--im-muted);
+  font-size: 10px;
+}
+
+#im-liquidity .imfr-radar {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: var(--im-green);
+  stroke-width: 1;
+  opacity: .85;
+}
+
+#im-liquidity .imfr-radar path {
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+#im-liquidity .imfr-ticks {
+  display: grid;
+  gap: 1px;
+  font-size: 10.5px;
+  line-height: normal;
+  color: var(--im-text);
+}
+
+#im-liquidity .imfr-ticks div {
   display: flex;
   align-items: center;
   gap: 5px;
+  justify-content: space-between;
 }
 
-#im-liquidity .imliq-tf-badge {
-  padding: 2px 7px;
-  border-radius: 99px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .04em;
-  background: color-mix(in srgb, #38bdf8 20%, transparent);
-  border: 1px solid color-mix(in srgb, #38bdf8 50%, transparent);
-  color: #38bdf8;
+#im-liquidity .imfr-ticks i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--im-green);
 }
 
-#im-liquidity .imliq-tf-badge.is-15m {
-  background: color-mix(in srgb, #a855f7 20%, transparent);
-  border-color: color-mix(in srgb, #a855f7 50%, transparent);
-  color: #c084fc;
+#im-liquidity .imfr-ticks b {
+  display: inline;
+  font-size: 10.5px;
+  min-width: 46px;
+  text-align: right;
 }
 
-#im-liquidity .imliq-dir-badge {
-  padding: 2px 8px;
-  border-radius: 99px;
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--c);
-  background: color-mix(in srgb, var(--c) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--c) 50%, transparent);
-}
-
-#im-liquidity .imliq-setup-title {
-  font-size: 13px;
-  font-weight: 800;
-  color: var(--c);
-}
-
-#im-liquidity .imliq-trigger-event {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--im-text);
-  background: color-mix(in srgb, var(--c) 8%, var(--im-panel-2));
-  border: 1px dashed color-mix(in srgb, var(--c) 30%, transparent);
-  padding: 6px 9px;
-  border-radius: 8px;
-}
-
-/* Trading levels box */
-#im-liquidity .imliq-levels-grid {
+#im-liquidity .imfr-results {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 6px;
-  padding: 8px 10px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+#im-liquidity .imfr-card {
+  --c: var(--im-green);
+  display: grid;
+  gap: 9px;
+  padding: 11px;
+  border-radius: 16px;
+  color: var(--im-text);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 6%, var(--im-panel)), var(--im-panel));
+  border: 1px solid color-mix(in srgb, var(--c) 58%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--c) 14%, transparent);
+}
+
+#im-liquidity .imfr-card.is-bear {
+  --c: var(--im-red);
+}
+
+body[data-theme="light"] #im-liquidity .imfr-card {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--c) 14%, transparent);
+}
+
+#im-liquidity .imfr-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+#im-liquidity .imfr-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+#im-liquidity .imfr-id strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+#im-liquidity .imfr-id strong span {
+  color: var(--im-muted);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+#im-liquidity .imfr-id small {
+  display: block;
+  margin-top: 3px;
+  max-width: 100%;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 9.5px;
+  color: var(--im-muted);
+  background: var(--im-panel-2);
+  border: 1px solid var(--im-border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: fit-content;
+}
+
+#im-liquidity .imfr-px {
+  text-align: right;
+}
+
+#im-liquidity .imfr-px b {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+#im-liquidity .imfr-px small {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+#im-liquidity .imfr-tags {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#im-liquidity .imfr-pill {
+  padding: 5px 11px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .03em;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
+  white-space: nowrap;
+}
+
+#im-liquidity .imfr-tag {
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: var(--im-muted);
+  background: var(--im-panel-2);
+  border: 1px solid var(--im-border);
+  white-space: nowrap;
+}
+
+#im-liquidity .imfr-levels {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+#im-liquidity .imfr-levels > div {
+  padding: 6px 3px;
   border-radius: 10px;
   background: var(--im-panel-2);
   border: 1px solid var(--im-border);
+  text-align: center;
+  min-width: 0;
+  min-height: 58px;
+  white-space: nowrap;
 }
 
-#im-liquidity .imliq-level-col {
-  display: grid;
-  gap: 2px;
+#im-liquidity .imfr-levels span {
+  display: inline-block;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--im-text);
+  padding: 1px 4px;
+  margin-bottom: 2px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #8b5cf6 16%, transparent);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-#im-liquidity .imliq-level-col small {
+#im-liquidity .imfr-levels b {
+  display: block;
+  font-size: 11.5px;
+  margin-top: 1px;
+}
+
+#im-liquidity .imfr-levels em {
+  display: block;
+  font-style: normal;
   font-size: 9.5px;
   font-weight: 700;
-  text-transform: uppercase;
+  min-height: 12px;
+}
+
+#im-liquidity .imfr-up { color: var(--im-green); }
+#im-liquidity .imfr-down { color: var(--im-red); }
+
+#im-liquidity .imfr-story {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--im-muted);
+  background: var(--im-panel-2);
+  border: 1px solid var(--im-border);
+  border-radius: 10px;
+  padding: 7px 10px;
+}
+
+#im-liquidity .imfr-loading, #im-liquidity .imfr-error {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
   color: var(--im-muted);
 }
+#im-liquidity .imfr-error { color: var(--im-red); }
 
-#im-liquidity .imliq-level-col b {
-  font-size: 12.5px;
-  font-weight: 800;
-  color: var(--im-text);
-}
-
-#im-liquidity .imliq-level-col.is-entry b { color: #38bdf8; }
-#im-liquidity .imliq-level-col.is-sl b { color: var(--im-red); }
-#im-liquidity .imliq-level-col.is-tp b { color: var(--im-green); }
-
-#im-liquidity .imliq-story {
-  font-size: 10.5px;
-  line-height: 1.45;
-  color: var(--im-muted);
-}
-
-#im-liquidity .imliq-empty {
-  padding: 30px 15px;
+#im-liquidity .imfr-empty {
+  padding: 24px 14px;
   text-align: center;
   border: 1px dashed var(--im-border);
   border-radius: 14px;
-  color: var(--im-muted);
-  font-size: 13px;
 }
+#im-liquidity .imfr-empty strong { display: block; font-size: 13px; color: var(--im-text); }
+#im-liquidity .imfr-empty p { margin: 6px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--im-muted); }
