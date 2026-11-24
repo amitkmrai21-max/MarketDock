@@ -1,6 +1,8 @@
 // MarketDock Liquidity Hunter (5m & 15m) - Dedicated to NSE Equities & MCX Commodities
+// Strictly owner-only (amitkmrai21@gmail.com)
 (function () {
   const page = document.getElementById("im-liquidity");
+  const navButton = document.querySelector('.nav-button[data-page="im-liquidity"]');
   const body = document.getElementById("imLiquidityBody");
   if (!page || !body) return;
 
@@ -13,6 +15,97 @@
   let allSetups = [];
   let lastFetched = null;
   let autoTimer = null;
+  let isOwnerAllowed = false;
+
+  const ALLOWED_KEY = "marketdock_liquidity_allowed";
+  const readCached = () => {
+    try {
+      if (localStorage.getItem(ALLOWED_KEY) === "1") return true;
+      if (localStorage.getItem("marketdock_smart_mtf_allowed") === "1") return true;
+    } catch (e) {}
+    return false;
+  };
+  const writeCached = (v) => {
+    try {
+      if (v) {
+        localStorage.setItem(ALLOWED_KEY, "1");
+      } else {
+        localStorage.removeItem(ALLOWED_KEY);
+      }
+    } catch (e) {}
+  };
+
+  async function getOwnerToken(waitMs = 5000) {
+    const until = Date.now() + waitMs;
+    for (;;) {
+      try {
+        const { data: session } = await window.marketDockSupabase.auth.getSession();
+        const token = session?.session?.access_token;
+        if (token) return token;
+      } catch (e) {}
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i) || "";
+          if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed?.access_token) return parsed.access_token;
+            }
+          }
+        }
+      } catch (e) {}
+      if (Date.now() >= until) return null;
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+  }
+
+  let retryTimer = null;
+  async function checkAccess(attempt = 0) {
+    let verdict = "error";
+    try {
+      const token = await getOwnerToken();
+      if (!token) {
+        verdict = "no";
+      } else {
+        const res = await fetch(`${API}/api/owner/liquidity/access`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store"
+        });
+        verdict = res.ok ? "yes" : (res.status === 401 || res.status === 403) ? "no" : "error";
+      }
+    } catch (e) {
+      verdict = "error";
+    }
+
+    clearTimeout(retryTimer);
+    if (verdict === "error") {
+      if (attempt < 4) retryTimer = setTimeout(() => checkAccess(attempt + 1), [3000, 8000, 20000, 45000][attempt]);
+      return;
+    }
+
+    isOwnerAllowed = (verdict === "yes");
+    writeCached(isOwnerAllowed);
+    if (navButton) navButton.hidden = !isOwnerAllowed;
+
+    if (!isOwnerAllowed && page.classList.contains("active")) {
+      document.querySelector('.nav-button[data-page="im-dashboard"]')?.click();
+    }
+  }
+
+  // Pre-unhide if cached from previous session to avoid UI flash
+  if (readCached() && navButton) navButton.hidden = false;
+  setTimeout(() => checkAccess(), 1200);
+
+  // Watch auth state changes
+  try {
+    const auth = window.marketDockSupabase?.auth;
+    if (auth?.onAuthStateChange) {
+      auth.onAuthStateChange(() => {
+        setTimeout(() => checkAccess(0), 400);
+      });
+    }
+  } catch (e) {}
 
   function getAvatarColor(sym) {
     let hash = 0;
@@ -24,12 +117,25 @@
 
   async function fetchSetups(force = false) {
     if (isLoading) return;
+
+    const token = await getOwnerToken();
+    if (!token) {
+      body.innerHTML = `
+        <div class="imliq-container" style="padding: 24px; text-align: center;">
+          <p style="color: var(--im-muted); font-size: 13px;">Owner authentication required. Please sign in with your owner account.</p>
+        </div>
+      `;
+      return;
+    }
+
     isLoading = true;
     page.classList.add("is-loading");
     renderUI();
 
     try {
-      const res = await fetch(`${API}/api/owner/liquidity${force ? "?refresh=1" : ""}`).then(r => r.json());
+      const res = await fetch(`${API}/api/owner/liquidity${force ? "?refresh=1" : ""}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      }).then(r => r.json());
       allSetups = (res && res.setups) || [];
       lastFetched = new Date();
     } catch (err) {
@@ -49,79 +155,68 @@
       return true;
     });
 
-    const total5m = allSetups.filter(s => s.timeframe === "5m").length;
-    const total15m = allSetups.filter(s => s.timeframe === "15m").length;
-    const totalBull = allSetups.filter(s => s.direction === "bullish").length;
-    const totalBear = allSetups.filter(s => s.direction === "bearish").length;
-
-    const timeStr = lastFetched ? lastFetched.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "Scanning...";
+    const nseCount = allSetups.filter(s => s.market === "NSE").length;
+    const mcxCount = allSetups.filter(s => s.market === "MCX").length;
+    const bullCount = allSetups.filter(s => s.direction === "BULLISH").length;
+    const bearCount = allSetups.filter(s => s.direction === "BEARISH").length;
 
     body.innerHTML = `
-      <div class="imliq-page">
-        <!-- Top Title Bar -->
-        <div class="imliq-top">
-          <div class="imliq-title-box">
-            <div class="imliq-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
-              </svg>
-            </div>
-            <div>
-              <strong>Liquidity Hunter (5m &amp; 15m)</strong>
-              <small>NSE Equities &amp; MCX Commodities • Updated: ${timeStr}</small>
-            </div>
+      <div class="imliq-container">
+        <!-- Header -->
+        <div class="imliq-header">
+          <div class="imliq-title-group">
+            <span class="imliq-pill"><span class="imliq-dot"></span> LIVE ENGINE &bull; 5M &amp; 15M</span>
+            <h2>Liquidity Hunter</h2>
+            <div class="imliq-subtitle">Tracks institutional liquidity sweeps, fakeouts, and candle confirmations across NSE Equities &amp; MCX Commodities.</div>
           </div>
-
           <div class="imliq-actions">
-            <button class="imliq-refresh-btn" id="imliqRefreshBtn" type="button" ${isLoading ? "disabled" : ""}>
-              <svg class="imliq-spin" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke-width="2" stroke-dasharray="32" stroke-dashoffset="12"></circle>
-              </svg>
-              <span>${isLoading ? "Scanning..." : "Scan Liquidity"}</span>
+            <button class="imliq-btn imliq-btn-primary" id="imliqRefreshBtn" ${isLoading ? "disabled" : ""}>
+              ${isLoading ? "Scanning..." : "Scan Liquidity"}
             </button>
+            <div class="imliq-meta">
+              ${lastFetched ? `Updated: ${lastFetched.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : "Awaiting scan"}
+            </div>
           </div>
         </div>
 
-        <!-- Metric Cards Strip -->
+        <!-- Metric Bar -->
         <div class="imliq-metrics">
           <div class="imliq-metric-card">
-            <span class="imliq-metric-label">Active Setups</span>
-            <span class="imliq-metric-val">${allSetups.length}</span>
+            <div class="imliq-metric-label">Total Setups</div>
+            <div class="imliq-metric-val">${allSetups.length}</div>
           </div>
           <div class="imliq-metric-card">
-            <span class="imliq-metric-label">5-Minute (5m)</span>
-            <span class="imliq-metric-val" style="color: #38bdf8;">${total5m}</span>
+            <div class="imliq-metric-label">NSE Equities</div>
+            <div class="imliq-metric-val" style="color: #38bdf8;">${nseCount}</div>
           </div>
           <div class="imliq-metric-card">
-            <span class="imliq-metric-label">15-Minute (15m)</span>
-            <span class="imliq-metric-val" style="color: #c084fc;">${total15m}</span>
+            <div class="imliq-metric-label">MCX Commodities</div>
+            <div class="imliq-metric-val" style="color: #fbbf24;">${mcxCount}</div>
           </div>
           <div class="imliq-metric-card">
-            <span class="imliq-metric-label">Bullish / Bearish</span>
-            <span class="imliq-metric-val"><span style="color: var(--im-green);">${totalBull}</span> / <span style="color: var(--im-red);">${totalBear}</span></span>
+            <div class="imliq-metric-label">Bullish / Bearish</div>
+            <div class="imliq-metric-val" style="font-size: 16px;">
+              <span style="color: #4ade80;">${bullCount}L</span> / <span style="color: #f87171;">${bearCount}S</span>
+            </div>
           </div>
         </div>
 
         <!-- Filter Bar -->
-        <div class="imliq-bar">
-          <!-- Market Tabs: NSE & MCX Only -->
-          <div class="imliq-tabs" id="imliqMarketTabs">
-            <button class="imliq-tab ${activeMarket === "all" ? "is-active" : ""}" data-val="all">All Markets</button>
-            <button class="imliq-tab ${activeMarket === "nse" ? "is-active" : ""}" data-val="nse">NSE Equities</button>
-            <button class="imliq-tab ${activeMarket === "mcx" ? "is-active" : ""}" data-val="mcx">MCX Commodities</button>
+        <div class="imliq-filters">
+          <div class="imliq-tab-group" id="imliqMarketTabs">
+            <button class="imliq-tab ${activeMarket === 'all' ? 'active' : ''}" data-val="all">All Markets</button>
+            <button class="imliq-tab ${activeMarket === 'nse' ? 'active' : ''}" data-val="nse">NSE Equities</button>
+            <button class="imliq-tab ${activeMarket === 'mcx' ? 'active' : ''}" data-val="mcx">MCX Commodities</button>
           </div>
-
-          <!-- Timeframe & Direction -->
-          <div class="imliq-tabs" id="imliqTfTabs">
-            <button class="imliq-tab ${activeTimeframe === "all" ? "is-active" : ""}" data-val="all">All (5m &amp; 15m)</button>
-            <button class="imliq-tab ${activeTimeframe === "5m" ? "is-active" : ""}" data-val="5m">⚡ 5m Active</button>
-            <button class="imliq-tab ${activeTimeframe === "15m" ? "is-active" : ""}" data-val="15m">⚡ 15m Active</button>
+          <div class="imliq-tab-group" id="imliqTfTabs">
+            <button class="imliq-tab ${activeTimeframe === 'all' ? 'active' : ''}" data-val="all">All TF</button>
+            <button class="imliq-tab ${activeTimeframe === '5m' ? 'active' : ''}" data-val="5m">5m</button>
+            <button class="imliq-tab ${activeTimeframe === '15m' ? 'active' : ''}" data-val="15m">15m</button>
           </div>
-
-          <div class="imliq-tabs" id="imliqDirTabs">
-            <button class="imliq-tab ${activeDirection === "all" ? "is-active" : ""}" data-val="all">All Directions</button>
-            <button class="imliq-tab ${activeDirection === "bullish" ? "is-active" : ""}" data-val="bullish">🟢 Bullish Long</button>
-            <button class="imliq-tab ${activeDirection === "bearish" ? "is-active" : ""}" data-val="bearish">🔴 Bearish Short</button>
+          <div class="imliq-tab-group" id="imliqDirTabs">
+            <button class="imliq-tab ${activeDirection === 'all' ? 'active' : ''}" data-val="all">All Sides</button>
+            <button class="imliq-tab ${activeDirection === 'bullish' ? 'active' : ''}" data-val="bullish">Long</button>
+            <button class="imliq-tab ${activeDirection === 'bearish' ? 'active' : ''}" data-val="bearish">Short</button>
           </div>
         </div>
 
@@ -141,47 +236,50 @@
   }
 
   function renderSetupCard(s) {
-    const isBear = s.direction === "bearish";
-    const tfClass = s.timeframe === "15m" ? "is-15m" : "";
+    const isBull = s.direction === "BULLISH";
+    const dirClass = isBull ? "bullish" : "bearish";
+    const dirIcon = isBull ? "&#8599;" : "&#8600;";
+    const avatarColor = getAvatarColor(s.symbol);
 
     return `
-      <div class="imliq-card ${isBear ? "is-bear" : ""}">
+      <div class="imliq-card ${dirClass}">
         <div class="imliq-card-head">
-          <div class="imliq-id-row">
-            <div class="imliq-avatar" style="background: ${getAvatarColor(s.symbol)};">
-              ${s.symbol.slice(0, 3)}
-            </div>
+          <div class="imliq-card-left">
+            <div class="imliq-avatar" style="background: ${avatarColor};">${s.symbol.slice(0, 3)}</div>
             <div>
-              <div class="imliq-symbol">${s.symbol}</div>
-              <span class="imliq-market-tag">${s.market.toUpperCase()}</span>
+              <div class="imliq-sym-name">${s.name || s.symbol}</div>
+              <div class="imliq-sym-sub">${s.symbol} &bull; ₹${Number(s.current_price).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
             </div>
           </div>
-
-          <div class="imliq-badges">
-            <span class="imliq-tf-badge ${tfClass}">⚡ ${s.timeframe}</span>
-            <span class="imliq-dir-badge">${isBear ? "BEARISH SHORT" : "BULLISH LONG"}</span>
+          <div class="imliq-card-badges">
+            <span class="imliq-tag tf">${s.timeframe}</span>
+            <span class="imliq-tag mkt">${s.market}</span>
+            <span class="imliq-badge-dir ${dirClass}">
+              <span>${dirIcon}</span> ${s.direction}
+            </span>
           </div>
         </div>
 
-        <div>
-          <div class="imliq-setup-title">${s.setup_name}</div>
-          <div class="imliq-trigger-event" style="margin-top: 4px;">
-            ${s.trigger_event}
-          </div>
+        <div style="font-size: 11.5px; font-weight: 700; color: ${isBull ? '#4ade80' : '#f87171'}; margin-bottom: 2px;">
+          ${s.pattern_name}
         </div>
 
-        <div class="imliq-levels-grid">
-          <div class="imliq-level-col is-entry">
-            <small>Entry Price</small>
-            <b>₹${s.entry_price}</b>
+        <div class="imliq-levels">
+          <div class="imliq-level-box">
+            <span class="imliq-lvl-label">ENTRY TRIGGER</span>
+            <span class="imliq-lvl-val val-entry">₹${Number(s.entry).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
-          <div class="imliq-level-col is-sl">
-            <small>Stop Loss</small>
-            <b>₹${s.stop_loss}</b>
+          <div class="imliq-level-box">
+            <span class="imliq-lvl-label">STOP LOSS</span>
+            <span class="imliq-lvl-val val-sl">₹${Number(s.stop_loss).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
-          <div class="imliq-level-col is-tp">
-            <small>Target (TP)</small>
-            <b>₹${s.target_price}</b>
+          <div class="imliq-level-box">
+            <span class="imliq-lvl-label">TARGET 1</span>
+            <span class="imliq-lvl-val val-tp">₹${Number(s.target_1).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
+          </div>
+          <div class="imliq-level-box">
+            <span class="imliq-lvl-label">TARGET 2</span>
+            <span class="imliq-lvl-val val-tp">₹${Number(s.target_2).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
           </div>
         </div>
 
