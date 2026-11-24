@@ -5713,22 +5713,32 @@ def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_l
             if crossed_below and is_red and (pullback_high - live_price) > 0 and (live_price - point_b_low) > 0:
                 sl = round(pullback_high * 1.0015, 2)
                 tp = round(point_b_low, 2)
+                tp2 = round(tp - (live_price - tp) * 0.5, 2)
                 risk = abs(sl - live_price)
                 reward = abs(live_price - tp)
                 rr = round(reward / risk, 2) if risk > 0 else 1.0
+                detected_ts = int(curr.get("timestamp") or time.time())
 
                 return {
                     "symbol": symbol,
                     "name": name,
                     "market": market_type,
+                    "market_type": market_type,
                     "timeframe": timeframe_label,
                     "direction": "bearish",
                     "setup_name": "Pullback to Sell-Side Liquidity (SSL)",
+                    "pattern_name": "Pullback to Sell-Side Liquidity (SSL)",
                     "trigger_event": f"Red candle crossed {timeframe_label} Green candle low ({last_green['low']})",
+                    "price": live_price,
+                    "current_price": live_price,
+                    "entry": live_price,
                     "entry_price": live_price,
                     "stop_loss": sl,
+                    "target_1": tp,
+                    "target_2": tp2,
                     "target_price": tp,
                     "risk_reward": rr,
+                    "detected_at": detected_ts,
                     "point_a_high": last_sh["price"],
                     "point_b_low": point_b_low,
                     "explanation": f"Drop to low ({point_b_low}) -> Pullback formed green candle -> Red candle crossed green low ({last_green['low']}) -> Targeting liquidity at previous low ({point_b_low}).",
@@ -5747,22 +5757,32 @@ def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_l
             if first_green and live_price > first_green["high"] and last_sh["price"] > live_price:
                 sl = round(min(curr_sl["price"], prev_sl["price"]) * 0.9985, 2)
                 tp = round(last_sh["price"], 2)
+                tp2 = round(tp + (tp - live_price) * 0.5, 2)
                 risk = abs(live_price - sl)
                 reward = abs(tp - live_price)
                 rr = round(reward / risk, 2) if risk > 0 else 1.0
+                detected_ts = int(curr.get("timestamp") or time.time())
 
                 return {
                     "symbol": symbol,
                     "name": name,
                     "market": market_type,
+                    "market_type": market_type,
                     "timeframe": timeframe_label,
                     "direction": "bullish",
                     "setup_name": "Double Bottom Liquidity Tap & Reversal",
+                    "pattern_name": "Double Bottom Liquidity Tap & Reversal",
                     "trigger_event": f"Price swept low ({curr_sl['price']}) & crossed Green candle high ({first_green['high']})",
+                    "price": live_price,
+                    "current_price": live_price,
+                    "entry": live_price,
                     "entry_price": live_price,
                     "stop_loss": sl,
+                    "target_1": tp,
+                    "target_2": tp2,
                     "target_price": tp,
                     "risk_reward": rr,
+                    "detected_at": detected_ts,
                     "point_a_high": last_sh["price"],
                     "point_b_low": curr_sl["price"],
                     "explanation": f"Tested prior low ({prev_sl['price']}) -> Swept liquidity -> Green candle broke upward -> Targeting swing high ({last_sh['price']}).",
@@ -5779,22 +5799,32 @@ def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_l
             if red_candles and last_sl["price"] < live_price:
                 sl = round(curr_sh["price"] * 1.0015, 2)
                 tp = round(last_sl["price"], 2)
+                tp2 = round(tp - (live_price - tp) * 0.5, 2)
                 risk = abs(sl - live_price)
                 reward = abs(live_price - tp)
                 rr = round(reward / risk, 2) if risk > 0 else 1.0
+                detected_ts = int(curr.get("timestamp") or time.time())
 
                 return {
                     "symbol": symbol,
                     "name": name,
                     "market": market_type,
+                    "market_type": market_type,
                     "timeframe": timeframe_label,
                     "direction": "bearish",
                     "setup_name": "Top Liquidity Sweep Reversal (SFP)",
+                    "pattern_name": "Top Liquidity Sweep Reversal (SFP)",
                     "trigger_event": f"High swept ({curr_sh['price']}) & Red candle confirmed rejection",
+                    "price": live_price,
+                    "current_price": live_price,
+                    "entry": live_price,
                     "entry_price": live_price,
                     "stop_loss": sl,
+                    "target_1": tp,
+                    "target_2": tp2,
                     "target_price": tp,
                     "risk_reward": rr,
+                    "detected_at": detected_ts,
                     "point_a_high": curr_sh["price"],
                     "point_b_low": last_sl["price"],
                     "explanation": f"Swept upper buy-side liquidity at ({curr_sh['price']}) -> Strong rejection -> Aiming for bottom liquidity low ({last_sl['price']}).",
@@ -5811,22 +5841,32 @@ def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_l
             if curr["close"] > last_red["high"]:
                 sl = round(min([c["low"] for c in dip]) * 0.9985, 2)
                 tp = round(point_b_high, 2)
+                tp2 = round(tp + (tp - live_price) * 0.5, 2)
                 risk = abs(live_price - sl)
                 reward = abs(tp - live_price)
                 rr = round(reward / risk, 2) if risk > 0 else 1.0
+                detected_ts = int(curr.get("timestamp") or time.time())
 
                 return {
                     "symbol": symbol,
                     "name": name,
                     "market": market_type,
+                    "market_type": market_type,
                     "timeframe": timeframe_label,
                     "direction": "bullish",
                     "setup_name": "Uptrend Dip Pullback to BSL",
+                    "pattern_name": "Uptrend Dip Pullback to BSL",
                     "trigger_event": f"Green candle crossed {timeframe_label} Red candle high ({last_red['high']})",
+                    "price": live_price,
+                    "current_price": live_price,
+                    "entry": live_price,
                     "entry_price": live_price,
                     "stop_loss": sl,
+                    "target_1": tp,
+                    "target_2": tp2,
                     "target_price": tp,
                     "risk_reward": rr,
+                    "detected_at": detected_ts,
                     "point_a_high": point_b_high,
                     "point_b_low": last_sl["price"],
                     "explanation": f"Uptrend dip -> Formed red candle -> Green candle broke red high ({last_red['high']}) -> Targeting previous high ({point_b_high}).",
