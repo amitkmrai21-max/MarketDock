@@ -6636,14 +6636,49 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
     return None
 
 
+def _is_candle_fresh(time_str, timeframe_label):
+    if not time_str:
+        return False
+    try:
+        clean = str(time_str).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(clean)
+        ist_tz = timezone(timedelta(hours=5, minutes=30))
+        if dt.tzinfo is not None:
+            dt_ist = dt.astimezone(ist_tz)
+        else:
+            dt_ist = dt.replace(tzinfo=ist_tz)
+        
+        now_ist = datetime.now(ist_tz)
+        
+        # Strictly must be from today's live market date (IST)
+        if dt_ist.date() != now_ist.date():
+            return False
+            
+        # Max age: 40 minutes for 5m, 75 minutes for 15m
+        age_seconds = (now_ist - dt_ist).total_seconds()
+        max_allowed = 2400 if str(timeframe_label).lower() == "5m" else 4500
+        if age_seconds < -60 or age_seconds > max_allowed:
+            return False
+            
+        return True
+    except Exception:
+        return False
+
+
 def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_label):
+    if not candles:
+        return None
+    curr = candles[-1]
+    c_time_raw = curr.get("time")
+    if not _is_candle_fresh(c_time_raw, timeframe_label):
+        return None
+
     setup = _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, timeframe_label)
-    if setup and candles:
-        curr = candles[-1]
-        c_time_raw = curr.get("time")
+    if setup:
         setup["candle_time"] = _format_candle_time(c_time_raw)
         setup["detected_at"] = _parse_candle_timestamp(c_time_raw)
     return setup
+
 
 def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, timeframe_label):
     if not candles or len(candles) < 25:
