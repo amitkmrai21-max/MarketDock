@@ -5863,6 +5863,32 @@ def _calc_ema(candles, period):
 
 
 
+
+def _parse_candle_timestamp(time_str):
+    if not time_str:
+        return int(time.time())
+    try:
+        clean = str(time_str).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(clean)
+        return int(dt.timestamp())
+    except Exception:
+        return int(time.time())
+
+def _format_candle_time(time_str):
+    if not time_str:
+        return _ist_now().strftime("%d %b, %I:%M %p IST")
+    try:
+        clean = str(time_str).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(clean)
+        if dt.tzinfo is not None:
+            dt_ist = dt.astimezone(timezone(timedelta(hours=5, minutes=30)))
+        else:
+            dt_ist = dt
+        return dt_ist.strftime("%d %b, %I:%M %p IST")
+    except Exception:
+        return str(time_str)[:16]
+
+
 def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts, ema9=None, ema21=None):
     """
     Detects classic technical chart patterns across 5m and 15m timeframes:
@@ -6519,15 +6545,17 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                         }
 
     # =========================================================================
-    # PATTERN 10: Breakout & Retest Confirmation
+    # PATTERN 10: Breakout & Retest Confirmation (Strict Trend-Aligned)
     # =========================================================================
+    # Bullish: Must be trading above EMA21, broke previous swing high, retested, green close
     if len(swing_highs) >= 2 and n >= 15:
         sh = swing_highs[-2]
         breakout_level = sh["price"]
         recent_candles = candles[-6:]
         highs = [c["high"] for c in recent_candles]
         lows = [c["low"] for c in recent_candles]
-        if max(highs) > breakout_level and min(lows) <= breakout_level * 1.003 and min(lows) >= breakout_level * 0.995:
+        uptrend_ok = (ema21 is None or live_price > ema21) and (ema9 is None or ema21 is None or ema9 >= ema21 * 0.998)
+        if uptrend_ok and max(highs) > breakout_level and min(lows) <= breakout_level * 1.003 and min(lows) >= breakout_level * 0.995:
             if curr["close"] > breakout_level and curr["close"] > curr["open"] and prev["low"] <= breakout_level * 1.002:
                 sl = round(min(lows) * 0.9985, 2)
                 height = abs(breakout_level - sl)
@@ -6536,7 +6564,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                 risk = abs(live_price - sl)
                 reward = abs(tp1 - live_price)
                 rr = round(reward / risk, 2) if risk > 0 else 0
-                if rr >= 1.5 and risk > 0:
+                if rr >= 1.5 and risk > 0 and live_price < tp1:
                     return {
                         "symbol": symbol,
                         "name": name,
@@ -6559,13 +6587,65 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                         "detected_at": detected_ts,
                         "point_a_high": breakout_level,
                         "point_b_low": sl,
-                        "explanation": f"Breakout & Retest: Resistance at ₹{breakout_level:,.2f} breached, successfully retested as new support, and confirmed with a strong green candle close. Target: ₹{tp1:,.2f}.",
+                        "explanation": f"Breakout & Retest: Resistance at ₹{breakout_level:,.2f} breached in uptrend (> EMA 21), successfully retested as new support, and confirmed with a green candle close. Target: ₹{tp1:,.2f}.",
+                    }
+
+    # Bearish: Must be trading below EMA21, broke previous swing low, retested, red close
+    if len(swing_lows) >= 2 and n >= 15:
+        sl_prev = swing_lows[-2]
+        breakdown_level = sl_prev["price"]
+        recent_candles = candles[-6:]
+        highs = [c["high"] for c in recent_candles]
+        lows = [c["low"] for c in recent_candles]
+        downtrend_ok = (ema21 is None or live_price < ema21) and (ema9 is None or ema21 is None or ema9 <= ema21 * 1.002)
+        if downtrend_ok and min(lows) < breakdown_level and max(highs) >= breakdown_level * 0.997 and max(highs) <= breakdown_level * 1.005:
+            if curr["close"] < breakdown_level and curr["close"] < curr["open"] and prev["high"] >= breakdown_level * 0.998:
+                sl = round(max(highs) * 1.0015, 2)
+                height = abs(sl - breakdown_level)
+                tp1 = round(curr["close"] - height * 2.0, 2)
+                tp2 = round(curr["close"] - height * 3.0, 2)
+                risk = abs(sl - live_price)
+                reward = abs(live_price - tp1)
+                rr = round(reward / risk, 2) if risk > 0 else 0
+                if rr >= 1.5 and risk > 0 and live_price > tp1:
+                    return {
+                        "symbol": symbol,
+                        "name": name,
+                        "market": market_type,
+                        "market_type": market_type,
+                        "timeframe": timeframe_label,
+                        "direction": "bearish",
+                        "setup_name": "Breakdown & Retest Confirmation",
+                        "pattern_name": "Breakdown & Retest Confirmation",
+                        "trigger_event": f"Retested breakdown level (₹{breakdown_level:,.2f}) & confirmed closed Red candle at ₹{live_price:,.2f}",
+                        "price": live_price,
+                        "current_price": live_price,
+                        "entry": live_price,
+                        "entry_price": live_price,
+                        "stop_loss": sl,
+                        "target_1": tp1,
+                        "target_2": tp2,
+                        "target_price": tp1,
+                        "risk_reward": rr,
+                        "detected_at": detected_ts,
+                        "point_a_high": sl,
+                        "point_b_low": breakdown_level,
+                        "explanation": f"Breakdown & Retest: Support at ₹{breakdown_level:,.2f} broken downward in downtrend (< EMA 21), retested from below as resistance, and confirmed with a red candle close. Target: ₹{tp1:,.2f}.",
                     }
 
     return None
 
 
 def _detect_liquidity_setup_core(candles, symbol, name, market_type, timeframe_label):
+    setup = _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, timeframe_label)
+    if setup and candles:
+        curr = candles[-1]
+        c_time_raw = curr.get("time")
+        setup["candle_time"] = _format_candle_time(c_time_raw)
+        setup["detected_at"] = _parse_candle_timestamp(c_time_raw)
+    return setup
+
+def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, timeframe_label):
     if not candles or len(candles) < 25:
         return None
 
@@ -6933,10 +7013,12 @@ def _execute_liquidity_scan():
 
             s5 = _detect_liquidity_setup_core(candles_5m, stock["symbol"], stock["name"], "nse", "5m")
             if s5:
+                s5["trading_symbol"] = stock["symbol"]
                 setups.append(s5)
 
             s15 = _detect_liquidity_setup_core(candles_15m, stock["symbol"], stock["name"], "nse", "15m")
             if s15:
+                s15["trading_symbol"] = stock["symbol"]
                 setups.append(s15)
         except Exception:
             continue
@@ -6944,7 +7026,7 @@ def _execute_liquidity_scan():
     # 3. MCX Commodities 5m and 15m scan
     for ckey, cfg in MCX_COMMODITIES.items():
         try:
-            contract = get_active_liquidity_mcx_contract(ckey) or get_current_commodity_contract(ckey)
+            contract = get_current_commodity_contract(ckey) or find_current_mcx_future(cfg.get("prefix", ckey))
             if not contract or not contract.get("instrument_key"):
                 continue
             ikey = contract["instrument_key"]
@@ -6955,10 +7037,18 @@ def _execute_liquidity_scan():
 
             s5 = _detect_liquidity_setup_core(candles_5m, ckey, cfg.get("name", ckey), "mcx", "5m")
             if s5:
+                s5["trading_symbol"] = contract.get("trading_symbol", "")
+                s5["lot_size"] = contract.get("lot_size")
+                s5["commodity_key"] = ckey
+                s5["commodity_name"] = cfg.get("name", ckey)
                 setups.append(s5)
 
             s15 = _detect_liquidity_setup_core(candles_15m, ckey, cfg.get("name", ckey), "mcx", "15m")
             if s15:
+                s15["trading_symbol"] = contract.get("trading_symbol", "")
+                s15["lot_size"] = contract.get("lot_size")
+                s15["commodity_key"] = ckey
+                s15["commodity_name"] = cfg.get("name", ckey)
                 setups.append(s15)
         except Exception:
             continue
