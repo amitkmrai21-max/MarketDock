@@ -145,6 +145,32 @@
     }
   } catch (e) {}
 
+  
+  function orderData(s) {
+    if (s.market === "mcx") {
+      const sym = esc(s.trading_symbol || s.symbol);
+      return ` data-fr-mcx="1" data-fr-order="${sym}" data-fr-key="${esc(s.commodity_key || s.symbol)}" data-fr-cname="${esc(s.commodity_name || s.name || s.symbol)}" data-fr-lot="${esc(s.lot_size ?? "")}" data-fr-chg="${esc(s.change_pct ?? "")}"`;
+    }
+    return ` data-fr-order="${esc(s.symbol)}"`;
+  }
+
+  function openSheet(el, price) {
+    const d = el.dataset;
+    if (d.frMcx) {
+      const base = String(d.frOrder).replace(/\d{2}[A-Z]{3}FUT$/, "");
+      window.openImWatchlistActionSheet?.(d.frOrder, price, {
+        chartSymbol: `MCX:${base}1!`,
+        isCommodity: true,
+        changePercent: Number(d.frChg),
+        lotSize: Number(d.frLot) || undefined,
+        commodityKey: d.frKey,
+        commodityName: d.frCname,
+      });
+    } else {
+      window.openImWatchlistActionSheet?.(d.frOrder, price);
+    }
+  }
+
   function card(s) {
     const bull = String(s.direction).toLowerCase() === "bullish";
     const { icon: avatarIcon, bg: avatarBg } = getAvatar(s);
@@ -193,6 +219,16 @@
 
         <div class="imfr-story">
           ${esc(s.explanation)}
+        </div>
+
+        <div class="imfr-time-row">
+          <span>⏰ Candle: <strong>${esc(s.candle_time || "Recent Close")}</strong></span>
+          <span class="imfr-ago">Signal: ${detectedText}</span>
+        </div>
+
+        <div class="imfr-actions">
+          <button type="button" class="imfr-ticket ${bull ? "is-buy" : "is-sell"}" data-fr-ticket="1"${orderData(s)} data-fr-side="${bull ? "buy" : "sell"}" data-fr-price="${esc(price)}">⚡ Open Paper Ticket · ${bull ? "Buy" : "Sell"}</button>
+          <button type="button" class="imfr-analysis" data-fr-coin="1"${orderData(s)} data-fr-price="${esc(price)}">📊 Analysis</button>
         </div>
       </article>
     `;
@@ -330,6 +366,18 @@
     if (e.target.closest("#imLiqFilter")) {
       dirFilter = FILTERS[(FILTERS.indexOf(dirFilter) + 1) % FILTERS.length];
       renderView();
+      return;
+    }
+    const ticket = e.target.closest("[data-fr-ticket]");
+    if (ticket) {
+      const { frSide: side, frPrice: price } = ticket.dataset;
+      openSheet(ticket, Number(price));
+      document.getElementById(side === "buy" ? "im-action-sheet-buy-btn" : "im-action-sheet-sell-btn")?.click();
+      return;
+    }
+    const analysis = e.target.closest("[data-fr-coin]");
+    if (analysis) {
+      openSheet(analysis, Number(analysis.dataset.frPrice));
       return;
     }
     const resetBtn = e.target.closest("[data-liq-reset]");
