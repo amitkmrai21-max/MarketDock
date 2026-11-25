@@ -5889,6 +5889,42 @@ def _format_candle_time(time_str):
         return str(time_str)[:16]
 
 
+
+def _is_confirmed_breakdown(support_line, prev2, prev, curr):
+    """
+    2-Candle Retest & Invalidation Rule:
+    1. Candle 1 (prev): Pattern boundary broken and closed below support_line.
+    2. Candle 2 (curr): Follow-up candle immediately after breakdown.
+       - If curr closed back >= support_line (e.g. green bounce back inside):
+         FAKEOUT / BEAR TRAP -> REJECT (NO SIGNAL).
+       - If curr touched/tested or stayed below, and closed < support_line:
+         CONFIRMED BREAKDOWN -> TRIGGER SIGNAL!
+    """
+    if not (prev2 and prev and curr and support_line):
+        return False
+    if prev2["close"] >= support_line and prev["close"] < support_line:
+        if curr["close"] < support_line:
+            return True
+    return False
+
+
+def _is_confirmed_breakout(resistance_line, prev2, prev, curr):
+    """
+    2-Candle Retest & Invalidation Rule:
+    1. Candle 1 (prev): Pattern boundary broken and closed above resistance_line.
+    2. Candle 2 (curr): Follow-up candle immediately after breakout.
+       - If curr closed back <= resistance_line (e.g. red dip back inside):
+         FAKEOUT / BULL TRAP -> REJECT (NO SIGNAL).
+       - If curr touched/tested or stayed above, and closed > resistance_line:
+         CONFIRMED BREAKOUT -> TRIGGER SIGNAL!
+    """
+    if not (prev2 and prev and curr and resistance_line):
+        return False
+    if prev2["close"] <= resistance_line and prev["close"] > resistance_line:
+        if curr["close"] > resistance_line:
+            return True
+    return False
+
 def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts, ema9=None, ema21=None):
     """
     Detects classic technical chart patterns across 5m and 15m timeframes:
@@ -5928,10 +5964,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             troughs = [c["low"] for c in candles[sh1["index"]:sh3["index"]]]
             if troughs:
                 neckline = min(troughs)
-                fresh_break_curr = prev["close"] >= neckline and curr["close"] < neckline and curr["close"] < curr["open"]
-                fresh_break_prev = prev2["close"] >= neckline and prev["close"] < neckline and prev["close"] < prev["open"] and curr["close"] <= prev["close"]
-                
-                if fresh_break_curr or fresh_break_prev:
+                if _is_confirmed_breakdown(neckline, prev2, prev, curr):
                     sl = round(sh3["price"] * 1.0015, 2)
                     head_dist = sh2["price"] - neckline
                     tp1 = round(neckline - head_dist * 0.75, 2)
@@ -5981,10 +6014,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             peaks = [c["high"] for c in candles[sl1["index"]:sl3["index"]]]
             if peaks:
                 neckline = max(peaks)
-                fresh_break_curr = prev["close"] <= neckline and curr["close"] > neckline and curr["close"] > curr["open"]
-                fresh_break_prev = prev2["close"] <= neckline and prev["close"] > neckline and prev["close"] > prev["open"] and curr["close"] >= prev["close"]
-                
-                if fresh_break_curr or fresh_break_prev:
+                if _is_confirmed_breakout(neckline, prev2, prev, curr):
                     sl = round(sl3["price"] * 0.9985, 2)
                     head_dist = neckline - sl2["price"]
                     tp1 = round(neckline + head_dist * 0.75, 2)
@@ -6030,9 +6060,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                 between = [c["low"] for c in candles[sh1["index"]:sh2["index"]]]
                 if between:
                     neckline = min(between)
-                    fresh_break_curr = prev["close"] >= neckline and curr["close"] < neckline and curr["close"] < curr["open"]
-                    fresh_break_prev = prev2["close"] >= neckline and prev["close"] < neckline and prev["close"] < prev["open"] and curr["close"] <= prev["close"]
-                    if fresh_break_curr or fresh_break_prev:
+                    if _is_confirmed_breakdown(neckline, prev2, prev, curr):
                         sl = round(max(sh1["price"], sh2["price"]) * 1.0015, 2)
                         height = max(sh1["price"], sh2["price"]) - neckline
                         tp1 = round(neckline - height * 0.75, 2)
@@ -6078,9 +6106,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                 between = [c["high"] for c in candles[sl1["index"]:sl2["index"]]]
                 if between:
                     neckline = max(between)
-                    fresh_break_curr = prev["close"] <= neckline and curr["close"] > neckline and curr["close"] > curr["open"]
-                    fresh_break_prev = prev2["close"] <= neckline and prev["close"] > neckline and prev["close"] > prev["open"] and curr["close"] >= prev["close"]
-                    if fresh_break_curr or fresh_break_prev:
+                    if _is_confirmed_breakout(neckline, prev2, prev, curr):
                         sl = round(min(sl1["price"], sl2["price"]) * 0.9985, 2)
                         height = neckline - min(sl1["price"], sl2["price"])
                         tp1 = round(neckline + height * 0.75, 2)
@@ -6125,8 +6151,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                 between = [c["low"] for c in candles[sh1["index"]:sh3["index"]]]
                 if between:
                     support = min(between)
-                    fresh_break = prev["close"] >= support and curr["close"] < support and curr["close"] < curr["open"]
-                    if fresh_break:
+                    if _is_confirmed_breakdown(support, prev2, prev, curr):
                         sl = round(max(sh1["price"], sh2["price"], sh3["price"]) * 1.0015, 2)
                         height = sl - support
                         tp1 = round(support - height * 0.75, 2)
@@ -6168,8 +6193,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                 between = [c["high"] for c in candles[sl1["index"]:sl3["index"]]]
                 if between:
                     res = max(between)
-                    fresh_break = prev["close"] <= res and curr["close"] > res and curr["close"] > curr["open"]
-                    if fresh_break:
+                    if _is_confirmed_breakout(res, prev2, prev, curr):
                         sl = round(min(sl1["price"], sl2["price"], sl3["price"]) * 0.9985, 2)
                         height = res - sl
                         tp1 = round(res + height * 0.75, 2)
@@ -6213,8 +6237,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
         box_range_pct = (box_high - box_low) / box_low * 100
 
         if 0.5 <= box_range_pct <= 3.8:
-            fresh_bull = prev["close"] <= box_high and curr["close"] > box_high and curr["close"] > curr["open"]
-            if fresh_bull:
+            if _is_confirmed_breakout(box_high, prev2, prev, curr):
                 sl = round(box_high - (box_high - box_low) * 0.4, 2)
                 tp1 = round(box_high + (box_high - box_low), 2)
                 tp2 = round(box_high + (box_high - box_low) * 1.5, 2)
@@ -6247,8 +6270,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                         "explanation": f"Price consolidated inside box range (₹{box_low:,.2f} - ₹{box_high:,.2f}). Bullish breakout confirmed with a strong green candle close above resistance. Target 1: ₹{tp1:,.2f}.",
                     }
 
-            fresh_bear = prev["close"] >= box_low and curr["close"] < box_low and curr["close"] < curr["open"]
-            if fresh_bear:
+            if _is_confirmed_breakdown(box_low, prev2, prev, curr):
                 sl = round(box_low + (box_high - box_low) * 0.4, 2)
                 tp1 = round(box_low - (box_high - box_low), 2)
                 tp2 = round(box_low - (box_high - box_low) * 1.5, 2)
@@ -6291,8 +6313,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
         high_diff = abs(sh2["price"] - sh1["price"]) / sh1["price"] * 100
         if high_diff <= 1.0 and sl2["price"] > sl1["price"] * 1.002:
             resistance = max(sh1["price"], sh2["price"])
-            fresh_break = prev["close"] <= resistance and curr["close"] > resistance and curr["close"] > curr["open"]
-            if fresh_break:
+            if _is_confirmed_breakout(resistance, prev2, prev, curr):
                 sl = round(sl2["price"] * 0.9985, 2)
                 height = resistance - sl1["price"]
                 tp1 = round(resistance + height * 0.75, 2)
@@ -6329,8 +6350,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
         low_diff = abs(sl2["price"] - sl1["price"]) / sl1["price"] * 100
         if low_diff <= 1.0 and sh2["price"] < sh1["price"] * 0.998:
             support = min(sl1["price"], sl2["price"])
-            fresh_break = prev["close"] >= support and curr["close"] < support and curr["close"] < curr["open"]
-            if fresh_break:
+            if _is_confirmed_breakdown(support, prev2, prev, curr):
                 sl = round(sh2["price"] * 1.0015, 2)
                 height = sh1["price"] - support
                 tp1 = round(support - height * 0.75, 2)
@@ -6379,8 +6399,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             flag_high = max(c["high"] for c in flag_candles)
             retrace_depth = (pole_peak["high"] - flag_low) / (pole_peak["high"] - pole_start["low"])
             if 0.15 <= retrace_depth <= 0.65:
-                fresh_break = prev["close"] <= flag_high and curr["close"] > flag_high and curr["close"] > curr["open"]
-                if fresh_break:
+                if _is_confirmed_breakout(flag_high, prev2, prev, curr):
                     sl = round(flag_low * 0.9985, 2)
                     pole_height = pole_peak["high"] - pole_start["low"]
                     tp1 = round(live_price + pole_height * 0.70, 2)
@@ -6424,8 +6443,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             flag_high = max(c["high"] for c in flag_candles)
             retrace_depth = (flag_high - pole_trough["low"]) / (pole_start["high"] - pole_trough["low"])
             if 0.15 <= retrace_depth <= 0.65:
-                fresh_break = prev["close"] >= flag_low and curr["close"] < flag_low and curr["close"] < curr["open"]
-                if fresh_break:
+                if _is_confirmed_breakdown(flag_low, prev2, prev, curr):
                     sl = round(flag_high * 1.0015, 2)
                     pole_height = pole_start["high"] - pole_trough["low"]
                     tp1 = round(live_price - pole_height * 0.70, 2)
@@ -6471,8 +6489,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             low_slope = (sl2["price"] - sl1["price"]) / max(1, (sl2["index"] - sl1["index"]))
             if low_slope > high_slope > 0:
                 support_line = sl2["price"]
-                fresh_break = prev["close"] >= support_line and curr["close"] < support_line and curr["close"] < curr["open"]
-                if fresh_break:
+                if _is_confirmed_breakdown(support_line, prev2, prev, curr):
                     sl = round(sh2["price"] * 1.0015, 2)
                     tp1 = round(sl1["price"], 2)
                     tp2 = round(sl1["price"] - (sh1["price"] - sl1["price"]) * 0.5, 2)
@@ -6510,8 +6527,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             low_slope = (sl1["price"] - sl2["price"]) / max(1, (sl2["index"] - sl1["index"]))
             if high_slope > low_slope > 0:
                 res_line = sh2["price"]
-                fresh_break = prev["close"] <= res_line and curr["close"] > res_line and curr["close"] > curr["open"]
-                if fresh_break:
+                if _is_confirmed_breakout(res_line, prev2, prev, curr):
                     sl = round(sl2["price"] * 0.9985, 2)
                     tp1 = round(sh1["price"], 2)
                     tp2 = round(sh1["price"] + (sh1["price"] - sl1["price"]) * 0.5, 2)
@@ -6754,18 +6770,7 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
                             half_low = cand_j["low"]
                             bounce_candles = post_peak[j + 1:-1]
                             if bounce_candles and max(c["high"] for c in bounce_candles) < peak_high:
-                                fresh_break_curr = (
-                                    prev["close"] >= half_low
-                                    and curr["close"] < half_low
-                                    and curr["close"] < curr["open"]
-                                )
-                                fresh_break_prev = (
-                                    prev2["close"] >= half_low
-                                    and prev["close"] < half_low
-                                    and prev["close"] < prev["open"]
-                                    and curr["close"] <= prev["close"]
-                                )
-                                if fresh_break_curr or fresh_break_prev:
+                                if _is_confirmed_breakdown(half_low, prev2, prev, curr):
                                     sl = round(peak_high * 1.0015, 2)
                                     tp = round(target_ssl, 2)
                                     risk = abs(sl - live_price)
@@ -6831,18 +6836,7 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
                             half_high = cand_j["high"]
                             retrace_candles = post_dip[j + 1:-1]
                             if retrace_candles and min(c["low"] for c in retrace_candles) > dip_low:
-                                fresh_break_curr = (
-                                    prev["close"] <= half_high
-                                    and curr["close"] > half_high
-                                    and curr["close"] > curr["open"]
-                                )
-                                fresh_break_prev = (
-                                    prev2["close"] <= half_high
-                                    and prev["close"] > half_high
-                                    and prev["close"] > prev["open"]
-                                    and curr["close"] >= prev["close"]
-                                )
-                                if fresh_break_curr or fresh_break_prev:
+                                if _is_confirmed_breakout(half_high, prev2, prev, curr):
                                     sl = round(dip_low * 0.9985, 2)
                                     tp = round(target_bsl, 2)
                                     risk = abs(live_price - sl)
@@ -6893,18 +6887,7 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
                     if 0 < m_idx < len(bounce) - 1:
                         after_m = bounce[m_idx + 1:-1]
                         if after_m and min(c["low"] for c in after_m) >= curr_sl["price"] * 0.999:
-                            fresh_break_curr = (
-                                prev["close"] <= minor_high
-                                and curr["close"] > minor_high
-                                and curr["close"] > curr["open"]
-                            )
-                            fresh_break_prev = (
-                                prev2["close"] <= minor_high
-                                and prev["close"] > minor_high
-                                and prev["close"] > prev["open"]
-                                and curr["close"] >= prev["close"]
-                            )
-                            if fresh_break_curr or fresh_break_prev:
+                            if _is_confirmed_breakout(minor_high, prev2, prev, curr):
                                 sl = round(min(curr_sl["price"], prev_sl["price"]) * 0.9985, 2)
                                 tp = round(last_sh["price"], 2)
                                 risk = abs(live_price - sl)
@@ -6955,18 +6938,7 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
                     if 0 < m_idx < len(drop) - 1:
                         after_m = drop[m_idx + 1:-1]
                         if after_m and max(c["high"] for c in after_m) <= curr_sh["price"] * 1.001:
-                            fresh_break_curr = (
-                                prev["close"] >= minor_low
-                                and curr["close"] < minor_low
-                                and curr["close"] < curr["open"]
-                            )
-                            fresh_break_prev = (
-                                prev2["close"] >= minor_low
-                                and prev["close"] < minor_low
-                                and prev["close"] < prev["open"]
-                                and curr["close"] <= prev["close"]
-                            )
-                            if fresh_break_curr or fresh_break_prev:
+                            if _is_confirmed_breakdown(minor_low, prev2, prev, curr):
                                 sl = round(max(curr_sh["price"], prev_sh["price"]) * 1.0015, 2)
                                 tp = round(last_sl["price"], 2)
                                 risk = abs(sl - live_price)
