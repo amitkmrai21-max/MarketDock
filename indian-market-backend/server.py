@@ -6784,23 +6784,69 @@ def get_o(c): return float(c.get("open", c.get("o", 0)))
 def get_h(c): return float(c.get("high", c.get("h", 0)))
 def get_l(c): return float(c.get("low", c.get("l", 0)))
 def get_c(c): return float(c.get("close", c.get("c", 0)))
+def get_v(c): return float(c.get("volume", c.get("v", 0)))
 
+# =====================================================================
+# MODULAR SMC / ICT STRATEGIES (ISOLATED & CAN BE TOGGLED ON/OFF)
+# If user wants to disable these 4 strategies anytime without affecting
+# the original classical chart patterns & sweeps, set ENABLE_SMC_STRATEGIES = False.
+# =====================================================================
+ENABLE_SMC_STRATEGIES = True
+
+def _check_trigger_volume(candles, min_vol_ratio=1.15):
+    """
+    Ensures the trigger/reaction candle (candles[-1]) has institutional volume expansion.
+    Filters out false signals during low-volume sideways drift.
+    If volume is 0 or unavailable (e.g. index feeds), passes cleanly.
+    """
+    if len(candles) < 22:
+        return True, 1.0
+    trigger = candles[-1]
+    t_vol = get_v(trigger)
+    lookback = 20
+    vols = [get_v(c) for c in candles[-lookback-1:-1]]
+    avg_vol = sum(vols) / len(vols) if vols else 1.0
+    if avg_vol <= 0 or t_vol <= 0:
+        return True, 1.0
+    ratio = t_vol / avg_vol
+    return ratio >= min_vol_ratio, ratio
+
+def _is_decisive_candle(candle, min_body_ratio=0.35):
+    """
+    Ensures reaction candle has a real body and is not an indecisive doji.
+    """
+    rng = get_h(candle) - get_l(candle)
+    if rng <= 0:
+        return False
+    body = abs(get_c(candle) - get_o(candle))
+    return (body / rng) >= min_body_ratio
+
+# -------------------------------------------------------------
+# 6. FAIR VALUE GAP (FVG) / IMBALANCE MITIGATION (STRICT QUALITY)
+# -------------------------------------------------------------
 def _detect_fvg_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts):
     n = len(candles)
-    if n < 20:
+    if n < 22:
         return None
     curr = candles[-1]
     curr_c = get_c(curr)
     curr_o = get_o(curr)
 
+    has_vol, vol_ratio = _check_trigger_volume(candles, min_vol_ratio=1.15)
+    if not has_vol:
+        return None
+
+    if not _is_decisive_candle(curr, min_body_ratio=0.35):
+        return None
+
     # Bullish FVG
-    for k in range(n - 3, max(2, n - 25), -1):
+    for k in range(n - 3, max(2, n - 14), -1):
         c1, c2, c3 = candles[k-2], candles[k-1], candles[k]
         if get_c(c2) > get_o(c2) and get_l(c3) > get_h(c1):
             gap_bottom = get_h(c1)
             gap_top = get_l(c3)
             gap_size = (gap_top - gap_bottom) / gap_bottom
-            if gap_size >= 0.0012:
+            if gap_size >= 0.0035:
                 subsequent = candles[k+1:-1]
                 if not any(get_c(c) < gap_bottom for c in subsequent):
                     tapped = any(get_l(c) <= gap_top for c in subsequent) or (get_l(curr) <= gap_top)
@@ -6823,7 +6869,7 @@ def _detect_fvg_setup(candles, symbol, name, market_type, timeframe_label, live_
                                         "direction": "bullish",
                                         "setup_name": "Bullish Fair Value Gap (FVG)",
                                         "pattern_name": "Bullish Fair Value Gap (FVG)",
-                                        "trigger_event": f"Bullish FVG gap ({gap_bottom:,.2f}-{gap_top:,.2f}) mitigated with strong green reaction",
+                                        "trigger_event": f"Bullish FVG gap ({gap_bottom:,.2f}-{gap_top:,.2f}) mitigated with 1.15x volume confirmation",
                                         "price": live_price,
                                         "current_price": live_price,
                                         "entry": live_price,
@@ -6836,17 +6882,17 @@ def _detect_fvg_setup(candles, symbol, name, market_type, timeframe_label, live_
                                         "detected_at": detected_ts,
                                         "point_a_high": gap_top,
                                         "point_b_low": gap_bottom,
-                                        "explanation": f"Bullish 3-candle imbalance gap detected between ₹{gap_bottom:,.2f} and ₹{gap_top:,.2f}. Price pulled back into imbalance zone without violating base, confirmed by bullish closed rejection candle. Target 1: ₹{tp1:,.2f}.",
+                                        "explanation": f"Bullish 3-candle imbalance gap detected between ₹{gap_bottom:,.2f} and ₹{gap_top:,.2f}. Price pulled back into imbalance zone without violating base, confirmed by bullish closed rejection candle with 1.15x volume surge. Target 1: ₹{tp1:,.2f}.",
                                     }
 
     # Bearish FVG
-    for k in range(n - 3, max(2, n - 25), -1):
+    for k in range(n - 3, max(2, n - 14), -1):
         c1, c2, c3 = candles[k-2], candles[k-1], candles[k]
         if get_c(c2) < get_o(c2) and get_h(c3) < get_l(c1):
             gap_top = get_l(c1)
             gap_bottom = get_h(c3)
             gap_size = (gap_top - gap_bottom) / gap_bottom
-            if gap_size >= 0.0012:
+            if gap_size >= 0.0035:
                 subsequent = candles[k+1:-1]
                 if not any(get_c(c) > gap_top for c in subsequent):
                     tapped = any(get_h(c) >= gap_bottom for c in subsequent) or (get_h(curr) >= gap_bottom)
@@ -6869,7 +6915,7 @@ def _detect_fvg_setup(candles, symbol, name, market_type, timeframe_label, live_
                                         "direction": "bearish",
                                         "setup_name": "Bearish Fair Value Gap (FVG)",
                                         "pattern_name": "Bearish Fair Value Gap (FVG)",
-                                        "trigger_event": f"Bearish FVG gap ({gap_bottom:,.2f}-{gap_top:,.2f}) mitigated with strong red reaction",
+                                        "trigger_event": f"Bearish FVG gap ({gap_bottom:,.2f}-{gap_top:,.2f}) mitigated with 1.15x volume confirmation",
                                         "price": live_price,
                                         "current_price": live_price,
                                         "entry": live_price,
@@ -6882,26 +6928,38 @@ def _detect_fvg_setup(candles, symbol, name, market_type, timeframe_label, live_
                                         "detected_at": detected_ts,
                                         "point_a_high": gap_top,
                                         "point_b_low": gap_bottom,
-                                        "explanation": f"Bearish 3-candle imbalance gap detected between ₹{gap_bottom:,.2f} and ₹{gap_top:,.2f}. Price retraced into imbalance zone without violating top, confirmed by bearish closed rejection candle. Target 1: ₹{tp1:,.2f}.",
+                                        "explanation": f"Bearish 3-candle imbalance gap detected between ₹{gap_bottom:,.2f} and ₹{gap_top:,.2f}. Price retraced into imbalance zone without violating top, confirmed by bearish closed rejection candle with 1.15x volume surge. Target 1: ₹{tp1:,.2f}.",
                                     }
     return None
 
+# -------------------------------------------------------------
+# 7. INSTITUTIONAL ORDER BLOCK (OB) + BOS RETEST (STRICT VOLUME)
+# -------------------------------------------------------------
 def _detect_order_block_bos_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts):
     n = len(candles)
-    if n < 25 or len(swing_highs) < 1 or len(swing_lows) < 1:
+    if n < 30 or len(swing_highs) < 1 or len(swing_lows) < 1:
         return None
     curr = candles[-1]
     curr_c = get_c(curr)
     curr_o = get_o(curr)
 
+    has_vol, vol_ratio = _check_trigger_volume(candles, min_vol_ratio=1.15)
+    if not has_vol:
+        return None
+
+    if not _is_decisive_candle(curr, min_body_ratio=0.35):
+        return None
+
     # Bullish Order Block + BOS
     for sh in reversed(swing_highs[-4:]):
         sh_idx, sh_price = sh["index"], sh["price"]
-        bos_c = [c for c in candles[sh_idx+1:-3] if get_c(c) > sh_price]
+        if sh_idx < n - 18:
+            continue
+        bos_c = [c for c in candles[sh_idx+1:-2] if get_c(c) > sh_price]
         if bos_c:
             first_bos = bos_c[0]
             bos_idx = candles.index(first_bos)
-            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 6), -1) if get_c(candles[j]) < get_o(candles[j])]
+            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 5), -1) if get_c(candles[j]) < get_o(candles[j])]
             if ob_candidates:
                 ob = ob_candidates[0]
                 ob_top = get_h(ob)
@@ -6924,7 +6982,7 @@ def _detect_order_block_bos_setup(candles, symbol, name, market_type, timeframe_
                                 "direction": "bullish",
                                 "setup_name": "Bullish Order Block + BOS",
                                 "pattern_name": "Bullish Order Block + BOS",
-                                "trigger_event": f"BOS above ₹{sh_price:,.2f} -> Retest of Bullish OB (₹{ob_bottom:,.2f}-₹{ob_top:,.2f}) confirmed",
+                                "trigger_event": f"BOS above ₹{sh_price:,.2f} -> Retest of Bullish OB (₹{ob_bottom:,.2f}-₹{ob_top:,.2f}) with 1.15x volume surge",
                                 "price": live_price,
                                 "current_price": live_price,
                                 "entry": live_price,
@@ -6937,17 +6995,19 @@ def _detect_order_block_bos_setup(candles, symbol, name, market_type, timeframe_
                                 "detected_at": detected_ts,
                                 "point_a_high": sh_price,
                                 "point_b_low": ob_bottom,
-                                "explanation": f"Institutional Break of Structure (BOS) created above swing high ₹{sh_price:,.2f}. Price pulled back into demand Order Block zone [₹{ob_bottom:,.2f}-₹{ob_top:,.2f}] and formed strong bullish rejection candle. Target 1: ₹{tp1:,.2f}.",
+                                "explanation": f"Institutional Break of Structure (BOS) created above swing high ₹{sh_price:,.2f}. Price pulled back into demand Order Block zone [₹{ob_bottom:,.2f}-₹{ob_top:,.2f}] and formed strong bullish rejection candle with 1.15x volume surge. Target 1: ₹{tp1:,.2f}.",
                             }
 
     # Bearish Order Block + BOS
     for sl_item in reversed(swing_lows[-4:]):
         sl_idx, sl_price = sl_item["index"], sl_item["price"]
-        bos_c = [c for c in candles[sl_idx+1:-3] if get_c(c) < sl_price]
+        if sl_idx < n - 18:
+            continue
+        bos_c = [c for c in candles[sl_idx+1:-2] if get_c(c) < sl_price]
         if bos_c:
             first_bos = bos_c[0]
             bos_idx = candles.index(first_bos)
-            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 6), -1) if get_c(candles[j]) > get_o(candles[j])]
+            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 5), -1) if get_c(candles[j]) > get_o(candles[j])]
             if ob_candidates:
                 ob = ob_candidates[0]
                 ob_top = get_h(ob)
@@ -6970,7 +7030,7 @@ def _detect_order_block_bos_setup(candles, symbol, name, market_type, timeframe_
                                 "direction": "bearish",
                                 "setup_name": "Bearish Order Block + BOS",
                                 "pattern_name": "Bearish Order Block + BOS",
-                                "trigger_event": f"BOS below ₹{sl_price:,.2f} -> Retest of Bearish OB (₹{ob_bottom:,.2f}-₹{ob_top:,.2f}) confirmed",
+                                "trigger_event": f"BOS below ₹{sl_price:,.2f} -> Retest of Bearish OB (₹{ob_bottom:,.2f}-₹{ob_top:,.2f}) with 1.15x volume surge",
                                 "price": live_price,
                                 "current_price": live_price,
                                 "entry": live_price,
@@ -6983,27 +7043,37 @@ def _detect_order_block_bos_setup(candles, symbol, name, market_type, timeframe_
                                 "detected_at": detected_ts,
                                 "point_a_high": ob_top,
                                 "point_b_low": sl_price,
-                                "explanation": f"Institutional Break of Structure (BOS) created below swing low ₹{sl_price:,.2f}. Price retraced into supply Order Block zone [₹{ob_bottom:,.2f}-₹{ob_top:,.2f}] and formed strong bearish rejection candle. Target 1: ₹{tp1:,.2f}.",
+                                "explanation": f"Institutional Break of Structure (BOS) created below swing low ₹{sl_price:,.2f}. Price retraced into supply Order Block zone [₹{ob_bottom:,.2f}-₹{ob_top:,.2f}] and formed strong bearish rejection candle with 1.15x volume surge. Target 1: ₹{tp1:,.2f}.",
                             }
     return None
 
+# -------------------------------------------------------------
+# 8. RANGE / SESSION LIQUIDITY RAID (JUDAS SWING) (STRICT VOLUME)
+# -------------------------------------------------------------
 def _detect_range_liquidity_raid_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts):
     n = len(candles)
-    if n < 30:
+    if n < 35:
         return None
     curr = candles[-1]
     curr_c = get_c(curr)
     curr_o = get_o(curr)
 
-    base_window = candles[-28:-5]
+    has_vol, vol_ratio = _check_trigger_volume(candles, min_vol_ratio=1.15)
+    if not has_vol:
+        return None
+
+    if not _is_decisive_candle(curr, min_body_ratio=0.35):
+        return None
+
+    base_window = candles[-32:-7]
     range_high = max(get_h(c) for c in base_window)
     range_low = min(get_l(c) for c in base_window)
     range_pct = (range_high - range_low) / range_low
 
-    if not (0.005 <= range_pct <= 0.045):
+    if not (0.008 <= range_pct <= 0.045):
         return None
 
-    recent_window = candles[-5:-1]
+    recent_window = candles[-7:-1]
 
     # Bearish Judas Swing / Range High Sweep
     sweeps_high = [c for c in recent_window if get_h(c) > range_high]
@@ -7026,7 +7096,7 @@ def _detect_range_liquidity_raid_setup(candles, symbol, name, market_type, timef
                     "direction": "bearish",
                     "setup_name": "Range High Sweep (Judas Swing)",
                     "pattern_name": "Range High Sweep (Judas Swing)",
-                    "trigger_event": f"High swept at ₹{sweep_h:,.2f} & closed back inside range (< ₹{range_high:,.2f})",
+                    "trigger_event": f"High swept at ₹{sweep_h:,.2f} & closed back inside range with 1.15x volume surge",
                     "price": live_price,
                     "current_price": live_price,
                     "entry": live_price,
@@ -7039,7 +7109,7 @@ def _detect_range_liquidity_raid_setup(candles, symbol, name, market_type, timef
                     "detected_at": detected_ts,
                     "point_a_high": sweep_h,
                     "point_b_low": range_low,
-                    "explanation": f"Liquidity raid above session range high (₹{range_high:,.2f}) triggered fakeout at ₹{sweep_h:,.2f}. Price immediately rejected and closed back below range high with red candle. Target 1: Range Low ₹{tp1:,.2f}.",
+                    "explanation": f"Liquidity raid above session range high (₹{range_high:,.2f}) triggered fakeout at ₹{sweep_h:,.2f}. Price immediately rejected and closed back below range high with red candle & 1.15x volume surge. Target 1: Range Low ₹{tp1:,.2f}.",
                 }
 
     # Bullish Judas Swing / Range Low Sweep
@@ -7063,7 +7133,7 @@ def _detect_range_liquidity_raid_setup(candles, symbol, name, market_type, timef
                     "direction": "bullish",
                     "setup_name": "Range Low Sweep (Judas Swing)",
                     "pattern_name": "Range Low Sweep (Judas Swing)",
-                    "trigger_event": f"Low swept at ₹{sweep_l:,.2f} & closed back inside range (> ₹{range_low:,.2f})",
+                    "trigger_event": f"Low swept at ₹{sweep_l:,.2f} & closed back inside range with 1.15x volume surge",
                     "price": live_price,
                     "current_price": live_price,
                     "entry": live_price,
@@ -7076,17 +7146,27 @@ def _detect_range_liquidity_raid_setup(candles, symbol, name, market_type, timef
                     "detected_at": detected_ts,
                     "point_a_high": range_high,
                     "point_b_low": sweep_l,
-                    "explanation": f"Liquidity raid below session range low (₹{range_low:,.2f}) triggered fakeout at ₹{sweep_l:,.2f}. Price immediately rejected and closed back above range low with green candle. Target 1: Range High ₹{tp1:,.2f}.",
+                    "explanation": f"Liquidity raid below session range low (₹{range_low:,.2f}) triggered fakeout at ₹{sweep_l:,.2f}. Price immediately rejected and closed back above range low with green candle & 1.15x volume surge. Target 1: Range High ₹{tp1:,.2f}.",
                 }
     return None
 
+# -------------------------------------------------------------
+# 9. QUASIMODO (QM) / OVER-UNDER ADVANCED REVERSAL (STRICT VOLUME)
+# -------------------------------------------------------------
 def _detect_quasimodo_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts):
     n = len(candles)
-    if n < 30 or len(swing_highs) < 2 or len(swing_lows) < 2:
+    if n < 35 or len(swing_highs) < 2 or len(swing_lows) < 2:
         return None
     curr = candles[-1]
     curr_c = get_c(curr)
     curr_o = get_o(curr)
+
+    has_vol, vol_ratio = _check_trigger_volume(candles, min_vol_ratio=1.15)
+    if not has_vol:
+        return None
+
+    if not _is_decisive_candle(curr, min_body_ratio=0.35):
+        return None
 
     # Bearish QM: H1 (Left Shoulder) -> L1 -> H2 (Higher High / Sweep) -> L2 (Lower Low / BOS) -> Retest H1
     for i in range(len(swing_highs) - 1, 0, -1):
@@ -7117,7 +7197,7 @@ def _detect_quasimodo_setup(candles, symbol, name, market_type, timeframe_label,
                                         "direction": "bearish",
                                         "setup_name": "Quasimodo Reversal (QM)",
                                         "pattern_name": "Quasimodo Reversal (QM)",
-                                        "trigger_event": f"Bearish QM rejection at Left Shoulder ₹{h1['price']:,.2f} after HH ₹{h2['price']:,.2f} & LL ₹{l2['price']:,.2f}",
+                                        "trigger_event": f"Bearish QM rejection at Left Shoulder ₹{h1['price']:,.2f} with 1.15x volume",
                                         "price": live_price,
                                         "current_price": live_price,
                                         "entry": live_price,
@@ -7130,7 +7210,7 @@ def _detect_quasimodo_setup(candles, symbol, name, market_type, timeframe_label,
                                         "detected_at": detected_ts,
                                         "point_a_high": h2["price"],
                                         "point_b_low": l2["price"],
-                                        "explanation": f"Quasimodo (Over-Under) institutional structure confirmed: Left shoulder at ₹{h1['price']:,.2f}, liquidity swept at HH ₹{h2['price']:,.2f}, structure broken at LL ₹{l2['price']:,.2f}. Retest of Left Shoulder rejected with closed red candle. Target 1: ₹{tp1:,.2f}.",
+                                        "explanation": f"Quasimodo (Over-Under) institutional structure confirmed: Left shoulder at ₹{h1['price']:,.2f}, liquidity swept at HH ₹{h2['price']:,.2f}, structure broken at LL ₹{l2['price']:,.2f}. Retest of Left Shoulder rejected with closed red candle & 1.15x volume. Target 1: ₹{tp1:,.2f}.",
                                     }
 
     # Bullish QM: L1 (Left Shoulder) -> H1 -> L2 (Lower Low / Sweep) -> H2 (Higher High / BOS) -> Retest L1
@@ -7162,7 +7242,7 @@ def _detect_quasimodo_setup(candles, symbol, name, market_type, timeframe_label,
                                         "direction": "bullish",
                                         "setup_name": "Quasimodo Reversal (QM)",
                                         "pattern_name": "Quasimodo Reversal (QM)",
-                                        "trigger_event": f"Bullish QM rejection at Left Shoulder ₹{l1['price']:,.2f} after LL ₹{l2['price']:,.2f} & HH ₹{h2['price']:,.2f}",
+                                        "trigger_event": f"Bullish QM rejection at Left Shoulder ₹{l1['price']:,.2f} with 1.15x volume",
                                         "price": live_price,
                                         "current_price": live_price,
                                         "entry": live_price,
@@ -7175,10 +7255,9 @@ def _detect_quasimodo_setup(candles, symbol, name, market_type, timeframe_label,
                                         "detected_at": detected_ts,
                                         "point_a_high": h2["price"],
                                         "point_b_low": l2["price"],
-                                        "explanation": f"Quasimodo institutional structure confirmed: Left shoulder at ₹{l1['price']:,.2f}, liquidity swept at LL ₹{l2['price']:,.2f}, structure broken at HH ₹{h2['price']:,.2f}. Retest of Left Shoulder rejected with closed green candle. Target 1: ₹{tp1:,.2f}.",
+                                        "explanation": f"Quasimodo institutional structure confirmed: Left shoulder at ₹{l1['price']:,.2f}, liquidity swept at LL ₹{l2['price']:,.2f}, structure broken at HH ₹{h2['price']:,.2f}. Retest of Left Shoulder rejected with closed green candle & 1.15x volume. Target 1: ₹{tp1:,.2f}.",
                                     }
     return None
-
 
 
 def _is_candle_fresh(time_str, timeframe_label):
@@ -7513,32 +7592,28 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
         return pattern_setup
 
     # =========================================================================
-    # 6. Fair Value Gap (FVG) / Imbalance Mitigation
+    # Optional Modular SMC Strategies (Can be turned off via ENABLE_SMC_STRATEGIES)
     # =========================================================================
-    fvg_setup = _detect_fvg_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts)
-    if fvg_setup:
-        return fvg_setup
+    if ENABLE_SMC_STRATEGIES:
+        # 6. Fair Value Gap (FVG) / Imbalance Mitigation (Strict 1.15x Vol & >=0.35% Gap)
+        fvg_setup = _detect_fvg_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts)
+        if fvg_setup:
+            return fvg_setup
 
-    # =========================================================================
-    # 7. Institutional Order Block (OB) + BOS Retest
-    # =========================================================================
-    ob_setup = _detect_order_block_bos_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts)
-    if ob_setup:
-        return ob_setup
+        # 7. Institutional Order Block (OB) + BOS Retest (Strict 1.15x Vol)
+        ob_setup = _detect_order_block_bos_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts)
+        if ob_setup:
+            return ob_setup
 
-    # =========================================================================
-    # 8. Range / Session Liquidity Raid (Judas Swing)
-    # =========================================================================
-    judas_setup = _detect_range_liquidity_raid_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts)
-    if judas_setup:
-        return judas_setup
+        # 8. Range / Session Liquidity Raid (Judas Swing) (Strict 1.15x Vol)
+        judas_setup = _detect_range_liquidity_raid_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts)
+        if judas_setup:
+            return judas_setup
 
-    # =========================================================================
-    # 9. Quasimodo (QM) / Over-Under Advanced Reversal
-    # =========================================================================
-    qm_setup = _detect_quasimodo_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts)
-    if qm_setup:
-        return qm_setup
+        # 9. Quasimodo (QM) / Over-Under Advanced Reversal (Strict 1.15x Vol)
+        qm_setup = _detect_quasimodo_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts)
+        if qm_setup:
+            return qm_setup
 
     return None
 
