@@ -5890,36 +5890,162 @@ def _format_candle_time(time_str):
 
 
 
-def _is_confirmed_breakdown(support_line, prev2, prev, curr):
+def _is_confirmed_breakdown(support_line, prev2, prev, curr, candles=None):
     """
-    2-Candle Retest & Invalidation Rule:
-    1. Candle 1 (prev): Pattern boundary broken and closed below support_line.
-    2. Candle 2 (curr): Follow-up candle immediately after breakdown.
-       - If curr closed back >= support_line (e.g. green bounce back inside):
-         FAKEOUT / BEAR TRAP -> REJECT (NO SIGNAL).
-       - If curr touched/tested or stayed below, and closed < support_line:
-         CONFIRMED BREAKDOWN -> TRIGGER SIGNAL!
+    Strict 3-Candle / 4-Candle Breakout & Retest Confirmation Rule:
+    - 1st candle: Breakdown closes below support_line (prev candle was at/above line).
+    - 2nd candle: Pullback / retest candle is GREEN (c > o), but its close MUST stay
+      below support_line (wicks can touch or pierce line, but close inside is fakeout).
+    - Scenario A (3 candles):
+      Trigger candle (curr) is RED (c < o), crosses below 2nd candle's LOW and closes below it.
+    - Scenario B (4 candles):
+      3rd candle is a pause candle inside 2nd candle's range, still closing below support_line.
+      4th candle (curr) is RED, crosses and closes below min(2nd candle low, 3rd candle low).
     """
     if not (prev2 and prev and curr and support_line):
         return False
-    if prev2["close"] >= support_line and prev["close"] < support_line:
-        if curr["close"] < support_line:
+
+    c_c = float(curr.get("close", curr.get("c", 0)))
+    c_o = float(curr.get("open", curr.get("o", 0)))
+    if not (c_c < c_o and c_c < support_line):
+        return False
+
+    if candles and len(candles) >= 4:
+        # Scenario A (3 candles: candles[-3] is breakdown, candles[-2] is pullback, candles[-1] is trigger)
+        breakout = candles[-3]
+        pb = candles[-2]
+        pre_b = candles[-4]
+        
+        pre_b_c = float(pre_b.get("close", pre_b.get("c", 0)))
+        b_c = float(breakout.get("close", breakout.get("c", 0)))
+        pb_c = float(pb.get("close", pb.get("c", 0)))
+        pb_o = float(pb.get("open", pb.get("o", 0)))
+        pb_l = float(pb.get("low", pb.get("l", 0)))
+
+        if (
+            pre_b_c >= support_line
+            and b_c < support_line
+            and pb_c > pb_o
+            and pb_c < support_line
+            and c_c < pb_l
+        ):
+            return True
+
+        # Scenario B (4 candles: candles[-4] is breakdown, candles[-3] is pullback, candles[-2] is pause, candles[-1] is trigger)
+        if len(candles) >= 5:
+            pre_b2 = candles[-5]
+            b2 = candles[-4]
+            pb2 = candles[-3]
+            pause = candles[-2]
+
+            pre_b2_c = float(pre_b2.get("close", pre_b2.get("c", 0)))
+            b2_c = float(b2.get("close", b2.get("c", 0)))
+            pb2_c = float(pb2.get("close", pb2.get("c", 0)))
+            pb2_o = float(pb2.get("open", pb2.get("o", 0)))
+            pb2_l = float(pb2.get("low", pb2.get("l", 0)))
+            pb2_h = float(pb2.get("high", pb2.get("h", 0)))
+            pause_c = float(pause.get("close", pause.get("c", 0)))
+            pause_l = float(pause.get("low", pause.get("l", 0)))
+
+            if (
+                pre_b2_c >= support_line
+                and b2_c < support_line
+                and pb2_c > pb2_o
+                and pb2_c < support_line
+                and pb2_l <= pause_c <= pb2_h
+                and pause_c < support_line
+                and c_c < min(pb2_l, pause_l)
+            ):
+                return True
+        return False
+
+    p2_c = float(prev2.get("close", prev2.get("c", 0)))
+    p_c = float(prev.get("close", prev.get("c", 0)))
+    p_o = float(prev.get("open", prev.get("o", 0)))
+    p_l = float(prev.get("low", prev.get("l", 0)))
+    if p2_c >= support_line and p_c < support_line and p_c > p_o and p_c < support_line:
+        if c_c < p_l and c_c < support_line:
             return True
     return False
 
 
-def _is_confirmed_breakout(resistance_line, prev2, prev, curr):
+def _is_confirmed_breakout(resistance_line, prev2, prev, curr, candles=None):
     """
-    2-Candle Retest & Invalidation Rule:
-    1. Candle 1 (prev): Pattern boundary broken and closed above resistance_line.
-    2. Candle 2 (curr): Follow-up candle immediately after breakout.
-       - If curr closed back <= resistance_line (e.g. red dip back inside):
-         FAKEOUT / BULL TRAP -> REJECT (NO SIGNAL).
-       - If curr touched/tested or stayed above, and closed > resistance_line:
-         CONFIRMED BREAKOUT -> TRIGGER SIGNAL!
+    Strict 3-Candle / 4-Candle Breakout & Retest Confirmation Rule:
+    - 1st candle: Breakout closes above resistance_line (prev candle was at/below line).
+    - 2nd candle: Pullback / retest candle is RED (c < o), but its close MUST stay
+      above resistance_line (wicks can touch or pierce line, but close inside is fakeout).
+    - Scenario A (3 candles):
+      Trigger candle (curr) is GREEN (c > o), crosses above 2nd candle's HIGH and closes above it.
+    - Scenario B (4 candles):
+      3rd candle is a pause candle inside 2nd candle's range, still closing above resistance_line.
+      4th candle (curr) is GREEN, crosses and closes above max(2nd candle high, 3rd candle high).
     """
     if not (prev2 and prev and curr and resistance_line):
         return False
+
+    c_c = float(curr.get("close", curr.get("c", 0)))
+    c_o = float(curr.get("open", curr.get("o", 0)))
+    if not (c_c > c_o and c_c > resistance_line):
+        return False
+
+    if candles and len(candles) >= 4:
+        # Scenario A (3 candles: candles[-3] is breakout, candles[-2] is pullback, candles[-1] is trigger)
+        breakout = candles[-3]
+        pb = candles[-2]
+        pre_b = candles[-4]
+        
+        pre_b_c = float(pre_b.get("close", pre_b.get("c", 0)))
+        b_c = float(breakout.get("close", breakout.get("c", 0)))
+        pb_c = float(pb.get("close", pb.get("c", 0)))
+        pb_o = float(pb.get("open", pb.get("o", 0)))
+        pb_h = float(pb.get("high", pb.get("h", 0)))
+
+        if (
+            pre_b_c <= resistance_line
+            and b_c > resistance_line
+            and pb_c < pb_o
+            and pb_c > resistance_line
+            and c_c > pb_h
+        ):
+            return True
+
+        # Scenario B (4 candles: candles[-4] is breakout, candles[-3] is pullback, candles[-2] is pause, candles[-1] is trigger)
+        if len(candles) >= 5:
+            pre_b2 = candles[-5]
+            b2 = candles[-4]
+            pb2 = candles[-3]
+            pause = candles[-2]
+
+            pre_b2_c = float(pre_b2.get("close", pre_b2.get("c", 0)))
+            b2_c = float(b2.get("close", b2.get("c", 0)))
+            pb2_c = float(pb2.get("close", pb2.get("c", 0)))
+            pb2_o = float(pb2.get("open", pb2.get("o", 0)))
+            pb2_l = float(pb2.get("low", pb2.get("l", 0)))
+            pb2_h = float(pb2.get("high", pb2.get("h", 0)))
+            pause_c = float(pause.get("close", pause.get("c", 0)))
+            pause_h = float(pause.get("high", pause.get("h", 0)))
+
+            if (
+                pre_b2_c <= resistance_line
+                and b2_c > resistance_line
+                and pb2_c < pb2_o
+                and pb2_c > resistance_line
+                and pb2_l <= pause_c <= pb2_h
+                and pause_c > resistance_line
+                and c_c > max(pb2_h, pause_h)
+            ):
+                return True
+        return False
+
+    p2_c = float(prev2.get("close", prev2.get("c", 0)))
+    p_c = float(prev.get("close", prev.get("c", 0)))
+    p_o = float(prev.get("open", prev.get("o", 0)))
+    p_h = float(prev.get("high", prev.get("h", 0)))
+    if p2_c <= resistance_line and p_c > resistance_line and p_c < p_o and p_c > resistance_line:
+        if c_c > p_h and c_c > resistance_line:
+            return True
+    return False
     if prev2["close"] <= resistance_line and prev["close"] > resistance_line:
         if curr["close"] > resistance_line:
             return True
@@ -5964,7 +6090,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             troughs = [c["low"] for c in candles[sh1["index"]:sh3["index"]]]
             if troughs:
                 neckline = min(troughs)
-                if _is_confirmed_breakdown(neckline, prev2, prev, curr):
+                if _is_confirmed_breakdown(neckline, prev2, prev, curr, candles=candles):
                     sl = round(sh3["price"] * 1.0015, 2)
                     head_dist = sh2["price"] - neckline
                     tp1 = round(neckline - head_dist * 0.75, 2)
@@ -6014,7 +6140,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             peaks = [c["high"] for c in candles[sl1["index"]:sl3["index"]]]
             if peaks:
                 neckline = max(peaks)
-                if _is_confirmed_breakout(neckline, prev2, prev, curr):
+                if _is_confirmed_breakout(neckline, prev2, prev, curr, candles=candles):
                     sl = round(sl3["price"] * 0.9985, 2)
                     head_dist = neckline - sl2["price"]
                     tp1 = round(neckline + head_dist * 0.75, 2)
@@ -6060,7 +6186,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                 between = [c["low"] for c in candles[sh1["index"]:sh2["index"]]]
                 if between:
                     neckline = min(between)
-                    if _is_confirmed_breakdown(neckline, prev2, prev, curr):
+                    if _is_confirmed_breakdown(neckline, prev2, prev, curr, candles=candles):
                         sl = round(max(sh1["price"], sh2["price"]) * 1.0015, 2)
                         height = max(sh1["price"], sh2["price"]) - neckline
                         tp1 = round(neckline - height * 0.75, 2)
@@ -6106,7 +6232,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                 between = [c["high"] for c in candles[sl1["index"]:sl2["index"]]]
                 if between:
                     neckline = max(between)
-                    if _is_confirmed_breakout(neckline, prev2, prev, curr):
+                    if _is_confirmed_breakout(neckline, prev2, prev, curr, candles=candles):
                         sl = round(min(sl1["price"], sl2["price"]) * 0.9985, 2)
                         height = neckline - min(sl1["price"], sl2["price"])
                         tp1 = round(neckline + height * 0.75, 2)
@@ -6151,7 +6277,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                 between = [c["low"] for c in candles[sh1["index"]:sh3["index"]]]
                 if between:
                     support = min(between)
-                    if _is_confirmed_breakdown(support, prev2, prev, curr):
+                    if _is_confirmed_breakdown(support, prev2, prev, curr, candles=candles):
                         sl = round(max(sh1["price"], sh2["price"], sh3["price"]) * 1.0015, 2)
                         height = sl - support
                         tp1 = round(support - height * 0.75, 2)
@@ -6193,7 +6319,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                 between = [c["high"] for c in candles[sl1["index"]:sl3["index"]]]
                 if between:
                     res = max(between)
-                    if _is_confirmed_breakout(res, prev2, prev, curr):
+                    if _is_confirmed_breakout(res, prev2, prev, curr, candles=candles):
                         sl = round(min(sl1["price"], sl2["price"], sl3["price"]) * 0.9985, 2)
                         height = res - sl
                         tp1 = round(res + height * 0.75, 2)
@@ -6237,7 +6363,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
         box_range_pct = (box_high - box_low) / box_low * 100
 
         if 0.5 <= box_range_pct <= 3.8:
-            if _is_confirmed_breakout(box_high, prev2, prev, curr):
+            if _is_confirmed_breakout(box_high, prev2, prev, curr, candles=candles):
                 sl = round(box_high - (box_high - box_low) * 0.4, 2)
                 tp1 = round(box_high + (box_high - box_low), 2)
                 tp2 = round(box_high + (box_high - box_low) * 1.5, 2)
@@ -6270,7 +6396,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
                         "explanation": f"Price consolidated inside box range (₹{box_low:,.2f} - ₹{box_high:,.2f}). Bullish breakout confirmed with a strong green candle close above resistance. Target 1: ₹{tp1:,.2f}.",
                     }
 
-            if _is_confirmed_breakdown(box_low, prev2, prev, curr):
+            if _is_confirmed_breakdown(box_low, prev2, prev, curr, candles=candles):
                 sl = round(box_low + (box_high - box_low) * 0.4, 2)
                 tp1 = round(box_low - (box_high - box_low), 2)
                 tp2 = round(box_low - (box_high - box_low) * 1.5, 2)
@@ -6313,7 +6439,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
         high_diff = abs(sh2["price"] - sh1["price"]) / sh1["price"] * 100
         if high_diff <= 1.0 and sl2["price"] > sl1["price"] * 1.002:
             resistance = max(sh1["price"], sh2["price"])
-            if _is_confirmed_breakout(resistance, prev2, prev, curr):
+            if _is_confirmed_breakout(resistance, prev2, prev, curr, candles=candles):
                 sl = round(sl2["price"] * 0.9985, 2)
                 height = resistance - sl1["price"]
                 tp1 = round(resistance + height * 0.75, 2)
@@ -6350,7 +6476,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
         low_diff = abs(sl2["price"] - sl1["price"]) / sl1["price"] * 100
         if low_diff <= 1.0 and sh2["price"] < sh1["price"] * 0.998:
             support = min(sl1["price"], sl2["price"])
-            if _is_confirmed_breakdown(support, prev2, prev, curr):
+            if _is_confirmed_breakdown(support, prev2, prev, curr, candles=candles):
                 sl = round(sh2["price"] * 1.0015, 2)
                 height = sh1["price"] - support
                 tp1 = round(support - height * 0.75, 2)
@@ -6399,7 +6525,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             flag_high = max(c["high"] for c in flag_candles)
             retrace_depth = (pole_peak["high"] - flag_low) / (pole_peak["high"] - pole_start["low"])
             if 0.15 <= retrace_depth <= 0.65:
-                if _is_confirmed_breakout(flag_high, prev2, prev, curr):
+                if _is_confirmed_breakout(flag_high, prev2, prev, curr, candles=candles):
                     sl = round(flag_low * 0.9985, 2)
                     pole_height = pole_peak["high"] - pole_start["low"]
                     tp1 = round(live_price + pole_height * 0.70, 2)
@@ -6443,7 +6569,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             flag_high = max(c["high"] for c in flag_candles)
             retrace_depth = (flag_high - pole_trough["low"]) / (pole_start["high"] - pole_trough["low"])
             if 0.15 <= retrace_depth <= 0.65:
-                if _is_confirmed_breakdown(flag_low, prev2, prev, curr):
+                if _is_confirmed_breakdown(flag_low, prev2, prev, curr, candles=candles):
                     sl = round(flag_high * 1.0015, 2)
                     pole_height = pole_start["high"] - pole_trough["low"]
                     tp1 = round(live_price - pole_height * 0.70, 2)
@@ -6489,7 +6615,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             low_slope = (sl2["price"] - sl1["price"]) / max(1, (sl2["index"] - sl1["index"]))
             if low_slope > high_slope > 0:
                 support_line = sl2["price"]
-                if _is_confirmed_breakdown(support_line, prev2, prev, curr):
+                if _is_confirmed_breakdown(support_line, prev2, prev, curr, candles=candles):
                     sl = round(sh2["price"] * 1.0015, 2)
                     tp1 = round(sl1["price"], 2)
                     tp2 = round(sl1["price"] - (sh1["price"] - sl1["price"]) * 0.5, 2)
@@ -6527,7 +6653,7 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
             low_slope = (sl1["price"] - sl2["price"]) / max(1, (sl2["index"] - sl1["index"]))
             if high_slope > low_slope > 0:
                 res_line = sh2["price"]
-                if _is_confirmed_breakout(res_line, prev2, prev, curr):
+                if _is_confirmed_breakout(res_line, prev2, prev, curr, candles=candles):
                     sl = round(sl2["price"] * 0.9985, 2)
                     tp1 = round(sh1["price"], 2)
                     tp2 = round(sh1["price"] + (sh1["price"] - sl1["price"]) * 0.5, 2)
@@ -6652,6 +6778,409 @@ def _detect_chart_patterns_ext(candles, symbol, name, market_type, timeframe_lab
     return None
 
 
+import sys
+
+def get_o(c): return float(c.get("open", c.get("o", 0)))
+def get_h(c): return float(c.get("high", c.get("h", 0)))
+def get_l(c): return float(c.get("low", c.get("l", 0)))
+def get_c(c): return float(c.get("close", c.get("c", 0)))
+
+def _detect_fvg_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts):
+    n = len(candles)
+    if n < 20:
+        return None
+    curr = candles[-1]
+    curr_c = get_c(curr)
+    curr_o = get_o(curr)
+
+    # Bullish FVG
+    for k in range(n - 3, max(2, n - 25), -1):
+        c1, c2, c3 = candles[k-2], candles[k-1], candles[k]
+        if get_c(c2) > get_o(c2) and get_l(c3) > get_h(c1):
+            gap_bottom = get_h(c1)
+            gap_top = get_l(c3)
+            gap_size = (gap_top - gap_bottom) / gap_bottom
+            if gap_size >= 0.0012:
+                subsequent = candles[k+1:-1]
+                if not any(get_c(c) < gap_bottom for c in subsequent):
+                    tapped = any(get_l(c) <= gap_top for c in subsequent) or (get_l(curr) <= gap_top)
+                    if tapped:
+                        if curr_c > curr_o and curr_c >= gap_bottom:
+                            prev_c = candles[-2]
+                            if curr_c > get_c(prev_c):
+                                sl = round(gap_bottom * 0.9985, 2)
+                                risk = abs(live_price - sl)
+                                tp1 = round(live_price + risk * 1.6, 2)
+                                tp2 = round(live_price + risk * 2.8, 2)
+                                rr = round(abs(tp1 - live_price) / risk, 2) if risk > 0 else 0
+                                if rr >= 1.5 and risk > 0:
+                                    return {
+                                        "symbol": symbol,
+                                        "name": name,
+                                        "market": market_type,
+                                        "market_type": market_type,
+                                        "timeframe": timeframe_label,
+                                        "direction": "bullish",
+                                        "setup_name": "Bullish Fair Value Gap (FVG)",
+                                        "pattern_name": "Bullish Fair Value Gap (FVG)",
+                                        "trigger_event": f"Bullish FVG gap ({gap_bottom:,.2f}-{gap_top:,.2f}) mitigated with strong green reaction",
+                                        "price": live_price,
+                                        "current_price": live_price,
+                                        "entry": live_price,
+                                        "entry_price": live_price,
+                                        "stop_loss": sl,
+                                        "target_1": tp1,
+                                        "target_2": tp2,
+                                        "target_price": tp1,
+                                        "risk_reward": rr,
+                                        "detected_at": detected_ts,
+                                        "point_a_high": gap_top,
+                                        "point_b_low": gap_bottom,
+                                        "explanation": f"Bullish 3-candle imbalance gap detected between ₹{gap_bottom:,.2f} and ₹{gap_top:,.2f}. Price pulled back into imbalance zone without violating base, confirmed by bullish closed rejection candle. Target 1: ₹{tp1:,.2f}.",
+                                    }
+
+    # Bearish FVG
+    for k in range(n - 3, max(2, n - 25), -1):
+        c1, c2, c3 = candles[k-2], candles[k-1], candles[k]
+        if get_c(c2) < get_o(c2) and get_h(c3) < get_l(c1):
+            gap_top = get_l(c1)
+            gap_bottom = get_h(c3)
+            gap_size = (gap_top - gap_bottom) / gap_bottom
+            if gap_size >= 0.0012:
+                subsequent = candles[k+1:-1]
+                if not any(get_c(c) > gap_top for c in subsequent):
+                    tapped = any(get_h(c) >= gap_bottom for c in subsequent) or (get_h(curr) >= gap_bottom)
+                    if tapped:
+                        if curr_c < curr_o and curr_c <= gap_top:
+                            prev_c = candles[-2]
+                            if curr_c < get_c(prev_c):
+                                sl = round(gap_top * 1.0015, 2)
+                                risk = abs(sl - live_price)
+                                tp1 = round(live_price - risk * 1.6, 2)
+                                tp2 = round(live_price - risk * 2.8, 2)
+                                rr = round(abs(live_price - tp1) / risk, 2) if risk > 0 else 0
+                                if rr >= 1.5 and risk > 0:
+                                    return {
+                                        "symbol": symbol,
+                                        "name": name,
+                                        "market": market_type,
+                                        "market_type": market_type,
+                                        "timeframe": timeframe_label,
+                                        "direction": "bearish",
+                                        "setup_name": "Bearish Fair Value Gap (FVG)",
+                                        "pattern_name": "Bearish Fair Value Gap (FVG)",
+                                        "trigger_event": f"Bearish FVG gap ({gap_bottom:,.2f}-{gap_top:,.2f}) mitigated with strong red reaction",
+                                        "price": live_price,
+                                        "current_price": live_price,
+                                        "entry": live_price,
+                                        "entry_price": live_price,
+                                        "stop_loss": sl,
+                                        "target_1": tp1,
+                                        "target_2": tp2,
+                                        "target_price": tp1,
+                                        "risk_reward": rr,
+                                        "detected_at": detected_ts,
+                                        "point_a_high": gap_top,
+                                        "point_b_low": gap_bottom,
+                                        "explanation": f"Bearish 3-candle imbalance gap detected between ₹{gap_bottom:,.2f} and ₹{gap_top:,.2f}. Price retraced into imbalance zone without violating top, confirmed by bearish closed rejection candle. Target 1: ₹{tp1:,.2f}.",
+                                    }
+    return None
+
+def _detect_order_block_bos_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts):
+    n = len(candles)
+    if n < 25 or len(swing_highs) < 1 or len(swing_lows) < 1:
+        return None
+    curr = candles[-1]
+    curr_c = get_c(curr)
+    curr_o = get_o(curr)
+
+    # Bullish Order Block + BOS
+    for sh in reversed(swing_highs[-4:]):
+        sh_idx, sh_price = sh["index"], sh["price"]
+        bos_c = [c for c in candles[sh_idx+1:-3] if get_c(c) > sh_price]
+        if bos_c:
+            first_bos = bos_c[0]
+            bos_idx = candles.index(first_bos)
+            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 6), -1) if get_c(candles[j]) < get_o(candles[j])]
+            if ob_candidates:
+                ob = ob_candidates[0]
+                ob_top = get_h(ob)
+                ob_bottom = get_l(ob)
+                retest_candles = candles[bos_idx:-1]
+                if any(get_l(c) <= ob_top for c in retest_candles) and not any(get_c(c) < ob_bottom for c in retest_candles):
+                    if curr_c > curr_o and curr_c >= ob_bottom:
+                        sl = round(ob_bottom * 0.9985, 2)
+                        risk = abs(live_price - sl)
+                        tp1 = round(live_price + risk * 1.6, 2)
+                        tp2 = round(live_price + risk * 2.8, 2)
+                        rr = round(abs(tp1 - live_price) / risk, 2) if risk > 0 else 0
+                        if rr >= 1.5 and risk > 0:
+                            return {
+                                "symbol": symbol,
+                                "name": name,
+                                "market": market_type,
+                                "market_type": market_type,
+                                "timeframe": timeframe_label,
+                                "direction": "bullish",
+                                "setup_name": "Bullish Order Block + BOS",
+                                "pattern_name": "Bullish Order Block + BOS",
+                                "trigger_event": f"BOS above ₹{sh_price:,.2f} -> Retest of Bullish OB (₹{ob_bottom:,.2f}-₹{ob_top:,.2f}) confirmed",
+                                "price": live_price,
+                                "current_price": live_price,
+                                "entry": live_price,
+                                "entry_price": live_price,
+                                "stop_loss": sl,
+                                "target_1": tp1,
+                                "target_2": tp2,
+                                "target_price": tp1,
+                                "risk_reward": rr,
+                                "detected_at": detected_ts,
+                                "point_a_high": sh_price,
+                                "point_b_low": ob_bottom,
+                                "explanation": f"Institutional Break of Structure (BOS) created above swing high ₹{sh_price:,.2f}. Price pulled back into demand Order Block zone [₹{ob_bottom:,.2f}-₹{ob_top:,.2f}] and formed strong bullish rejection candle. Target 1: ₹{tp1:,.2f}.",
+                            }
+
+    # Bearish Order Block + BOS
+    for sl_item in reversed(swing_lows[-4:]):
+        sl_idx, sl_price = sl_item["index"], sl_item["price"]
+        bos_c = [c for c in candles[sl_idx+1:-3] if get_c(c) < sl_price]
+        if bos_c:
+            first_bos = bos_c[0]
+            bos_idx = candles.index(first_bos)
+            ob_candidates = [candles[j] for j in range(bos_idx, max(0, bos_idx - 6), -1) if get_c(candles[j]) > get_o(candles[j])]
+            if ob_candidates:
+                ob = ob_candidates[0]
+                ob_top = get_h(ob)
+                ob_bottom = get_l(ob)
+                retest_candles = candles[bos_idx:-1]
+                if any(get_h(c) >= ob_bottom for c in retest_candles) and not any(get_c(c) > ob_top for c in retest_candles):
+                    if curr_c < curr_o and curr_c <= ob_top:
+                        sl = round(ob_top * 1.0015, 2)
+                        risk = abs(sl - live_price)
+                        tp1 = round(live_price - risk * 1.6, 2)
+                        tp2 = round(live_price - risk * 2.8, 2)
+                        rr = round(abs(live_price - tp1) / risk, 2) if risk > 0 else 0
+                        if rr >= 1.5 and risk > 0:
+                            return {
+                                "symbol": symbol,
+                                "name": name,
+                                "market": market_type,
+                                "market_type": market_type,
+                                "timeframe": timeframe_label,
+                                "direction": "bearish",
+                                "setup_name": "Bearish Order Block + BOS",
+                                "pattern_name": "Bearish Order Block + BOS",
+                                "trigger_event": f"BOS below ₹{sl_price:,.2f} -> Retest of Bearish OB (₹{ob_bottom:,.2f}-₹{ob_top:,.2f}) confirmed",
+                                "price": live_price,
+                                "current_price": live_price,
+                                "entry": live_price,
+                                "entry_price": live_price,
+                                "stop_loss": sl,
+                                "target_1": tp1,
+                                "target_2": tp2,
+                                "target_price": tp1,
+                                "risk_reward": rr,
+                                "detected_at": detected_ts,
+                                "point_a_high": ob_top,
+                                "point_b_low": sl_price,
+                                "explanation": f"Institutional Break of Structure (BOS) created below swing low ₹{sl_price:,.2f}. Price retraced into supply Order Block zone [₹{ob_bottom:,.2f}-₹{ob_top:,.2f}] and formed strong bearish rejection candle. Target 1: ₹{tp1:,.2f}.",
+                            }
+    return None
+
+def _detect_range_liquidity_raid_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts):
+    n = len(candles)
+    if n < 30:
+        return None
+    curr = candles[-1]
+    curr_c = get_c(curr)
+    curr_o = get_o(curr)
+
+    base_window = candles[-28:-5]
+    range_high = max(get_h(c) for c in base_window)
+    range_low = min(get_l(c) for c in base_window)
+    range_pct = (range_high - range_low) / range_low
+
+    if not (0.005 <= range_pct <= 0.045):
+        return None
+
+    recent_window = candles[-5:-1]
+
+    # Bearish Judas Swing / Range High Sweep
+    sweeps_high = [c for c in recent_window if get_h(c) > range_high]
+    if sweeps_high:
+        highest_sweep = max(sweeps_high, key=lambda x: get_h(x))
+        sweep_h = get_h(highest_sweep)
+        if curr_c < curr_o and curr_c < range_high:
+            sl = round(sweep_h * 1.0015, 2)
+            risk = abs(sl - live_price)
+            tp1 = round(range_low, 2)
+            tp2 = round(range_low - (range_high - range_low) * 0.5, 2)
+            rr = round(abs(live_price - tp1) / risk, 2) if risk > 0 else 0
+            if rr >= 1.5 and risk > 0 and live_price > tp1:
+                return {
+                    "symbol": symbol,
+                    "name": name,
+                    "market": market_type,
+                    "market_type": market_type,
+                    "timeframe": timeframe_label,
+                    "direction": "bearish",
+                    "setup_name": "Range High Sweep (Judas Swing)",
+                    "pattern_name": "Range High Sweep (Judas Swing)",
+                    "trigger_event": f"High swept at ₹{sweep_h:,.2f} & closed back inside range (< ₹{range_high:,.2f})",
+                    "price": live_price,
+                    "current_price": live_price,
+                    "entry": live_price,
+                    "entry_price": live_price,
+                    "stop_loss": sl,
+                    "target_1": tp1,
+                    "target_2": tp2,
+                    "target_price": tp1,
+                    "risk_reward": rr,
+                    "detected_at": detected_ts,
+                    "point_a_high": sweep_h,
+                    "point_b_low": range_low,
+                    "explanation": f"Liquidity raid above session range high (₹{range_high:,.2f}) triggered fakeout at ₹{sweep_h:,.2f}. Price immediately rejected and closed back below range high with red candle. Target 1: Range Low ₹{tp1:,.2f}.",
+                }
+
+    # Bullish Judas Swing / Range Low Sweep
+    sweeps_low = [c for c in recent_window if get_l(c) < range_low]
+    if sweeps_low:
+        lowest_sweep = min(sweeps_low, key=lambda x: get_l(x))
+        sweep_l = get_l(lowest_sweep)
+        if curr_c > curr_o and curr_c > range_low:
+            sl = round(sweep_l * 0.9985, 2)
+            risk = abs(live_price - sl)
+            tp1 = round(range_high, 2)
+            tp2 = round(range_high + (range_high - range_low) * 0.5, 2)
+            rr = round(abs(tp1 - live_price) / risk, 2) if risk > 0 else 0
+            if rr >= 1.5 and risk > 0 and live_price < tp1:
+                return {
+                    "symbol": symbol,
+                    "name": name,
+                    "market": market_type,
+                    "market_type": market_type,
+                    "timeframe": timeframe_label,
+                    "direction": "bullish",
+                    "setup_name": "Range Low Sweep (Judas Swing)",
+                    "pattern_name": "Range Low Sweep (Judas Swing)",
+                    "trigger_event": f"Low swept at ₹{sweep_l:,.2f} & closed back inside range (> ₹{range_low:,.2f})",
+                    "price": live_price,
+                    "current_price": live_price,
+                    "entry": live_price,
+                    "entry_price": live_price,
+                    "stop_loss": sl,
+                    "target_1": tp1,
+                    "target_2": tp2,
+                    "target_price": tp1,
+                    "risk_reward": rr,
+                    "detected_at": detected_ts,
+                    "point_a_high": range_high,
+                    "point_b_low": sweep_l,
+                    "explanation": f"Liquidity raid below session range low (₹{range_low:,.2f}) triggered fakeout at ₹{sweep_l:,.2f}. Price immediately rejected and closed back above range low with green candle. Target 1: Range High ₹{tp1:,.2f}.",
+                }
+    return None
+
+def _detect_quasimodo_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts):
+    n = len(candles)
+    if n < 30 or len(swing_highs) < 2 or len(swing_lows) < 2:
+        return None
+    curr = candles[-1]
+    curr_c = get_c(curr)
+    curr_o = get_o(curr)
+
+    # Bearish QM: H1 (Left Shoulder) -> L1 -> H2 (Higher High / Sweep) -> L2 (Lower Low / BOS) -> Retest H1
+    for i in range(len(swing_highs) - 1, 0, -1):
+        h2 = swing_highs[i]
+        for h1 in reversed(swing_highs[:i]):
+            if h2["price"] > h1["price"] * 1.0015 and h2["index"] > h1["index"]:
+                l1_candidates = [l for l in swing_lows if h1["index"] < l["index"] < h2["index"]]
+                if l1_candidates:
+                    l1 = min(l1_candidates, key=lambda x: x["price"])
+                    l2_candidates = [l for l in swing_lows if l["index"] > h2["index"] and l["price"] < l1["price"]]
+                    if l2_candidates:
+                        l2 = min(l2_candidates, key=lambda x: x["price"])
+                        # Retest of H1 level
+                        if get_h(curr) >= h1["price"] * 0.997 and curr_c <= h1["price"] * 1.003:
+                            if curr_c < curr_o:
+                                sl = round(h2["price"] * 1.0015, 2)
+                                risk = abs(sl - live_price)
+                                tp1 = round(l1["price"], 2)
+                                tp2 = round(l2["price"], 2)
+                                rr = round(abs(live_price - tp1) / risk, 2) if risk > 0 else 0
+                                if rr >= 1.5 and risk > 0 and live_price > tp1:
+                                    return {
+                                        "symbol": symbol,
+                                        "name": name,
+                                        "market": market_type,
+                                        "market_type": market_type,
+                                        "timeframe": timeframe_label,
+                                        "direction": "bearish",
+                                        "setup_name": "Quasimodo Reversal (QM)",
+                                        "pattern_name": "Quasimodo Reversal (QM)",
+                                        "trigger_event": f"Bearish QM rejection at Left Shoulder ₹{h1['price']:,.2f} after HH ₹{h2['price']:,.2f} & LL ₹{l2['price']:,.2f}",
+                                        "price": live_price,
+                                        "current_price": live_price,
+                                        "entry": live_price,
+                                        "entry_price": live_price,
+                                        "stop_loss": sl,
+                                        "target_1": tp1,
+                                        "target_2": tp2,
+                                        "target_price": tp1,
+                                        "risk_reward": rr,
+                                        "detected_at": detected_ts,
+                                        "point_a_high": h2["price"],
+                                        "point_b_low": l2["price"],
+                                        "explanation": f"Quasimodo (Over-Under) institutional structure confirmed: Left shoulder at ₹{h1['price']:,.2f}, liquidity swept at HH ₹{h2['price']:,.2f}, structure broken at LL ₹{l2['price']:,.2f}. Retest of Left Shoulder rejected with closed red candle. Target 1: ₹{tp1:,.2f}.",
+                                    }
+
+    # Bullish QM: L1 (Left Shoulder) -> H1 -> L2 (Lower Low / Sweep) -> H2 (Higher High / BOS) -> Retest L1
+    for i in range(len(swing_lows) - 1, 0, -1):
+        l2 = swing_lows[i]
+        for l1 in reversed(swing_lows[:i]):
+            if l2["price"] < l1["price"] * 0.9985 and l2["index"] > l1["index"]:
+                h1_candidates = [h for h in swing_highs if l1["index"] < h["index"] < l2["index"]]
+                if h1_candidates:
+                    h1 = max(h1_candidates, key=lambda x: x["price"])
+                    h2_candidates = [h for h in swing_highs if h["index"] > l2["index"] and h["price"] > h1["price"]]
+                    if h2_candidates:
+                        h2 = max(h2_candidates, key=lambda x: x["price"])
+                        # Retest of L1 level
+                        if get_l(curr) <= l1["price"] * 1.003 and curr_c >= l1["price"] * 0.997:
+                            if curr_c > curr_o:
+                                sl = round(l2["price"] * 0.9985, 2)
+                                risk = abs(live_price - sl)
+                                tp1 = round(h1["price"], 2)
+                                tp2 = round(h2["price"], 2)
+                                rr = round(abs(tp1 - live_price) / risk, 2) if risk > 0 else 0
+                                if rr >= 1.5 and risk > 0 and live_price < tp1:
+                                    return {
+                                        "symbol": symbol,
+                                        "name": name,
+                                        "market": market_type,
+                                        "market_type": market_type,
+                                        "timeframe": timeframe_label,
+                                        "direction": "bullish",
+                                        "setup_name": "Quasimodo Reversal (QM)",
+                                        "pattern_name": "Quasimodo Reversal (QM)",
+                                        "trigger_event": f"Bullish QM rejection at Left Shoulder ₹{l1['price']:,.2f} after LL ₹{l2['price']:,.2f} & HH ₹{h2['price']:,.2f}",
+                                        "price": live_price,
+                                        "current_price": live_price,
+                                        "entry": live_price,
+                                        "entry_price": live_price,
+                                        "stop_loss": sl,
+                                        "target_1": tp1,
+                                        "target_2": tp2,
+                                        "target_price": tp1,
+                                        "risk_reward": rr,
+                                        "detected_at": detected_ts,
+                                        "point_a_high": h2["price"],
+                                        "point_b_low": l2["price"],
+                                        "explanation": f"Quasimodo institutional structure confirmed: Left shoulder at ₹{l1['price']:,.2f}, liquidity swept at LL ₹{l2['price']:,.2f}, structure broken at HH ₹{h2['price']:,.2f}. Retest of Left Shoulder rejected with closed green candle. Target 1: ₹{tp1:,.2f}.",
+                                    }
+    return None
+
+
+
 def _is_candle_fresh(time_str, timeframe_label):
     if not time_str:
         return False
@@ -6770,7 +7299,7 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
                             half_low = cand_j["low"]
                             bounce_candles = post_peak[j + 1:-1]
                             if bounce_candles and max(c["high"] for c in bounce_candles) < peak_high:
-                                if _is_confirmed_breakdown(half_low, prev2, prev, curr):
+                                if _is_confirmed_breakdown(half_low, prev2, prev, curr, candles=candles):
                                     sl = round(peak_high * 1.0015, 2)
                                     tp = round(target_ssl, 2)
                                     risk = abs(sl - live_price)
@@ -6836,7 +7365,7 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
                             half_high = cand_j["high"]
                             retrace_candles = post_dip[j + 1:-1]
                             if retrace_candles and min(c["low"] for c in retrace_candles) > dip_low:
-                                if _is_confirmed_breakout(half_high, prev2, prev, curr):
+                                if _is_confirmed_breakout(half_high, prev2, prev, curr, candles=candles):
                                     sl = round(dip_low * 0.9985, 2)
                                     tp = round(target_bsl, 2)
                                     risk = abs(live_price - sl)
@@ -6887,7 +7416,7 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
                     if 0 < m_idx < len(bounce) - 1:
                         after_m = bounce[m_idx + 1:-1]
                         if after_m and min(c["low"] for c in after_m) >= curr_sl["price"] * 0.999:
-                            if _is_confirmed_breakout(minor_high, prev2, prev, curr):
+                            if _is_confirmed_breakout(minor_high, prev2, prev, curr, candles=candles):
                                 sl = round(min(curr_sl["price"], prev_sl["price"]) * 0.9985, 2)
                                 tp = round(last_sh["price"], 2)
                                 risk = abs(live_price - sl)
@@ -6938,7 +7467,7 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
                     if 0 < m_idx < len(drop) - 1:
                         after_m = drop[m_idx + 1:-1]
                         if after_m and max(c["high"] for c in after_m) <= curr_sh["price"] * 1.001:
-                            if _is_confirmed_breakdown(minor_low, prev2, prev, curr):
+                            if _is_confirmed_breakdown(minor_low, prev2, prev, curr, candles=candles):
                                 sl = round(max(curr_sh["price"], prev_sh["price"]) * 1.0015, 2)
                                 tp = round(last_sl["price"], 2)
                                 risk = abs(sl - live_price)
@@ -6982,6 +7511,34 @@ def _detect_liquidity_setup_core_internal(candles, symbol, name, market_type, ti
     )
     if pattern_setup:
         return pattern_setup
+
+    # =========================================================================
+    # 6. Fair Value Gap (FVG) / Imbalance Mitigation
+    # =========================================================================
+    fvg_setup = _detect_fvg_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts)
+    if fvg_setup:
+        return fvg_setup
+
+    # =========================================================================
+    # 7. Institutional Order Block (OB) + BOS Retest
+    # =========================================================================
+    ob_setup = _detect_order_block_bos_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts)
+    if ob_setup:
+        return ob_setup
+
+    # =========================================================================
+    # 8. Range / Session Liquidity Raid (Judas Swing)
+    # =========================================================================
+    judas_setup = _detect_range_liquidity_raid_setup(candles, symbol, name, market_type, timeframe_label, live_price, detected_ts)
+    if judas_setup:
+        return judas_setup
+
+    # =========================================================================
+    # 9. Quasimodo (QM) / Over-Under Advanced Reversal
+    # =========================================================================
+    qm_setup = _detect_quasimodo_setup(candles, symbol, name, market_type, timeframe_label, swing_highs, swing_lows, live_price, detected_ts)
+    if qm_setup:
+        return qm_setup
 
     return None
 
